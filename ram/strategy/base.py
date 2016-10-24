@@ -14,4 +14,16 @@ class Strategy(object):
 
     @abstractmethod
     def get_results(self):
+        """
+        If there was some parallelization, this can allow for some
+        formatting.
+        """
         raise NotImplementedError('Strategy.get_results')
+
+    @abstractmethod
+    def start_live(self):
+        """
+        This method will be called overnight to track the live
+        trading of all systems.
+        """
+        raise NotImplementedError('Strategy.start_live')

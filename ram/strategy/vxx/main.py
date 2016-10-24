@@ -1,11 +1,10 @@
-import os
 import numpy as np
 import pandas as pd
 import datetime as dt
 
 from gearbox import read_csv
 
-from ram.data.base import DataHandler
+from ram.data.dh_file import DataHandlerFile
 from ram.strategy.base import Strategy
 
 from sklearn.linear_model import LogisticRegression
@@ -25,19 +24,14 @@ class VXXStrategy(Strategy):
                       'AdjFactor', 'AvgDolVol', 'MarketCap']
         df.Date = df.Date.apply(lambda x: x[:-5])
         # TEMP!!!
-        self.data = DataHandler(df)
+        self.data = DataHandlerFile(df)
+
+    def get_results(self):
+        return self.results
 
     def start(self):
-
-        # Pull entire VXX history
-        all_data = self.data.get_id_data(
-            ids=140062,
-            features=['Open', 'High', 'Low', 'Close', 'AdjFactor'],
-            start_date='1993-01-01',
-            end_date=dt.datetime.utcnow())
-
-        # Format features
-        X, y = self._create_features(all_data)
+        # Get all data
+        X, y = self._create_features()
 
         model = LogisticRegression()
 
@@ -62,15 +56,44 @@ class VXXStrategy(Strategy):
 
         self.results = results.dropna()
 
-    def get_results(self):
-        return self.results
+    def start_live(self):
+        # Get all data
+        X, y = self._create_features()
+
+        model = LogisticRegression()
+
+        results = pd.DataFrame(columns=['R1', 'R2'],
+                               index=X.index)
+        # Iterate through dates
+        t = np.unique(X.index)[-1]
+        # TRAIN - datetime indexing is inclusive thus trim by 1
+        X_train, y_train = X.loc[:t].iloc[:-1], y.loc[:t].iloc[:-1]
+        # TEST
+        X_test, y_test = X.loc[t:t, :], y.loc[t:t, :]
+
+        model.fit(X=X_train, y=y_train.loc[:, 'signal1'])
+        pred1 = model.predict(X_test)[0]
+
+        model.fit(X=X_train, y=y_train.loc[:, 'signal2'])
+        pred2 = model.predict(X_test)[0]
+
+        results.loc[t, 'R1'] = np.where(pred1, 1, -1) * y_test['Ret1'][0]
+        results.loc[t, 'R2'] = np.where(pred1, 1, -1) * y_test['Ret2'][0]
+
+        self.results = results.iloc[-1:]
 
     ###########################################################################
 
-    def _create_features(self, prices):
+    def _create_features(self):
+
+        # Pull entire VXX history
+        prices = self.data.get_id_data(
+            ids=140062,
+            features=['Open', 'High', 'Low', 'Close', 'AdjFactor'],
+            start_date='1993-01-01',
+            end_date=dt.datetime.utcnow())
 
         # Split Adjust
-        prices = prices.copy()
         prices['Open'] = prices.Open * prices.AdjFactor
         prices['High'] = prices.High * prices.AdjFactor
         prices['Low'] = prices.Low * prices.AdjFactor
@@ -107,3 +130,5 @@ if __name__ == '__main__':
 
     strategy = VXXStrategy()
     strategy.start()
+    #strategy.start_live()
+    print strategy.get_results()

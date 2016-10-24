@@ -6,10 +6,10 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.data.base import DataHandler
+from ram.data.dh_file import DataHandlerFile
 
 
-class TestDataHandler(unittest.TestCase):
+class TestDataHandlerFile(unittest.TestCase):
 
     def setUp(self):
         data = pd.DataFrame({
@@ -19,7 +19,7 @@ class TestDataHandler(unittest.TestCase):
             'AvgDolVol': [200]*10 + [100]*10 + [300]*10
             }, columns=['Date', 'ID', 'Close', 'AvgDolVol'])
         self.data = data
-        self.dh = DataHandler(data)
+        self.dh = DataHandlerFile(data)
 
     def test_get_id_data(self):
         result = self.dh.get_id_data(
