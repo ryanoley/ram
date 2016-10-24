@@ -7,7 +7,7 @@ class Strategy(object):
 
     __metaclass__ = ABCMeta
 
-    def attach_data(self, data):
+    def attach_data_source(self, data):
         assert isinstance(data, DataHandler)
         self.data = data
 

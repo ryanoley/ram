@@ -6,7 +6,7 @@ import datetime as dt
 from gearbox import read_csv
 
 from ram.strategy.base import Strategy
-from ram.data.flat_file import FlatFileHandler
+from ram.data.flat_file import FlatFileDataHandler
 
 from sklearn.ensemble import RandomForestClassifier
 
