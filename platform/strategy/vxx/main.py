@@ -70,15 +70,17 @@ if __name__ == '__main__':
 
     dpath = '/Users/mitchellsuter/Desktop/vxx_output.csv'
 
+    import pdb; pdb.set_trace()
     df = read_csv(dpath)
 
     # Weird fix
     df.columns = df.columns
-    df.columns = ['ID', 'Date', 'Open', 'High', 'Low', 'Close', 'VWAP', 'Volume',
+    df.columns = ['ID', 'Date',
+                  'Open', 'High', 'Low', 'Close', 'VWAP', 'Volume',
                   'AdjFactor', 'AvgDolVol', 'MarketCap']
 
     dh = FlatFileDataHandler(df)
 
-    # Instantiate
-    strategy = DerivedStrategy()
+    strategy = VXXStrategy()
     strategy.attach_data_source(dh)
+    strategy.start()

@@ -7,7 +7,7 @@ DESCRIPTION = 'Master System'
 
 PACKAGES = ['platform',
             'platform/data',
-            'platform/repo',
+            'platform/repository',
             'platform/strategy',
             'platform/strategy/vxx']
 
