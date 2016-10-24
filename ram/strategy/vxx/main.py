@@ -5,8 +5,8 @@ import datetime as dt
 
 from gearbox import read_csv
 
+from ram.data.base import DataHandler
 from ram.strategy.base import Strategy
-from ram.data.flat_file import FlatFileDataHandler
 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
                   'Open', 'High', 'Low', 'Close', 'VWAP', 'Volume',
                   'AdjFactor', 'AvgDolVol', 'MarketCap']
 
-    dh = FlatFileDataHandler(df)
+    dh = DataHandler(df)
 
     strategy = VXXStrategy()
     strategy.attach_data_source(dh)

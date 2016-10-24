@@ -10,6 +10,7 @@ PACKAGES = ['ram',
             'ram/repository',
             'ram/utils',
             'ram/strategy',
+            'ram/strategy/statarb',
             'ram/strategy/vxx']
 
 setup(

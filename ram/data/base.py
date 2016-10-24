@@ -70,7 +70,6 @@ class DataHandler(object):
 
         return data.loc[inds, col_inds].reset_index(drop=True)
 
- 
     def get_id_data(self,
                     ids,
                     features,

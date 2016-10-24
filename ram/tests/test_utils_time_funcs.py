@@ -4,7 +4,7 @@ import datetime as dt
 from ram.utils.time_funcs import check_input_date
 
 
-class TestDatetime(unittest.TestCase):
+class TestTimeFuncs(unittest.TestCase):
 
     def setUp(self):
         pass
