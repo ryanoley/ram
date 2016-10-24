@@ -8,6 +8,7 @@ DESCRIPTION = 'Master System'
 PACKAGES = ['ram',
             'ram/data',
             'ram/repository',
+            'ram/utils',
             'ram/strategy',
             'ram/strategy/vxx']
 
