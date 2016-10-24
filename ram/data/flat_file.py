@@ -1,6 +1,6 @@
 import pandas as pd
 
-from platform.data.base import DataHandler
+from ram.data.base import DataHandler
 
 
 class FlatFileDataHandler(DataHandler):

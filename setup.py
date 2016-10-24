@@ -1,15 +1,15 @@
 from distutils.core import setup
 
-DISTNAME = 'platform'
+DISTNAME = 'ram'
 
 MAINTAINER = 'RAM'
 DESCRIPTION = 'Master System'
 
-PACKAGES = ['platform',
-            'platform/data',
-            'platform/repository',
-            'platform/strategy',
-            'platform/strategy/vxx']
+PACKAGES = ['ram',
+            'ram/data',
+            'ram/repository',
+            'ram/strategy',
+            'ram/strategy/vxx']
 
 setup(
     name=DISTNAME,

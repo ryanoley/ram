@@ -11,7 +11,7 @@ install: clean
 
 # Reinstall with pip
 reinstall: clean
-	pip uninstall platform
+	pip uninstall ram
 	$(PYTHON) setup.py install
 
 clean-ctags:

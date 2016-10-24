@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 
-from platform.data.base import DataHandler
+from ram.data.base import DataHandler
 
 
 class Strategy(object):
