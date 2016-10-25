@@ -6,6 +6,7 @@ from gearbox import read_csv
 
 from ram.data.dh_file import DataHandlerFile
 from ram.strategy.base import Strategy
+from ram.utils.report import create_strategy_report
 
 from sklearn.linear_model import LogisticRegression
 
@@ -130,5 +131,8 @@ if __name__ == '__main__':
 
     strategy = VXXStrategy()
     strategy.start()
-    #strategy.start_live()
-    print strategy.get_results()
+
+    path = '/Users/mitchellsuter/Desktop/'
+    name = 'VXXStrategy'
+
+    create_strategy_report(strategy.get_results(), name, path)
