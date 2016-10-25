@@ -9,9 +9,14 @@ from ram.data.base import DataHandler
 
 class DataHandlerMongoDb(DataHandler):
 
-    def __init__(self):
-        client = pymongo.MongoClient(host='192.168.2.8')
-        self._mongoc = client.arb_system.prices
+    def __init__(self,
+                 host='192.168.2.8',
+                 db='arb_system',
+                 collection='prices'):
+
+        client = pymongo.MongoClient(host)
+        db = client.get_database(db)
+        self._mongoc = db.get_collection(collection)
 
     def get_filtered_univ_data(self,
                                univ_size,

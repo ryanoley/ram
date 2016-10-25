@@ -8,10 +8,10 @@ DESCRIPTION = 'Master System'
 PACKAGES = ['ram',
             'ram/data',
             'ram/repository',
-            'ram/utils',
             'ram/strategy',
             'ram/strategy/statarb',
-            'ram/strategy/vxx']
+            'ram/strategy/vxx',
+            'ram/utils']
 
 setup(
     name=DISTNAME,
