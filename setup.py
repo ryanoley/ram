@@ -9,6 +9,7 @@ PACKAGES = ['ram',
             'ram/data',
             'ram/repository',
             'ram/strategy',
+            'ram/strategy/benchmarks',
             'ram/strategy/statarb',
             'ram/strategy/vxx',
             'ram/utils']
