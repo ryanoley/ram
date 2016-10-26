@@ -88,3 +88,73 @@ def _make_plot(data, name, spath):
     if data.shape[1] < 6:
         plt.legend(loc=2)
     plt.savefig('{0}/{1}'.format(spath, 'results_plot_{0}'.format(name)))
+
+
+
+def get_time_at_highs(cumpl):
+    highs = np.maximum.accumulate(cumpl)
+    return pd.Series((cumpl == highs).sum() / float(len(cumpl)),
+                     name='TimeAtHighs')
+
+
+def Xbeta(returns, market):
+    # Create a matrix of [returns, market]
+    m = np.matrix([returns, market])
+    # Return the covariance of m divided by the standard deviation
+    # of the market returns
+    return np.cov(m)[0][1] / np.std(market)
+
+
+def value_at_risk(returns, alpha=0.05):
+    """
+    What is the worst probable loss in a (1-alpha) situation
+    """
+    # Calculate the index associated with alpha
+    index = int(alpha * len(returns))
+    # Iterate through each column
+    out = pd.Series(index=returns.columns, name='VaR_5perc')
+    for column in returns:
+        out[column] = np.sort(returns[column])[index]
+    # VaR is positive in literature but I like looking at it as neg
+    return out
+
+
+def c_value_at_risk(returns, alpha=0.05):
+    """
+    Conditional VaR is the average of all the losses beyond the 0.05 VaR
+    loss.
+    """
+    # Calculate the index associated with alpha
+    index = int(alpha * len(returns))
+    # Iterate through each column
+    out = pd.Series(index=returns.columns, name='CVaR_5perc')
+    for column in returns:
+        out[column] = np.mean(np.sort(returns[column])[:index])
+    # VaR is positive in literature but I like looking at it as neg
+    return out
+
+
+def lower_partial_moment(returns, threshold=0, order=1):
+    """
+    Lower partial moment: Whereas measures of risk-adjusted return
+    based on volatility treat all deviations from the mean as risk,
+    measures of risk-adjusted return based on lower partial moments
+    consider only deviations below some predefined minimum return
+    threshold. For example, negative deviations from the mean is
+    risky whereas positive deviations are not.
+
+    A useful classification of measures of risk-adjusted returns
+    based on lower partial moments in by their order. The larger
+    the order the greater the weighting will be on returns that fall
+    below the target threshold, meaning that larger orders result in
+    more risk-averse measures.
+    """
+    # Get spreads between expectation and actual. Flip sign to represent
+    # this risk number as positive being bad
+    diff = -(returns-threshold)
+    diff = diff * (diff > 0)
+    diff = diff ** order
+    out = diff.mean()
+    out.name = 'LPM_1'
+    return out
+

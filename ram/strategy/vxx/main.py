@@ -6,7 +6,7 @@ from gearbox import read_csv
 
 from ram.data.dh_file import DataHandlerFile
 from ram.strategy.base import Strategy
-from ram.utils.report import create_strategy_report
+from ram.utils.statistics import create_strategy_report
 
 from sklearn.linear_model import LogisticRegression
 

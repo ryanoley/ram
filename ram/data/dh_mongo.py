@@ -22,9 +22,9 @@ class DataHandlerMongoDb(DataHandler):
                                univ_size,
                                features,
                                start_date,
-                               filter_date,
                                end_date,
-                               filter_column,
+                               filter_date=None,
+                               filter_column=None,
                                filter_bad_ids=False):
         """
         Purpose of this class is to provide an interface to get a filtered
@@ -66,11 +66,11 @@ class DataHandlerMongoDb(DataHandler):
         pipeline.append(timefilter)
 
         # UNIVERSE FILTER - Get top value from certain date
-        ids = self._get_filtered_ids(filter_date, univ_size,
-                                     filter_column, filter_bad_ids)
-
-        idfilter = {'$match': {'ID': {'$in': ids}}}
-        pipeline.append(idfilter)
+        if filter_date:
+            ids = self._get_filtered_ids(filter_date, univ_size,
+                                         filter_column, filter_bad_ids)
+            idfilter = {'$match': {'ID': {'$in': ids}}}
+            pipeline.append(idfilter)
 
         # FEATURES
         project = {
@@ -107,7 +107,7 @@ class DataHandlerMongoDb(DataHandler):
         pipeline = []
 
         # Verify filter date is available. Otherwise get available day before.
-        uniq_dates = np.unique(list(self._mongoc.distinct('DailyDate')))
+        uniq_dates = self.get_all_dates()
         filter_date = uniq_dates[uniq_dates <= filter_date][-1]
 
         # DATES
@@ -164,6 +164,9 @@ class DataHandlerMongoDb(DataHandler):
         end_date = check_input_date(end_date)
 
         pass
+
+    def get_all_dates(self):
+        return np.unique(list(self._mongoc.distinct('DailyDate')))
 
 
 if __name__ == '__main__':

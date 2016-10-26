@@ -12,7 +12,7 @@ class DataHandlerFile(DataHandler):
     def __init__(self, data):
         assert 'ID' in data.columns
         assert 'Date' in data.columns
-        data['Date'] = convert_date_array(data['Date'])
+        data['Date'] = convert_date_array(data['Date'].astype(str))
         # Quick fix
         self._dates = np.unique([check_input_date(x) for x in data.Date])
         data['Date'] = [check_input_date(x) for x in data.Date]
@@ -22,9 +22,9 @@ class DataHandlerFile(DataHandler):
                                univ_size,
                                features,
                                start_date,
-                               filter_date,
                                end_date,
-                               filter_column,
+                               filter_date=None,
+                               filter_column=None,
                                filter_bad_ids=False):
         """
         Purpose of this class is to provide an interface to get a filtered
@@ -54,20 +54,23 @@ class DataHandlerFile(DataHandler):
         # FILTER
         data = self._data
 
-        # Confirm date has data. Otherwise, trading date just before
-        filter_date = self._dates[self._dates <= filter_date][-1]
+        if filter_date:
+            # Confirm date has data. Otherwise, trading date just before
+            filter_date = self._dates[self._dates <= filter_date][-1]
 
-        # On this filter date, return all values to filter from
-        vals = data.loc[data.Date == filter_date, filter_column].dropna()
-        # Get the ranks of these values. Highest values ranked lowest
-        ranks = (-1 * vals).argsort().argsort()
-        # Get the ids for top ranked values
-        ids = data.loc[ranks[ranks < univ_size].index, 'ID']
-
-        # Filter rows by date and ids
-        inds = (data.Date >= start_date) & \
-               (data.Date <= end_date) & \
-               (data.ID.isin(ids))
+            # On this filter date, return all values to filter from
+            vals = data.loc[data.Date == filter_date, filter_column].dropna()
+            # Get the ranks of these values. Highest values ranked lowest
+            ranks = (-1 * vals).argsort().argsort()
+            # Get the ids for top ranked values
+            ids = data.loc[ranks[ranks < univ_size].index, 'ID']
+            # Filter rows by date and ids
+            inds = (data.Date >= start_date) & \
+                   (data.Date <= end_date) & \
+                   (data.ID.isin(ids))
+        else:
+            inds = (data.Date >= start_date) & \
+                   (data.Date <= end_date)
 
         # Filter columns
         col_inds = ['Date', 'ID'] + features
@@ -112,3 +115,6 @@ class DataHandlerFile(DataHandler):
         col_inds = ['Date', 'ID'] + features
 
         return data.loc[inds, col_inds].reset_index(drop=True)
+
+    def get_all_dates(self):
+        return self._dates
