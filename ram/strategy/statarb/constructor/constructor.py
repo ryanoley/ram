@@ -1,6 +1,6 @@
-import datetime as dt
 import numpy as np
 import pandas as pd
+import datetime as dt
 
 from ram.strategy.statarb.portfolio import PairPortfolio
 from ram.strategy.statarb.constructor.base import BaseConstructor
@@ -10,20 +10,33 @@ class PortfolioConstructor(BaseConstructor):
 
     def __init__(self):
         self.portfolio = PairPortfolio()
+        self.n_pairs = 100
+        self.max_pos_exposure = 0.05
+        self.min_pos_exposure = 0.001
 
-    def get_daily_pl(self, scores, booksize,
-                     Close, Dividend, SplitMultiplier, **kwargs):
+    def get_daily_pl(self, scores, data):
+
+        Close = data.pivot(index='Date',
+                           columns='ID',
+                           values='Close')
+
+        Dividend = data.pivot(index='Date',
+                              columns='ID',
+                              values='Dividend').fillna(0)
+
+        SplitMultiplier = data.pivot(index='Date',
+                                     columns='ID',
+                                     values='SplitMultiplier').fillna(1)
 
         # Map close price Tickers for faster updating
         self.portfolio.map_close_id_index(Close)
 
         # Output object
-        daily_df = pd.DataFrame(index=Close.index,
+        daily_df = pd.DataFrame(index=scores.index,
                                 columns=['PL', 'Exposure'],
                                 dtype=float)
 
-        for date in Close.index:
-
+        for date in scores.index:
             # Get current period data
             cl = Close.loc[date]
             div = Dividend.loc[date]
@@ -37,11 +50,11 @@ class PortfolioConstructor(BaseConstructor):
             # 1. CLOSE PAIRS IF NEEDED
             #  Closed pairs are still in portfolio dictionary and must
             #  be cleaned at end
-            self._close_signals(sc, **kwargs)
+            self._close_signals(sc)
 
             # 2. OPEN PAIRS IF NEEDED
             # Must consider portfolio
-            self._execute_open_signals(sc, cl, booksize, **kwargs)
+            self._execute_open_signals(sc, cl)
 
             # Get exposure
             daily_df.loc[date, 'PL'] = self.portfolio.get_portfolio_daily_pl()
@@ -52,7 +65,11 @@ class PortfolioConstructor(BaseConstructor):
         cost = self.portfolio.remove_pairs(all_pairs=True)
         daily_df.loc[date, 'PL'] -= cost
         daily_df.loc[date, 'Exposure'] = 0
-        return daily_df
+        daily_df['Ret'] = daily_df.PL / daily_df.Exposure
+        # Compensate for closed exposure
+        daily_df.Ret.iloc[-1] = daily_df.PL.iloc[-1] / \
+            daily_df.Exposure.iloc[-2]
+        return daily_df.loc[:, ['Ret']]
 
     def _close_signals(self, scores, z_exit=1, **kwargs):
         """
@@ -77,44 +94,41 @@ class PortfolioConstructor(BaseConstructor):
             p_scores[pair] = scores[pair]
         return p_scores
 
-    def _execute_open_signals(self, scores, trade_prices, booksize,
-                              n_pairs=100, max_pos_exposure=0.05,
-                              min_pos_exposure=0.001, **kwargs):
+    def _execute_open_signals(self, scores, trade_prices):
         """
         Function that adds new positions.
         """
         scores = scores.dropna()
         current_pos = self.portfolio.positions.keys()
         # Count new pairs, if none, then exit
-        new_pairs = n_pairs - len(current_pos)
+        new_pairs = self.n_pairs - len(current_pos)
         if new_pairs == 0:
             return
         # Remove those currently in positions
         scores = scores[~scores.index.isin(current_pos)]
         # SELECTION
         pairs, sides, bet_size = self._get_new_pairs_max_exposure(
-            scores, new_pairs, max_pos_exposure, min_pos_exposure, booksize)
+            scores, new_pairs)
         # Put on new positions
         if pairs:
             self.portfolio.add_pairs(pairs, sides, trade_prices, bet_size)
         return
 
-    def _get_new_pairs_max_exposure(self,
-                                    scores, new_pairs,
-                                    max_pos_exposure,
-                                    min_pos_exposure,
-                                    booksize):
+    def _get_new_pairs_max_exposure(self, scores, new_pairs):
         """
         Successively add new pairs to portfolio as long as the new position
         does add too much exposure to one symbol.
         """
+        # This is just a relic but works well so keeping it for now.
+        BOOKSIZE = 10e6
+
         gross_exp = self.portfolio.get_gross_exposure()
-        bet_size = max(booksize - gross_exp, 0)
+        bet_size = max(BOOKSIZE - gross_exp, 0)
         if bet_size == 0:
             return [], [], 0
 
-        max_pos = max_pos_exposure * booksize
-        min_pos = min_pos_exposure * booksize
+        max_pos = self.max_pos_exposure * BOOKSIZE
+        min_pos = self.min_pos_exposure * BOOKSIZE
 
         indiv_leg_size = bet_size / new_pairs / 2
 
@@ -153,6 +167,6 @@ class PortfolioConstructor(BaseConstructor):
             symbolvals[leg1] += val1
             symbolvals[leg2] += val2
             gross_exp += abs(val1) + abs(val2)
-            if gross_exp >= booksize:
+            if gross_exp >= BOOKSIZE:
                 break
         return pairs, sides, bet_size

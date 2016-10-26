@@ -14,29 +14,29 @@ class StatArbStrategy(Strategy):
 
     def __init__(self):
         self.datahandler = DataHandlerMongoDb()
-        self.pair = PairsStrategy1()
-        self.portfolio = PortfolioConstructor()
+        self.pairselector = PairsStrategy1()
+        self.constructor = PortfolioConstructor()
 
     def start(self):
 
         dates = self._get_date_iterator()
 
+        output = pd.DataFrame(columns=['Ret'])
+
         for t_start, cut_date, t_end in dates:
+            # COULD THIS ALL GO IN IT'S OWN FUNCTION FOR PARALLELIZATION?
+            t_filter = cut_date - dt.timedelta(days=1)
+            data, trade_data = self._get_data(
+                t_start, t_filter, t_end,
+                univ_size=100, data_cols=['Close'])
 
-            data = self.datahandler.get_filtered_univ_data(
-                univ_size=100,
-                features=['Close'],
-                start_date=t_start,
-                filter_date=cut_date,
-                end_date=t_end,
-                filter_column='AvgDolVol',
-                filter_bad_ids=True)
+            z_scores = self.pairselector.get_best_pairs(
+                data, cut_date, window=20)
 
-            test_z_scores = self.pair.get_best_pairs(data, cut_date, window=60)
+            plexp = self.constructor.get_daily_pl(z_scores, trade_data)
+            output = output.append(plexp.iloc[1:])
 
-            plexp = self.portfolio.get_daily_pl(pairs)
-
-            self._collect_output(plexp)
+        self.results = output
 
     def get_results(self):
         pass
@@ -69,13 +69,60 @@ class StatArbStrategy(Strategy):
                        quarter_dates[5:])
         return iterable
 
+    def _get_data(self, start_date, filter_date, end_date,
+                  univ_size, data_cols):
+        """
+        ## THIS SHOULD ALL BE PUT INTO DATA HANDLER
+
+        Makes the appropriate period's data.
+
+        Uses some instance params like data cols, univ size and filter col.
+        """
+        if not isinstance(data_cols, list):
+            data_cols = [data_cols]
+        # Additional data to pull
+        pull_cols = list(set(
+            data_cols +
+            ['Close', 'AdjustFactor', 'ActualDividend', 'SplitFactor']
+        ))
+
+        # Make from bdh
+        data = self.datahandler.get_filtered_univ_data(
+            univ_size=400,
+            features=pull_cols,
+            start_date=start_date,
+            end_date=end_date,
+            filter_date=filter_date,
+            filter_column='AvgDolVolume',
+            filter_bad_ids=True)
+
+        # Trading data - After filter date
+        trade_data = data[['Date', 'ID', 'Close',
+                           'SplitFactor', 'ActualDividend']].copy()
+        trade_data = trade_data.rename(columns={'ActualDividend': 'Dividend'})
+        trade_data.Dividend = trade_data.Dividend.fillna(0)
+        # Add get split factors
+        trade_data['SplitMultiplier'] = data['SplitFactor'] / \
+            data['SplitFactor'].shift(1)
+        trade_data['Close'] /= trade_data['SplitFactor']
+        trade_data = trade_data[trade_data.Date > filter_date]
+
+        # Creates TOTRET for all pricing columns. Split and dividend adjusted.
+        # Adjust pricing columns open/high/low/close
+        adj_cols = ['Open', 'High', 'Low', 'Close', 'VWAP']
+        for col in data_cols:
+            if col in adj_cols:
+                data[col] = data[col] * data.AdjustFactor
+        # Keep only requested data for training data
+        data = data[['ID', 'Date'] + data_cols]
+
+        return data, trade_data
+
 
 if __name__ == '__main__':
 
-    import pdb; pdb.set_trace()
     strategy = StatArbStrategy()
     strategy.start()
-
     path = '/Users/mitchellsuter/Desktop/'
     name = 'StatArbStrategy'
     create_strategy_report(strategy.get_results(), name, path)
