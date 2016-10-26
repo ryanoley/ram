@@ -77,7 +77,7 @@ class GapStrategy(Strategy):
             filter_date = '2013-01-02',
             end_date = dt.datetime.today(),
             filter_column = 'AvgDolVol')
-
+        # AdjCloseMA20 and StdevRet are offset in sql file
         prices['Ret'] = (prices.Close - prices.Open) / prices.Open
         prices['GapDown'] = (prices.Open - prices.PrevLow) / prices.PrevLow
         prices['GapUp'] = (prices.Open - prices.PrevHigh) / prices.PrevHigh
