@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -16,7 +17,8 @@ class VXXStrategy(Strategy):
     def __init__(self):
 
         # TEMP!!!
-        dpath = '/Users/mitchellsuter/Desktop/vxx_output.csv'
+        dpath = os.path.join(os.getenv('DATA'), 'ram',
+                             'strategy_input', 'vxx_data.csv')
         df = read_csv(dpath)
         # Weird fix
         df.columns = df.columns
