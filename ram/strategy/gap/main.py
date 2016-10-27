@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -14,20 +15,27 @@ COST = .0015
 
 class GapStrategy(Strategy):
 
-    def __init__(self, dpath):
+    def __init__(self):
+
+        dpath = os.path.join(os.getenv('DATA'), 'ram', 'strategy_input',
+                             'gap_data.csv')
         df = read_csv(dpath)
-        df = df[['ID', 'Ticker', 'Date','Open', 'High', 'PrevHigh', 'Low',
-                 'PrevLow', 'Close', 'AdjClose', 'PrevAdjClose', 'AvgDolVol', 
+        df = df[['ID', 'Ticker', 'Date', 'Open', 'High', 'PrevHigh', 'Low',
+                 'PrevLow', 'Close', 'AdjClose', 'PrevAdjClose', 'AvgDolVol',
                  'AdjCloseMA20', 'StdevRet']]
-        df.loc[:,'Date'] = df.Date.apply(lambda x: x[:10])
+        df.loc[:, 'Date'] = df.Date.apply(lambda x: x[:10])
 
         self.data = DataHandlerFile(df)
 
     def get_results(self):
         return self.results
 
+    def start(self):
 
-    def start(self, z=1., top_n=10):
+        # PARAMS
+        z = 1.
+        top_n = 10
+
         # Get all data
         df = self._create_features(z)
         dts = np.unique(df.Date)
@@ -36,18 +44,18 @@ class GapStrategy(Strategy):
 
         # Iterate through dates
         for t in dts:
-            dtdf = df.loc[df.Date==t]
+            dtdf = df.loc[df.Date == t]
             updf = dtdf.loc[(dtdf.zUp > 0) & (dtdf.GapUp > 0)].copy()
             dwndf = dtdf.loc[(dtdf.zDown < 0) & (dtdf.GapDown < 0)].copy()
 
-            if len(updf)>0:
+            if len(updf) > 0:
                 updf.sort_values('zUp', inplace=True)
                 updf.reset_index(drop=True, inplace=True)
                 upRet = updf.Ret[-top_n:].mean() + COST
             else:
                 upRet = 0.
 
-            if len(dwndf)>0:
+            if len(dwndf) > 0:
                 dwndf.sort_values('zDown', inplace=True)
                 dwndf.reset_index(drop=True, inplace=True)
                 dwnRet = dwndf.Ret[:top_n].mean() - COST
@@ -60,23 +68,30 @@ class GapStrategy(Strategy):
 
         self.results = results.dropna()
 
-
-    def start_live(self): 
-        return
+    def start_live(self):
+        return -1
 
     ###########################################################################
 
-    def _create_features(self, z = 1.):
+    def _create_features(self, z=1.):
         # Get all of data history
+        univ_size = 1000
+        features = ['Ticker', 'Open', 'High',
+                    'PrevHigh', 'Low', 'PrevLow',
+                    'Close', 'AdjClose', 'AdjCloseMA20',
+                    'AvgDolVol', 'StdevRet']
+        start_date = dt.datetime(2013, 1, 2)
+        end_date = dt.datetime.today()
+        filter_date = dt.datetime(2013, 1, 2)
+
         prices = self.data.get_filtered_univ_data(
-            univ_size=1000,
-            features  = ['Ticker', 'Open', 'High', 'PrevHigh', 'Low',
-                         'PrevLow', 'Close', 'AdjClose', 'AdjCloseMA20',
-                         'AvgDolVol', 'StdevRet'],
-            start_date = '2013-01-02',
-            filter_date = '2013-01-02',
-            end_date = dt.datetime.today(),
-            filter_column = 'AvgDolVol')
+            univ_size=univ_size,
+            features=features,
+            start_date=start_date,
+            end_date=end_date,
+            filter_date=filter_date,
+            filter_column='AvgDolVol')
+
         # AdjCloseMA20 and StdevRet are offset in sql file
         prices['Ret'] = (prices.Close - prices.Open) / prices.Open
         prices['GapDown'] = (prices.Open - prices.PrevLow) / prices.PrevLow
@@ -93,10 +108,10 @@ class GapStrategy(Strategy):
 
 
 if __name__ == '__main__':
-    dpath = 'C:/temp/basedata.csv'
-    strategy = GapStrategy(dpath)
-    strategy.start(z=1., top_n=10)
 
-    path = 'C:/temp/gap'
-    name = 'GapStrategy'
-    create_strategy_report(strategy.get_results(), name, path)
+    strategy = GapStrategy()
+    strategy.start()
+
+    #path = 'C:/temp/gap'
+    #name = 'GapStrategy'
+    #create_strategy_report(strategy.get_results(), name, path)

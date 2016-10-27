@@ -24,6 +24,7 @@ class StatArbStrategy(Strategy):
         output = pd.DataFrame(columns=['Ret'])
 
         for t_start, cut_date, t_end in dates:
+
             # COULD THIS ALL GO IN IT'S OWN FUNCTION FOR PARALLELIZATION?
             t_filter = cut_date - dt.timedelta(days=1)
             data, trade_data = self._get_data(
@@ -39,7 +40,7 @@ class StatArbStrategy(Strategy):
         self.results = output
 
     def get_results(self):
-        pass
+        return self.results
 
     def start_live(self):
         pass
