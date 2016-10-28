@@ -1,24 +1,27 @@
+import pypyodbc
 import numpy as np
 import pandas as pd
-import pypyodbc
+
+from ram.data.base import DataHandler
 
 from ram.utils.time_funcs import check_input_date
-from ram.data.base import DataHandler
 
 
 class DataHandlerSQL(DataHandler):
 
     def __init__(self):
-        connection = pypyodbc.connect('Driver={SQL Server};Server=QADIRECT;'
-                                      'Database=ram;uid=ramuser;pwd=183madison')
+        connection = pypyodbc.connect('Driver={SQL Server};'
+                                      'Server=QADIRECT;'
+                                      'Database=ram;'
+                                      'uid=ramuser;pwd=183madison')
         assert connection.connected == 1
+        self._connection = connection
         self.cursor = connection.cursor()
-        # This could be ram_master instead
+
         sql_dts = ("select distinct Date_ " +
                    " from ram.dbo.ram_master" +
                    " order by Date_")
         self._dates = np.array(self.sql_execute(sql_dts)).flatten()
-        self._connection = connection
         # Ordered columns for table ram_master
         self._db_cols = ['ID', 'Date', 'Open', 'High', 'Low', 'Close', 'Vwap',
                          'Volume', 'AvgDolVol', 'MarketCap', 'CashDividend',
@@ -63,7 +66,7 @@ class DataHandlerSQL(DataHandler):
             bdate = self.sql_execute(bdate_sql)[0][0]
 
             # Get IDs using next business date(filter_date)
-            id_sql = ("select top " + str(univ_size) +" IdcCode"
+            id_sql = ("select top " + str(univ_size) + " IdcCode"
                       " from ram.dbo.ram_master" +
                       " where Date_ = '" + str(bdate) +
                       "' order by " + filter_column + " desc")
@@ -71,16 +74,16 @@ class DataHandlerSQL(DataHandler):
 
             # Get data using start_date, end_date, and ids from filter
             univ_sql = ("select * from ram.dbo.ram_master " +
-                        " where Date_ between '" + str(start_date) +"' and '"
-                        + str(end_date) + "' and IdcCode in " +
+                        " where Date_ between '" + str(start_date) +
+                        "' and '" + str(end_date) + "' and IdcCode in " +
                         str(tuple(ids.astype(str))))
             univ = self.sql_execute(univ_sql)
         else:
-            # Get data using start_date, end_date, 
+            # Get data using start_date, end_date
             univ_sql = ("select * from ram.dbo.ram_master" +
-                        " where Date_ between '" + str(start_date) +"' and '"
-                        + str(end_date)) + "'"
-            univ = self.sql_execute(univ_sql)            
+                        " where Date_ between '" + str(start_date) +
+                        "' and '" + str(end_date)) + "'"
+            univ = self.sql_execute(univ_sql)
 
         univ_df = pd.DataFrame(univ, columns=self._db_cols)
         # Filter columns
@@ -116,7 +119,7 @@ class DataHandlerSQL(DataHandler):
             features = [features]
         start_date = check_input_date(start_date)
         end_date = check_input_date(end_date)
-        
+
         ids = np.array(ids).astype(str)
         # Get data using start_date, end_date, and ids from filter
         univ_sql = ("select * from ram.dbo.ram_master" +
@@ -145,26 +148,25 @@ class DataHandlerSQL(DataHandler):
         self._connection.close()
 
 
-def main():
+if __name__ == '__main__':
+
     dh = DataHandlerSQL()
 
-    univ =  dh.get_filtered_univ_data(univ_size=100,
-                               features=['High','Low','Close'],
-                               start_date='2016-10-01',
-                               end_date='2016-10-20',
-                               filter_date='2016-10-01',)
+    univ = dh.get_filtered_univ_data(
+        univ_size=100,
+        features=['High', 'Low', 'Close'],
+        start_date='2016-10-01',
+        end_date='2016-10-20',
+        filter_date='2016-10-01',)
 
-    univ =  dh.get_filtered_univ_data(features=['High','Low','Close'],
-                               start_date='2016-10-01',
-                               end_date='2016-10-10')
+    univ = dh.get_filtered_univ_data(
+        features=['High', 'Low', 'Close'],
+        start_date='2016-10-01',
+        end_date='2016-10-10')
 
-    univ = dh.get_id_data(ids = [43030, 50183],
-                          features=['High','Low','Close'],
+    univ = dh.get_id_data(ids=[43030, 50183],
+                          features=['High', 'Low', 'Close'],
                           start_date='2016-10-01',
                           end_date='2016-10-20')
 
     dh.close()
-
-
-if __name__ == '__main__':
-    main()
