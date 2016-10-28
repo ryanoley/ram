@@ -21,7 +21,8 @@ class PairsStrategy1(BasePairSelector):
         pairs = self._get_stats_all_pairs(train_close)
         fpairs = self._filter_pairs(pairs)
         # Create daily z-scores
-        test_pairs = self._get_test_zscores(close_data, cut_date, fpairs, window)
+        test_pairs = self._get_test_zscores(close_data, cut_date,
+                                            fpairs, window)
         return test_pairs
 
     def _filter_pairs(self, pairs, adf_flag=False):
@@ -52,7 +53,7 @@ class PairsStrategy1(BasePairSelector):
         X1 = self._get_corr_coef(rets_a)
         X2 = np.apply_along_axis(self._get_corr_moves, 0, rets_a, rets_a)
         X3 = np.apply_along_axis(self._get_vol_ratios, 0, rets_a, rets_a)
-        #X4 = np.apply_along_axis(self._get_adf_p_values, 0, close_a, close_a)
+        # X4 = np.apply_along_axis(self._get_adf_p_values, 0, close_a, close_a)
         # Output
         legs = zip(*it.combinations(close.columns.values, 2))
         stat_df = pd.DataFrame({'Leg1': legs[0]})
@@ -64,7 +65,7 @@ class PairsStrategy1(BasePairSelector):
         stat_df['corrcoef'] = [X1[z1[i]] for i in range(len(z1))]
         stat_df['corrmoves'] = [X2[z1[i]] for i in range(len(z1))]
         stat_df['volratio'] = [X3[z1[i]] for i in range(len(z1))]
-        #stat_df['adf'] = [X4[z1[i]] for i in range(len(z1))]
+        # stat_df['adf'] = [X4[z1[i]] for i in range(len(z1))]
         return stat_df
 
     @staticmethod
@@ -111,7 +112,8 @@ class PairsStrategy1(BasePairSelector):
     @staticmethod
     def _get_adf_p_values(x_close, close):
         pairs = (np.log(close).T - np.log(x_close))
-        return np.apply_along_axis(lambda y: adfuller(y, maxlag=1)[1], 1, pairs)
+        return np.apply_along_axis(
+            lambda y: adfuller(y, maxlag=1)[1], 1, pairs)
 
     def _get_test_zscores(self, Close, cut_date, fpairs, window):
         # Create two data frames that represent Leg1 and Leg2
@@ -139,43 +141,3 @@ class PairsStrategy1(BasePairSelector):
         ma_df = X.rolling(window=window).mean()
         std_df = X.rolling(window=window).std()
         return ma_df, std_df
-
-
-if __name__ == '__main__':
-
-    import os
-    import pymongo
-
-    from gearbox import to_desk
-
-    from statarb.data.data import BaseDataHandlerMongoDb
-
-    from statarb.strategy.backtester import Backtester
-    from statarb.strategy.constructor.constructor import PortfolioConstructor
-
-    client = pymongo.MongoClient(host='192.168.2.8')
-    prices = client.arb_system.prices
-    bdh = BaseDataHandlerMongoDb(prices)
-
-    pair_selector = PairsStrategy1()
-    port_constructor = PortfolioConstructor()
-
-    import pdb; pdb.set_trace()
-    backtester = Backtester(bdh,
-                            pair_selector,
-                            port_constructor,
-                            data_cols='Close',
-                            booksize=10e6,
-                            univ_size=20)
-
-    backtester.set_pair_selection_params(window=[20, 50])
-    backtester.set_trade_params(n_pairs=[100, 200, 500])
-    backtester.fit()
-
-    try:
-        to_desk(strategy.daily_pl, 'pairs1_pl')
-        to_desk(strategy.daily_exposure, 'pairs1_exp')
-    except:
-        import pdb; pdb.set_trace()
-
-    client.close()

@@ -33,5 +33,5 @@ if __name__ == '__main__':
 
     strategy = Benchmarks()
     strategy.start()
-    #strategy.start_live()
+    # strategy.start_live()
     print strategy.get_results()

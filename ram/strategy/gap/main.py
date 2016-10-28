@@ -112,6 +112,6 @@ if __name__ == '__main__':
     strategy = GapStrategy()
     strategy.start()
 
-    #path = 'C:/temp/gap'
-    #name = 'GapStrategy'
-    #create_strategy_report(strategy.get_results(), name, path)
+    # path = 'C:/temp/gap'
+    # name = 'GapStrategy'
+    # create_strategy_report(strategy.get_results(), name, path)

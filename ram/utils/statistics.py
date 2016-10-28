@@ -54,7 +54,8 @@ def get_stats(results):
     # FINANCE STATS
     out.loc[:, 'Sharpe'] = (results.mean() /
                             results.std() * np.sqrt(252)).round(4)
-    out.loc[:, 'Sortino'] = (results.mean() /
+    out.loc[:, 'Sortino'] = (
+        results.mean() /
         results.where(results < 0).fillna(0).std() * np.sqrt(252)).round(4)
     out.loc[:, 'MinRet'] = results.min().round(4)
     out.loc[:, 'WinP'] = (results > 0).mean().round(4)

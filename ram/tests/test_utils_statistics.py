@@ -36,7 +36,8 @@ class TestPairs(unittest.TestCase):
 
     def test_time_at_highs(self):
         result = stats._time_at_highs(self.returns)
-        benchmark = pd.DataFrame([1/3., 1/6.],
+        benchmark = pd.DataFrame(
+            [1/3., 1/6.],
             index=['V1', 'V2'], columns=['TimeAtHighs']).round(3)
         assert_frame_equal(result, benchmark)
 
