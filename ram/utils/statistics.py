@@ -33,6 +33,11 @@ def get_stats(results):
     """
     `results` is a data frame of returns, not cum returns or PL
     """
+    # Check input!
+    assert isinstance(results, pd.DataFrame)
+    assert results.isnull().sum().sum() == 0
+    assert isinstance(results.index, pd.DatetimeIndex)
+
     out = pd.DataFrame(columns=[
         'Total', 'Mean', 'Std', 'Skew', 'Kurt',
         'Sharpe', 'Sortino', 'MinRet', 'WinP'])
@@ -94,8 +99,7 @@ def make_plot(results, name=None, spath=None):
 
 def _get_drawdowns(df):
 
-    df = df.copy()
-    df = np.log(df.cumsum() + 1)
+    df = df.cumsum().copy()
 
     outdf = pd.DataFrame(
         columns=['DD%', 'DDDays', 'UnderwaterDays', 'Underwater%'],
@@ -113,7 +117,7 @@ def _get_drawdowns(df):
         outdf.loc[col] = (worst_dd, worst_dd_days,
                           worst_underwater_days, worst_underwater_dd)
 
-    return outdf
+    return outdf.astype(float)
 
 
 def _time_at_highs(df):
