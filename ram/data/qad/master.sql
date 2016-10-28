@@ -19,8 +19,7 @@ create table ram_master
 	 CashDividend real,
 	 AvgDolVol real,
 	 MarketCap real,
-	 NormalTradingFlag smallint,
-	 FirstTradingDate smalldatetime
+	 NormalTradingFlag smallint
 	 primary key (IdcCode, Date_)
 	 )
 
@@ -118,6 +117,7 @@ on
 	P1.Date_ = P2.Date_
 where (P1.Code in (select distinct Code from codes)
 	or P2.Code in (select distinct Code from codes))
+	and P1.Close_ != 0
 )
 
 
@@ -151,7 +151,7 @@ on P.Code = D.Code
 ----------------------------------------------
 -- Adjustment factor derived from dividend pricing
 
-, priceing03 as (
+, pricing03 as (
 select
 	*,
 	sum(log((1 + Isnull(CashDividend, 0) / Close_))) over 
@@ -167,7 +167,7 @@ from pricing02
 select 
 	P.*,
 	M.ConsolMktVal 
-from priceing03 P
+from pricing03 P
 join codes C
 	on P.Code = C.Code
 left join qai.dbo.Ds2MktVal M
@@ -365,11 +365,7 @@ select distinct
 	CashDividend,
 	AvgDolVol,
 	MarketCap,
-	NormalTradingFlag,
-	-- This could be removed once we ensure that all trading dates are available
-	-- PrcShrs right now is dropping rows.
-	(select min(a.Date_) from
-		qai.prc.PrcDly a where a.Code = i.Code) as FirstTradingDate
+	NormalTradingFlag
 from pricing10 i
 )
 
@@ -377,7 +373,7 @@ from pricing10 i
 insert into ram.dbo.ram_master
 	(IdcCode, Date_, Open_, High, Low, Close_,
 	 Vwap, Volume, AdjFactor, SplitFactor, CashDividend, AvgDolVol, 
-	 MarketCap, NormalTradingFlag, FirstTradingDate)
+	 MarketCap, NormalTradingFlag)
 select * from pricing_final
 
 
