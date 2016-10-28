@@ -14,11 +14,11 @@ create table ram_master
 	 Close_ real,
 	 Vwap real,
 	 Volume real,
-	 AdjFactor real,
-	 SplitFactor real,
-	 CashDividend real,
 	 AvgDolVol real,
 	 MarketCap real,
+	 CashDividend real,
+	 DividendFactor real,
+	 SplitFactor real,
 	 NormalTradingFlag smallint
 	 primary key (IdcCode, Date_)
 	 )
@@ -209,7 +209,7 @@ select
 
 	A.Factor as SplitFactor,		-- Added for downstream calculations
 
-	exp(P.CumRate) as AdjFactor
+	exp(P.CumRate) as DividendFactor
 
 from pricing04 P
 left join qai.prc.PrcAdj A
@@ -321,7 +321,7 @@ select
 	-- Others
 	Shares,
 	ConsolMktVal,
-	AdjFactor,
+	DividendFactor,
 	SplitFactor,
 	CashDividend,
 	case when DateLag = DateLagC then 1 else 0 end as NormalTradingFlag
@@ -360,20 +360,31 @@ select distinct
 	Close_,
 	Vwap,
 	Volume,
-	AdjFactor,
-	SplitFactor,
-	CashDividend,
 	AvgDolVol,
 	MarketCap,
+	CashDividend,
+	DividendFactor,
+	SplitFactor,
 	NormalTradingFlag
 from pricing10 i
 )
 
 
 insert into ram.dbo.ram_master
-	(IdcCode, Date_, Open_, High, Low, Close_,
-	 Vwap, Volume, AdjFactor, SplitFactor, CashDividend, AvgDolVol, 
-	 MarketCap, NormalTradingFlag)
+	(IdcCode, 
+	 Date_, 
+	 Open_, 
+	 High, 
+	 Low, 
+	 Close_,
+	 Vwap, 
+	 Volume, 
+	 AvgDolVol, 
+	 MarketCap, 
+	 CashDividend, 
+	 DividendFactor, 
+	 SplitFactor, 
+	 NormalTradingFlag)
 select * from pricing_final
 
 
@@ -382,3 +393,6 @@ on ram.dbo.ram_master (IdcCode, Date_)
 
 create index date_idccode
 on ram.dbo.ram_master (Date_, IdcCode)
+
+create index date_avgdolvol
+on ram.dbo.ram_master (Date_, AvgDolVol)
