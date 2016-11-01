@@ -8,6 +8,7 @@ import importlib
 
 STRATS = [
     ('vxx', 'VXXStrategy'),
+    ('benchmark', 'BenchmarksStrategy'),
     ('gap', 'GapStrategy'),
     ('statarb', 'StatArbStrategy')
 ]

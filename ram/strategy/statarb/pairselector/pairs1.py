@@ -15,7 +15,7 @@ class PairsStrategy1(BasePairSelector):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='ID',
-                                values='Close')
+                                values='ADJClose')
 
         train_close = close_data.loc[close_data.index < cut_date]
         pairs = self._get_stats_all_pairs(train_close)

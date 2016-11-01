@@ -76,6 +76,7 @@ class DataHandlerSQL(DataHandler):
                 "select top {0} IdcCode ".format(univ_size) +
                 "from ram.dbo.ram_master " +
                 "where Date_ = '{0}' ".format(bdate) +
+                "and NormalTradingFlag = 1 " +
                 "order by {0} desc".format(FILTER_COL)
             )).flatten()
             _, idsstr = _format_ids(ids)
@@ -84,7 +85,7 @@ class DataHandlerSQL(DataHandler):
                 "select IdcCode, Date_, {0} ".format(colselect) +
                 "from ram.dbo.ram_master " +
                 "where Date_ between '{0}' and '{1}'".format(d1, d3) +
-                "and IdcCode in " + idsstr
+                "and IdcCode in {0}".format(idsstr)
             )
 
         else:
@@ -145,7 +146,7 @@ class DataHandlerSQL(DataHandler):
             "select IdcCode, Date_, {0} ".format(colselect) +
             "from ram.dbo.{0} ".format(table) +
             "where Date_ between '{0}' and '{1}' ".format(d1, d3) +
-            "and IdcCode in " + idsstr
+            "and IdcCode in {0}".format(idsstr)
         )
 
         univ_df = pd.DataFrame(univ)
@@ -195,7 +196,7 @@ if __name__ == '__main__':
         features=['Close', 'Close_', 'ADJClose_', 'PRMA10', 'BOLL20'],
         start_date='2016-10-01',
         end_date='2016-10-20',
-        filter_date='2016-10-01',)
+        filter_date='2016-10-01')
 
     univ = dh.get_filtered_univ_data(
         features=['High', 'Low', 'Close'],

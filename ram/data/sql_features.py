@@ -2,7 +2,7 @@
 # Allowable columns
 MASTER_COLS = ['Open_', 'High', 'Low', 'Close_',
                'Vwap', 'Volume', 'AvgDolVol', 'MarketCap',
-               'CashDividend']
+               'CashDividend', 'SplitFactor']
 
 
 def sqlcmd_from_feature_list(features):

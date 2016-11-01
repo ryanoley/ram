@@ -4,7 +4,7 @@ from ram.strategy.base import Strategy
 from ram.data.dh_sql import DataHandlerSQL
 
 
-class Benchmarks(Strategy):
+class BenchmarksStrategy(Strategy):
 
     def __init__(self):
         self.data = DataHandlerSQL()
@@ -13,7 +13,6 @@ class Benchmarks(Strategy):
         return self.results
 
     def start(self):
-        import pdb; pdb.set_trace()
         prices = self.data.get_id_data(
             ids='SPY',
             features=['ADJClose_'],
