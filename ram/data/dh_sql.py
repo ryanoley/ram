@@ -5,34 +5,40 @@ import pandas as pd
 from ram.data.base import DataHandler
 
 from ram.utils.time_funcs import check_input_date
+from ram.data.sql_features import sqlcmd_from_feature_list
 
 
 class DataHandlerSQL(DataHandler):
 
     def __init__(self):
-        connection = pypyodbc.connect('Driver={SQL Server};'
-                                      'Server=QADIRECT;'
-                                      'Database=ram;'
-                                      'uid=ramuser;pwd=183madison')
-        assert connection.connected == 1
-        self._connection = connection
-        self.cursor = connection.cursor()
 
-        sql_dts = ("select distinct Date_ " +
-                   " from ram.dbo.ram_master" +
-                   " order by Date_")
-        self._dates = np.array(self.sql_execute(sql_dts)).flatten()
-        # Ordered columns for table ram_master
-        self._db_cols = ['ID', 'Date', 'Open', 'High', 'Low', 'Close', 'Vwap',
-                         'Volume', 'AvgDolVol', 'MarketCap', 'CashDividend',
-                         'DividendFactor', 'SplitFactor', 'NormalTradingFlag']
+        try:
+            connection = pypyodbc.connect('Driver={SQL Server};'
+                                          'Server=QADIRECT;'
+                                          'Database=ram;'
+                                          'uid=ramuser;pwd=183madison')
+        except:
+            # Mac/Linux implementation. unixODBC and FreeTDS works
+            connect_str = "DSN=qadirectdb;UID=ramuser;PWD=183madison"
+            connection = pypyodbc.connect(connect_str)
+
+        assert connection.connected == 1
+
+        self._connection = connection
+        self._cursor = connection.cursor()
+
+        # Get all dates available in master database
+        self._dates = np.unique(self.sql_execute(
+            "select distinct Date_ " +
+            "from ram.dbo.ram_master " +
+            "order by Date_"
+        )).flatten()
 
     def get_filtered_univ_data(self,
                                features,
                                start_date,
                                end_date,
                                univ_size=None,
-                               filter_column='AvgDolVol',
                                filter_date=None):
         """
         Purpose of this class is to provide an interface to get a filtered
@@ -41,55 +47,56 @@ class DataHandlerSQL(DataHandler):
         Parameters
         ----------
         features : list
-        start_date/filter_date/end_date : datetime
+        start_date/filter_date/end_date : string/datetime
         univ_size : int
-        filter_column : str
 
         Returns
         -------
         data : pandas.DataFrame
             With columns ID, Date representing a unique observation.
         """
-        # Check user input
-        if not isinstance(features, list):
-            features = [features]
+        # Hard-coded for now because there is only one filter needed.
+        FILTER_COL = 'AvgDolVol'
 
-        start_date = check_input_date(start_date)
-        filter_date = check_input_date(filter_date)
-        end_date = check_input_date(end_date)
+        # Check user input
+        d1, d2, d3 = _check_dates(start_date, filter_date, end_date)
+
+        features, colselect = sqlcmd_from_feature_list(features)
 
         if filter_date:
+
             # Get next business date from filter date
-            bdate_sql = ("select T0" +
-                         " from ram.dbo.trading_dates " +
-                         " where CalendarDate = '" + str(filter_date) + "'")
-            bdate = self.sql_execute(bdate_sql)[0][0]
+            bdate = self.sql_execute(
+                "select T0 from ram.dbo.trading_dates " +
+                "where CalendarDate = '{0}'".format(d2)
+            )[0][0]
 
             # Get IDs using next business date(filter_date)
-            id_sql = ("select top " + str(univ_size) + " IdcCode"
-                      " from ram.dbo.ram_master" +
-                      " where Date_ = '" + str(bdate) +
-                      "' order by " + filter_column + " desc")
-            ids = np.array(self.sql_execute(id_sql)).flatten()
+            ids = np.array(self.sql_execute(
+                "select top {0} IdcCode ".format(univ_size) +
+                "from ram.dbo.ram_master " +
+                "where Date_ = '{0}' ".format(bdate) +
+                "order by {0} desc".format(FILTER_COL)
+            )).flatten()
+            ids = [str(i) for i in ids]
 
-            # Get data using start_date, end_date, and ids from filter
-            univ_sql = ("select * from ram.dbo.ram_master " +
-                        " where Date_ between '" + str(start_date) +
-                        "' and '" + str(end_date) + "' and IdcCode in " +
-                        str(tuple(ids.astype(str))))
-            univ = self.sql_execute(univ_sql)
+            univ = self.sql_execute(
+                "select IdcCode, Date_, {0} ".format(colselect) +
+                "from ram.dbo.ram_master " +
+                "where Date_ between '{0}' and '{1}'".format(d1, d3) +
+                "and IdcCode in " + str(tuple(ids))
+            )
+
         else:
-            # Get data using start_date, end_date
-            univ_sql = ("select * from ram.dbo.ram_master" +
-                        " where Date_ between '" + str(start_date) +
-                        "' and '" + str(end_date)) + "'"
-            univ = self.sql_execute(univ_sql)
+            univ = self.sql_execute(
+                "select IdcCode, Date_, {0} ".format(colselect) +
+                "from ram.dbo.ram_master " +
+                "where Date_ between '{0}' and '{1}'".format(d1, d3)
+            )
 
-        univ_df = pd.DataFrame(univ, columns=self._db_cols)
-        # Filter columns
-        col_inds = ['Date', 'ID'] + features
-
-        return univ_df.loc[:, col_inds]
+        univ_df = pd.DataFrame(univ)
+        univ_df.columns = ['ID', 'Date'] + features
+        return univ_df
 
     def get_id_data(self,
                     ids,
@@ -112,49 +119,52 @@ class DataHandlerSQL(DataHandler):
             With columns ID, Date representing a unique observation.
         """
         # Check user input
-        if not isinstance(ids, list):
-            # -9999 included for single security queries
-            ids = [ids, -9999]
-        if not isinstance(features, list):
-            features = [features]
-        start_date = check_input_date(start_date)
-        end_date = check_input_date(end_date)
+        d1, _, d3 = _check_dates(start_date, None, end_date)
+        # Format ids. If just a single
+        ids = [ids] if not isinstance(ids, list) else ids
+        ids = str([str(i) for i in ids]).replace('[', '(').replace(']', ')')
 
-        ids = np.array(ids).astype(str)
+        features, colselect = sqlcmd_from_feature_list(features)
+
         # Get data using start_date, end_date, and ids from filter
-        univ_sql = ("select * from ram.dbo.ram_master" +
-                    " where Date_ between '" + str(start_date) + "' and '" +
-                    str(end_date) + "' and IdcCode in " + str(tuple(ids)))
-        univ = self.sql_execute(univ_sql)
+        univ = self.sql_execute(
+            "select IdcCode, Date_, {0} ".format(colselect) +
+            "from ram.dbo.ram_master " +
+            "where Date_ between '{0}' and '{1}' ".format(d1, d3) +
+            "and IdcCode in " + ids
+        )
 
-        univ_df = pd.DataFrame(univ, columns=self._db_cols)
-        # Filter columns
-        col_inds = ['Date', 'ID'] + features
-
-        return univ_df.loc[:, col_inds]
+        univ_df = pd.DataFrame(univ)
+        univ_df.columns = ['ID', 'Date'] + features
+        return univ_df
 
     def get_all_dates(self):
         return self._dates
 
     def sql_execute(self, sqlcmd):
         try:
-            self.cursor.execute(sqlcmd)
-            return self.cursor.fetchall()
+            self._cursor.execute(sqlcmd)
+            return self._cursor.fetchall()
         except Exception, e:
             print 'error running sqlcmd: ' + str(e)
             return []
 
-    def close(self):
-        self._connection.close()
+
+def _check_dates(start_date, filter_date, end_date):
+        return check_input_date(start_date), \
+            check_input_date(filter_date), \
+            check_input_date(end_date)
 
 
 if __name__ == '__main__':
+
+    # EXAMPLES
 
     dh = DataHandlerSQL()
 
     univ = dh.get_filtered_univ_data(
         univ_size=100,
-        features=['High', 'Low', 'Close'],
+        features=['Close', 'Close_', 'ADJClose_', 'PRMA10', 'BOLL20'],
         start_date='2016-10-01',
         end_date='2016-10-20',
         filter_date='2016-10-01',)
@@ -169,4 +179,7 @@ if __name__ == '__main__':
                           start_date='2016-10-01',
                           end_date='2016-10-20')
 
-    dh.close()
+    univ = dh.get_id_data(ids=43030,
+                          features=['High', 'Low', 'Close'],
+                          start_date='2016-10-01',
+                          end_date='2016-10-20')
