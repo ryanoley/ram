@@ -1,27 +1,54 @@
 
 use ram;
 
-IF OBJECT_ID('ram.dbo.ram_master', 'U') IS NOT NULL
-  DROP TABLE ram.dbo.ram_master;
+declare @ETFS table (Code int, DsInfoCode int)		-- IdcCode, DataStream code
+insert @ETFS values (59751, 8931), (140062, 230116)	-- SPY, VXX
 
 
-create table ram_master
-	(IdcCode int,
-	 Date_ smalldatetime,
-	 Open_ real,
-	 High real,
-	 Low real,
-	 Close_ real,
-	 Vwap real,
-	 Volume real,
-	 AvgDolVol real,
-	 MarketCap real,
-	 CashDividend real,
-	 DividendFactor real,
-	 SplitFactor real,
-	 NormalTradingFlag smallint
-	 primary key (IdcCode, Date_)
-	 )
+-------------------------------------------------------------
+-- Codes to select from tables
+declare @MASTERTABLE varchar(100)
+declare @ETFFLAG int
+
+if $(etf) = 1
+	begin
+	set @MASTERTABLE = 'ram.dbo.ram_master_etf'
+	set @ETFFLAG = 1
+	end
+else
+	begin
+	set @MASTERTABLE = 'ram.dbo.ram_master'
+	set @ETFFLAG = 0
+	end
+
+-------------------------------------------------------------
+-- Create table
+
+declare @sqlcommand varchar (5000);
+if object_id(@MASTERTABLE, 'U') is not null 
+	begin
+	set @sqlcommand = 'drop table ' + @MASTERTABLE
+	exec(@sqlcommand)
+	end
+
+set @sqlcommand = 'create table ' + @MASTERTABLE + '
+					(IdcCode int,
+					 Date_ smalldatetime,
+					 Open_ real,
+					 High real,
+					 Low real,
+					 Close_ real,
+					 Vwap real,
+					 Volume real,
+					 AvgDolVol real,
+					 MarketCap real,
+					 CashDividend real,
+					 DividendFactor real,
+					 SplitFactor real,
+					 NormalTradingFlag smallint
+					 primary key (IdcCode, Date_)
+					 )'
+exec(@sqlcommand)
 
 
 --------------------------------------------------------------
@@ -63,9 +90,10 @@ left join dscodes D
 )
 
 
--------------------------------------------------
+-----------------------------------------------------
 -- Next two CTEs are used to filter out multiple 
--- DsInfoCodes per IDC Code
+-- DsInfoCodes per IDC Code. If ETF flag, then select
+-- only the codes from the ETFs table.
 
 , codes_temp as (
 select
@@ -82,6 +110,11 @@ select
 	Code,
 	case when Count_ > 1 then null else DsInfoCode end as DsInfoCode
 from codes_temp
+where not (@ETFFLAG = 1)
+
+union all
+select Code, DsInfoCode from @ETFS where (@ETFFLAG = 1)
+
 )
 
 
@@ -350,7 +383,6 @@ and Date_ >= '1994-12-01'
 )
 
 
-, pricing_final as (
 select distinct
 	Code as IdcCode,
 	Date_,
@@ -366,12 +398,13 @@ select distinct
 	DividendFactor,
 	SplitFactor,
 	NormalTradingFlag
+into #pricing_final
 from pricing10 i
-)
 
 
-insert into ram.dbo.ram_master
-	(IdcCode, 
+
+set @sqlcommand = 'insert into ' + @MASTERTABLE +
+	'(IdcCode, 
 	 Date_, 
 	 Open_, 
 	 High, 
@@ -385,14 +418,22 @@ insert into ram.dbo.ram_master
 	 DividendFactor, 
 	 SplitFactor, 
 	 NormalTradingFlag)
-select * from pricing_final
+select * from #pricing_final'
+exec(@sqlcommand)
 
 
-create index idccode_date
-on ram.dbo.ram_master (IdcCode, Date_)
+DROP TABLE #pricing_final
 
-create index date_idccode
-on ram.dbo.ram_master (Date_, IdcCode)
+----------------------------------------------------------
+-- Indexes
 
-create index date_avgdolvol
-on ram.dbo.ram_master (Date_, AvgDolVol)
+set @sqlcommand = 'create index idccode_date on ' + @MASTERTABLE + ' (IdcCode, Date_)'
+exec(@sqlcommand)
+
+set @sqlcommand = 'create index date_idccode on ' + @MASTERTABLE + ' (Date_, IdcCode)'
+exec(@sqlcommand)
+
+set @sqlcommand = 'create index date_avgdolvol on ' + @MASTERTABLE + ' (Date_, AvgDolVol)'
+exec(@sqlcommand)
+
+go
