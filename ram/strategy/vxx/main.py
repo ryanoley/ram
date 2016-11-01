@@ -5,7 +5,7 @@ import datetime as dt
 
 from gearbox import read_csv
 
-from ram.data.dh_file import DataHandlerFile
+from ram.data.dh_sql import DataHandlerSQL
 from ram.strategy.base import Strategy
 from ram.utils.statistics import create_strategy_report
 
@@ -15,19 +15,7 @@ from sklearn.linear_model import LogisticRegression
 class VXXStrategy(Strategy):
 
     def __init__(self):
-
-        # TEMP!!!
-        dpath = os.path.join(os.getenv('DATA'), 'ram',
-                             'strategy_input', 'vxx_data.csv')
-        df = read_csv(dpath)
-        # Weird fix
-        df.columns = df.columns
-        df.columns = ['ID', 'Date',
-                      'Open', 'High', 'Low', 'Close', 'VWAP', 'Volume',
-                      'AdjFactor', 'AvgDolVol', 'MarketCap']
-        df.Date = df.Date.apply(lambda x: x[:-5])
-        # TEMP!!!
-        self.data = DataHandlerFile(df)
+        self.data = DataHandlerSQL()
 
     def get_results(self):
         return self.results
@@ -88,28 +76,24 @@ class VXXStrategy(Strategy):
     ###########################################################################
 
     def _create_features(self):
-
         # Pull entire VXX history
-        prices = self.data.get_id_data(
-            ids=140062,
-            features=['Open', 'High', 'Low', 'Close', 'AdjFactor'],
-            start_date='1993-01-01',
-            end_date=dt.datetime.utcnow())
+        start_date = '2009-01-30'
+        end_date = '2020-01-01'
 
-        # Split Adjust
-        prices['Open'] = prices.Open * prices.AdjFactor
-        prices['High'] = prices.High * prices.AdjFactor
-        prices['Low'] = prices.Low * prices.AdjFactor
-        prices['Close'] = prices.Close * prices.AdjFactor
+        prices = self.data.get_id_data(
+            ids='VXX',
+            features=['ADJOpen_', 'ADJHigh', 'ADJLow', 'ADJClose_'],
+            start_date=start_date,
+            end_date=end_date)
 
         X = pd.DataFrame(index=prices.index)
 
-        X['V1'] = prices['Close'].pct_change(1)
-        X['V2'] = prices['Close'].pct_change(2)
-        X['V3'] = prices['Close'].pct_change(3)
-        X['V4'] = prices['Close'] / prices['Open'] - 1
-        X['V5'] = (prices['High'] - prices['Low']) / prices['Close'] - 1
-        X['V6'] = prices['Close'] / prices['Low'] - 1
+        X['V1'] = prices['ADJClose_'].pct_change(1)
+        X['V2'] = prices['ADJClose_'].pct_change(2)
+        X['V3'] = prices['ADJClose_'].pct_change(3)
+        X['V4'] = prices['ADJClose_'] / prices['ADJOpen_'] - 1
+        X['V5'] = (prices['ADJHigh'] - prices['ADJLow']) / prices['ADJClose_'] - 1
+        X['V6'] = prices['ADJClose_'] / prices['ADJLow'] - 1
 
         X['Ret1'] = X.V1.shift(-1)
         X['Ret2'] = X.V4.shift(-1)

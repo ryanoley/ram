@@ -59,7 +59,7 @@ class DataHandlerSQL(DataHandler):
         FILTER_COL = 'AvgDolVol'
 
         # Check user input
-        d1, d2, d3 = _check_dates(start_date, filter_date, end_date)
+        d1, d2, d3 = _format_dates(start_date, filter_date, end_date)
 
         features, colselect = sqlcmd_from_feature_list(features)
 
@@ -78,13 +78,13 @@ class DataHandlerSQL(DataHandler):
                 "where Date_ = '{0}' ".format(bdate) +
                 "order by {0} desc".format(FILTER_COL)
             )).flatten()
-            ids = [str(i) for i in ids]
+            _, idsstr = _format_ids(ids)
 
             univ = self.sql_execute(
                 "select IdcCode, Date_, {0} ".format(colselect) +
                 "from ram.dbo.ram_master " +
                 "where Date_ between '{0}' and '{1}'".format(d1, d3) +
-                "and IdcCode in " + str(tuple(ids))
+                "and IdcCode in " + idsstr
             )
 
         else:
@@ -119,19 +119,33 @@ class DataHandlerSQL(DataHandler):
             With columns ID, Date representing a unique observation.
         """
         # Check user input
-        d1, _, d3 = _check_dates(start_date, None, end_date)
+        d1, _, d3 = _format_dates(start_date, None, end_date)
+
         # Format ids. If just a single
-        ids = [ids] if not isinstance(ids, list) else ids
-        ids = str([str(i) for i in ids]).replace('[', '(').replace(']', ')')
+        ids, idsstr = _format_ids(ids)
+
+        # THIS SHOULD BE HANDLED BETTER
+        table = 'ram_master'
+        if 'SPY' in ids:
+            ids.remove('SPY')
+            ids.append('59751')
+            table = 'ram_master_etf'
+        if 'VXX' in ids:
+            ids.remove('VXX')
+            ids.append('140062')
+            table = 'ram_master_etf'
+
+        # Format ids. If just a single
+        ids, idsstr = _format_ids(ids)
 
         features, colselect = sqlcmd_from_feature_list(features)
 
         # Get data using start_date, end_date, and ids from filter
         univ = self.sql_execute(
             "select IdcCode, Date_, {0} ".format(colselect) +
-            "from ram.dbo.ram_master " +
+            "from ram.dbo.{0} ".format(table) +
             "where Date_ between '{0}' and '{1}' ".format(d1, d3) +
-            "and IdcCode in " + ids
+            "and IdcCode in " + idsstr
         )
 
         univ_df = pd.DataFrame(univ)
@@ -150,16 +164,30 @@ class DataHandlerSQL(DataHandler):
             return []
 
 
-def _check_dates(start_date, filter_date, end_date):
+def _format_dates(start_date, filter_date, end_date):
         return check_input_date(start_date), \
             check_input_date(filter_date), \
             check_input_date(end_date)
 
 
+def _format_ids(ids):
+    """
+    Takes in individual or list of ids, and returns a list/array
+    of those ids, and a string used to query sql database.
+    """
+    if isinstance(ids, str):
+        ids = [ids]
+    if hasattr(ids, '__iter__'):
+        idsstr = str([str(i) for i in ids])
+        idsstr = idsstr.replace('[', '(').replace(']', ')')
+        return ids, idsstr
+    else:
+        raise '_format_ids : ids not iterable'
+
+
 if __name__ == '__main__':
 
     # EXAMPLES
-
     dh = DataHandlerSQL()
 
     univ = dh.get_filtered_univ_data(
@@ -180,6 +208,11 @@ if __name__ == '__main__':
                           end_date='2016-10-20')
 
     univ = dh.get_id_data(ids=43030,
+                          features=['High', 'Low', 'Close'],
+                          start_date='2016-10-01',
+                          end_date='2016-10-20')
+
+    univ = dh.get_id_data(ids='VXX',
                           features=['High', 'Low', 'Close'],
                           start_date='2016-10-01',
                           end_date='2016-10-20')
