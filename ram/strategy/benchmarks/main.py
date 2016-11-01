@@ -1,37 +1,36 @@
-from pandas.io.data import DataReader
-from gearbox import convert_date_array
+import pandas as pd
 
 from ram.strategy.base import Strategy
+from ram.data.dh_sql import DataHandlerSQL
 
 
 class Benchmarks(Strategy):
 
     def __init__(self):
-        pass
+        self.data = DataHandlerSQL()
 
     def get_results(self):
         return self.results
 
     def start(self):
-        self.results = self._get_data()
+        import pdb; pdb.set_trace()
+        prices = self.data.get_id_data(
+            ids='SPY',
+            features=['ADJClose_'],
+            start_date='1993-01-30',
+            end_date='2020-01-01')
+        # Daily returns for the SPY
+        prices = prices.set_index('Date')
+        prices['SPY'] = prices.ADJClose_.pct_change()
+        prices = prices.drop(['ID', 'ADJClose_'], axis=1).dropna()
+        self.results = results
 
     def start_live(self):
-        # Get all data
-        results = self._get_data()
-        self.results = results.iloc[-1:]
-
-    def _get_data(self):
-        # TEMP!!!
-        prices = DataReader('SPY', 'yahoo')
-        prices.index = convert_date_array(prices.index.astype(str))
-        prices = prices[['Adj Close']]
-        prices.columns = ['SPY']
-        return prices.pct_change().dropna()
+        return -9999
 
 
 if __name__ == '__main__':
-
     strategy = Benchmarks()
     strategy.start()
     # strategy.start_live()
-    print strategy.get_results()
+    # strategy.get_results()
