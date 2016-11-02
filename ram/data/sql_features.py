@@ -29,7 +29,7 @@ def _get_feature_string(feature):
     elif feature[:4] == 'BOLL':
         return _bollinger(feature)
     elif feature[:3] == 'ADJ':
-        return _adj(feature)
+        return _adjust_price(feature)
     elif feature in MASTER_COLS:
         return feature
     else:
@@ -43,8 +43,8 @@ def _prma(feature):
     assert feature[:4] == 'PRMA'
     days = int(feature[4:])
     prma_string = \
-        "(Close_ * DividendFactor * SplitFactor) /" + \
-        _rolling_avg(days) + "as {0}".format(feature)
+        "{0}/".format(_adj('Close_')) + _rolling_avg(days) + \
+        "as {0}".format(feature)
     return prma_string
 
 
@@ -54,25 +54,28 @@ def _bollinger(feature):
     # Get the high and low side of the for the bollinger band
     lowstr = "(" + _rolling_avg(days) + '- 2 *' + _rolling_std(days) + ")"
     highstr = "(" + _rolling_avg(days) + '+ 2 *' + _rolling_std(days) + ")"
+
     bollinger_string = \
-        "( (Close_ * DividendFactor * SplitFactor) - " + lowstr + ") / " + \
+        "({0}- ".format(_adj('Close_')) + lowstr + ") / " + \
         "nullif((" + highstr + " - " + lowstr + "), 0) as {0}".format(feature)
     return bollinger_string
 
 
-def _adj(feature):
+def _adjust_price(feature):
     assert feature[:3] == 'ADJ'
-    col = feature[3:]
-    assert col in MASTER_COLS
-    return " ({0} * DividendFactor * SplitFactor) as {1} ".format(col, feature)
-
+    return "{0} as {1} ".format(_adj(feature[3:]), feature)
 
 ###############################################################################
 # HELPERS
 
+def _adj(feature):
+    assert feature in ['Open_', 'High', 'Low', 'Close_', 'Vwap']
+    return " ({0} * DividendFactor * SplitFactor) ".format(feature)
+
+
 def _rolling_avg(days):
     offset = days - 1
-    avg_string = " (avg(Close_ * DividendFactor * SplitFactor) over " + \
+    avg_string = " (avg{0}over ".format(_adj('Close_')) + \
         "(partition by IdcCode order by Date_ " + \
         "rows between {0} preceding and current row)) ".format(offset)
     return avg_string
@@ -80,7 +83,7 @@ def _rolling_avg(days):
 
 def _rolling_std(days):
     offset = days - 1
-    avg_string = " (stdev(Close_ * DividendFactor * SplitFactor) over " + \
+    avg_string = " (stdev{0}over ".format(_adj('Close_')) + \
         "(partition by IdcCode order by Date_ " + \
         "rows between {0} preceding and current row)) ".format(offset)
     return avg_string

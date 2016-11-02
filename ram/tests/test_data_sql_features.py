@@ -11,27 +11,39 @@ class TestSqlFeatures(unittest.TestCase):
 
     def test_rolling_avg(self):
         result = sqlf._rolling_avg(10)
-        benchmark = ' (avg(Close_ * DividendFactor * SplitFactor) over ' + \
+        benchmark = ' (avg (Close_ * DividendFactor * SplitFactor) over ' + \
                     '(partition by IdcCode order by Date_ rows between ' + \
                     '9 preceding and current row)) '
         self.assertEqual(result, benchmark)
 
+    def test_rolling_std(self):
+        result = sqlf._rolling_std(19)
+        benchmark = ' (stdev (Close_ * DividendFactor * SplitFactor) over ' + \
+                    '(partition by IdcCode order by Date_ rows between ' + \
+                    '18 preceding and current row)) '
+        self.assertEqual(result, benchmark)
+
+    def test_adjust_price(self):
+        result = sqlf._adjust_price('ADJClose_')
+        benchmark = ' (Close_ * DividendFactor * SplitFactor)  as ADJClose_ '
+        self.assertEqual(result, benchmark)
+
     def test_adj(self):
-        result = sqlf._adj('ADJClose_')
-        benchmark = ' (Close_ * DividendFactor * SplitFactor) as ADJClose_ '
+        result = sqlf._adj('Close_')
+        benchmark = ' (Close_ * DividendFactor * SplitFactor) '
         self.assertEqual(result, benchmark)
 
     def test_prma(self):
         result = sqlf._prma('PRMA10')
-        benchmark = '(Close_ * DividendFactor * SplitFactor) / ' + \
-                    '(avg(Close_ * DividendFactor * SplitFactor) over ' + \
+        benchmark = ' (Close_ * DividendFactor * SplitFactor) / ' + \
+                    '(avg (Close_ * DividendFactor * SplitFactor) over ' + \
                     '(partition by IdcCode order by Date_ rows between 9 ' + \
                     'preceding and current row)) as PRMA10'
         self.assertEqual(result, benchmark)
         #
         result = sqlf._prma('PRMA39')
-        benchmark = '(Close_ * DividendFactor * SplitFactor) / ' + \
-                    '(avg(Close_ * DividendFactor * SplitFactor) over ' + \
+        benchmark = ' (Close_ * DividendFactor * SplitFactor) / ' + \
+                    '(avg (Close_ * DividendFactor * SplitFactor) over ' + \
                     '(partition by IdcCode order by Date_ rows between 38 ' + \
                     'preceding and current row)) as PRMA39'
         self.assertEqual(result, benchmark)
@@ -40,19 +52,19 @@ class TestSqlFeatures(unittest.TestCase):
         result = sqlf._bollinger('BOLL20')
         benchmark = \
             '( (Close_ * DividendFactor * SplitFactor) - ' + \
-            '( (avg(Close_ * DividendFactor * SplitFactor) over ' + \
+            '( (avg (Close_ * DividendFactor * SplitFactor) over ' + \
             '(partition by IdcCode order by Date_ rows between 19 ' + \
-            'preceding and current row)) - 2 * (stdev(Close_ * ' + \
+            'preceding and current row)) - 2 * (stdev (Close_ * ' + \
             'DividendFactor * SplitFactor) over (partition by IdcCode ' + \
             'order by Date_ rows between 19 preceding and current row)) ' + \
-            ')) / nullif((( (avg(Close_ * DividendFactor * SplitFactor) ' + \
+            ')) / nullif((( (avg (Close_ * DividendFactor * SplitFactor) ' + \
             'over (partition by IdcCode order by Date_ rows between 19 ' + \
-            'preceding and current row)) + 2 * (stdev(Close_ * ' + \
+            'preceding and current row)) + 2 * (stdev (Close_ * ' + \
             'DividendFactor * SplitFactor) over (partition by IdcCode ' + \
             'order by Date_ rows between 19 preceding and current row)) ' + \
-            ') - ( (avg(Close_ * DividendFactor * SplitFactor) over ' + \
+            ') - ( (avg (Close_ * DividendFactor * SplitFactor) over ' + \
             '(partition by IdcCode order by Date_ rows between 19 ' + \
-            'preceding and current row)) - 2 * (stdev(Close_ * ' + \
+            'preceding and current row)) - 2 * (stdev (Close_ * ' + \
             'DividendFactor * SplitFactor) over (partition by IdcCode ' + \
             'order by Date_ rows between 19 preceding and current row)) ' + \
             ')), 0) as BOLL20'
