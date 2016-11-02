@@ -15,21 +15,21 @@ class BenchmarksStrategy(Strategy):
     def start(self):
         prices = self.data.get_id_data(
             ids='SPY',
-            features=['ADJClose_'],
+            features=['ADJ_Close'],
             start_date='1993-01-30',
             end_date='2020-01-01')
         # Daily returns for the SPY
         prices = prices.set_index('Date')
-        prices['SPY'] = prices.ADJClose_.pct_change()
-        prices = prices.drop(['ID', 'ADJClose_'], axis=1).dropna()
-        self.results = results
+        prices['SPY'] = prices.ADJ_Close.pct_change()
+        prices = prices.drop(['ID', 'ADJ_Close'], axis=1).dropna()
+        self.results = prices
 
     def start_live(self):
         return -9999
 
 
 if __name__ == '__main__':
-    strategy = Benchmarks()
+    strategy = BenchmarksStrategy()
     strategy.start()
     # strategy.start_live()
     # strategy.get_results()

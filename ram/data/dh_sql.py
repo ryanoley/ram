@@ -194,7 +194,7 @@ class DataHandlerSQL(DataHandler):
 
         # Query
         query = \
-        """
+            """
             ; with cte1 as (
                 select
                     IdcCode,
@@ -262,13 +262,22 @@ if __name__ == '__main__':
 
     univ = dh.get_filtered_univ_data(
         univ_size=10,
-        features=['Close', '#$@%', 'ADJClose_', 'VOL20', 'PRMA10', 'PRMA20'],
+        features=['LAGADJ_1_High', 'LAGADJ_1_Low', 'LAGVOL_90_Close'],
         start_date='2016-06-01',
         end_date='2016-10-20',
         filter_date='2016-06-01')
 
     univ = dh.get_filtered_univ_data(
-        features=['High', 'Low', 'Close'],
+        univ_size=10,
+        features=['P_Close', '#$@%', 'ADJ_Close',
+                  'VOL_20_Close', 'LAGVOL_20_Close',
+                  'PRMA_10_Close', 'MA_20_Open', 'LAGMA_20_Open'],
+        start_date='2016-06-01',
+        end_date='2016-10-20',
+        filter_date='2016-06-01')
+
+    univ = dh.get_filtered_univ_data(
+        features=['P_High', 'P_Low', 'P_CashDividend', 'P_AvgDolVol'],
         start_date='2016-10-01',
         end_date='2016-10-10')
 
