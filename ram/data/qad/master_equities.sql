@@ -16,12 +16,14 @@ create table	ram.dbo.ram_master_equities (
 				IdcCode int,
 				Date_ smalldatetime,
 
+				-- Raw values
 				Open_ real,
 				High real,
 				Low real,
 				Close_ real,
 				Vwap real,
 				Volume real,
+				CashDividend real,
 
 				AdjOpen real,
 				AdjHigh real,
@@ -32,7 +34,6 @@ create table	ram.dbo.ram_master_equities (
 
 				AvgDolVol real,
 				MarketCap real,
-				CashDividend real,
 				DividendFactor real,
 				SplitFactor real,
 				NormalTradingFlag smallint
@@ -178,7 +179,7 @@ from			idc_dates D
 	left join	(
 				select	Code, 
 						Date_ as StartDate, 
-						Datediff(day, -1, Lead(Date_, 1) over (
+						dateadd(day, -1, Lead(Date_, 1) over (
 							partition by Code 
 							order by Date_)) as EndDate, 
 						Shares 
@@ -231,6 +232,7 @@ select 			D.SecCode,
 				D.Close_,
 				D.Vwap,
 				D.Volume,
+				D.CashDividend,
 
 				-- Adjusted prices for ease in calculation downstream
 				D.Open_ * D.SplitFactor * exp(D.CumRate) as AdjOpen,
@@ -242,7 +244,7 @@ select 			D.SecCode,
 
 				D.AvgDolVol,
 				D.MarketCap,				
-				D.CashDividend,
+
 				exp(D.CumRate) as DividendFactor,
 				D.SplitFactor,			
 

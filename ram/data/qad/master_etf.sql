@@ -37,7 +37,7 @@ create table	ram.dbo.ram_master_etf (
 				AvgDolVol real,
 				CashDividend real,
 				DividendFactor real,
-				SplitFactor real,
+				SplitFactor real
 
 				primary key (SecCode, IdcCode, Date_)
 )
@@ -146,35 +146,6 @@ from			idc_dates D
 		on		DV.Code = D.Code
 		and		DV.ExDate = D.Date_
 
-	-- Consolidated Market Cap
-	left join	qai.dbo.Ds2MktVal MC
-		on		N.VenCode = MC.InfoCode
-		and		D.Date_ = MC.ValDate
-
-	-- Shares outstanding for MarketCap
-	-- Merges on max available date from Share table
-	-- that is before or on current daily date
-	-- IMPROVEMENT: This is where would could add in
-	-- data stream functionality because there is missing
-	-- share data.
---	left join	qai.prc.PrcShr SH
---		on		SH.Code = D.Code 
---		and		SH.Date_ = ( select max(S2.Date_) 
---							 from qai.prc.PrcShr S2
---							 where S2.Code = D.Code
---							 and S2.Date_ <= D.Date_ )
-	left join	(
-				select	Code, 
-						Date_ as StartDate, 
-						Datediff(day, -1, Lead(Date_, 1) over (
-							partition by Code 
-							order by Date_)) as EndDate, 
-						Shares 
-				from qai.prc.PrcShr
-				) SH
-		on		D.Code = SH.Code 
-		and		D.Date_ between SH.StartDate and SH.EndDate
-
 )
 
 
@@ -191,15 +162,7 @@ select			*,
 				avg(Vwap * Volume) over (
 					partition by IdcCode 
 					order by Date_
-					rows between 29 preceding and current row) / 1e6 as AvgDolVol,
-
-				-- Market Cap calculated here to use coalesced Close_
-				coalesce(tempMarketCap, tempShares * Close_ / 1e6) as MarketCap,
-
-				-- Date Lag for NormalTradingFlag
-				Lag(Date_, 252) over (
-					partition by IdcCode 
-					order by Date_) as DateLag
+					rows between 29 preceding and current row) / 1e6 as AvgDolVol
 
 from			data_merge
 
@@ -229,13 +192,9 @@ select 			D.SecCode,
 				D.Volume / D.SplitFactor as AdjVolume,
 
 				D.AvgDolVol,
-				D.MarketCap,				
 				D.CashDividend,
 				exp(D.CumRate) as DividendFactor,
-				D.SplitFactor,			
-
-				-- Filter that is used in universe selection
-				case when DateLag = DateLagC then 1 else 0 end as NormalTradingFlag
+				D.SplitFactor
 
 from			agg_data D
 where			Date_ >= '1995-01-01'
