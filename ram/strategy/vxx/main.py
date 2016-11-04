@@ -82,18 +82,19 @@ class VXXStrategy(Strategy):
 
         prices = self.data.get_id_data(
             ids='VXX',
-            features=['ADJOpen_', 'ADJHigh', 'ADJLow', 'ADJClose_'],
+            features=['ADJ_Open', 'ADJ_High', 'ADJ_Low', 'ADJ_Close'],
             start_date=start_date,
             end_date=end_date)
 
         X = pd.DataFrame(index=prices.index)
 
-        X['V1'] = prices['ADJClose_'].pct_change(1)
-        X['V2'] = prices['ADJClose_'].pct_change(2)
-        X['V3'] = prices['ADJClose_'].pct_change(3)
-        X['V4'] = prices['ADJClose_'] / prices['ADJOpen_'] - 1
-        X['V5'] = (prices['ADJHigh'] - prices['ADJLow']) / prices['ADJClose_'] - 1
-        X['V6'] = prices['ADJClose_'] / prices['ADJLow'] - 1
+        X['V1'] = prices['ADJ_Close'].pct_change(1)
+        X['V2'] = prices['ADJ_Close'].pct_change(2)
+        X['V3'] = prices['ADJ_Close'].pct_change(3)
+        X['V4'] = prices['ADJ_Close'] / prices['ADJ_Open'] - 1
+        X['V5'] = (prices['ADJ_High'] - prices['ADJ_Low']) / \
+            prices['ADJ_Close'] - 1
+        X['V6'] = prices['ADJ_Close'] / prices['ADJ_Low'] - 1
 
         X['Ret1'] = X.V1.shift(-1)
         X['Ret2'] = X.V4.shift(-1)
