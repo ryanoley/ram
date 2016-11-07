@@ -1,33 +1,48 @@
 import re
+import datetime as dt
 
 
-def sqlcmd_from_feature_list(features):
+def sqlcmd_from_feature_list(features, ids, start_date, end_date):
+
+    if len(ids):
+        ids_str = 'and IdcCode in ' + format_ids(ids)
+    else:
+        ids_str = ''
+
+    # Make this dynamic somehow?
+    sdate = start_date - dt.timedelta(days=365)
+
     # Get individual entries for CTEs per feature
     ctes = []
     for f in features:
         ctes.append(make_cmds(f))
-
+    # Format for entry into CTEs
     cte1, cte2, cte3 = zip(*ctes)
-    vars1 = ','.join(cte1)
-    vars2 = ','.join(cte2)
-    vars3 = ','.join(cte3)
+    vars1 = ', '.join(cte1)
+    vars2 = ', '.join(cte2)
+    vars3 = ', '.join(cte3)
 
     sqlcmd = \
-    """
-    ; with cte1 as (
-        select {0}
-        from ram.dbo.ram_master_equities
-    )
-    , cte2 as (
-        select {1}
-        from cte1
-    )
-    , cte3 as (
-        select {2}
-        from cte2
-    )
-    select * from cte3
-    """.format(vars1, vars2, vars3)
+        """
+        ; with cte1 as (
+            select IdcCode, Date_, {0}
+            from ram.dbo.ram_master_equities
+            where Date_ between '{3}' and '{5}'
+            {6}
+        )
+        , cte2 as (
+            select IdcCode, Date_, {1}
+            from cte1
+        )
+        , cte3 as (
+            select IdcCode, Date_, {2}
+            from cte2
+        )
+        select * from cte3
+        where Date_ between '{4}' and '{5}'
+        """.format(
+            vars1, vars2, vars3,
+            sdate, start_date, end_date, ids_str)
     return clean_sql_cmd(sqlcmd)
 
 
@@ -48,8 +63,8 @@ def parse_input_var(vstring):
     The format should be something like:
         LAG1_PRMA10_Close
     """
-    args = re.split('(\d+)_', vstring)
-    out = {'name': vstring}
+    args = [x for x in re.split('(\d+)|_', vstring) if x]
+    out = {'name': '[{0}]'.format(vstring)}
 
     while args:
 
@@ -96,7 +111,19 @@ def parse_input_var(vstring):
 
 
 def clean_sql_cmd(sqlcmd):
-    return sqlcmd.replace('  ', '').replace('\n', ' ')
+    return ' '.join(sqlcmd.replace('\n', ' ').split())
+
+
+def format_ids(ids):
+    """
+    Takes in individual or list of ids, and returns a list/array
+    of those ids, and a string used to query sql database.
+    """
+    if not hasattr(ids, '__iter__'):
+        ids = [ids]
+    idsstr = str([str(i) for i in ids])
+    idsstr = idsstr.replace('[', '(').replace(']', ')')
+    return idsstr
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -169,3 +196,88 @@ def PRMA(params):
         {0}
         """.format(name)
     return sqlcmd1, sqlcmd2
+
+
+def MA(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    sqlcmd1 = \
+        """
+        avg({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as {2}
+        """.format(column, length-1, name)
+    sqlcmd2 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2
+
+
+def VOL(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    # Quick fix!
+    name2 = name[1:-1]
+    sqlcmd1 = \
+        """
+        {0} as {1},
+        lag({0}, 1) over (
+            partition by IdcCode
+            order by Date_) as TEMPLAG{2}
+        """.format(column, name, name2)
+    sqlcmd2 = \
+        """
+        stdev({1}/ TEMPLAG{2}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {3} preceding and current row) as {1}
+        """.format(column, name, name2, length-1)
+    return sqlcmd1, sqlcmd2
+
+
+
+
+
+def BOLL(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    # Quick fix!
+    name2 = name[1:-1]
+
+    sqlcmd1 = \
+        """
+        avg({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as TEMPMEAN{2},
+        stdev({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as TEMPSTD{2}
+        """.format(column, length-1, name2)
+
+    sqlcmd2 = \
+        """
+        ({0} -
+        """
+
+
+    # Adjustment for Close/Open columns
+    if col in ['Open', 'Close']:
+        col = col + '_'
+    # Get the high and low side of the for the bollinger band
+    lowstr = "({0} - 2 * {1})".format(
+        _rolling_avg(col, days), _rolling_std(col, days))
+    highstr = "({0} + 2 * {1})".format(
+        _rolling_avg(col, days), _rolling_std(col, days))
+    bollinger_string = \
+        """
+        ({0} - {1}) / nullif({2} - {1}, 0) as {3}
+        """.format(_adj(col), lowstr, highstr, feature)
+    return bollinger_string, feature
+
