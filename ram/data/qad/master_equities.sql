@@ -2,11 +2,10 @@
 use ram;
 
 -------------------------------------------------------------
--- Create table
+-- Create tables
 
 if object_id('ram.dbo.ram_master_equities', 'U') is not null 
 	drop table ram.dbo.ram_master_equities
-
 
 
 create table	ram.dbo.ram_master_equities (
@@ -41,15 +40,45 @@ create table	ram.dbo.ram_master_equities (
 )
 
 
+-------------------------------------------------------------------
+-------------------------------------------------------------------
+
 
 ; with idc_dates as (
 
 	-- All dates from IDC tables
-	select distinct Code, Date_ from qai.prc.PrcExc
+	select distinct Code, Date_ from qai.prc.PrcExc where Date_ >= '1993-12-01'
 	union
-	select distinct Code, Date_ from qai.prc.PrcDly
+	select distinct Code, Date_ from qai.prc.PrcDly where Date_ >= '1993-12-01'
 	union
-	select distinct Code, Date_ from qai.prc.PrcVol
+	select distinct Code, Date_ from qai.prc.PrcVol where Date_ >= '1993-12-01'
+
+)
+
+
+, shares as (
+
+select		Code, 
+			Date_ as StartDate, 
+			dateadd(day, -1, Lead(Date_, 1) over (
+				partition by Code 
+				order by Date_)) as EndDate, 
+			Shares 
+from		qai.prc.PrcShr
+where		Date_ >= '1992-01-01'
+
+)
+
+
+, exchanges as (
+
+select		Code,
+			StartDate, 
+			coalesce(DATEADD(day, -1, lead(StartDate, 1) over (
+				partition by Code 
+				order by StartDate)), EndDate, getdate()) as AltEndDate,
+			Exchange
+from		qai.prc.PrcScChg 
 
 )
 
@@ -94,15 +123,9 @@ from			idc_dates D
 		on		D.Date_ = DF.Date_
 
 	-- Historical Exchange filter -- Null handling for missing EndDates
-	join		(	
-				select	*, 
-						coalesce(EndDate, DATEADD(day, -1, lead(StartDate, 1) over (
-							partition by Code 
-							order by StartDate))) as AltEndDate  
-				from	qai.prc.PrcScChg 
-				) E
+	join		exchanges E
 		on		D.Code = E.Code
-		and		D.Date_ between E.StartDate and coalesce(E.AltEndDate, getdate())
+		and		D.Date_ between E.StartDate and E.AltEndDate
 		and		E.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
 
 	-- Security type filter
@@ -176,15 +199,7 @@ from			idc_dates D
 	-- IMPROVEMENT: This is where would could add in
 	-- data stream functionality because there is missing
 	-- share data.
-	left join	(
-				select	Code, 
-						Date_ as StartDate, 
-						dateadd(day, -1, Lead(Date_, 1) over (
-							partition by Code 
-							order by Date_)) as EndDate, 
-						Shares 
-				from qai.prc.PrcShr
-				) SH
+	left join	shares SH
 		on		D.Code = SH.Code 
 		and		D.Date_ between SH.StartDate and SH.EndDate
 
@@ -253,13 +268,11 @@ select 			D.SecCode,
 
 from			agg_data D
 where			Date_ >= '1995-01-01'
-
 )
 
 
 insert into ram.dbo.ram_master_equities
 select * from final_table
-
 
 -- General Indexes
 create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
