@@ -30,6 +30,7 @@ create table	ram.dbo.ram_master_equities (
 				AdjClose real,
 				AdjVwap real,
 				AdjVolume real,
+				AdjCashDividend real,
 
 				AvgDolVol real,
 				MarketCap real,
@@ -256,9 +257,9 @@ select 			D.SecCode,
 				D.Close_ * D.SplitFactor * exp(D.CumRate) as AdjClose,
 				D.Vwap * D.SplitFactor * exp(D.CumRate) as AdjVwap,
 				D.Volume / D.SplitFactor as AdjVolume,
-
+				D.CashDividend * D.SplitFactor as AdjCashDividend,
 				D.AvgDolVol,
-				D.MarketCap,				
+				D.MarketCap,
 
 				exp(D.CumRate) as DividendFactor,
 				D.SplitFactor,			
