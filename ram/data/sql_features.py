@@ -41,6 +41,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         )
         select * from cte3
         where Date_ between '{4}' and '{5}'
+        order by IdcCode, Date_
         """.format(
             vars1, vars2, vars3,
             sdate, start_date, end_date, ids_str, table)

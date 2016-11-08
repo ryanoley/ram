@@ -77,16 +77,16 @@ class StatArbStrategy(Strategy):
 
         data = self.datahandler.get_filtered_univ_data(
             univ_size=univ_size,
-            features=['P_Close', 'ADJ_Close',
-                      'P_CashDividend', 'P_SplitFactor'],
+            features=['RClose', 'Close',
+                      'RCashDividend', 'SplitFactor'],
             start_date=start_date,
             end_date=end_date,
             filter_date=adj_filter_date)
         # Adjustments to data
-        data['SplitMultiplier'] = data.P_SplitFactor.pct_change().fillna(0) + 1
-        data = data.rename(columns={'P_CashDividend': 'Dividend',
-                                    'P_Close': 'Close',
-                                    'ADJ_Close': 'ADJClose'})
+        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
+        data = data.rename(columns={'RCashDividend': 'Dividend',
+                                    'RClose': 'Close',
+                                    'Close': 'ADJClose'})
         # Adjustment for naming conventions
         data.ID = data.ID.astype(str)
 

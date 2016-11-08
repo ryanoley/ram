@@ -13,15 +13,15 @@ class BenchmarksStrategy(Strategy):
         return self.results
 
     def start(self):
-        prices = self.data.get_id_data(
-            ids='SPY',
-            features=['ADJ_Close'],
+        prices = self.data.get_etf_data(
+            tickers='SPY',
+            features=['Close'],
             start_date='1993-01-30',
             end_date='2020-01-01')
         # Daily returns for the SPY
         prices = prices.set_index('Date')
-        prices['SPY'] = prices.ADJ_Close.pct_change()
-        prices = prices.drop(['ID', 'ADJ_Close'], axis=1).dropna()
+        prices['SPY'] = prices.Close.pct_change()
+        prices = prices.drop(['ID', 'Close'], axis=1).dropna()
         self.results = prices
 
     def start_live(self):
