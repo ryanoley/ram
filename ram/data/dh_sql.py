@@ -37,8 +37,10 @@ class DataHandlerSQL(DataHandler):
             """
         )).flatten()
 
-    def _get_filtered_ids(self, filter_date, univ_size):
-        FILTER_COL = 'AvgDolVol'
+    def _get_filtered_ids(self, filter_date, args):
+        univ_size = args['univ_size']
+        filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
+        where = 'and {0}'.format(args['where']) if 'where' in args else ''
 
         # Get exact filter date
         fdate = self._dates[self._dates <= filter_date][-1]
@@ -50,8 +52,9 @@ class DataHandlerSQL(DataHandler):
             from ram.dbo.ram_master_equities
             where Date_ = '{1}'
             and NormalTradingFlag = 1
-            order by {2} desc;
-            """.format(univ_size, fdate, FILTER_COL)
+            {2}
+            order by {3} desc;
+            """.format(univ_size, fdate, where, filter_col)
         )).flatten()
         return ids
 
@@ -59,8 +62,9 @@ class DataHandlerSQL(DataHandler):
                                features,
                                start_date,
                                end_date,
+                               filter_date,
                                univ_size=None,
-                               filter_date=None):
+                               filter_args=None):
         """
         Purpose of this class is to provide an interface to get a filtered
         universe.
@@ -69,7 +73,9 @@ class DataHandlerSQL(DataHandler):
         ----------
         features : list
         start_date/filter_date/end_date : string/datetime
-        univ_size : int
+        count : int
+        filter_args : dict
+            Should have elements: count, where, and order
 
         Returns
         -------
@@ -79,8 +85,12 @@ class DataHandlerSQL(DataHandler):
         # Check user input
         d1, d2, d3 = _format_dates(start_date, filter_date, end_date)
 
+        if not filter_args:
+            assert univ_size, 'Must provide filter args or univ_size'
+            filter_args = {'univ_size': univ_size}
+
         if filter_date:
-            ids = self._get_filtered_ids(d2, univ_size)
+            ids = self._get_filtered_ids(d2, filter_args)
         else:
             ids = []
 
@@ -149,13 +159,15 @@ if __name__ == '__main__':
     dh = DataHandlerSQL()
 
     import pdb; pdb.set_trace()
+    filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
+                   'univ_size': 20}
+
     univ = dh.get_filtered_univ_data(
-        univ_size=10,
-        features=['BOLL30', 'LAG1_High', 'LAG1_Low', 'LAG2_PRMA10_Close',
-                  'VOL30_Close', 'LAG1_VOL30_Close'],
+        features=['BOLL30_Close', 'LAG2_BOLL30_Close', 'Close'],
         start_date='2016-06-01',
         end_date='2016-10-20',
-        filter_date='2016-06-01')
+        filter_date='2016-06-01',
+        filter_args=filter_args)
 
     univ = dh.get_filtered_univ_data(
         univ_size=10,

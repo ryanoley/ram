@@ -239,18 +239,15 @@ def VOL(params):
     return sqlcmd1, sqlcmd2
 
 
-
-
-
 def BOLL(params):
     column = params['datacol']
     length = params['var'][1]
     name = params['name']
     # Quick fix!
     name2 = name[1:-1]
-
     sqlcmd1 = \
         """
+        {0} as TEMPP{2},
         avg({0}) over (
             partition by IdcCode
             order by Date_
@@ -260,24 +257,8 @@ def BOLL(params):
             order by Date_
             rows between {1} preceding and current row) as TEMPSTD{2}
         """.format(column, length-1, name2)
-
     sqlcmd2 = \
         """
-        ({0} -
-        """
-
-
-    # Adjustment for Close/Open columns
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    # Get the high and low side of the for the bollinger band
-    lowstr = "({0} - 2 * {1})".format(
-        _rolling_avg(col, days), _rolling_std(col, days))
-    highstr = "({0} + 2 * {1})".format(
-        _rolling_avg(col, days), _rolling_std(col, days))
-    bollinger_string = \
-        """
-        ({0} - {1}) / nullif({2} - {1}, 0) as {3}
-        """.format(_adj(col), lowstr, highstr, feature)
-    return bollinger_string, feature
-
+        (TEMPP{0} - (TEMPMEAN{0} - 2 * TEMPSTD{0})) / (4 * TEMPSTD{0}) as {1}
+        """.format(name2, name)
+    return sqlcmd1, sqlcmd2
