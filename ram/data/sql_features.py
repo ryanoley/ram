@@ -5,7 +5,7 @@ import datetime as dt
 #   All funcs need to be registered here so that they are properly
 #   called in the parser
 
-TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI']
+TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI']
 MANIPFUNCS = ['LAG', 'LEAD', 'RANK']
 
 
@@ -55,7 +55,6 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         order by IdcCode, Date_
         """.format(
             vars1, vars2, vars3, vars4,
-            
             sdate, start_date, end_date, ids_str, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -359,4 +358,46 @@ def RSI(params):
         """
         100 * UpMove{0} / NullIf(UpMove{0} - DownMove{0}, 0) as {0}
         """.format(name2)
+    return sqlcmd1, sqlcmd2, sqlcmd3
+
+
+def MFI(params):
+    length = params['var'][1]
+    name = params['name']
+    # Quick fix!
+    name2 = name[1:-1]
+    sqlcmd1 = \
+        """
+        (AdjHigh + AdjLow + AdjClose) / 3 as TypPrice{0},
+        lag((AdjHigh + AdjLow + AdjClose) / 3, 1) over (
+            partition by IdcCode
+            order by Date_) as LagTypPrice{0},
+        (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF{0}
+        """.format(name2)
+
+    sqlcmd2 = \
+        """
+        case
+            when TypPrice{0} > LagTypPrice{0}
+            then RawMF{0}
+            else 0 end as MonFlowP{0},
+
+        case
+            when LagTypPrice{0} is null then RawMF{0}
+            when TypPrice{0} != LagTypPrice{0} then RawMF{0}
+            else 0 end as MonFlow{0}
+        """.format(name2)
+
+    sqlcmd3 = \
+        """
+        sum(MonFlowP{0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) /
+
+        nullif(sum(MonFlow{0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row), 0) * 100 as {0}
+        """.format(name2, length-1)
     return sqlcmd1, sqlcmd2, sqlcmd3
