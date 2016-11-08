@@ -6,11 +6,10 @@ insert @ETFS values (59751, 8931), (140062, 230116)		-- SPY, VXX
 
 
 -------------------------------------------------------------
--- Create table
+-- Create tables
 
 if object_id('ram.dbo.ram_master_etf', 'U') is not null 
 	drop table ram.dbo.ram_master_etf
-
 
 
 create table	ram.dbo.ram_master_etf (
@@ -18,6 +17,7 @@ create table	ram.dbo.ram_master_etf (
 				SecCode int,
 				DsInfoCode int,
 				IdcCode int,
+				Ticker varchar(10),
 				Date_ smalldatetime,
 
 				Open_ real,
@@ -26,6 +26,7 @@ create table	ram.dbo.ram_master_etf (
 				Close_ real,
 				Vwap real,
 				Volume real,
+				CashDividend real,
 
 				AdjOpen real,
 				AdjHigh real,
@@ -35,14 +36,15 @@ create table	ram.dbo.ram_master_etf (
 				AdjVolume real,
 
 				AvgDolVol real,
-				CashDividend real,
 				DividendFactor real,
 				SplitFactor real
 
-				primary key (SecCode, IdcCode, Date_)
+				primary key (SecCode, IdcCode, Ticker, Date_)
 )
 
 
+-------------------------------------------------------------------
+-------------------------------------------------------------------
 
 ; with idc_dates as (
 
@@ -62,32 +64,23 @@ select
 				M.SecCode,
 				N.VenCode as DsInfoCode,
 				D.Code as IdcCode,
+				F.Ticker,
 				D.Date_,
-				-- (For historical cusip:) E.Cusip,
-				-- (For historical ticker:) E.Ticker,
+
 				coalesce(P1.Open_, P2.Open_, P4.Open_) as Open_,
 				coalesce(P1.High, P2.High, P4.High) as High,
 				coalesce(P1.Low, P2.Low, P4.Low) as Low,
 				coalesce(P1.Close_, P2.Close_, P4.Close_) as Close_,
 				coalesce(Nullif(P3.Vwap, -99999), P4.Vwap) as Vwap,
-				coalesce(P2.Volume, P4.Volume, P1.Volume) as Volume,
+				coalesce(P2.Volume, P1.Volume) as Volume,
 				Isnull(DV.CashDividend, 0) as CashDividend,
 				A.Factor as SplitFactor
+
 from			idc_dates D
 
-	-- Filter --
-
-	-- Historical Exchange filter -- Null handling for missing EndDates
-	join		(	
-				select	*,
-						coalesce(EndDate, DATEADD(day, -1, lead(StartDate, 1) over (
-							partition by Code 
-							order by StartDate))) as AltEndDate  
-				from	qai.prc.PrcScChg 
-				) E
-		on		D.Code = E.Code
-		and		D.Date_ between E.StartDate and coalesce(E.AltEndDate, getdate())
-		and		E.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
+	--  Tickers
+	join		qai.prc.PrcInfo F
+		on		D.Code = F.Code
 
 	-- Merge Security Master mapping
 	join		qai.dbo.SecMapX M
@@ -173,6 +166,7 @@ from			data_merge
 select 			D.SecCode,
 				D.DsInfoCode,
 				D.IdcCode,
+				D.Ticker,
 
 				D.Date_,
 
@@ -182,6 +176,7 @@ select 			D.SecCode,
 				D.Close_,
 				D.Vwap,
 				D.Volume,
+				D.CashDividend,
 
 				-- Adjusted prices for ease in calculation downstream
 				D.Open_ * D.SplitFactor * exp(D.CumRate) as AdjOpen,
@@ -192,21 +187,18 @@ select 			D.SecCode,
 				D.Volume / D.SplitFactor as AdjVolume,
 
 				D.AvgDolVol,
-				D.CashDividend,
+
 				exp(D.CumRate) as DividendFactor,
 				D.SplitFactor
 
 from			agg_data D
 where			Date_ >= '1995-01-01'
-
 )
 
 
 insert into ram.dbo.ram_master_etf
 select * from final_table
 
-
 -- General Indexes
-create index idccode_date on ram.dbo.ram_master_etf (IdcCode, Date_)
-create index date_idccode on ram.dbo.ram_master_etf (Date_, IdcCode)
-
+create index ticker_date on ram.dbo.ram_master_etf (Ticker, Date_)
+create index date_ticker on ram.dbo.ram_master_etf (Date_, Ticker)
