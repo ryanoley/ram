@@ -208,6 +208,12 @@ if __name__ == '__main__':
 
     # EXAMPLES
     dh = DataHandlerSQL()
+    import pdb; pdb.set_trace()
+    univ = dh.get_etf_data(
+        tickers=['SPY', 'VXX'],
+        features=['Close', 'RSI10'],
+        start_date='2016-06-01',
+        end_date='2016-10-20')
 
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],

@@ -2,6 +2,13 @@ import re
 import datetime as dt
 
 
+#   All funcs need to be registered here so that they are properly
+#   called in the parser
+
+TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI']
+MANIPFUNCS = ['LAG', 'LEAD', 'RANK']
+
+
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
                              table='ram.dbo.ram_master_equities'):
 
@@ -18,18 +25,19 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     for f in features:
         ctes.append(make_cmds(f))
     # Format for entry into CTEs
-    cte1, cte2, cte3 = zip(*ctes)
+    cte1, cte2, cte3, cte4 = zip(*ctes)
     vars1 = ', '.join(cte1)
     vars2 = ', '.join(cte2)
     vars3 = ', '.join(cte3)
+    vars4 = ', '.join(cte4)
 
     sqlcmd = \
         """
         ; with cte1 as (
             select IdcCode, Date_, {0}
-            from {7}
-            where Date_ between '{3}' and '{5}'
-            {6}
+            from {8}
+            where Date_ between '{4}' and '{6}'
+            {7}
         )
         , cte2 as (
             select IdcCode, Date_, {1}
@@ -38,12 +46,16 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         , cte3 as (
             select IdcCode, Date_, {2}
             from cte2
+        ), cte4 as (
+            select IdcCode, Date_, {3}
+            from cte3
         )
-        select * from cte3
-        where Date_ between '{4}' and '{5}'
+        select * from cte4
+        where Date_ between '{5}' and '{6}'
         order by IdcCode, Date_
         """.format(
-            vars1, vars2, vars3,
+            vars1, vars2, vars3, vars4,
+            
             sdate, start_date, end_date, ids_str, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -53,9 +65,10 @@ def make_cmds(vstring):
     # Call function that corresponds to user input. Will handle
     # if there is no manipulation for a variable, aka just return
     # data from the table.
-    cte1, cte2 = globals()[params['var'][0]](params)
-    cte3 = globals()[params['manip'][0]](params)
-    return clean_sql_cmd(cte1), clean_sql_cmd(cte2), clean_sql_cmd(cte3)
+    cte1, cte2, cte3 = globals()[params['var'][0]](params)
+    cte4 = globals()[params['manip'][0]](params)
+    return clean_sql_cmd(cte1), clean_sql_cmd(cte2), \
+        clean_sql_cmd(cte3), clean_sql_cmd(cte4)
 
 
 def parse_input_var(vstring):
@@ -71,12 +84,12 @@ def parse_input_var(vstring):
     while args:
 
         # Manipulations
-        if args[0] in ['LAG', 'LEAD', 'RANK']:
+        if args[0] in MANIPFUNCS:
             out['manip'] = (args[0], int(args[1]))
             args = args[2:]
 
         # Variables
-        elif args[0] in ['MA', 'PRMA', 'VOL', 'BOLL']:
+        elif args[0] in TECHFUNCS:
             out['var'] = (args[0], int(args[1]))
             args = args[2:]
 
@@ -156,6 +169,17 @@ def LEAD(params):
     return sqlcmd
 
 
+def RANK(params):
+    name = params['name']
+    sqlcmd = \
+        """
+        Rank() over (
+            partition by Date_
+            order by {0}) as {0}
+        """.format(name)
+    return sqlcmd
+
+
 def pass_through_manip(params):
     name = params['name']
     sqlcmd = \
@@ -179,7 +203,7 @@ def pass_through_var(params):
         """
         {0}
         """.format(name)
-    return sqlcmd1, sqlcmd2
+    return sqlcmd1, sqlcmd2, sqlcmd2
 
 
 def PRMA(params):
@@ -197,7 +221,7 @@ def PRMA(params):
         """
         {0}
         """.format(name)
-    return sqlcmd1, sqlcmd2
+    return sqlcmd1, sqlcmd2, sqlcmd2
 
 
 def MA(params):
@@ -215,7 +239,7 @@ def MA(params):
         """
         {0}
         """.format(name)
-    return sqlcmd1, sqlcmd2
+    return sqlcmd1, sqlcmd2, sqlcmd2
 
 
 def VOL(params):
@@ -238,7 +262,11 @@ def VOL(params):
             order by Date_
             rows between {3} preceding and current row) as {1}
         """.format(column, name, name2, length-1)
-    return sqlcmd1, sqlcmd2
+    sqlcmd3 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2, sqlcmd3
 
 
 def BOLL(params):
@@ -263,4 +291,72 @@ def BOLL(params):
         """
         (TEMPP{0} - (TEMPMEAN{0} - 2 * TEMPSTD{0})) / (4 * TEMPSTD{0}) as {1}
         """.format(name2, name)
-    return sqlcmd1, sqlcmd2
+    sqlcmd3 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2, sqlcmd3
+
+
+def DISCOUNT(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    sqlcmd1 = \
+        """
+        -1 * ({0} / max({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) - 1) as {2}
+        """.format(column, length-1, name)
+    sqlcmd2 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2, sqlcmd2
+
+
+def RSI(params):
+    length = params['var'][1]
+    name = params['name']
+    # Quick fix!
+    name2 = name[1:-1]
+    sqlcmd1 = \
+        """
+        case when
+            (AdjClose - lag(AdjClose, 1) over (
+                            partition by IdcCode
+                            order by Date_)) > 0
+        then
+            (AdjClose - lag(AdjClose, 1) over (
+                            partition by IdcCode
+                            order by Date_))
+        else 0 end as UpMove{0},
+
+        case when
+            (AdjClose - lag(AdjClose, 1) over (
+                            partition by IdcCode
+                            order by Date_)) < 0
+        then
+            (AdjClose - lag(AdjClose, 1) over (
+                            partition by IdcCode
+                            order by Date_))
+        else 0 end as DownMove{0}
+        """.format(name2)
+    sqlcmd2 = \
+        """
+        sum(UpMove{0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as UpMove{0},
+
+        sum(DownMove{0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as DownMove{0}
+        """.format(name2, length-1)
+    sqlcmd3 = \
+        """
+        100 * UpMove{0} / NullIf(UpMove{0} - DownMove{0}, 0) as {0}
+        """.format(name2)
+    return sqlcmd1, sqlcmd2, sqlcmd3
