@@ -44,8 +44,8 @@ class GapStrategy(Strategy):
             down_data.Ret = down_data.Ret - COST
 
             # Sum all trades
-            up_rets = up_data.groupby('Date').Ret.sum()
-            down_rets = down_data.groupby('Date').Ret.sum()
+            up_rets = up_data.groupby('Date').Ret.mean()
+            down_rets = down_data.groupby('Date').Ret.mean()
 
             results.loc[up_rets.index, 'R1'] = up_rets * -1
             results.loc[down_rets.index, 'R2'] = down_rets
