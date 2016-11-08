@@ -146,6 +146,52 @@ class DataHandlerSQL(DataHandler):
             print 'error running sqlcmd: ' + str(e)
             return []
 
+    def get_etf_data(self,
+                     tickers,
+                     features,
+                     start_date,
+                     end_date):
+        """
+        Purpose of this class is to provide an interface to get a filtered
+        universe.
+
+        Parameters
+        ----------
+        ids : list
+        features : list
+        start_date/end_date : datetime
+
+        Returns
+        -------
+        data : pandas.DataFrame
+            With columns ID, Date representing a unique observation.
+        """
+        # Check user input
+        d1, _, d3 = _format_dates(start_date, None, end_date)
+
+        ids = self._map_ticker_to_id(tickers)
+
+        # Get features, and strings for cte and regular query
+        sqlcmd = sqlcmd_from_feature_list(features, ids.ID.tolist(),
+                                          d1, d3, 'ram.dbo.ram_master_etf')
+        univ = self.sql_execute(sqlcmd)
+
+        univ_df = pd.DataFrame(univ)
+        univ_df.columns = ['ID', 'Date'] + features
+        univ_df = univ_df.merge(ids)
+        univ_df.ID = univ_df.Ticker
+        univ_df = univ_df.drop('Ticker', axis=1)
+        return univ_df
+
+    def _map_ticker_to_id(self, tickers):
+        if isinstance(tickers, str):
+            tickers = [tickers]
+        # Get Ticker, IdcCode mapping
+        ids = pd.DataFrame(self.sql_execute(
+            "select distinct IdcCode, Ticker "
+            "from ram.dbo.ram_master_etf;"), columns=['ID', 'Ticker'])
+        return ids[ids.Ticker.isin(tickers)]
+
 
 def _format_dates(start_date, filter_date, end_date):
         return check_input_date(start_date), \
@@ -158,10 +204,14 @@ if __name__ == '__main__':
     # EXAMPLES
     dh = DataHandlerSQL()
 
-    import pdb; pdb.set_trace()
+    univ = dh.get_etf_data(
+        tickers=['SPY', 'VXX'],
+        features=['Close', 'RClose', 'AvgDolVol', 'LAG1_AvgDolVol'],
+        start_date='2016-06-01',
+        end_date='2016-10-20')
+
     filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
                    'univ_size': 20}
-
     univ = dh.get_filtered_univ_data(
         features=['BOLL30_Close', 'LAG2_BOLL30_Close', 'Close'],
         start_date='2016-06-01',

@@ -2,7 +2,8 @@ import re
 import datetime as dt
 
 
-def sqlcmd_from_feature_list(features, ids, start_date, end_date):
+def sqlcmd_from_feature_list(features, ids, start_date, end_date,
+                             table='ram.dbo.ram_master_equities'):
 
     if len(ids):
         ids_str = 'and IdcCode in ' + format_ids(ids)
@@ -26,7 +27,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date):
         """
         ; with cte1 as (
             select IdcCode, Date_, {0}
-            from ram.dbo.ram_master_equities
+            from {7}
             where Date_ between '{3}' and '{5}'
             {6}
         )
@@ -42,7 +43,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date):
         where Date_ between '{4}' and '{5}'
         """.format(
             vars1, vars2, vars3,
-            sdate, start_date, end_date, ids_str)
+            sdate, start_date, end_date, ids_str, table)
     return clean_sql_cmd(sqlcmd)
 
 
