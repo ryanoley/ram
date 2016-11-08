@@ -37,26 +37,11 @@ class DataHandlerSQL(DataHandler):
             """
         )).flatten()
 
-    def _get_filtered_ids(self, filter_date, args):
-        univ_size = args['univ_size']
-        filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
-        where = 'and {0}'.format(args['where']) if 'where' in args else ''
+    def get_all_dates(self):
+        return self._dates
 
-        # Get exact filter date
-        fdate = self._dates[self._dates <= filter_date][-1]
-
-        # Get IDs using next business date(filter_date)
-        ids = np.array(self.sql_execute(
-            """
-            select top {0} IdcCode
-            from ram.dbo.ram_master_equities
-            where Date_ = '{1}'
-            and NormalTradingFlag = 1
-            {2}
-            order by {3} desc;
-            """.format(univ_size, fdate, where, filter_col)
-        )).flatten()
-        return ids
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Data Interface
 
     def get_filtered_univ_data(self,
                                features,
@@ -135,17 +120,6 @@ class DataHandlerSQL(DataHandler):
         univ_df.columns = ['ID', 'Date'] + features
         return univ_df
 
-    def get_all_dates(self):
-        return self._dates
-
-    def sql_execute(self, sqlcmd):
-        try:
-            self._cursor.execute(sqlcmd)
-            return self._cursor.fetchall()
-        except Exception, e:
-            print 'error running sqlcmd: ' + str(e)
-            return []
-
     def get_etf_data(self,
                      tickers,
                      features,
@@ -183,6 +157,29 @@ class DataHandlerSQL(DataHandler):
         univ_df = univ_df.drop('Ticker', axis=1)
         return univ_df
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _get_filtered_ids(self, filter_date, args):
+        univ_size = args['univ_size']
+        filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
+        where = 'and {0}'.format(args['where']) if 'where' in args else ''
+
+        # Get exact filter date
+        fdate = self._dates[self._dates <= filter_date][-1]
+
+        # Get IDs using next business date(filter_date)
+        ids = np.array(self.sql_execute(
+            """
+            select top {0} IdcCode
+            from ram.dbo.ram_master_equities
+            where Date_ = '{1}'
+            and NormalTradingFlag = 1
+            {2}
+            order by {3} desc;
+            """.format(univ_size, fdate, where, filter_col)
+        )).flatten()
+        return ids
+
     def _map_ticker_to_id(self, tickers):
         if isinstance(tickers, str):
             tickers = [tickers]
@@ -191,6 +188,14 @@ class DataHandlerSQL(DataHandler):
             "select distinct IdcCode, Ticker "
             "from ram.dbo.ram_master_etf;"), columns=['ID', 'Ticker'])
         return ids[ids.Ticker.isin(tickers)]
+
+    def sql_execute(self, sqlcmd):
+        try:
+            self._cursor.execute(sqlcmd)
+            return self._cursor.fetchall()
+        except Exception, e:
+            print 'error running sqlcmd: ' + str(e)
+            return []
 
 
 def _format_dates(start_date, filter_date, end_date):
