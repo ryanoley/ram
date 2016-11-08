@@ -1,111 +1,272 @@
-
-# Allowable columns
-MASTER_COLS = ['Open_', 'High', 'Low', 'Close_',
-               'Vwap', 'Volume', 'AvgDolVol', 'MarketCap',
-               'CashDividend', 'SplitFactor']
+import re
+import datetime as dt
 
 
-def sqlcmd_from_feature_list(features):
-    """
-    Function facing the data handler. Returns the features that are
-    able to be queried, and the sql command to get those columns.
-    """
-    if not isinstance(features, list):
-        features = [features]
+def sqlcmd_from_feature_list(features, ids, start_date, end_date):
 
-    cte_out = []
-    body_out = []
-    feature_out = []
-    for f in features:
-        f2 = _get_feature_string(f)
-        if f2:
-            feature_out.append(f)
-            cte_out.append(f2[0])
-            body_out.append(f2[1])
-    return feature_out, ', '.join(cte_out), ', '.join(body_out)
-
-
-def _get_feature_string(feature):
-    # Split features
-    sp = feature.split('_')
-    if sp[0] == 'PRMA':
-        return _prma(feature)
-    elif sp[0] == 'MA':
-        return _ma(feature)
-    elif sp[0] == 'LAGMA':
-        return _lag_ma(feature)
-    elif sp[0] == 'BOLL':
-        return _bollinger(feature)
-    elif sp[0] == 'ADJ':
-        return _adjust_price(feature)
-    elif sp[0] == 'LAGADJ':
-        return _lag_adj_price(feature)
-    elif sp[0] == 'VOL':
-        return _vol(feature)
-    elif sp[0] == 'LAGVOL':
-        return _vol(feature, True)
-    elif sp[0] == 'P':
-        return _actual_price(feature)
+    if len(ids):
+        ids_str = 'and IdcCode in ' + format_ids(ids)
     else:
-        pass
+        ids_str = ''
 
+    # Make this dynamic somehow?
+    sdate = start_date - dt.timedelta(days=365)
 
-###############################################################################
-# Technical variables - MUST RETURN TWO STRINGS FOR TWO SEQUENTIAL QUERIES
+    # Get individual entries for CTEs per feature
+    ctes = []
+    for f in features:
+        ctes.append(make_cmds(f))
+    # Format for entry into CTEs
+    cte1, cte2, cte3 = zip(*ctes)
+    vars1 = ', '.join(cte1)
+    vars2 = ', '.join(cte2)
+    vars3 = ', '.join(cte3)
 
-def _prma(feature):
-    sp = feature.split('_')
-    days = int(sp[1])
-    col = sp[2]
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    prma_string = \
+    sqlcmd = \
         """
-        {0}/{1} as {2}
-        """.format(_adj(col), _rolling_avg(col, int(days)), feature)
-    return prma_string, feature
+        ; with cte1 as (
+            select IdcCode, Date_, {0}
+            from ram.dbo.ram_master_equities
+            where Date_ between '{3}' and '{5}'
+            {6}
+        )
+        , cte2 as (
+            select IdcCode, Date_, {1}
+            from cte1
+        )
+        , cte3 as (
+            select IdcCode, Date_, {2}
+            from cte2
+        )
+        select * from cte3
+        where Date_ between '{4}' and '{5}'
+        """.format(
+            vars1, vars2, vars3,
+            sdate, start_date, end_date, ids_str)
+    return clean_sql_cmd(sqlcmd)
 
 
-def _ma(feature):
-    sp = feature.split('_')
-    days = int(sp[1])
-    col = sp[2]
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    ma_string = \
-        """
-        {0} as {1}
-        """.format(_rolling_avg(col, int(days)), feature)
-    return ma_string, feature
+def make_cmds(vstring):
+    params = parse_input_var(vstring)
+    # Call function that corresponds to user input. Will handle
+    # if there is no manipulation for a variable, aka just return
+    # data from the table.
+    cte1, cte2 = globals()[params['var'][0]](params)
+    cte3 = globals()[params['manip'][0]](params)
+    return clean_sql_cmd(cte1), clean_sql_cmd(cte2), clean_sql_cmd(cte3)
 
 
-def _lag_ma(feature):
-    sp = feature.split('_')
-    days = int(sp[1])
-    col = sp[2]
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    # Part I: Moving Average
-    ma_string = \
-        """
-        {0} as {1}
-        """.format(_rolling_avg(col, int(days)), feature+'temp')
-    # Part II: Lag MA
-    lag_string = \
-        """
-        {0} as {1}
-        """.format(_lag(feature+'temp', 1), feature)
-
-    return ma_string, lag_string
-
-
-def _bollinger(feature):
+def parse_input_var(vstring):
     """
-    Re-write this to be clearer.
+    Takes individual Feature and parses into dictionary used downstream.
+
+    The format should be something like:
+        LAG1_PRMA10_Close
     """
-    sp = feature.split('_')
-    days = int(sp[1])
-    col = sp[2]
+    args = [x for x in re.split('(\d+)|_', vstring) if x]
+    out = {'name': '[{0}]'.format(vstring)}
+
+    while args:
+
+        # Manipulations
+        if args[0] in ['LAG', 'LEAD', 'RANK']:
+            out['manip'] = (args[0], int(args[1]))
+            args = args[2:]
+
+        # Variables
+        elif args[0] in ['MA', 'PRMA', 'VOL', 'BOLL']:
+            out['var'] = (args[0], int(args[1]))
+            args = args[2:]
+
+        # Adjustment irrelevant columns
+        elif args[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
+            out['datacol'] = args[0]
+            break
+
+        # Adjusted data
+        elif args[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']:
+            out['datacol'] = 'Adj' + args[0]
+            break
+
+        # Raw data
+        elif args[0][0] == 'R':
+            col = args[0][1:]
+            assert col in ['Open', 'High', 'Low', 'Close', 'Vwap',
+                           'Volume', 'CashDividend']
+            if col in ['Open', 'Close']:
+                col += '_'
+            out['datacol'] = col
+            break
+
+        else:
+            raise Exception('Input not properly formatted')
+
+    if 'var' not in out:
+        out['var'] = ('pass_through_var', 0)
+
+    if 'manip' not in out:
+        out['manip'] = ('pass_through_manip', 0)
+
+    return out
+
+
+def clean_sql_cmd(sqlcmd):
+    return ' '.join(sqlcmd.replace('\n', ' ').split())
+
+
+def format_ids(ids):
+    """
+    Takes in individual or list of ids, and returns a list/array
+    of those ids, and a string used to query sql database.
+    """
+    if not hasattr(ids, '__iter__'):
+        ids = [ids]
+    idsstr = str([str(i) for i in ids])
+    idsstr = idsstr.replace('[', '(').replace(']', ')')
+    return idsstr
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def LAG(params):
+    name = params['name']
+    periods = params['manip'][1]
+
+    sqlcmd = \
+        """
+        lag({0}, {1}) over (
+            partition by IdcCode
+            order by Date_) as {0}
+        """.format(name, periods)
+    return sqlcmd
+
+
+def LEAD(params):
+    name = params['name']
+    periods = params['manip'][1]
+
+    sqlcmd = \
+        """
+        lead({0}, {1}) over (
+            partition by IdcCode
+            order by Date_) as {0}
+        """.format(name, periods)
+    return sqlcmd
+
+
+def pass_through_manip(params):
+    name = params['name']
+    sqlcmd = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#  All variable functions need to return TWO commands for CTEs
+
+def pass_through_var(params):
+    name = params['name']
+    column = params['datacol']
+    sqlcmd1 = \
+        """
+        {0} as {1}
+        """.format(column, name)
+    sqlcmd2 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2
+
+
+def PRMA(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    sqlcmd1 = \
+        """
+        {0} / avg({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as {2}
+        """.format(column, length-1, name)
+    sqlcmd2 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2
+
+
+def MA(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    sqlcmd1 = \
+        """
+        avg({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as {2}
+        """.format(column, length-1, name)
+    sqlcmd2 = \
+        """
+        {0}
+        """.format(name)
+    return sqlcmd1, sqlcmd2
+
+
+def VOL(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    # Quick fix!
+    name2 = name[1:-1]
+    sqlcmd1 = \
+        """
+        {0} as {1},
+        lag({0}, 1) over (
+            partition by IdcCode
+            order by Date_) as TEMPLAG{2}
+        """.format(column, name, name2)
+    sqlcmd2 = \
+        """
+        stdev({1}/ TEMPLAG{2}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {3} preceding and current row) as {1}
+        """.format(column, name, name2, length-1)
+    return sqlcmd1, sqlcmd2
+
+
+
+
+
+def BOLL(params):
+    column = params['datacol']
+    length = params['var'][1]
+    name = params['name']
+    # Quick fix!
+    name2 = name[1:-1]
+
+    sqlcmd1 = \
+        """
+        avg({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as TEMPMEAN{2},
+        stdev({0}) over (
+            partition by IdcCode
+            order by Date_
+            rows between {1} preceding and current row) as TEMPSTD{2}
+        """.format(column, length-1, name2)
+
+    sqlcmd2 = \
+        """
+        ({0} -
+        """
+
+
     # Adjustment for Close/Open columns
     if col in ['Open', 'Close']:
         col = col + '_'
@@ -120,116 +281,3 @@ def _bollinger(feature):
         """.format(_adj(col), lowstr, highstr, feature)
     return bollinger_string, feature
 
-
-def _vol(feature, lag=False):
-    sp = feature.split('_')
-    days = int(sp[1])
-    col = sp[2]
-    # Adjustment for Close/Open columns
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    # PART 1 - For CTE
-    # PART 2 - For query
-    if lag:
-        vol_string = \
-            """
-            {1} as {3}LAGVOL{0},
-            {2} as Lag{3}LAGVOL{0}
-            """.format(days, _adj(col), _lag(_adj(col), 1), col)
-        vol_string2 = \
-            """
-            stdev({3}LAGVOL{0} / Lag{3}LAGVOL{0}) over (
-                partition by IdcCode
-                order by Date_
-                rows between {1} preceding and 1 preceding) as {2}
-            """.format(days, days, feature, col)
-    else:
-        vol_string = \
-            """
-            {1} as {3}VOL{0},
-            {2} as Lag{3}VOL{0}
-            """.format(days, _adj(col), _lag(_adj(col), 1), col)
-        vol_string2 = \
-            """
-            stdev({3}VOL{0} / Lag{3}VOL{0}) over (
-                partition by IdcCode
-                order by Date_
-                rows between {1} preceding and current row) as {2}
-            """.format(days, days - 1, feature, col)
-    return vol_string, vol_string2
-
-
-def _adjust_price(feature):
-    sp = feature.split('_')
-    col = sp[1]
-    # Adjustment for Close/Open columns
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    return "{0} as {1} ".format(_adj(col), feature), feature
-
-
-def _lag_adj_price(feature):
-    sp = feature.split('_')
-    days = int(sp[1])
-    col = sp[2]
-    # Adjustment for Close/Open columns
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    return "{0} as {1} ".format(_lag(_adj(col), days), feature), feature
-
-
-def _actual_price(feature):
-    sp = feature.split('_')
-    col = sp[1]
-    # Adjustment for Close/Open columns
-    if col in ['Open', 'Close']:
-        col = col + '_'
-    return "{0} as {1} ".format(col, feature), feature
-
-
-###############################################################################
-# HELPERS
-
-def _adj(feature):
-    assert feature in ['Open_', 'High', 'Low', 'Close_', 'Vwap']
-    return "({0} * DividendFactor * SplitFactor)".format(feature)
-
-
-def _rolling_avg(col, days):
-    """
-    Will always adjust prices because of the time component
-    """
-    offset = days - 1
-    avg_string = \
-        """
-        (avg({0}) over
-            (partition by IdcCode
-             order by Date_
-             rows between {1} preceding and current row))
-        """.format(_adj(col), offset)
-    return avg_string
-
-
-def _rolling_std(col, days):
-    """
-    Will always adjust prices because of the time component
-    """
-    offset = days - 1
-    std_string = \
-        """
-        (stdev({0}) over (
-            partition by IdcCode
-            order by Date_
-            rows between {1} preceding and current row))
-        """.format(_adj(col), offset)
-    return std_string
-
-
-def _lag(col, offset):
-    lag_string = \
-        """
-        (Lag({0}, {1}) over (
-            partition by IdcCode
-            order by Date_))
-        """.format(col, offset)
-    return lag_string
