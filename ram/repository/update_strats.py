@@ -10,6 +10,7 @@ OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'strategy_output')
 
 STRATS = [
     ('vxx', 'VXXStrategy'),
+    ('reversion', 'ReversionStrategy'),
     ('benchmarks', 'BenchmarksStrategy'),
     ('gap', 'GapStrategy'),
     ('statarb', 'StatArbStrategy')

@@ -288,7 +288,8 @@ def BOLL(params):
         """.format(column, length-1, name2)
     sqlcmd2 = \
         """
-        (TEMPP{0} - (TEMPMEAN{0} - 2 * TEMPSTD{0})) / (4 * TEMPSTD{0}) as {1}
+        (TEMPP{0} - (TEMPMEAN{0} - 2 * TEMPSTD{0})) /
+            nullif((4 * TEMPSTD{0}), 0) as {1}
         """.format(name2, name)
     sqlcmd3 = \
         """

@@ -60,7 +60,7 @@ class DataHandlerSQL(DataHandler):
         start_date/filter_date/end_date : string/datetime
         count : int
         filter_args : dict
-            Should have elements: count, where, and order
+            Should have elements: univ_size, where, and filter
 
         Returns
         -------
