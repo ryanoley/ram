@@ -18,7 +18,7 @@ def create_strategy_report(results, name, path):
 
     # STATISTICS
     stats1 = get_stats(results)
-    stats2 = get_stats(results.loc[dt.datetime(2012, 1, 1):])
+    stats2 = get_stats(results.loc[results.index >= dt.datetime(2012, 1, 1)])
 
     stats1.to_csv(os.path.join(path, '{0}_stats.csv'.format(name)))
     stats2.to_csv(os.path.join(path, '{0}_stats_since2012.csv'.format(name)))
