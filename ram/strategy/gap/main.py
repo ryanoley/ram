@@ -6,56 +6,46 @@ import datetime as dt
 from gearbox import read_csv
 
 from ram.strategy.base import Strategy
-from ram.data.dh_sql import DataHandlerSQL
 
-from ram.utils.statistics import create_strategy_report
 
-COST = .0015
+# PARAMS
+z = 1.
+COST = 0.0015
 
 
 class GapStrategy(Strategy):
 
-    def __init__(self):
-        self.datahandler = DataHandlerSQL()
+    def get_iter_index(self):
+        return range(len(self._get_date_iterator()))
 
-    def get_results(self):
-        return self.results
+    def run_index(self, index):
 
-    def start(self):
+        t_start, t_end = self._get_date_iterator()[index]
 
-        # PARAMS
-        z = 1.
+        data = self._create_features(t_start, t_end)
 
-        dates = self._get_date_iterator()
+        output = pd.DataFrame(0, columns=['R1', 'R2', 'R3'],
+                              index=pd.date_range(start=t_start, end=t_end))
 
-        results = pd.DataFrame(0, columns=['R1', 'R2', 'R3'],
-                               index=self.datahandler.get_all_dates()[326:])
+        # Returns
+        up_data = data.loc[(data.zUp > 0) & (data.GapUp > 0)].copy()
+        down_data = data.loc[(data.zDown < 0) & (data.GapDown < 0)].copy()
 
-        for t_start, t_end in dates:
+        # Costs
+        up_data.Ret = up_data.Ret + COST
+        down_data.Ret = down_data.Ret - COST
 
-            data = self._create_features(t_start, t_end)
+        # Sum all trades
+        up_rets = up_data.groupby('Date').Ret.mean()
+        down_rets = down_data.groupby('Date').Ret.mean()
 
-            # Returns
-            up_data = data.loc[(data.zUp > 0) & (data.GapUp > 0)].copy()
-            down_data = data.loc[(data.zDown < 0) & (data.GapDown < 0)].copy()
+        output.loc[up_rets.index, 'R1'] = up_rets * -1
+        output.loc[down_rets.index, 'R2'] = down_rets
 
-            # Costs
-            up_data.Ret = up_data.Ret + COST
-            down_data.Ret = down_data.Ret - COST
+        output['R3'] = output.R1 + output.R2
 
-            # Sum all trades
-            up_rets = up_data.groupby('Date').Ret.mean()
-            down_rets = down_data.groupby('Date').Ret.mean()
+        return output
 
-            results.loc[up_rets.index, 'R1'] = up_rets * -1
-            results.loc[down_rets.index, 'R2'] = down_rets
-
-        results['R3'] = results.R1 + results.R2
-
-        self.results = results
-
-    def start_live(self):
-        return -1
 
     ###########################################################################
 
@@ -116,5 +106,6 @@ class GapStrategy(Strategy):
 
 if __name__ == '__main__':
 
+    import pdb; pdb.set_trace()
     strategy = GapStrategy()
     strategy.start()

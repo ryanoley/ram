@@ -12,14 +12,8 @@ class Strategy(object):
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, output_dir):
-        # Output directory setup
-        self.output_dir = os.path.join(output_dir, 'output_' +
-                                       self.__class__.__name__)
-        # Clean output directory if present
-        if os.path.exists(self.output_dir):
-            shutil.rmtree(self.output_dir)
-        os.makedirs(self.output_dir)
+    def __init__(self, output_dir=None):
+        self._set_output_dir(output_dir)
         # Connect to QADirect
         self.datahandler = DataHandlerSQL()
 
@@ -27,24 +21,35 @@ class Strategy(object):
         """
         This should be the method implemented when running a strategy.
         """
-        result = pd.DataFrame()
+        results = pd.DataFrame()
 
         for i in self.get_iter_index():
             temp_result = self.run_index(i)
             # Enforce that the index is DateTime
             assert isinstance(temp_result.index, pd.DatetimeIndex)
-            result = result.add(temp_result, fill_value=0)
+            results = results.add(temp_result, fill_value=0)
 
-        self.result = result
+        self.results = results
 
     def run_index_writer(self, index):
         """
         This is a wrapper function for cloud implementation.
         """
-        result = self.run_index(index)
+        results = self.run_index(index)
         # Enforce that the index is DateTime
-        assert isinstance(result.index, pd.DatetimeIndex)
-        result.to_csv(self.output_dir+'/result_{0:05d}.csv'.format(index))
+        assert isinstance(results.index, pd.DatetimeIndex)
+        results.to_csv(self.output_dir+'/result_{0:05d}.csv'.format(index))
+
+    def _set_output_dir(self, output_dir):
+        if output_dir:
+            # Output directory setup
+            self.output_dir = os.path.join(output_dir, 'output_' +
+                                           self.__class__.__name__)
+            # Clean output directory if present
+            if os.path.exists(self.output_dir):
+                shutil.rmtree(self.output_dir)
+            os.makedirs(self.output_dir)
+        self.output_dir = output_dir
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

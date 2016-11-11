@@ -3,8 +3,6 @@ import pandas as pd
 import datetime as dt
 
 from ram.strategy.base import Strategy
-from ram.data.dh_sql import DataHandlerSQL
-from ram.utils.statistics import create_strategy_report
 
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
@@ -12,33 +10,23 @@ from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 class StatArbStrategy(Strategy):
 
-    def __init__(self):
-        self.datahandler = DataHandlerSQL()
+    def get_iter_index(self):
+        return range(len(self._get_date_iterator()))
+
+    def run_index(self, index):
+
+        t_start, cut_date, t_end = self._get_date_iterator()[index]
+
         self.pairselector = PairsStrategy1()
         self.constructor = PortfolioConstructor()
 
-    def start(self):
+        data, trade_data = self._get_data(
+            t_start, cut_date, t_end, univ_size=100)
 
-        dates = self._get_date_iterator()
+        z_scores = self.pairselector.get_best_pairs(
+            data, cut_date, window=20)
 
-        output = pd.DataFrame(columns=['Ret'])
-
-        for t_start, cut_date, t_end in dates:
-
-            data, trade_data = self._get_data(
-                t_start, cut_date, t_end, univ_size=100)
-
-            z_scores = self.pairselector.get_best_pairs(
-                data, cut_date, window=20)
-
-            plexp = self.constructor.get_daily_pl(z_scores, trade_data)
-
-            output = output.add(plexp, fill_value=0)
-
-        self.results = output
-
-    def get_results(self):
-        return self.results
+        return self.constructor.get_daily_pl(z_scores, trade_data)
 
     def _get_date_iterator(self):
         """
@@ -102,6 +90,3 @@ if __name__ == '__main__':
 
     strategy = StatArbStrategy()
     strategy.start()
-    path = '/Users/mitchellsuter/Desktop/'
-    name = 'StatArbStrategy'
-    create_strategy_report(strategy.get_results(), name, path)
