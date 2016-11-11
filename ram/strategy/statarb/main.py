@@ -40,9 +40,6 @@ class StatArbStrategy(Strategy):
     def get_results(self):
         return self.results
 
-    def start_live(self):
-        pass
-
     def _get_date_iterator(self):
         """
         Bookend dates for start training, start test (~eval date)
