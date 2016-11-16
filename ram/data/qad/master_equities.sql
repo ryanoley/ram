@@ -10,9 +10,12 @@ if object_id('ram.dbo.ram_master_equities', 'U') is not null
 
 create table	ram.dbo.ram_master_equities (
 
+				IsrCode int,
 				SecCode int,
 				DsInfoCode int,
 				IdcCode int,
+				HistoricalCusip varchar(15),
+				HistoricalTicker varchar(15),
 				Date_ smalldatetime,
 
 				-- Raw values
@@ -73,10 +76,12 @@ where		Date_ >= '1992-01-01'
 , exchanges as (
 
 select		Code,
-			StartDate, 
+			StartDate,
 			coalesce(DATEADD(day, -1, lead(StartDate, 1) over (
 				partition by Code 
 				order by StartDate)), EndDate, getdate()) as AltEndDate,
+			Cusip,
+			Ticker,
 			Exchange
 from		qai.prc.PrcScChg 
 
@@ -96,14 +101,14 @@ from		qai.prc.PrcScChg
 
 , data_merge as (
 
-select
+select			I.IsrCode,
 				M.SecCode,
 				N.VenCode as DsInfoCode,
 				D.Code as IdcCode,
 				D.Date_,
 				DF.DateLagC,
-				-- (For historical cusip:) E.Cusip,
-				-- (For historical ticker:) E.Ticker,
+				E.Cusip as HistoricalCusip,
+				E.Ticker as HistoricalTicker,
 				coalesce(P1.Open_, P2.Open_, P4.Open_) as Open_,
 				coalesce(P1.High, P2.High, P4.High) as High,
 				coalesce(P1.Low, P2.Low, P4.Low) as Low,
@@ -138,13 +143,21 @@ from			idc_dates D
 		on		D.Code = M.VenCode
 		and		M.Exchange = 1
 		and		M.VenType = 1
+		--and		D.Date_ between M.StartDate and coalesce(M.EndDate, getdate())
 
-	-- Join datastream codes - Rank = 1 gets rid of the handful of duplicates
+	-- Get issuer code, which will identify unique companies
+	join		qai.prc.PrcIss I
+		on		M.SecCode = I.Code
+		and		I.Type_ = 1
+
+	-- Join datastream codes - Rank = 1 gets rid of the handful of duplicates.
+	-- NOTE: This problem should be troubleshot at some point
 	left join	qai.dbo.SecMapX N
 		on		M.SecCode = N.SecCode
 		and		N.Exchange = 1
 		and		N.VenType = 33
 		and		N.[Rank] = 1
+		--and		D.Date_ between N.StartDate and coalesce(N.EndDate, getdate())
 
 	-- DATA --
 
@@ -235,9 +248,12 @@ from			data_merge
 
 
 , final_table as (
-select 			D.SecCode,
+select 			D.IsrCode,
+				D.SecCode,
 				D.DsInfoCode,
 				D.IdcCode,
+				D.HistoricalCusip,
+				D.HistoricalTicker,
 
 				D.Date_,
 
