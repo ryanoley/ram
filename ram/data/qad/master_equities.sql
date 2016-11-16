@@ -10,6 +10,7 @@ if object_id('ram.dbo.ram_master_equities', 'U') is not null
 
 create table	ram.dbo.ram_master_equities (
 
+				IsrCode int,
 				SecCode int,
 				DsInfoCode int,
 				IdcCode int,
@@ -100,7 +101,7 @@ from		qai.prc.PrcScChg
 
 , data_merge as (
 
-select
+select			I.IsrCode,
 				M.SecCode,
 				N.VenCode as DsInfoCode,
 				D.Code as IdcCode,
@@ -142,13 +143,21 @@ from			idc_dates D
 		on		D.Code = M.VenCode
 		and		M.Exchange = 1
 		and		M.VenType = 1
+		--and		D.Date_ between M.StartDate and coalesce(M.EndDate, getdate())
 
-	-- Join datastream codes - Rank = 1 gets rid of the handful of duplicates
+	-- Get issuer code, which will identify unique companies
+	join		qai.prc.PrcIss I
+		on		M.SecCode = I.Code
+		and		I.Type_ = 1
+
+	-- Join datastream codes - Rank = 1 gets rid of the handful of duplicates.
+	-- NOTE: This problem should be troubleshot at some point
 	left join	qai.dbo.SecMapX N
 		on		M.SecCode = N.SecCode
 		and		N.Exchange = 1
 		and		N.VenType = 33
 		and		N.[Rank] = 1
+		--and		D.Date_ between N.StartDate and coalesce(N.EndDate, getdate())
 
 	-- DATA --
 
@@ -239,7 +248,8 @@ from			data_merge
 
 
 , final_table as (
-select 			D.SecCode,
+select 			D.IsrCode,
+				D.SecCode,
 				D.DsInfoCode,
 				D.IdcCode,
 				D.HistoricalCusip,
