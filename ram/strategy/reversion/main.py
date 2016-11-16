@@ -6,22 +6,14 @@ import datetime as dt
 from gearbox import read_csv
 
 from ram.strategy.base import Strategy
-from ram.data.dh_sql import DataHandlerSQL
-
-from ram.utils.statistics import create_strategy_report
 
 
 class ReversionStrategy(Strategy):
 
-    def __init__(self):
-        self.datahandler = DataHandlerSQL()
+    def get_iter_index(self):
+        return range(len(self._get_date_iterator()))
 
-    def get_results(self):
-        return self.results
-
-    def start(self):
-
-        date_iter = self._get_date_iterator()
+    def run_index(self, index):
 
         pull_vars = ['LAG1_PRMA5_Close',
                      'LAG1_PRMA30_Close',
@@ -37,42 +29,32 @@ class ReversionStrategy(Strategy):
 
         filter_args = {'univ_size': 400, 'where': 'MarketCap > 500'}
 
-        for d1, d2, d3 in date_iter:
+        d1, d2, d3 = self._get_date_iterator()[index]
 
-            data = self.datahandler.get_filtered_univ_data(
-                features=features,
-                start_date=d2,
-                end_date=d3,
-                filter_date=d1,
-                filter_args=filter_args)
+        data = self.datahandler.get_filtered_univ_data(
+            features=features,
+            start_date=d2,
+            end_date=d3,
+            filter_date=d1,
+            filter_args=filter_args)
 
-            # Construct return variables
-            data['LagRet'] = data.LAG1_Close / data.LAG5_Close - 1
+        # Construct return variables
+        data['LagRet'] = data.LAG1_Close / data.LAG5_Close - 1
 
-            # Entry and exit flags
-            data['EntryFlag'] = (data.Date == d2).astype(int)
-            data['ExitFlag'] = (data.Date == d3).astype(int)
+        # Entry and exit flags
+        data['EntryFlag'] = (data.Date == d2).astype(int)
+        data['ExitFlag'] = (data.Date == d3).astype(int)
 
-            data['Ret'] = np.where(
-                data.EntryFlag, data.Close / data.Vwap - 1,
-                np.where(data.ExitFlag, data.Vwap / data.Close.shift(1) - 1,
-                         data.Close / data.Close.shift(1) - 1))
+        data['Ret'] = np.where(
+            data.EntryFlag, data.Close / data.Vwap - 1,
+            np.where(data.ExitFlag, data.Vwap / data.Close.shift(1) - 1,
+                     data.Close / data.Close.shift(1) - 1))
 
-            data['Ret2'] = np.where(
-                data.EntryFlag, data.Close / data.LAG1_Close - 1,
-                data.Close / data.Close.shift(1) - 1)
+        data['Ret2'] = np.where(
+            data.EntryFlag, data.Close / data.LAG1_Close - 1,
+            data.Close / data.Close.shift(1) - 1)
 
-            rets = self._get_sort_port_rets(data, sort_cols, sort_date=d2)
-
-            if d1 == date_iter[0][0]:
-                results = rets
-            else:
-                results = results.append(rets)
-
-        self.results = results
-
-    def start_live(self):
-        return -1
+        return self._get_sort_port_rets(data, sort_cols, sort_date=d2)
 
     ###########################################################################
 

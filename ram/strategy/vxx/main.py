@@ -14,13 +14,10 @@ from sklearn.linear_model import LogisticRegression
 
 class VXXStrategy(Strategy):
 
-    def __init__(self):
-        self.data = DataHandlerSQL()
+    def get_iter_index(self):
+        return [0]
 
-    def get_results(self):
-        return self.results
-
-    def start(self):
+    def run_index(self, index):
         # Get all data
         X, y = self._create_features()
 
@@ -45,33 +42,7 @@ class VXXStrategy(Strategy):
             results.loc[t, 'R1'] = np.where(pred1, 1, -1) * y_test['Ret1'][0]
             results.loc[t, 'R2'] = np.where(pred1, 1, -1) * y_test['Ret2'][0]
 
-        self.results = results.dropna()
-
-    def start_live(self):
-        # Get all data
-        X, y = self._create_features()
-
-        model = LogisticRegression()
-
-        results = pd.DataFrame(columns=['R1', 'R2'],
-                               index=X.index)
-        # Iterate through dates
-        t = np.unique(X.index)[-1]
-        # TRAIN - datetime indexing is inclusive thus trim by 1
-        X_train, y_train = X.loc[:t].iloc[:-1], y.loc[:t].iloc[:-1]
-        # TEST
-        X_test, y_test = X.loc[t:t, :], y.loc[t:t, :]
-
-        model.fit(X=X_train, y=y_train.loc[:, 'signal1'])
-        pred1 = model.predict(X_test)[0]
-
-        model.fit(X=X_train, y=y_train.loc[:, 'signal2'])
-        pred2 = model.predict(X_test)[0]
-
-        results.loc[t, 'R1'] = np.where(pred1, 1, -1) * y_test['Ret1'][0]
-        results.loc[t, 'R2'] = np.where(pred1, 1, -1) * y_test['Ret2'][0]
-
-        self.results = results.iloc[-1:]
+        return results.dropna()
 
     ###########################################################################
 
@@ -80,7 +51,7 @@ class VXXStrategy(Strategy):
         start_date = '2009-01-30'
         end_date = '2020-01-01'
 
-        prices = self.data.get_etf_data(
+        prices = self.datahandler.get_etf_data(
             tickers='VXX',
             features=['Open', 'High', 'Low', 'Close'],
             start_date=start_date,
@@ -122,4 +93,4 @@ if __name__ == '__main__':
     path = '/Users/mitchellsuter/Desktop/'
     name = 'VXXStrategy'
 
-    create_strategy_report(strategy.get_results(), name, path)
+    create_strategy_report(strategy.results, name, path)
