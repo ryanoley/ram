@@ -13,6 +13,8 @@ create table	ram.dbo.ram_master_equities (
 				SecCode int,
 				DsInfoCode int,
 				IdcCode int,
+				HistoricalCusip varchar(15),
+				HistoricalTicker varchar(15),
 				Date_ smalldatetime,
 
 				-- Raw values
@@ -73,10 +75,12 @@ where		Date_ >= '1992-01-01'
 , exchanges as (
 
 select		Code,
-			StartDate, 
+			StartDate,
 			coalesce(DATEADD(day, -1, lead(StartDate, 1) over (
 				partition by Code 
 				order by StartDate)), EndDate, getdate()) as AltEndDate,
+			Cusip,
+			Ticker,
 			Exchange
 from		qai.prc.PrcScChg 
 
@@ -102,8 +106,8 @@ select
 				D.Code as IdcCode,
 				D.Date_,
 				DF.DateLagC,
-				-- (For historical cusip:) E.Cusip,
-				-- (For historical ticker:) E.Ticker,
+				E.Cusip as HistoricalCusip,
+				E.Ticker as HistoricalTicker,
 				coalesce(P1.Open_, P2.Open_, P4.Open_) as Open_,
 				coalesce(P1.High, P2.High, P4.High) as High,
 				coalesce(P1.Low, P2.Low, P4.Low) as Low,
@@ -238,6 +242,8 @@ from			data_merge
 select 			D.SecCode,
 				D.DsInfoCode,
 				D.IdcCode,
+				D.HistoricalCusip,
+				D.HistoricalTicker,
 
 				D.Date_,
 
