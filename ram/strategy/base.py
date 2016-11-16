@@ -41,6 +41,7 @@ class Strategy(object):
         results.to_csv(self.output_dir+'/result_{0:05d}.csv'.format(index))
 
     def _set_output_dir(self, output_dir):
+        self.output_dir = None
         if output_dir:
             # Output directory setup
             self.output_dir = os.path.join(output_dir, 'output_' +
@@ -49,7 +50,6 @@ class Strategy(object):
             if os.path.exists(self.output_dir):
                 shutil.rmtree(self.output_dir)
             os.makedirs(self.output_dir)
-        self.output_dir = output_dir
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

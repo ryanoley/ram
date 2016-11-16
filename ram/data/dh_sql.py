@@ -167,14 +167,22 @@ class DataHandlerSQL(DataHandler):
         # Get exact filter date
         fdate = self._dates[self._dates <= filter_date][-1]
 
-        # Get IDs using next business date(filter_date)
+        # Get IDs using next business date(filter_date). First CTE
+        # filters top ID for unique Company (IsrCode).
         ids = np.array(self.sql_execute(
             """
-            select top {0} IdcCode
+            ; with tempdata as (
+            select  IsrCode, IdcCode, {3},
+                    ROW_NUMBER() over (
+                        PARTITION BY IsrCode
+                        ORDER BY {3} DESC) AS rank_val
             from ram.dbo.ram_master_equities
             where Date_ = '{1}'
             and NormalTradingFlag = 1
             {2}
+            )
+            select top {0} IdcCode from tempdata
+            where rank_val = 1
             order by {3} desc;
             """.format(univ_size, fdate, where, filter_col)
         )).flatten()

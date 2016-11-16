@@ -39,13 +39,13 @@ class TestStrategyBase(unittest.TestCase):
                                 periods=1))
         assert_frame_equal(result, benchmark)
 
-    def Xtest_start(self):
+    def test_start(self):
         self.strategy.start()
         benchmark = pd.DataFrame({
-            'V1': [0]},
+            'V1': [0, 1, 2, 3.]},
             index=pd.date_range(start='2016-01-{0:02d}'.format(1),
-                                periods=1))
-        assert_frame_equal(result, benchmark)
+                                periods=4))
+        assert_frame_equal(self.strategy.results, benchmark)
 
     def test_run_index_writer(self):
         self.strategy.run_index_writer(0)
