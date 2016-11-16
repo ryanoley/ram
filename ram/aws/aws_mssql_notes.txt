@@ -1,0 +1,87 @@
+#
+# Steps to set up unix remote computer to connect to QADirect remotely
+#
+# Supplemental links
+# http://askubuntu.com/questions/578934/mssql-connection-from-ubuntu
+# http://unix.stackexchange.com/questions/168340/where-is-ld-library-path-how-do-i-set-the-ld-library-path-env-variable
+# http://unix.stackexchange.com/questions/117467/how-to-permanently-set-environmental-variables
+# http://linux.101hacks.com/unix/ldconfig/
+
+# unixODBC
+cd ~
+mkdir unixODBC
+cd unixODBC
+wget ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-2.3.4.tar.gz
+gunzip unixODBC*.tar.gz 
+tar xvf unixODBC*.tar
+# Within the directory, use sudo 
+cd unixODBC*
+sudo ./configure 
+sudo make 
+sudo make install
+sudo make clean
+
+# FreeTDS 
+cd ~
+mkdir FreeTDS
+cd FreeTDS
+wget ftp://ftp.freetds.org/pub/freetds/stable/freetds-patched.tar.gz
+gunzip freetds*.tar.gz 
+tar xvf freetds*.tar
+# Within the directory, use sudo 
+cd freetds*
+./configure --with-tdsver=7.3
+sudo make
+sudo make install
+sudo make clean
+
+# test with the following
+tsql -S 23.246.113.26 -U ramuser
+
+# Add file to the /etc/ld.so.conf dir to point to odbc lib
+# File should have additional library paths to ref 
+cd /etc/ld.so.conf.d
+sudo vi ramlib.conf
+sudo ldconfig
+
+# edit .bashrc, add the following line at the end, run in console as well
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
+
+# CONFIG setup
+cd /usr/local/etc
+# DataSource in TDS (/usr/local/etc/freetds.conf) 
+# Add the following at the end of the file:
+[MSSQL]
+host = 23.246.113.26
+port = 1433
+tds version = 7.3
+
+# Add FreeTDS to odbc config (/usr/local/etc/obdcinst.ini)
+[FreeTDS]
+Description = FreeTDS driver
+Driver = /usr/local/lib/libtdsodbc.so
+Setup=/usr/local/lib/libtdsS.so
+FileUsage = 1
+UsageCount = 1
+
+#Add DSN to odbc (usr/local/etc/odbc.ini)
+[MSSQL]
+Description = MS SQL Server
+Driver = /usr/local/lib/libtdsodbc.so
+Server = 23.246.113.26
+Port = 1433
+UID = ramuser
+PWD = 183madison
+ReadOnly = Yes
+
+# Finally test connection with
+isql -v MSSQL ramuser 183madison
+
+
+# Connecting via python
+# make sure pypyodbc is installed (pip will work for this)
+import pypyodbc
+connection = pypyodbc.connect('DSN=mssql;uid=ramuser;pwd=183madison')
+assert connection.connected == 1
+
