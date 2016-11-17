@@ -227,12 +227,13 @@ class ClusterController(object):
         return
 
 
-    def restart_cluster(self, cluster_name):
+    def restart_cluster(self):
         # Reboot cluster 
         assert self.islive
         self.client.close()
         cmd = 'starcluster -r {0} -c {1} restart {2}'.format(
-            self._region[:-1], self._inst_config, self._region)
+            self._region[:-1], self._config, self._region)
+        stdout = self._star_cmd(cmd)
         self.client = Client(self._ipyconfig[0], sshkey=self._ipyconfig[1])
         return
 
