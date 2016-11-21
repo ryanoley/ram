@@ -217,6 +217,16 @@ if __name__ == '__main__':
     # EXAMPLES
     dh = DataHandlerSQL()
 
+    filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
+                   'univ_size': 20}
+    univ = dh.get_filtered_univ_data(
+        features=['BOLL30_Close', 'LAG2_BOLL30_Close', 'Close',
+                  'GSECTOR', 'GGROUP'],
+        start_date='2016-06-01',
+        end_date='2016-10-20',
+        filter_date='2016-06-01',
+        filter_args=filter_args)
+
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],
         features=['Close', 'RSI10', 'MFI10'],
@@ -228,15 +238,6 @@ if __name__ == '__main__':
         features=['Close', 'RClose', 'AvgDolVol', 'LAG1_AvgDolVol'],
         start_date='2016-06-01',
         end_date='2016-10-20')
-
-    filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
-                   'univ_size': 20}
-    univ = dh.get_filtered_univ_data(
-        features=['BOLL30_Close', 'LAG2_BOLL30_Close', 'Close'],
-        start_date='2016-06-01',
-        end_date='2016-10-20',
-        filter_date='2016-06-01',
-        filter_args=filter_args)
 
     univ = dh.get_filtered_univ_data(
         univ_size=10,
