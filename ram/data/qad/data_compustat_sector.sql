@@ -82,8 +82,8 @@ join			sectors C
 , data4 as (
 -- Historical table only goes to 1999. Assume that sector is same as first
 -- observation in table
-select			IdcCode,
-				SecCode,
+select			SecCode,
+				IdcCode,
 				GVKey,
 				GSECTOR,
 				GGROUP,
