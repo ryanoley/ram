@@ -1,0 +1,55 @@
+## DataHandler SQL Interface
+
+`get_filtered_univ_data` will return data between two dates, for IDs that meet some criteria on a third date.
+`get_id_data` will return data between two dates for specific IDs that are provided
+
+
+
+### Features
+
+Features must adhere to a strict format to be returned correctly. Best to use examples to see formatting:
+
+
+##### Example 1 (VARIABLES): 10-day moving average for Close prices and Open prices
+
+`PRMA10_Close`
+`PRMA10_Open`
+
+
+##### Example 2 (VARIABLE MANIPULATION): Lagged, led, and ranked 10 day moving averages
+
+`LAG1_PRMA10_Close`
+`LEAD1_PRMA10_Close`
+`RANK_PRMA10_Close`
+
+
+### Data columns available
+
+* Open, High, Low, Close, VWAP, Volume, Cash Dividend
+* Adjusted Open, High, Low, Close, VWAP, Volume (Default)
+* AvgDolVol, MarketCap, SplitFactor
+* GSECTOR, GGROUP (Gics Sector and Group data)
+
+
+### Technical variables (20-period example construction provided)
+
+* MA20 : Moving Average
+* PRMA20 : Price Relative to Moving Average
+* VOL20 : Volatility
+* BOLL20 : Bollinger Band
+* DISCOUNT20 : Discount from High
+* RSI20 : Relative Strength Index
+* MFI20 : Money Flow Index
+
+### Manipulations
+
+* LEAD1 : Return value from x rows forward
+* LAG1 : Return value from x rows backward
+* RANK : Rank 0-n all, 1 representing lowest value (DOES THIS MAKE SENSE?)
+
+
+##### Note:
+
+* All characters must be capitalized
+
+
