@@ -12,6 +12,9 @@ MANIPFUNCS = ['LAG', 'LEAD', 'RANK']
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
                              table='ram.dbo.ram_master_equities'):
 
+    # Shallow copy
+    features = features[:]
+
     if len(ids):
         ids_str = 'and IdcCode in ' + format_ids(ids)
     else:
@@ -19,6 +22,15 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
 
     # Make this dynamic somehow?
     sdate = start_date - dt.timedelta(days=365)
+
+    # Check if sector data is present
+    gics_features = []
+    if 'GSECTOR' in features:
+        features.remove('GSECTOR')
+        gics_features.append('B.GSECTOR')
+    if 'GGROUP' in features:
+        features.remove('GGROUP')
+        gics_features.append('B.GGROUP')
 
     # Get individual entries for CTEs per feature
     ctes = []
@@ -50,12 +62,28 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
             select IdcCode, Date_, {3}
             from cte3
         )
-        select * from cte4
-        where Date_ between '{5}' and '{6}'
-        order by IdcCode, Date_
         """.format(
             vars1, vars2, vars3, vars4,
             sdate, start_date, end_date, ids_str, table)
+
+    if gics_features:
+        gics_features = ', '.join(gics_features)
+        sqlcmd += \
+            """
+            select A.*, {2} from cte4 A
+            left join ram.dbo.ram_sector B
+            on A.IdcCode = B.IdcCode
+            and A.Date_ between B.StartDate and B.EndDate
+            where A.Date_ between '{0}' and '{1}'
+            order by A.IdcCode, A.Date_
+            """.format(start_date, end_date, gics_features)
+    else:
+        sqlcmd += \
+            """
+            select * from cte4
+            where Date_ between '{0}' and '{1}'
+            order by IdcCode, Date_
+            """.format(start_date, end_date)
     return clean_sql_cmd(sqlcmd)
 
 
