@@ -17,15 +17,15 @@ class PortfolioConstructor(BaseConstructor):
     def get_daily_pl(self, scores, data):
 
         Close = data.pivot(index='Date',
-                           columns='ID',
+                           columns='SecCode',
                            values='Close')
 
         Dividend = data.pivot(index='Date',
-                              columns='ID',
+                              columns='SecCode',
                               values='Dividend').fillna(0)
 
         SplitMultiplier = data.pivot(index='Date',
-                                     columns='ID',
+                                     columns='SecCode',
                                      values='SplitMultiplier').fillna(1)
 
         # Map close price Tickers for faster updating

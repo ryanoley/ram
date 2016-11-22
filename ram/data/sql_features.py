@@ -16,7 +16,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     features = features[:]
 
     if len(ids):
-        ids_str = 'and IdcCode in ' + format_ids(ids)
+        ids_str = 'and SecCode in ' + format_ids(ids)
     else:
         ids_str = ''
 
@@ -46,20 +46,20 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     sqlcmd = \
         """
         ; with cte1 as (
-            select IdcCode, Date_, {0}
+            select SecCode, Date_, {0}
             from {8}
             where Date_ between '{4}' and '{6}'
             {7}
         )
         , cte2 as (
-            select IdcCode, Date_, {1}
+            select SecCode, Date_, {1}
             from cte1
         )
         , cte3 as (
-            select IdcCode, Date_, {2}
+            select SecCode, Date_, {2}
             from cte2
         ), cte4 as (
-            select IdcCode, Date_, {3}
+            select SecCode, Date_, {3}
             from cte3
         )
         """.format(
@@ -72,17 +72,17 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
             """
             select A.*, {2} from cte4 A
             left join ram.dbo.ram_sector B
-            on A.IdcCode = B.IdcCode
+            on A.SecCode = B.SecCode
             and A.Date_ between B.StartDate and B.EndDate
             where A.Date_ between '{0}' and '{1}'
-            order by A.IdcCode, A.Date_
+            order by A.SecCode, A.Date_
             """.format(start_date, end_date, gics_features)
     else:
         sqlcmd += \
             """
             select * from cte4
             where Date_ between '{0}' and '{1}'
-            order by IdcCode, Date_
+            order by SecCode, Date_
             """.format(start_date, end_date)
     return clean_sql_cmd(sqlcmd)
 
@@ -177,7 +177,7 @@ def LAG(params):
     sqlcmd = \
         """
         lag({0}, {1}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_) as {0}
         """.format(name, periods)
     return sqlcmd
@@ -190,7 +190,7 @@ def LEAD(params):
     sqlcmd = \
         """
         lead({0}, {1}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_) as {0}
         """.format(name, periods)
     return sqlcmd
@@ -240,7 +240,7 @@ def PRMA(params):
     sqlcmd1 = \
         """
         {0} / avg({0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as {2}
         """.format(column, length-1, name)
@@ -258,7 +258,7 @@ def MA(params):
     sqlcmd1 = \
         """
         avg({0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as {2}
         """.format(column, length-1, name)
@@ -279,13 +279,13 @@ def VOL(params):
         """
         {0} as {1},
         lag({0}, 1) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_) as TEMPLAG{2}
         """.format(column, name, name2)
     sqlcmd2 = \
         """
         stdev({1}/ TEMPLAG{2}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {3} preceding and current row) as {1}
         """.format(column, name, name2, length-1)
@@ -306,11 +306,11 @@ def BOLL(params):
         """
         {0} as TEMPP{2},
         avg({0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as TEMPMEAN{2},
         stdev({0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as TEMPSTD{2}
         """.format(column, length-1, name2)
@@ -333,7 +333,7 @@ def DISCOUNT(params):
     sqlcmd1 = \
         """
         -1 * ({0} / max({0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) - 1) as {2}
         """.format(column, length-1, name)
@@ -353,33 +353,33 @@ def RSI(params):
         """
         case when
             (AdjClose - lag(AdjClose, 1) over (
-                            partition by IdcCode
+                            partition by SecCode
                             order by Date_)) > 0
         then
             (AdjClose - lag(AdjClose, 1) over (
-                            partition by IdcCode
+                            partition by SecCode
                             order by Date_))
         else 0 end as UpMove{0},
 
         case when
             (AdjClose - lag(AdjClose, 1) over (
-                            partition by IdcCode
+                            partition by SecCode
                             order by Date_)) < 0
         then
             (AdjClose - lag(AdjClose, 1) over (
-                            partition by IdcCode
+                            partition by SecCode
                             order by Date_))
         else 0 end as DownMove{0}
         """.format(name2)
     sqlcmd2 = \
         """
         sum(UpMove{0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as UpMove{0},
 
         sum(DownMove{0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as DownMove{0}
         """.format(name2, length-1)
@@ -399,7 +399,7 @@ def MFI(params):
         """
         (AdjHigh + AdjLow + AdjClose) / 3 as TypPrice{0},
         lag((AdjHigh + AdjLow + AdjClose) / 3, 1) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_) as LagTypPrice{0},
         (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF{0}
         """.format(name2)
@@ -420,12 +420,12 @@ def MFI(params):
     sqlcmd3 = \
         """
         sum(MonFlowP{0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row) /
 
         nullif(sum(MonFlow{0}) over (
-            partition by IdcCode
+            partition by SecCode
             order by Date_
             rows between {1} preceding and current row), 0) * 100 as {0}
         """.format(name2, length-1)

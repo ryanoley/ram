@@ -68,12 +68,12 @@ class ReversionStrategy(Strategy):
             sort_df = data[data.Date == sort_date].copy()
             sort_df = sort_df.sort_values(sc)
 
-            # Get long IDs
-            long_ids = sort_df.ID.iloc[:40].tolist()
-            short_ids = sort_df.ID.iloc[-40:].tolist()
+            # Get long SecCodes
+            long_ids = sort_df.SecCode.iloc[:40].tolist()
+            short_ids = sort_df.SecCode.iloc[-40:].tolist()
 
-            long_data = data[data.ID.isin(long_ids)].copy()
-            short_data = data[data.ID.isin(short_ids)].copy()
+            long_data = data[data.SecCode.isin(long_ids)].copy()
+            short_data = data[data.SecCode.isin(short_ids)].copy()
 
             # Costs - VWAP, then Close prices
             long_data.loc[long_data.EntryFlag == 1, 'Ret'] -= 0.00075

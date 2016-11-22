@@ -13,11 +13,11 @@ class TestDataHandlerFile(unittest.TestCase):
 
     def setUp(self):
         data = pd.DataFrame({
-            'ID': ['a']*10 + ['b']*10 + ['c']*10,
+            'SecCode': ['a']*10 + ['b']*10 + ['c']*10,
             'Date': ['2016-01-{0:02d}'.format(x) for x in range(1, 11)] * 3,
             'Close': range(1, 31),
             'AvgDolVol': [200]*10 + [100]*10 + [300]*10
-            }, columns=['Date', 'ID', 'Close', 'AvgDolVol'])
+            }, columns=['Date', 'SecCode', 'Close', 'AvgDolVol'])
         self.data = data
         self.dh = DataHandlerFile(data)
 

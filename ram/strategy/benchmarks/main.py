@@ -15,7 +15,7 @@ class BenchmarksStrategy(Strategy):
         # Daily returns for the SPY
         prices = prices.set_index('Date')
         prices['SPY'] = prices.Close.pct_change()
-        prices = prices.drop(['ID', 'Close'], axis=1).dropna()
+        prices = prices.drop(['SecCode', 'Close'], axis=1).dropna()
         return prices
 
 

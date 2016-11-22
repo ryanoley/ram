@@ -25,9 +25,9 @@ class TestConstructor(unittest.TestCase):
                                 'V1_V3': [-2, -3, 0, 0],
                                 'V2_V3': [0, 0, -2, -4]})
         port = PortfolioConstructor()
-        result = port.get_daily_pl(
-            scores=zscores, booksize=400, Close=close, Dividend=dividends,
-            SplitMultiplier=splits, n_pairs=2, max_pos_exposure=100)
+        port.n_pairs = 2
+        result = port.get_daily_pl(scores=zscores, data=data)
+
         benchmark = pd.DataFrame([])
         benchmark['PL'] = [-0.12, 10, 89.919, 63.919]
         benchmark['Exposure'] = [400, 490, 390, 0.]
