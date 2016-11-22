@@ -25,8 +25,8 @@ Features must adhere to a strict format to be returned correctly. Best to use ex
 
 ### Data columns available
 
-* Open, High, Low, Close, VWAP, Volume, Cash Dividend
-* Adjusted Open, High, Low, Close, VWAP, Volume (Default)
+* ROpen, RHigh, RLow, RClose, RVWAP, RVolume, RCashDividend (Raw values)
+* Open, High, Low, Close, VWAP, Volume (Split and Div Adjusted - DEFAULT)
 * AvgDolVol, MarketCap, SplitFactor
 * GSECTOR, GGROUP (Gics Sector and Group data)
 
