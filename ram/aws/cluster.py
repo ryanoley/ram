@@ -2,10 +2,9 @@ import os
 import re
 import time
 import numpy as np
-import subprocess
 from subprocess import Popen, PIPE
 from ipyparallel import Client
-
+from ram.aws.stream_reader import NonBlockingStreamReader as NBSR
 
 aws_data = os.path.join(os.getenv('DATA'), 'ram', 'aws')
 
@@ -40,6 +39,7 @@ class ClusterController(object):
     def set_config(self, n_cores, region=None, inst_type='m3.medium'):
         # Set the instance type and n_nodes 
         n_nodes = n_cores
+        self._n_nodes = n_nodes
 
         regionbid = self.get_region_bid(inst_type, region)
         if regionbid is None:
@@ -224,6 +224,7 @@ class ClusterController(object):
         self._config = None
         self._region = None
         self._ipyconfig = None
+        self._n_nodes = None
         return
 
 
@@ -261,6 +262,54 @@ class ClusterController(object):
             print stderr
             raise
         return stdout
+
+
+    def pull_git_branch(self, repo, branch):
+
+        assert self.islive
+
+        repo = 'earnings'
+        branch = 'awstest'
+
+        nodes = self.get_live_clusters()[self._region]['ClusterNodes']
+        assert len(nodes) == self._n_nodes
+
+        for i in range(self._n_nodes):
+            if i == 0:
+                nodei = 'master'
+            else:
+                nodei = 'node00{0}'.format(i)
+
+            cmd = 'starcluster -r {0} -c {1} sn {2} {3} -u ubuntu'.format(
+                self._region[:-1], self._config, self._region, nodei)
+            proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
+            nbsrO = NBSR(proc.stdout)
+            nbsrO.readuntil(timeout=5)
+
+            proc.stdin.write('cd ~/ramsrc/{} \n'.format(repo))
+            nbsrO.readuntil(re_error=r'No\ssuch\sfile\sor\sdirectory')
+
+            proc.stdin.write('git fetch \n')
+            nbsrO.readuntil(timeout=3, re_error=r'error')
+
+            proc.stdin.write('git checkout {} \n'.format(branch))
+            nbsrO.readuntil(re_error=r'error')
+
+            proc.stdin.write('git pull \n')
+            nbsrO.readuntil(timeout = 5, re_error=r'error')
+
+            proc.stdin.write('sudo python setup.py install \n')
+            nbsrO.readuntil(timeout = 5,
+                            re_error=r'No\ssuch\sfile\sor\sdirectory')
+
+            proc.stdin.write('exit \n')
+            nbsrO.readuntil()
+
+            print '/{1}/{2} updated on node: {0}'.format(nodei, repo, branch)
+
+
+
+
 
 
 
