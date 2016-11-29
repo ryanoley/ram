@@ -41,6 +41,7 @@ class ClusterController(object):
         config out to /data/ram/aws/configs.
         '''
         n_nodes = n_cores
+        # n_nodes = n_cores / 8 for use with c3.8xlarge inst_type
         self._n_nodes = n_nodes
 
         regionbid = self.get_region_bid(inst_type, region)
