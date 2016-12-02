@@ -138,17 +138,26 @@ from			idc_dates D
 		on		D.Code = F.Code
 		and		F.SecType = 'C'
 
-	-- Merge Security Master mapping
+	-- Get SecCode
 	join		qai.dbo.SecMapX M
 		on		D.Code = M.VenCode
 		and		M.Exchange = 1
 		and		M.VenType = 1
 		--and		D.Date_ between M.StartDate and coalesce(M.EndDate, getdate())
 
+	-- Merge Security Master mapping for Name filter below
+	join		qai.dbo.SecMstrX M2
+		on		M.SecCode = M2.SecCode
+		and		M2.Type_ = 1
+
 	-- Get issuer code, which will identify unique companies
 	join		qai.prc.PrcIss I
 		on		M.SecCode = I.Code
 		and		I.Type_ = 1
+
+	-- Get SIC to filter out investment Funds. See below
+	join		qai.prc.PrcIsr I2
+		on		I.IsrCode = I2.IsrCode
 
 	-- Join datastream codes - Rank = 1 gets rid of the handful of duplicates.
 	-- NOTE: This problem should be troubleshot at some point
@@ -215,6 +224,9 @@ from			idc_dates D
 	left join	shares SH
 		on		D.Code = SH.Code 
 		and		D.Date_ between SH.StartDate and SH.EndDate
+
+
+where			not (I2.SIC = 0 AND M2.Name like '%FUND%')
 
 )
 
