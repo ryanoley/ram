@@ -10,7 +10,7 @@ from ram.data.base import DataHandler
 class DataHandlerFile(DataHandler):
 
     def __init__(self, data):
-        assert 'ID' in data.columns
+        assert 'SecCode' in data.columns
         assert 'Date' in data.columns
         data['Date'] = convert_date_array(data['Date'].astype(str))
         # Quick fix
@@ -41,7 +41,7 @@ class DataHandlerFile(DataHandler):
         Returns
         -------
         data : pandas.DataFrame
-            With columns ID, Date representing a unique observation.
+            With columns SecCode, Date representing a unique observation.
         """
         # Check user input
         assert isinstance(univ_size, int)
@@ -63,17 +63,17 @@ class DataHandlerFile(DataHandler):
             # Get the ranks of these values. Highest values ranked lowest
             ranks = (-1 * vals).argsort().argsort()
             # Get the ids for top ranked values
-            ids = data.loc[ranks[ranks < univ_size].index, 'ID']
+            ids = data.loc[ranks[ranks < univ_size].index, 'SecCode']
             # Filter rows by date and ids
             inds = (data.Date >= start_date) & \
                    (data.Date <= end_date) & \
-                   (data.ID.isin(ids))
+                   (data.SecCode.isin(ids))
         else:
             inds = (data.Date >= start_date) & \
                    (data.Date <= end_date)
 
         # Filter columns
-        col_inds = ['Date', 'ID'] + features
+        col_inds = ['Date', 'SecCode'] + features
 
         return data.loc[inds, col_inds].reset_index(drop=True)
 
@@ -95,7 +95,7 @@ class DataHandlerFile(DataHandler):
         Returns
         -------
         data : pandas.DataFrame
-            With columns ID, Date representing a unique observation.
+            With columns SecCode, Date representing a unique observation.
         """
         # Check user input
         if not isinstance(ids, list):
@@ -109,10 +109,10 @@ class DataHandlerFile(DataHandler):
         data = self._data
         inds = (data.Date >= start_date) & \
                (data.Date <= end_date) & \
-               (data.ID.isin(ids))
+               (data.SecCode.isin(ids))
 
         # Filter columns
-        col_inds = ['Date', 'ID'] + features
+        col_inds = ['Date', 'SecCode'] + features
 
         return data.loc[inds, col_inds].reset_index(drop=True)
 

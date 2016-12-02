@@ -42,13 +42,13 @@ class TestSqlFeatures(unittest.TestCase):
         result = sqlf.make_cmds(vstring)
         self.assertEqual(
             result[0],
-            'AdjClose / avg(AdjClose) over ( partition by IdcCode '
+            'AdjClose / avg(AdjClose) over ( partition by SecCode '
             'order by Date_ rows between 9 preceding and current row) '
             'as [LAG1_PRMA10_Close]')
         self.assertEqual(result[1], '[LAG1_PRMA10_Close]')
         self.assertEqual(
-            result[2],
-            'lag([LAG1_PRMA10_Close], 1) over ( partition by IdcCode '
+            result[3],
+            'lag([LAG1_PRMA10_Close], 1) over ( partition by SecCode '
             'order by Date_) as [LAG1_PRMA10_Close]')
 
     def tearDown(self):

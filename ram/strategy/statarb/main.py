@@ -73,15 +73,15 @@ class StatArbStrategy(Strategy):
                                     'RClose': 'Close',
                                     'Close': 'ADJClose'})
         # Adjustment for naming conventions
-        data.ID = data.ID.astype(str)
+        data.SecCode = data.SecCode.astype(str)
 
         # Trading data - After filter date
-        trade_data = data[['Date', 'ID', 'Close',
+        trade_data = data[['Date', 'SecCode', 'Close',
                            'SplitMultiplier', 'Dividend']].copy()
         trade_data.Dividend = trade_data.Dividend.fillna(0)
         trade_data = trade_data[trade_data.Date >= filter_date]
 
-        data = data[['ID', 'Date', 'ADJClose']]
+        data = data[['SecCode', 'Date', 'ADJClose']]
 
         return data, trade_data
 
@@ -89,4 +89,5 @@ class StatArbStrategy(Strategy):
 if __name__ == '__main__':
 
     strategy = StatArbStrategy()
+    import pdb; pdb.set_trace()
     strategy.start()

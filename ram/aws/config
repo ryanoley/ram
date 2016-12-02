@@ -1,0 +1,201 @@
+####################################
+## StarCluster Configuration File ##
+####################################
+[global]
+# Configure the default cluster template to use when starting a cluster
+#DEFAULT_TEMPLATE=us-west-1c
+REFRESH_INTERVAL=10
+
+#############################################
+## AWS Credentials and Connection Settings ##
+#############################################
+[aws info]
+# This is the AWS credentials section (required).
+# These settings apply to all clusters
+AWS_ACCESS_KEY_ID = AKIAJ6VFLBOV2BX4VDZA
+AWS_SECRET_ACCESS_KEY = %AWS_SECRET_ACCESS_KEY%
+# AWS account number
+AWS_USER_ID= %AWS_USER_ID%
+# Uncomment to specify a different Amazon AWS region  (OPTIONAL)
+# (defaults to us-east-1 if not specified)
+AWS_REGION_NAME = us-west-1
+AWS_REGION_HOST = ec2.us-west-1.amazonaws.com
+
+###########################
+## Defining EC2 Keypairs ##
+###########################
+# Sections starting with "key" define your keypairs. See "starcluster createkey
+# --help" for instructions on how to create a new keypair. Section name should
+# match your key name e.g.:
+[key awsclusterkey_west1]
+KEY_LOCATION=%DATA%/ram/aws/ssh/awsclusterkey_west1.rsa
+
+[key awsclusterkey_west]
+KEY_LOCATION=%DATA%/ram/aws/ssh/awsclusterkey_west.rsa
+
+################################
+## Defining Cluster Templates ##
+################################
+[cluster us-west-1a]
+# change this to the name of one of the keypair sections defined above
+KEYNAME = awsclusterkey_west1
+# number of ec2 instances to launch
+CLUSTER_SIZE = 2
+# create the following user on the cluster
+CLUSTER_USER = ramadmin
+# optionally specify shell (defaults to bash)
+# (options: tcsh, zsh, csh, bash, ksh)
+CLUSTER_SHELL = bash
+# AMI to use for cluster nodes
+NODE_IMAGE_ID = ami-18e6b278
+# (options: m3.large, m3.medium, m3.xlarge, m3.2xlarge, c1.medium, c1.xlarge,
+# c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge, c3.8xlarge, r3.large, r3.xlarge,
+# r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge, i2.2xlarge,  i2.4xlarge, i2.8xlarge)
+NODE_INSTANCE_TYPE = m3.medium
+# Uncomment to disable installing/configuring a queueing system on the
+# cluster (SGE)
+DISABLE_QUEUE=True
+#MASTER_INSTANCE_TYPE = r3.4xlarge
+#MASTER_IMAGE_ID = ami-3393a45a (OPTIONAL)
+AVAILABILITY_ZONE = us-west-1a
+# list of volumes to attach to the master node (OPTIONAL)
+VOLUMES = ramsharewest1
+# list of plugins to load after StarCluster's default setup routines (OPTIONAL)
+PLUGINS = ipcluster
+# list of permissions (or firewall rules) to apply to the cluster's security
+#PERMISSIONS = http, https
+# Create a spot cluster when creating a new cluster from
+SPOT_BID = .02
+FORCE_SPOT_MASTER = Yes
+
+
+[cluster us-west-2b]
+# change this to the name of one of the keypair sections defined above
+KEYNAME = awsclusterkey_west
+# number of ec2 instances to launch
+CLUSTER_SIZE = 2
+# create the following user on the cluster
+CLUSTER_USER = ramadmin
+# optionally specify shell (defaults to bash)
+# (options: tcsh, zsh, csh, bash, ksh)
+CLUSTER_SHELL = bash
+# AMI to use for cluster nodes
+NODE_IMAGE_ID = ami-d16ec0b1
+# (options: m3.large, m3.medium, m3.xlarge, m3.2xlarge, c1.medium, c1.xlarge,
+# c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge, c3.8xlarge, r3.large, r3.xlarge,
+# r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge, i2.2xlarge,  i2.4xlarge, i2.8xlarge)
+NODE_INSTANCE_TYPE = m3.medium
+# Uncomment to disable installing/configuring a queueing system on the
+# cluster (SGE)
+DISABLE_QUEUE=True
+#MASTER_INSTANCE_TYPE = r3.4xlarge
+#MASTER_IMAGE_ID = ami-3393a45a (OPTIONAL)
+AVAILABILITY_ZONE = us-west-2b
+# list of volumes to attach to the master node (OPTIONAL)
+VOLUMES = ramsharewest2
+# list of plugins to load after StarCluster's default setup routines (OPTIONAL)
+PLUGINS = ipcluster
+# list of permissions (or firewall rules) to apply to the cluster's security
+#PERMISSIONS = http, https
+# Create a spot cluster when creating a new cluster from
+SPOT_BID = .02
+FORCE_SPOT_MASTER = Yes
+
+
+#############################
+## Configuring EBS Volumes ##
+#############################
+# StarCluster can attach one or more EBS volumes to the master and then
+# NFS_share these volumes to all of the worker nodes.
+
+[volume ramsharewest1]
+VOLUME_ID = vol-b894fb5d
+MOUNT_PATH = /ramdata
+
+[volume ramsharewest2]
+VOLUME_ID = vol-cfc6c53a
+MOUNT_PATH = /ramdata
+
+############################################
+## Configuring Security Group Permissions ##
+############################################
+# Sections starting with "permission" define security group rules to
+# automatically apply to newly created clusters. IP_PROTOCOL in the following
+# examples can be can be: tcp, udp, or icmp. CIDR_IP defaults to 0.0.0.0/0 or
+# "open to the # world"
+
+# open port 80 on the cluster to the world
+[permission http]
+IP_PROTOCOL = tcp
+FROM_PORT = 80
+TO_PORT = 80
+
+# open https on the cluster to the world
+[permission https]
+IP_PROTOCOL = tcp
+FROM_PORT = 443
+TO_PORT = 443
+
+
+#####################################
+## Configuring StarCluster Plugins ##
+#####################################
+# Sections starting with "plugin" define a custom python class which perform
+# additional configurations to StarCluster's default routines. These plugins
+# can be assigned to a cluster template to customize the setup procedure when
+# starting a cluster from this template (see the commented PLUGINS setting in
+# the 'smallcluster' template above). Below is an example of defining a user
+# plugin called 'myplugin':
+
+# [plugin myplugin]
+# NOTE: myplugin module must either live in ~/.starcluster/plugins or be
+# on your PYTHONPATH
+# SETUP_CLASS = myplugin.SetupClass
+# extra settings are passed as __init__ arguments to your plugin:
+# SOME_PARAM_FOR_MY_PLUGIN = 1
+# SOME_OTHER_PARAM = 2
+
+######################
+## Built-in Plugins ##
+######################
+# The following plugins ship with StarCluster and should work out-of-the-box.
+# Uncomment as needed. Don't forget to update your PLUGINS list!
+# See http://star.mit.edu/cluster/docs/latest/plugins for plugin details.
+#
+# Use this plugin to install one or more packages on all nodes
+#[plugin pkginstaller]
+#SETUP_CLASS = starcluster.plugins.pkginstaller.PackageInstaller
+# # list of apt-get installable packages
+#PACKAGES = python-ipython
+#
+# The SGE plugin is enabled by default and not strictly required. Only use this
+# if you want to tweak advanced settings in which case you should also set
+# DISABLE_QUEUE=TRUE in your cluster template. See the plugin doc for more
+# details.
+# [plugin sge]
+# SETUP_CLASS = starcluster.plugins.sge.SGEPlugin
+# MASTER_IS_EXEC_HOST = False
+#
+# The IPCluster plugin configures a parallel IPython cluster with optional
+# web notebook support. This allows you to run Python code in parallel with low
+# latency message passing via ZeroMQ.
+[plugin ipcluster]
+SETUP_CLASS = starcluster.plugins.ipcluster.IPCluster
+# Enable the IPython notebook server (optional)
+#ENABLE_NOTEBOOK = True
+#NOTEBOOK_PASSWD = ramnotebook
+# Set a custom directory for storing/loading notebooks (optional)
+#NOTEBOOK_DIRECTORY = notebooks
+# # Set a custom packer. Must be one of 'json', 'pickle', or 'msgpack'
+# PACKER = pickle
+#
+[plugin ipclusterstop]
+SETUP_CLASS = starcluster.plugins.ipcluster.IPClusterStop
+#
+[plugin ipclusterrestart]
+SETUP_CLASS = starcluster.plugins.ipcluster.IPClusterRestartEngines
+#
+[plugin pypackages]
+setup_class = starcluster.plugins.pypkginstaller.PyPkgInstaller
+packages = psutil
+

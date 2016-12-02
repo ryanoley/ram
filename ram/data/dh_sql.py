@@ -85,7 +85,7 @@ class DataHandlerSQL(DataHandler):
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
-        univ_df.columns = ['ID', 'Date'] + features
+        univ_df.columns = ['SecCode', 'Date'] + features
         return univ_df
 
     def get_id_data(self,
@@ -146,12 +146,12 @@ class DataHandlerSQL(DataHandler):
         ids = self._map_ticker_to_id(tickers)
 
         # Get features, and strings for cte and regular query
-        sqlcmd = sqlcmd_from_feature_list(features, ids.ID.tolist(),
+        sqlcmd = sqlcmd_from_feature_list(features, ids.SecCode.tolist(),
                                           d1, d3, 'ram.dbo.ram_master_etf')
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
-        univ_df.columns = ['ID', 'Date'] + features
+        univ_df.columns = ['SecCode', 'Date'] + features
         univ_df = univ_df.merge(ids)
         univ_df.ID = univ_df.Ticker
         univ_df = univ_df.drop('Ticker', axis=1)
@@ -172,7 +172,7 @@ class DataHandlerSQL(DataHandler):
         ids = np.array(self.sql_execute(
             """
             ; with tempdata as (
-            select  IsrCode, IdcCode, {3},
+            select  IsrCode, SecCode, {3},
                     ROW_NUMBER() over (
                         PARTITION BY IsrCode
                         ORDER BY {3} DESC) AS rank_val
@@ -181,7 +181,7 @@ class DataHandlerSQL(DataHandler):
             and NormalTradingFlag = 1
             {2}
             )
-            select top {0} IdcCode from tempdata
+            select top {0} SecCode from tempdata
             where rank_val = 1
             order by {3} desc;
             """.format(univ_size, fdate, where, filter_col)
@@ -193,8 +193,8 @@ class DataHandlerSQL(DataHandler):
             tickers = [tickers]
         # Get Ticker, IdcCode mapping
         ids = pd.DataFrame(self.sql_execute(
-            "select distinct IdcCode, Ticker "
-            "from ram.dbo.ram_master_etf;"), columns=['ID', 'Ticker'])
+            "select distinct SecCode, Ticker "
+            "from ram.dbo.ram_master_etf;"), columns=['SecCode', 'Ticker'])
         return ids[ids.Ticker.isin(tickers)]
 
     def sql_execute(self, sqlcmd):
@@ -216,6 +216,13 @@ if __name__ == '__main__':
 
     # EXAMPLES
     dh = DataHandlerSQL()
+
+    import pdb; pdb.set_trace()
+    univ = dh.get_etf_data(
+        tickers=['SPY', 'VXX'],
+        features=['Close', 'RSI10', 'MFI10'],
+        start_date='2016-06-01',
+        end_date='2016-10-20')
 
     filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
                    'univ_size': 20}

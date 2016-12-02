@@ -45,7 +45,7 @@ class TestPairs(unittest.TestCase):
         dates = np.array([d.to_datetime() for d in dates] * 3)
         ids = ['a', 'b', 'c'] * (len(dates) / 3)
         ids.sort()
-        data = pd.DataFrame({'Date': dates, 'ID': ids, 'Close': close})
+        data = pd.DataFrame({'Date': dates, 'SecCode': ids, 'ADJClose': close})
         self.bdh = DataHandlerFile(data)
         # Smaller example
         dates = pd.date_range(start='2014-03-30', end='2014-04-04')
@@ -53,7 +53,7 @@ class TestPairs(unittest.TestCase):
         ids = np.array(['a', 'b'] * 6)
         ids.sort()
         close = range(1, 13)
-        data = pd.DataFrame({'Date': dates, 'ID': ids, 'Close': close})
+        data = pd.DataFrame({'Date': dates, 'SecCode': ids, 'ADJClose': close})
         self.bdh2 = DataHandlerFile(data)
 
     def test_get_corr_coef(self):
@@ -87,12 +87,12 @@ class TestPairs(unittest.TestCase):
         t_end = dt.datetime(2015, 3, 31)
         data = self.bdh.get_filtered_univ_data(
                                univ_size=3,
-                               features='Close',
+                               features='ADJClose',
                                start_date=t_start,
                                end_date=t_end)
         close_data = data.pivot(index='Date',
-                                columns='ID',
-                                values='Close')
+                                columns='SecCode',
+                                values='ADJClose')
         result = pairs._get_stats_all_pairs(close_data)
         self.assertListEqual(result.Leg1.tolist(), ['a', 'a', 'b'])
         self.assertListEqual(result.Leg2.tolist(), ['b', 'c', 'c'])
@@ -126,12 +126,12 @@ class TestPairs(unittest.TestCase):
         t_end = dt.datetime(2015, 3, 31)
         data = self.bdh.get_filtered_univ_data(
                                univ_size=3,
-                               features='Close',
+                               features='ADJClose',
                                start_date=t_start,
                                end_date=t_end)
         close = data.pivot(index='Date',
-                           columns='ID',
-                           values='Close')
+                           columns='SecCode',
+                           values='ADJClose')
         result = pairs.get_best_pairs(data, t_eval)
         benchmark = close.index[close.index >= t_eval]
         self.assertEqual(len(result), len(benchmark))

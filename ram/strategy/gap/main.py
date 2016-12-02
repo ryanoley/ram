@@ -106,6 +106,5 @@ class GapStrategy(Strategy):
 
 if __name__ == '__main__':
 
-    import pdb; pdb.set_trace()
     strategy = GapStrategy()
     strategy.start()
