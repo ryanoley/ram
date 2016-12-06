@@ -45,6 +45,10 @@ class YearEnd(Strategy):
         Creates features for a single index of eval, entry and exit dates.
         Also takes parameters for the holding_period length and universe size.
         '''
+        filter_args = {'filter': 'AvgDolVol',
+                       'where': 'MarketCap >= 100 and Close_ >= 10',
+                       'univ_size': univ_size}
+
         features = ['Vwap', 'LEAD{}_Vwap'.format(hold_per),
                     'LAG1_RClose', 'LAG1_MarketCap', 'LAG1_AvgDolVol',
                     'LAG1_PRMA30_Close', 'LAG1_PRMA60_Close',
@@ -64,8 +68,8 @@ class YearEnd(Strategy):
             features=features,
             start_date=entry_date,
             end_date=exit_date,
-            univ_size=univ_size,
-            filter_date=eval_date)
+            filter_date=eval_date,
+            filter_args=filter_args)
         df = df.loc[df.Date == entry_date]
 
         # Market Variables
@@ -93,7 +97,10 @@ class YearEnd(Strategy):
                   inplace=True)
 
         # Industry performance for selected variables
-        avg_cols = ['DISCOUNT250', 'PRMA30']
+        avg_cols = ['PRMA30', 'PRMA60', 'PRMA120', 'PRMA250',
+                    'DISCOUNT30', 'DISCOUNT60', 'DISCOUNT120', 'DISCOUNT250',
+                    'RSI30', 'RSI60', 'RSI120', 'RSI250',
+                    'VOL30', 'VOL60', 'VOL120', 'VOL250']
         ind_data = self._industry_avg(df.GSECTOR, df[avg_cols])
         df = df.merge(ind_data, left_index=True, right_index=True)
         
