@@ -340,7 +340,14 @@ from				#idc_dates_table IDC
 	left join		qai.dbo.Ds2MktVal MC
 		on			DD.DsInfoCode = MC.InfoCode
 		and			IDC.Date_ = MC.ValDate
-where				DD.DsInfoCode not in (select DsInfoCode from ds_drop_ids)
+)
+
+
+, data_merge2 as (
+select				* 
+from				data_merge
+where				DsInfoCode not in (select DsInfoCode from ds_drop_ids)
+	or				DsInfoCode is null
 )
 
 
@@ -367,7 +374,7 @@ select			*,
 					partition by IdcCode 
 					order by Date_) as DateLag
 
-from			data_merge
+from			data_merge2
 
 )
 
