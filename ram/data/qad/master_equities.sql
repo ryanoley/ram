@@ -43,8 +43,74 @@ create table	ram.dbo.ram_master_equities (
 )
 
 
--------------------------------------------------------------------
--------------------------------------------------------------------
+-- ############################################################################################
+--  IDC Data - Share data
+
+if object_id('tempdb..#idc_shares_table', 'U') is not null 
+	drop table #idc_shares_table
+
+
+create table #idc_shares_table
+(
+	Code int,
+	StartDate datetime,
+	EndDate datetime,
+	Shares real
+)
+
+
+; with shares as (
+
+select		Code, 
+			Date_ as StartDate, 
+			dateadd(day, -1, Lead(Date_, 1) over (
+				partition by Code 
+				order by Date_)) as EndDate, 
+			Shares 
+from		qai.prc.PrcShr
+where		Date_ >= '1992-01-01'
+
+)
+
+INSERT INTO
+   #idc_shares_table
+SELECT
+    *
+FROM
+    shares
+
+go
+
+CREATE CLUSTERED INDEX IDX_Code_Date ON #idc_shares_table(Code, StartDate, EndDate)
+
+go
+
+-- ############################################################################################
+--  IDC Data - ID Dates
+
+if object_id('tempdb..#idc_dates_table', 'U') is not null 
+	drop table #idc_dates_table
+
+create table #idc_dates_table
+(
+    SecCode int,
+	Code int,
+	IsrCode int,
+	HistoricalCusip varchar(15),
+	HistoricalTicker varchar(15),
+    Date_ datetime,
+	DateLagC datetime,
+	Open_ real,
+	High real,
+	Low real,
+	Close_ real,
+	Vwap real,
+	Volume real,
+
+	SplitFactor real,
+	CashDividend real,
+	tempShares real
+)
 
 
 ; with idc_dates as (
@@ -55,20 +121,6 @@ create table	ram.dbo.ram_master_equities (
 	select distinct Code, Date_ from qai.prc.PrcDly where Date_ >= '1993-12-01'
 	union
 	select distinct Code, Date_ from qai.prc.PrcVol where Date_ >= '1993-12-01'
-
-)
-
-
-, shares as (
-
-select		Code, 
-			Date_ as StartDate, 
-			dateadd(day, -1, Lead(Date_, 1) over (
-				partition by Code 
-				order by Date_)) as EndDate, 
-			Shares 
-from		qai.prc.PrcShr
-where		Date_ >= '1992-01-01'
 
 )
 
@@ -99,53 +151,68 @@ from		qai.prc.PrcScChg
 )
 
 
-, data_merge as (
+, idc_data as (
 
-select			I.IsrCode,
-				M.SecCode,
-				N.VenCode as DsInfoCode,
-				D.Code as IdcCode,
-				D.Date_,
-				DF.DateLagC,
+select			M.SecCode,
+				D.Code,
+				I.IsrCode,
 				E.Cusip as HistoricalCusip,
 				E.Ticker as HistoricalTicker,
-				coalesce(P1.Open_, P2.Open_, P4.Open_) as Open_,
-				coalesce(P1.High, P2.High, P4.High) as High,
-				coalesce(P1.Low, P2.Low, P4.Low) as Low,
-				coalesce(P1.Close_, P2.Close_, P4.Close_) as Close_,
-				coalesce(Nullif(P3.Vwap, -99999), P4.Vwap) as Vwap,
-				coalesce(P2.Volume, P1.Volume) as Volume,
-				MC.ConsolMktVal as tempMarketCap,
-				SH.Shares as tempShares,
+				D.Date_,
+				DF.DateLagC,
+				coalesce(P1.Open_, P2.Open_) as Open_,
+				coalesce(P1.High, P2.High) as High,
+				coalesce(P1.Low, P2.Low) as Low,
+				coalesce(P1.Close_, P2.Close_) as Close_,
+				Nullif(P3.Vwap, -99999) as Vwap,
+				coalesce(Nullif(P2.Volume, -99999), Nullif(P1.Volume, -99999)) as Volume,
+
+				A.Factor as SplitFactor,
 				Isnull(DV.CashDividend, 0) as CashDividend,
-				A.Factor as SplitFactor
+				SH.Shares as tempShares
+
 from			idc_dates D
 
-	-- Filter --
+	join		qai.prc.PrcInfo F
+		on		D.Code = F.Code
+		and		F.SecType = 'C'
+		and		F.Issue not like '%UNIT%'
 
-	-- Trading dates lag column for 'NormalTradingFlag'
-	join		trading_dates_filter DF
-		on		D.Date_ = DF.Date_
-
-	-- Historical Exchange filter -- Null handling for missing EndDates
 	join		exchanges E
 		on		D.Code = E.Code
 		and		D.Date_ between E.StartDate and E.AltEndDate
 		and		E.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
 
-	-- Security type filter
-	join		qai.prc.PrcInfo F
-		on		D.Code = F.Code
-		and		F.SecType = 'C'
+	-- Trading dates lag column for 'NormalTradingFlag'
+	join		trading_dates_filter DF
+		on		D.Date_ = DF.Date_
 
-	-- Get SecCode
+	-- IDC Data points
+	left join	qai.prc.PrcExc P1
+		on		D.Code = P1.Code
+		and		D.Date_ = P1.Date_
+
+	left join	qai.prc.PrcDly P2
+		on		D.Code = P2.Code
+		and		D.Date_ = P2.Date_
+
+	left join	qai.prc.PrcVol P3
+		on		D.Code = P3.Code
+		and		D.Date_ = P3.Date_
+
+	left join	qai.prc.PrcAdj	A
+		on		A.Code = D.Code
+		and		A.AdjType = 1
+		and		D.Date_ >= A.StartDate
+		and		D.Date_ <= A.EndDate
+
+	-- Mapping of SecCode
 	join		qai.dbo.SecMapX M
 		on		D.Code = M.VenCode
 		and		M.Exchange = 1
 		and		M.VenType = 1
-		--and		D.Date_ between M.StartDate and coalesce(M.EndDate, getdate())
+		and		D.Date_ between M.StartDate and coalesce(M.EndDate, getdate())
 
-	-- Merge Security Master mapping for Name filter below
 	join		qai.dbo.SecMstrX M2
 		on		M.SecCode = M2.SecCode
 		and		M2.Type_ = 1
@@ -158,44 +225,6 @@ from			idc_dates D
 	-- Get SIC to filter out investment Funds. See below
 	join		qai.prc.PrcIsr I2
 		on		I.IsrCode = I2.IsrCode
-
-	-- Join datastream codes - Rank = 1 gets rid of the handful of duplicates.
-	-- NOTE: This problem should be troubleshot at some point
-	left join	qai.dbo.SecMapX N
-		on		M.SecCode = N.SecCode
-		and		N.Exchange = 1
-		and		N.VenType = 33
-		and		N.[Rank] = 1
-		--and		D.Date_ between N.StartDate and coalesce(N.EndDate, getdate())
-
-	-- DATA --
-
-	-- Exchange pricing is primary. Volume is reported separately
-	left join	qai.prc.PrcExc P1
-		on		D.Code = P1.Code
-		and		D.Date_ = P1.Date_
-
-	-- Composite pricing is secondary. Volume is reported separately
-	left join	qai.prc.PrcDly P2
-		on		D.Code = P2.Code
-		and		D.Date_ = P2.Date_
-
-	-- Vwap Pricing comes from this table
-	left join	qai.prc.PrcVol P3
-		on		D.Code = P3.Code
-		and		D.Date_ = P3.Date_
-
-	-- Adjustment factor
-	left join	qai.prc.PrcAdj	A
-		on		A.Code = D.Code
-		and		A.AdjType = 1
-		and		D.Date_ >= A.StartDate
-		and		D.Date_ <= A.EndDate
-
-	-- Ds2 Data
-	left join	qai.dbo.DS2PrimQtPrc P4
-		on		N.VenCode = P4.InfoCode
-		and		D.Date_ = P4.MarketDate
 
 	-- Dividends
 	left join	(
@@ -212,22 +241,106 @@ from			idc_dates D
 		on		DV.Code = D.Code
 		and		DV.ExDate = D.Date_
 
-	-- Consolidated Market Cap
-	left join	qai.dbo.Ds2MktVal MC
-		on		N.VenCode = MC.InfoCode
-		and		D.Date_ = MC.ValDate
-
 	-- Shares outstanding for MarketCap
 	-- IMPROVEMENT: This is where would could add in
 	-- data stream functionality because there is missing
 	-- share data.
-	left join	shares SH
+	left join	#idc_shares_table SH
 		on		D.Code = SH.Code 
 		and		D.Date_ between SH.StartDate and SH.EndDate
 
+where		not (I2.SIC = 0 AND M2.Name like '%FUND%')
 
-where			not (I2.SIC = 0 AND M2.Name like '%FUND%')
+)
 
+
+INSERT INTO
+   #idc_dates_table
+SELECT
+    *
+FROM
+    idc_data
+
+go
+
+
+CREATE CLUSTERED INDEX IDX_Code_Date ON #idc_dates_table(SecCode, Date_)
+
+
+
+-- ############################################################################################
+--  Data Stream data
+
+; with ds_ids1 as (
+select			M.SecCode, M.Date_, N.VenCode as DsInfoCode
+from			#idc_dates_table M
+	left join	qai.dbo.SecMapX N
+		on		M.SecCode = N.SecCode
+		and		M.Date_ between N.StartDate and N.EndDate
+		and		N.Exchange = 1
+		and		N.VenType = 33
+)
+
+
+, ds_counts as (
+select			SecCode,
+				Count(*) as Count_
+from			ds_ids1
+group by		SecCode, Date_
+)
+
+
+, ds_drop_ids as (
+-- Drop values that don't have a DsLocalCode. This handles the incorrect data
+-- points in an indirect way, so doesnt guarantee it is perfect. Worked
+-- properly when developed/spot checked.
+select distinct		D.SecCode, D.DsInfoCode, I.*
+from				ds_ids1 D
+join				qai.dbo.Ds2CtryQtInfo I
+		on			D.DsInfoCode = I.InfoCode
+where				SecCode in (select distinct SecCode from ds_counts where Count_ > 1)
+	and				DsLocalCode is null
+)
+
+
+, data_merge as (
+
+select				IDC.IsrCode,
+					IDC.SecCode,
+					DD.DsInfoCode,
+					IDC.Code as IdcCode,
+
+					IDC.HistoricalCusip,
+					IDC.HistoricalTicker,
+					IDC.Date_,
+					IDC.DateLagC,
+
+					coalesce(IDC.Open_, P.Open_) as Open_,
+					coalesce(IDC.High, P.High) as High,
+					coalesce(IDC.Low, P.Low) as Low,
+					coalesce(IDC.Close_, P.Close_) as Close_,
+					coalesce(IDC.Vwap, P.Vwap) as Vwap,
+
+					IDC.Volume,
+					IDC.SplitFactor,
+					IDC.CashDividend,
+					IDC.tempShares,
+
+					MC.ConsolMktVal as tempMarketCap
+
+from				#idc_dates_table IDC
+	join			ds_ids1 DD
+		on			DD.Date_ = IDC.Date_
+		and			DD.SecCode = IDC.SecCode
+
+	left join		qai.dbo.DS2PrimQtPrc P
+		on			DD.DsInfoCode = P.InfoCode
+		and			IDC.Date_ = P.MarketDate
+
+	left join		qai.dbo.Ds2MktVal MC
+		on			DD.DsInfoCode = MC.InfoCode
+		and			IDC.Date_ = MC.ValDate
+where				DD.DsInfoCode not in (select DsInfoCode from ds_drop_ids)
 )
 
 
@@ -296,6 +409,7 @@ select 			D.IsrCode,
 
 from			agg_data D
 where			Date_ >= '1995-01-01'
+
 )
 
 
@@ -309,3 +423,6 @@ create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
 -- Filter Indexes
 create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
 create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
+
+drop table #idc_dates_table
+drop table #idc_shares_table
