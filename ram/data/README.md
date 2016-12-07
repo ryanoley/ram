@@ -29,6 +29,7 @@ Features must adhere to a strict format to be returned correctly. Best to use ex
 * Open, High, Low, Close, VWAP, Volume (Split and Div Adjusted - DEFAULT for technical variable calculations)
 * AvgDolVol, MarketCap, SplitFactor
 * GSECTOR, GGROUP (Gics Sector and Group data)
+* SI (NOTE: This is currently one day lagged. TODO: Add lag functionality)
 
 
 ### Technical variables (20-period example construction provided)
