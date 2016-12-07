@@ -16,12 +16,13 @@ create table	ram.dbo.ram_sector (
 
 
 ; with ids1 as (
-select distinct SecCode, HistoricalCusip from ram.dbo.ram_master_equities
+select distinct IsrCode, SecCode, HistoricalCusip from ram.dbo.ram_master_equities
 )
 
 
 , gvkey1 as (
-select			M.SecCode,
+select			M.IsrCode,
+				M.SecCode,
 				C.GVKey
 from			ids1 M
 join			CSVSecurity C
@@ -32,14 +33,15 @@ join			CSVSecurity C
 
 
 , ids2 as (
-select distinct SecCode from ids1
+select distinct IsrCode, SecCode from ids1
 except
-select distinct SecCode from gvkey1
+select distinct IsrCode, SecCode from gvkey1
 )
 
 
 , gvkey2 as (
-select		I.SecCode,
+select		I.IsrCode,
+			I.SecCode,
 			C.GVKey
 from		ids2 I
 join		SecMapX M
@@ -54,10 +56,33 @@ join		CSVSecurity C
 )
 
 
+, ids3 as (
+select distinct IsrCode, SecCode from ids1
+except
+select distinct IsrCode, SecCode from gvkey1
+except
+select distinct IsrCode, SecCode from gvkey2
+)
+
+
+, gvkey3 as (
+
+select			I.IsrCode,
+				I.SecCode,
+				G.GVKEY
+from			ids3 I
+join			gvkey1 G
+	on			I.IsrCode = G.IsrCode
+
+)
+
+
 , gvkeys as (
 select * from gvkey1
 union
 select * from gvkey2
+union
+select * from gvkey3
 )
 
 
