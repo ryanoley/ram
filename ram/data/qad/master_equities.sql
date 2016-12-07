@@ -276,7 +276,7 @@ select			M.SecCode, M.Date_, N.VenCode as DsInfoCode
 from			#idc_dates_table M
 	left join	qai.dbo.SecMapX N
 		on		M.SecCode = N.SecCode
-		and		M.Date_ between N.StartDate and N.EndDate
+		and		N.[Rank] = 1
 		and		N.Exchange = 1
 		and		N.VenType = 33
 )
@@ -340,15 +340,11 @@ from				#idc_dates_table IDC
 	left join		qai.dbo.Ds2MktVal MC
 		on			DD.DsInfoCode = MC.InfoCode
 		and			IDC.Date_ = MC.ValDate
+where				DD.DsInfoCode not in (select DsInfoCode from ds_drop_ids)
+
 )
 
 
-, data_merge2 as (
-select				* 
-from				data_merge
-where				DsInfoCode not in (select DsInfoCode from ds_drop_ids)
-	or				DsInfoCode is null
-)
 
 
 , agg_data as (
@@ -374,7 +370,7 @@ select			*,
 					partition by IdcCode 
 					order by Date_) as DateLag
 
-from			data_merge2
+from			data_merge
 
 )
 
