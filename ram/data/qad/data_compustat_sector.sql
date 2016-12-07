@@ -5,41 +5,64 @@ if object_id('ram.dbo.ram_sector', 'U') is not null
 
 
 create table	ram.dbo.ram_sector (
-				IsrCode int,
+				SecCode int,
 				GVKey int,
 				GSECTOR int,
 				GGROUP int,
 				StartDate smalldatetime,
 				EndDate smalldatetime
-				primary key (IsrCode, GVKey, StartDate, EndDate)
+				primary key (SecCode, GVKey, StartDate, EndDate)
 )
 
 
-; with mdata as (
+; with ids1 as (
+select distinct SecCode, HistoricalCusip from ram.dbo.ram_master_equities
+)
 
-select distinct		C.GVKey as GVKey, 
-					U.SecCode,
-					U.IsrCode,
-					U.Date_
-from				ram.dbo.ram_master_equities2 U
 
-	join			qai.dbo.SecMapX M
-	on				U.SecCode = M.SecCode
-	and				M.VenType = 4
-	and				M.Exchange = 1
-	and				U.Date_ between M.StartDate and M.EndDate
+, gvkey1 as (
+select			M.SecCode,
+				C.GVKey
+from			ids1 M
+join			CSVSecurity C
+	on			M.HistoricalCusip = C.CUSIP
+	and			C.EXCNTRY = 'USA'
+	and			C.TPCI = '0'
+)
 
-	join			qai.dbo.CSVSecurity C
-	on				M.VenCode = C.SecIntCode
-	and				C.TPCI = '0'
-	and				C.EXCNTRY = 'USA'
 
-where				U.Date_ < C.DLDTEI
+, ids2 as (
+select distinct SecCode from ids1
+except
+select distinct SecCode from gvkey1
+)
 
+
+, gvkey2 as (
+select		I.SecCode,
+			C.GVKey
+from		ids2 I
+join		SecMapX M
+	on		I.SecCode = M.SecCode
+	and		M.VenType = 4
+	and		M.Exchange = 1
+	and		M.[Rank] = 1
+join		CSVSecurity C
+	on		M.VenCode = C.SecIntCode
+	and		C.EXCNTRY = 'USA'
+	and		C.TPCI = '0'
+)
+
+
+, gvkeys as (
+select * from gvkey1
+union
+select * from gvkey2
 )
 
 
 , sectors as (
+
 select GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP from qai.dbo.CSCoHGIC
 union
 select GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP from qai.dbo.CSICoHGIC
@@ -47,15 +70,13 @@ select GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP 
 )
 
 
-insert into		ram.dbo.ram_sector
-select					M.IsrCode,
+insert into				ram.dbo.ram_sector
+select distinct			M.SecCode,
 						S.GVKey,
 						S.GSECTOR,
 						S.GGROUP,
-						min(M.Date_) as StartDate,
-						max(M.Date_) as EndDate
-from					mdata M
+						S.INDFROM as StartDate,
+						S.INDTHRU as EndDate
+from					gvkeys M
 join					sectors S
 	on					M.GVKey = S.GVKey
-	and					M.Date_ between S.INDFROM and S.INDTHRU
-group by				M.IsrCode, S.GVKey, S.GSECTOR, S.GGROUP
