@@ -80,7 +80,7 @@ class DataHandlerSQL(DataHandler):
             ids = []
 
         # Get features, and strings for cte and regular query
-        sqlcmd = sqlcmd_from_feature_list(features, ids, d1, d3)
+        sqlcmd, features = sqlcmd_from_feature_list(features, ids, d1, d3)
 
         univ = self.sql_execute(sqlcmd)
 
@@ -217,22 +217,21 @@ if __name__ == '__main__':
     # EXAMPLES
     dh = DataHandlerSQL()
 
-    import pdb; pdb.set_trace()
+    filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
+                   'univ_size': 20}
+    univ = dh.get_filtered_univ_data(
+        features=['LAG2_BOLL30_Close', 'Close', 'SI',
+                  'GSECTOR', 'GGROUP', 'BOLL30_Close'],
+        start_date='2016-06-01',
+        end_date='2016-10-20',
+        filter_date='2016-06-01',
+        filter_args=filter_args)
+
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],
         features=['Close', 'RSI10', 'MFI10'],
         start_date='2016-06-01',
         end_date='2016-10-20')
-
-    filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
-                   'univ_size': 20}
-    univ = dh.get_filtered_univ_data(
-        features=['BOLL30_Close', 'LAG2_BOLL30_Close', 'Close',
-                  'GSECTOR', 'GGROUP'],
-        start_date='2016-06-01',
-        end_date='2016-10-20',
-        filter_date='2016-06-01',
-        filter_args=filter_args)
 
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],

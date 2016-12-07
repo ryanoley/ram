@@ -31,6 +31,10 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     if 'GGROUP' in features:
         features.remove('GGROUP')
         gics_features.append('B.GGROUP')
+    si_feature = False
+    if 'SI' in features:
+        features.remove('SI')
+        si_feature = True
 
     # Get individual entries for CTEs per feature
     ctes = []
@@ -66,25 +70,48 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
             vars1, vars2, vars3, vars4,
             sdate, start_date, end_date, ids_str, table)
 
+    # This string is used for the additional tables that are merged
+    last_table = 'cte4'
+
     if gics_features:
+        features += gics_features
         gics_features = ', '.join(gics_features)
         sqlcmd += \
             """
-            select A.*, {2} from cte4 A
-            left join ram.dbo.ram_sector B
-            on A.SecCode = B.SecCode
-            and A.Date_ between B.StartDate and B.EndDate
-            where A.Date_ between '{0}' and '{1}'
-            order by A.SecCode, A.Date_
-            """.format(start_date, end_date, gics_features)
-    else:
+            , cte5 as (
+                select A.*, {0} from {1} A
+                left join ram.dbo.ram_sector B
+                on A.SecCode = B.SecCode
+                and A.Date_ between B.StartDate and B.EndDate
+            )
+            """.format(gics_features, last_table)
+        last_table = 'cte5'
+
+    if si_feature:
+        features.append('SI')
         sqlcmd += \
             """
-            select * from cte4
-            where Date_ between '{0}' and '{1}'
-            order by SecCode, Date_
-            """.format(start_date, end_date)
-    return clean_sql_cmd(sqlcmd)
+            , cte6 as (
+                select A.*, B.SI from {0} A
+                join (select distinct IdcCode, SecCode
+                      from ram.dbo.ram_master_equities) C
+                on A.SecCode = C.SecCode
+                left join ram.dbo.ShortInterest B
+                on C.IdcCode = B.IdcCode
+                and B.Date_ = (
+                    select max(Date_) from ram.dbo.ShortInterest b
+                    where b.Date_ < A.Date_ and b.IdcCode = C.IdcCode)
+            )
+            """.format(last_table)
+        last_table = 'cte6'
+
+    sqlcmd += \
+        """
+        select * from {0}
+        where Date_ between '{1}' and '{2}'
+        order by SecCode, Date_
+        """.format(last_table, start_date, end_date)
+    return clean_sql_cmd(sqlcmd), features
 
 
 def make_cmds(vstring):
