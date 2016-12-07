@@ -20,8 +20,9 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     else:
         ids_str = ''
 
-    # Make this dynamic somehow?
+    # First pull date ranges. Make this dynamic somehow?
     sdate = start_date - dt.timedelta(days=365)
+    fdate = end_date + dt.timedelta(days=30)
 
     # Check if sector data is present
     gics_features = []
@@ -51,9 +52,9 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         """
         ; with cte1 as (
             select SecCode, Date_, {0}
-            from {8}
-            where Date_ between '{4}' and '{6}'
-            {7}
+            from {7}
+            where Date_ between '{4}' and '{5}'
+            {6}
         )
         , cte2 as (
             select SecCode, Date_, {1}
@@ -68,7 +69,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         )
         """.format(
             vars1, vars2, vars3, vars4,
-            sdate, start_date, end_date, ids_str, table)
+            sdate, fdate, ids_str, table)
 
     # This string is used for the additional tables that are merged
     last_table = 'cte4'
