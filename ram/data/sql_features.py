@@ -28,10 +28,10 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     gics_features = []
     if 'GSECTOR' in features:
         features.remove('GSECTOR')
-        gics_features.append('B.GSECTOR')
+        gics_features.append('GSECTOR')
     if 'GGROUP' in features:
         features.remove('GGROUP')
-        gics_features.append('B.GGROUP')
+        gics_features.append('GGROUP')
     si_feature = False
     if 'SI' in features:
         features.remove('SI')
@@ -93,7 +93,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         sqlcmd += \
             """
             , cte6 as (
-                select A.*, B.SI from {0} A
+                select A.*, B.SI as SI from {0} A
                 join (select distinct IdcCode, SecCode
                       from ram.dbo.ram_master_equities) C
                 on A.SecCode = C.SecCode
