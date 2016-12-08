@@ -146,8 +146,8 @@ class DataHandlerSQL(DataHandler):
         ids = self._map_ticker_to_id(tickers)
 
         # Get features, and strings for cte and regular query
-        sqlcmd = sqlcmd_from_feature_list(features, ids.SecCode.tolist(),
-                                          d1, d3, 'ram.dbo.ram_master_etf')
+        sqlcmd, features = sqlcmd_from_feature_list(
+            features, ids.SecCode.tolist(), d1, d3, 'ram.dbo.ram_master_etf')
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
@@ -226,12 +226,6 @@ if __name__ == '__main__':
         end_date='2016-10-20',
         filter_date='2016-06-01',
         filter_args=filter_args)
-
-    univ = dh.get_etf_data(
-        tickers=['SPY', 'VXX'],
-        features=['Close', 'RSI10', 'MFI10'],
-        start_date='2016-06-01',
-        end_date='2016-10-20')
 
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],
