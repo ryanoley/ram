@@ -112,7 +112,7 @@ class DataHandlerSQL(DataHandler):
         d1, _, d3 = _format_dates(start_date, None, end_date)
 
         # Get features, and strings for cte and regular query
-        sqlcmd = sqlcmd_from_feature_list(features, ids, d1, d3)
+        sqlcmd, features = sqlcmd_from_feature_list(features, ids, d1, d3)
 
         univ = self.sql_execute(sqlcmd)
 
