@@ -47,7 +47,7 @@ CLUSTER_USER = ramadmin
 # (options: tcsh, zsh, csh, bash, ksh)
 CLUSTER_SHELL = bash
 # AMI to use for cluster nodes
-NODE_IMAGE_ID = ami-18e6b278
+NODE_IMAGE_ID = ami-67144207
 # (options: m3.large, m3.medium, m3.xlarge, m3.2xlarge, c1.medium, c1.xlarge,
 # c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge, c3.8xlarge, r3.large, r3.xlarge,
 # r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge, i2.2xlarge,  i2.4xlarge, i2.8xlarge)
@@ -80,7 +80,7 @@ CLUSTER_USER = ramadmin
 # (options: tcsh, zsh, csh, bash, ksh)
 CLUSTER_SHELL = bash
 # AMI to use for cluster nodes
-NODE_IMAGE_ID = ami-d16ec0b1
+NODE_IMAGE_ID = ami-a95bf0c9
 # (options: m3.large, m3.medium, m3.xlarge, m3.2xlarge, c1.medium, c1.xlarge,
 # c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge, c3.8xlarge, r3.large, r3.xlarge,
 # r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge, i2.2xlarge,  i2.4xlarge, i2.8xlarge)
