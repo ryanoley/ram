@@ -52,7 +52,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 cd /usr/local/etc
 # DataSource in TDS (/usr/local/etc/freetds.conf) 
 # Add the following at the end of the file:
-[MSSQL]
+[QADIRECTDB]
 host = 23.246.113.26
 port = 1433
 tds version = 7.3
@@ -66,7 +66,7 @@ FileUsage = 1
 UsageCount = 1
 
 #Add DSN to odbc (usr/local/etc/odbc.ini)
-[MSSQL]
+[QADIRECTDB]
 Description = MS SQL Server
 Driver = /usr/local/lib/libtdsodbc.so
 Server = 23.246.113.26
@@ -76,12 +76,12 @@ PWD = 183madison
 ReadOnly = Yes
 
 # Finally test connection with
-isql -v MSSQL ramuser 183madison
+isql -v QADIRECTDB ramuser 183madison
 
 
 # Connecting via python
 # make sure pypyodbc is installed (pip will work for this)
 import pypyodbc
-connection = pypyodbc.connect('DSN=mssql;uid=ramuser;pwd=183madison')
+connection = pypyodbc.connect('DSN=qadirectdb;uid=ramuser;pwd=183madison')
 assert connection.connected == 1
 
