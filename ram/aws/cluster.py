@@ -198,7 +198,7 @@ class ClusterController(object):
             if ix > p_ix:
                 print '{0}% Complete'.format(
                     str(np.round(ix/len(iterable), 2) *100))
-            time.sleep(10)
+            time.sleep(60)
             p_ix = ix
         return results
 
