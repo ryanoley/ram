@@ -46,7 +46,7 @@ class YearEnd(Strategy):
         ranks = pd.DataFrame(data={'SecCode':test.SecCode,
                                    'Ind':test.GSECTOR,
                                    'Rank':np.argsort(np.argsort(signals))})
-        ranks.sort_values('Rank', inplace=True)
+        ranks.sort('Rank', inplace=True)
         port_ix = self._get_portfolio_ix(ranks.Rank,
                                          ranks.Ind,
                                          n = self.port_n,
@@ -239,7 +239,7 @@ class YearEnd(Strategy):
             features=['Vwap', 'Close'],
             start_date=start,
             end_date=end)
-        returns.sort_values(['ID','Date'], inplace=True)
+        returns.sort(['ID','Date'], inplace=True)
 
         # Could do this all at once, concern is missing data        
         for i in returns.ID.unique():
