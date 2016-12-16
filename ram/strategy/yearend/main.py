@@ -37,7 +37,7 @@ class YearEnd(Strategy):
         fbdoy =  np.array([db_dates[db_dates > x].min() for x in fdoy])
         fbdix = np.array([np.where(db_dates == x)[0][0] for x in fbdoy])
 
-        exitix = fbdix - 1
+        exitix = fbdix
         entryix = exitix - hold_per
         evalix = entryix - 1
 
