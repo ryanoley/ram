@@ -2,7 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 import datetime as dt
-
+from sklearn import linear_model
+from sklearn import ensemble 
+from sklearn.decomposition import PCA
 from ram.strategy.base import Strategy
 
 
@@ -18,34 +20,58 @@ class YearEnd(Strategy):
         self.univ_size = univ_size
         self.port_n = port_n
         self.ind_n = ind_n
-        self.allocs = pd.DataFrame([])
+        self.signals = pd.DataFrame([])
 
     def get_iter_index(self):
         return self.date_iter[5:]
 
+    def _get_date_iterator(self, hold_per=5):
+        """
+        Produce iterable with revlevant dates (eval_dt, entry_dt, exit_dt)
+        for each event (year end)
+        """
+        db_dates = self.datahandler.get_all_dates()
+
+        fdoy = pd.date_range('2000-01-01', '2016-01-01', freq='AS')
+        fdoy = np.array([x.to_pydatetime() for x in fdoy])
+        fbdoy =  np.array([db_dates[db_dates > x].min() for x in fdoy])
+        fbdix = np.array([np.where(db_dates == x)[0][0] for x in fbdoy])
+
+        exitix = fbdix - 1
+        entryix = exitix - hold_per
+        evalix = entryix - 1
+
+        iterable = zip(db_dates[evalix], db_dates[entryix], db_dates[exitix])
+        return iterable
+
     def run_index(self, index):
-        # Params
-        train_pers = 5
         ix = self.date_iter.index(index)
-        
+
         # Generate training and test data frames
-        train = self.get_univ_iter(self.date_iter[ix - train_pers : ix])
+        if hasattr(self, 'priortrain'):
+            train = self.priortrain.append(self.priortest)
+            train.reset_index(drop=True, inplace=True)
+        else:
+            train = self.get_univ_iter(self.date_iter[ : ix])
+
         test = self.get_univ_ix(index)
+        self.priortrain = train.copy()
+        self.priortest = test.copy()
         train = train.dropna()
         test = test.dropna()
-        
-        # Get signals for Test
-        features = list(set(train.columns) - set(['SecCode', 'Date', 'Vwap',
-                                                  'LEAD5_Vwap', 'RClose',
-                                                  'MarketCap', 'AvgDolVol',
-                                                  'GSECTOR', 'Ret', 'RetH']))
-        signals = self.generate_signals(train[features], train.RetH,
-                                        test[features])
 
-        # Set portfolios based on Ind and Rank
+        # GET SIGNALS
+        features = list(set(train.columns) - set(
+            ['SecCode', 'Date', 'Vwap', 'LEAD{}_Vwap'.format(self.hold_per),
+             'RClose', 'MarketCap', 'AvgDolVol', 'GSECTOR', 'Ret', 'RetH']))
+        signals = self.generate_signals(train[features].copy(), train.RetH,
+                                        test[features].copy())
+        signal_ranks = np.argsort(np.argsort(signals[0]))
+
+        # SET PORTFOLIO
         ranks = pd.DataFrame(data={'SecCode':test.SecCode,
                                    'Ind':test.GSECTOR,
-                                   'Rank':np.argsort(np.argsort(signals))})
+                                   'Rank':signal_ranks})
         ranks.sort('Rank', inplace=True)
         port_ix = self._get_portfolio_ix(ranks.Rank,
                                          ranks.Ind,
@@ -59,28 +85,17 @@ class YearEnd(Strategy):
         port_rets = pd.DataFrame(grp.RetH.mean())
         
         # Save allocs
-        self.allocs = self.allocs.append(rets)
+        signal_df = signals[1]
+        signal_df.index = test.index
+        signal_df.loc[:, 'Ret'] = test.Ret.copy()
+        signal_df.loc[:, 'RetH'] = test.RetH.copy()
+        signal_df.loc[:, 'SecCode'] = test.SecCode.copy()
+        signal_df.loc[:, 'GSECTOR'] = test.GSECTOR.copy()
+        signal_df.loc[:, 'Date'] = test.Date.copy()
+        self.signals = self.signals.append(signal_df)
+        self.signals.reset_index(drop=True, inplace=True)
         print str(index[2])
         return port_rets
-
-    def _get_date_iterator(self, hold_per=5):
-        """
-        Produce iterable with revlevant dates (eval_dt, entry_dt, exit_dt)
-        for each event (year end)
-        """
-        db_dates = self.datahandler.get_all_dates()
-
-        fdoy = pd.date_range('2000-01-01', '2016-01-01', freq='AS')
-        fdoy = np.array([x.to_pydatetime() for x in fdoy])
-        fbdoy =  np.array([db_dates[db_dates > x].min() for x in fdoy])
-        lbdoy =  np.array([db_dates[db_dates < x].max() for x in fdoy])
-
-        lbdix = np.array([np.where(db_dates == x)[0][0] for x in lbdoy])
-        entryix = lbdix - hold_per
-        evalix = entryix - 1
-
-        iterable = zip(db_dates[evalix], db_dates[entryix], db_dates[lbdix])
-        return iterable
 
     def get_univ_iter(self, dt_iter):
         '''
@@ -103,22 +118,22 @@ class YearEnd(Strategy):
         ExitCol = 'LEAD{}_Vwap'.format(self.hold_per)
         features = ['Vwap', ExitCol, 'GSECTOR', 'LAG1_RClose', 'SI', 
                     'LAG1_MarketCap', 'LAG1_AvgDolVol',
-                    'LAG1_PRMA30_Close', 'LAG1_PRMA60_Close',
-                    'LAG1_PRMA120_Close', 'LAG1_PRMA250_Close',
-                    'LAG1_BOLL30_Close', 'LAG1_BOLL60_Close',
-                    'LAG1_BOLL120_Close', 'LAG1_BOLL250_Close',
-                    'LAG1_RSI30_Close', 'LAG1_RSI60_Close',
-                    'LAG1_RSI120_Close', 'LAG1_RSI250_Close',
-                    'LAG1_DISCOUNT30_Close', 'LAG1_DISCOUNT60_Close',
+                    'LAG1_PRMA5_Close', 'LAG1_PRMA20_Close',
+                    'LAG1_PRMA60_Close', 'LAG1_PRMA250_Close',
+                    'LAG1_BOLL20_Close', 'LAG1_BOLL60_Close',
+                    'LAG1_BOLL250_Close',
+                    'LAG1_RSI5_Close', 'LAG1_RSI60_Close',
+                    'LAG1_RSI120_Close',
+                    'LAG1_DISCOUNT20_Close', 'LAG1_DISCOUNT60_Close',
                     'LAG1_DISCOUNT120_Close', 'LAG1_DISCOUNT250_Close',
-                    'LAG1_VOL30_Close', 'LAG1_VOL60_Close',
+                    'LAG1_VOL20_Close', 'LAG1_VOL60_Close',
                     'LAG1_VOL120_Close', 'LAG1_VOL250_Close',
-                    'LAG1_MFI30_Close', 'LAG1_MFI60_Close',
-                    'LAG1_MFI120_Close', 'LAG1_MFI250_Close']
+                    'LAG1_MFI5_Close', 'LAG1_MFI20_Close'
+                    ]
 
         # Pull data and filter to date of interest
         filter_args = {'filter': 'AvgDolVol',
-                       'where': 'MarketCap >= 100 and Close_ >= 10',
+                       'where': 'MarketCap >= 100 and Close_ >= 15',
                        'univ_size': self.univ_size}
 
         df = self.datahandler.get_filtered_univ_data(
@@ -130,8 +145,8 @@ class YearEnd(Strategy):
 
         # Hedge these vars with SPY
         spy_features = ['Vwap', ExitCol,
-                        'LAG1_PRMA30_Close', 'LAG1_PRMA60_Close',
-                        'LAG1_PRMA120_Close', 'LAG1_PRMA250_Close']
+                        'LAG1_PRMA5_Close', 'LAG1_PRMA20_Close',
+                        'LAG1_PRMA60_Close', 'LAG1_PRMA250_Close']
         spy = self.datahandler.get_etf_data(
             ['SPY'],
             features=spy_features,
@@ -152,15 +167,13 @@ class YearEnd(Strategy):
                            x not in skip_cols}, inplace=True)
 
         # Columns to average performance over Industry
-        avg_cols = ['PRMA30', 'PRMA60', 'PRMA120', 'PRMA250',
-                    'DISCOUNT30', 'DISCOUNT60', 'DISCOUNT120', 'DISCOUNT250',
-                    'RSI30', 'RSI60', 'RSI120', 'RSI250',
-                    'VOL30', 'VOL60', 'VOL120', 'VOL250']
+        avg_cols = ['PRMA20', 'PRMA60', 'DISCOUNT60', 'DISCOUNT250',
+                    'RSI60', 'RSI120', 'VOL20', 'VOL120', 'MFI20']
         ind_data = self._industry_avg(df.GSECTOR, df[avg_cols])
         df = df.merge(ind_data, left_index=True, right_index=True)
-        
+
         # Columns to add Rank Vars 
-        rank_cols = ['DISCOUNT30', 'DISCOUNT60', 'DISCOUNT120', 'DISCOUNT250']
+        rank_cols = ['DISCOUNT20', 'DISCOUNT60', 'DISCOUNT120', 'DISCOUNT250']
         rank_data = self._rank_cols(df[rank_cols])
         df = df.merge(rank_data, left_index=True, right_index=True)
 
@@ -243,7 +256,7 @@ class YearEnd(Strategy):
 
         # Could do this all at once, concern is missing data        
         for i in returns.ID.unique():
-            tmp = returns.copy()
+            tmp = returns[returns.ID == i].copy()
             tmp['PriorClose'] = tmp.Close.shift(1)
             tmp['R1'] = tmp.Close / tmp.Vwap
             tmp['R2'] = tmp.Close / tmp.PriorClose
@@ -253,9 +266,10 @@ class YearEnd(Strategy):
             tmp.loc[tmp.Date == end, 'Ret']  = tmp.R3 - (self.COST / 2)
             returns.loc[tmp.index, 'Ret'] = tmp.Ret
         
-        returns = returns.merge(spy[['Date','MktRet']], how='left')
+        returns = returns.merge(spy[['Date', 'MktRet']], how='left')
         returns['RetH'] = returns.Ret - returns.MktRet
         returns.Ret -= 1
+        returns.MktRet -= 1
         return returns
 
     def generate_signals(self, train, resp, test):
@@ -263,48 +277,95 @@ class YearEnd(Strategy):
         Produce a  measure which can be sorted and used as selection
         criteria for portfolio formation.  Higher vals are selected first.
         '''
-        from sklearn.linear_model import LinearRegression
-        from sklearn.ensemble import RandomForestRegressor
+        # Reduce technicals to PCAs
+        tech_cols = [x for x in train.columns if x.find('Ind') < 0]
+        tech_cols.remove('SI')
+        pca = PCA(n_components=3)
+        pca.fit(train[tech_cols])
+        pca_vars = pca.transform(train[tech_cols])
+        train.loc[:, 'PCA1'] = pca_vars[:, 0]
+        train.loc[:, 'PCA2'] = pca_vars[:, 1]
+        train.loc[:, 'PCA3'] = pca_vars[:, 2]
+        pca_vars = pca.transform(test[tech_cols])
+        test.loc[:, 'PCA1'] = pca_vars[:, 0]
+        test.loc[:, 'PCA2'] = pca_vars[:, 1]
+        test.loc[:, 'PCA3'] = pca_vars[:, 2]
 
-        model = LinearRegression()
-        model.fit(train, resp)
-        lr_preds = model.predict(test)
-        rfmodel = RandomForestRegressor(n_estimators = 100,
-                                        min_samples_split=250,
-                                        min_samples_leaf=100,
-                                        random_state=123)
-        rfmodel.fit(train, resp)
-        rf_preds = rfmodel.predict(test)
+        model_cols = list(set(train.columns) - set(tech_cols))
 
-        return rf_preds
+        # Linear Regression
+        lr = linear_model.LinearRegression()
+        lr.fit(train[model_cols], resp)
+        lr_preds = lr.predict(test[model_cols])
+        
+        # RF Regressor
+        rfr_model = ensemble.RandomForestRegressor(n_estimators = 100,
+                                  min_samples_split=100,
+                                  min_samples_leaf=30,
+                                  random_state=123)
+        rfr_model.fit(train[model_cols], resp)
+        rfr_preds = rfr_model.predict(test[model_cols])
+
+        # Ridge Regression
+        rdg = linear_model.Ridge(.7)
+        rdg.fit(train[model_cols], resp)
+        rdg_preds = rdg.predict(test[model_cols])
+
+        # Bayesian Ridge Regression
+        brdg = linear_model.BayesianRidge()
+        brdg.fit(train[model_cols], resp)
+        brdg_preds = brdg.predict(test[model_cols])
+
+        # Classifiers
+        binary_thresh = .0125
+        bin_resp = resp >= binary_thresh
+
+        #Linear Regression with Binary Response
+        lrb1 = linear_model.LinearRegression()
+        lrb1.fit(train[model_cols], bin_resp)
+        lrb_preds1 = lrb1.predict(test[model_cols])
+        
+        #Logistic Regression
+        lgr1 = linear_model.LogisticRegression()
+        lgr1.fit(train[model_cols], bin_resp)
+        lgr_preds1 = lgr1.predict_proba(test[model_cols])[:,1]
+        
+        binary_thresh = .0225
+        bin_resp = resp >= binary_thresh
+
+        #Linear Regression with Binary Response
+        lrb2 = linear_model.LinearRegression()
+        lrb2.fit(train[model_cols], bin_resp)
+        lrb_preds2 = lrb2.predict(test[model_cols])
+        
+        #Logistic Regression
+        lgr2 = linear_model.LogisticRegression()
+        lgr2.fit(train[model_cols], bin_resp)
+        lgr_preds2 = lgr2.predict_proba(test[model_cols])[:,1]
+        
+        pred_arr = np.vstack([lr_preds, rfr_preds, rdg_preds, brdg_preds,
+                              lrb_preds1, lgr_preds1, lrb_preds2, lgr_preds2])
+        pred_df = pd.DataFrame(data=pred_arr.transpose(),
+                               columns=['LR','RFR','RDG','BRDG','LRB1','LGR1',
+                                        'LRB2', 'LGR2'])
+
+        return lr_preds, pred_df
+
+
 
 
 if __name__ == '__main__':
-    from ram.strategy.yearend.main import YearEnd
-    # whole file
+    
+    import ipdb; ipdb.set_trace()
+
+    
+    ye = YearEnd(hold_per = 4, univ_size = 1600, port_n=50, ind_n=13)
+    ye.start()
+    print ye.results
+    signals = ye.signals.copy()
+    
+
+    # Build entire research df
     univ = ye.get_univ_iter(ye.date_iter)
     univ = pd.read_csv('C:/temp/yearend.csv')
-
-    ye = YearEnd(hold_per = 5, univ_size = 100, port_n=10, ind_n=10)
-    ye.start()
-    
-    #Single index    
-    dt_iter = ye.get_iter_index()
-    index = dt_iter[7]
-    rets = ye.run_index(index)
-    
-    # Cloud
-    def parallel_fcn(index):
-        from ram.strategy.yearend.main import YearEnd
-        child = YearEnd(hold_per = 5, univ_size = 100, port_n=10, ind_n=10)
-        result = child.run_index(index)
-        return result
-
-    dt_iter = ye.get_iter_index()
-    from ram.aws.cluster import ClusterController
-    cc = ClusterController('strat')
-    cc.set_config(3)
-    cc.launch_cluster()
-    cc.pull_git_branch('ram','master')
-    results = cc.run_parallel(parallel_fcn, dt_iter[:5])
 
