@@ -297,7 +297,7 @@ class YearEnd(Strategy):
         lr = linear_model.LinearRegression()
         lr.fit(train[model_cols], resp)
         lr_preds = lr.predict(test[model_cols])
-        
+
         # RF Regressor
         rfr_model = ensemble.RandomForestRegressor(n_estimators = 100,
                                   min_samples_split=100,
@@ -324,12 +324,12 @@ class YearEnd(Strategy):
         lrb1 = linear_model.LinearRegression()
         lrb1.fit(train[model_cols], bin_resp)
         lrb_preds1 = lrb1.predict(test[model_cols])
-        
+
         #Logistic Regression
         lgr1 = linear_model.LogisticRegression()
         lgr1.fit(train[model_cols], bin_resp)
-        lgr_preds1 = lgr1.predict_proba(test[model_cols])[:,1]
-        
+        lgr_preds1 = lgr1.predict_proba(test[model_cols])[:, 1]
+
         binary_thresh = .0225
         bin_resp = resp >= binary_thresh
 
@@ -337,12 +337,12 @@ class YearEnd(Strategy):
         lrb2 = linear_model.LinearRegression()
         lrb2.fit(train[model_cols], bin_resp)
         lrb_preds2 = lrb2.predict(test[model_cols])
-        
+
         #Logistic Regression
         lgr2 = linear_model.LogisticRegression()
         lgr2.fit(train[model_cols], bin_resp)
         lgr_preds2 = lgr2.predict_proba(test[model_cols])[:,1]
-        
+
         pred_arr = np.vstack([lr_preds, rfr_preds, rdg_preds, brdg_preds,
                               lrb_preds1, lgr_preds1, lrb_preds2, lgr_preds2])
         pred_df = pd.DataFrame(data=pred_arr.transpose(),
@@ -357,15 +357,13 @@ class YearEnd(Strategy):
 if __name__ == '__main__':
     
     import ipdb; ipdb.set_trace()
-
     
     ye = YearEnd(hold_per = 4, univ_size = 1600, port_n=50, ind_n=13)
     ye.start()
     print ye.results
     signals = ye.signals.copy()
-    
+
 
     # Build entire research df
     univ = ye.get_univ_iter(ye.date_iter)
     univ = pd.read_csv('C:/temp/yearend.csv')
-
