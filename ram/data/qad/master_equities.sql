@@ -151,6 +151,44 @@ from		qai.prc.PrcScChg
 )
 
 
+, clean_prices1 as (
+
+select			Code,
+				Date_,
+				case when Open_ > 0 then Open_ else Null end as Open_,
+				case when High > 0 then High else Null end as High,
+				case when Low > 0 then Low else Null end as Low,
+				case when Close_ > 0 then Close_ else Null end as Close_,
+				case when Volume > 0 then Volume else Null end as Volume
+from			qai.prc.PrcExc
+
+)
+
+
+, clean_prices2 as (
+
+select			Code,
+				Date_,
+				case when Open_ > 0 then Open_ else Null end as Open_,
+				case when High > 0 then High else Null end as High,
+				case when Low > 0 then Low else Null end as Low,
+				case when Close_ > 0 then Close_ else Null end as Close_,
+				case when Volume > 0 then Volume else Null end as Volume
+from			qai.prc.PrcDly
+
+)
+
+
+, clean_prices3 as (
+
+select			Code,
+				Date_,
+				case when Vwap > 0 then Vwap else Null end as Vwap
+from			qai.prc.PrcVol
+
+)
+
+
 , idc_data as (
 
 select			M.SecCode,
@@ -164,9 +202,8 @@ select			M.SecCode,
 				coalesce(P1.High, P2.High) as High,
 				coalesce(P1.Low, P2.Low) as Low,
 				coalesce(P1.Close_, P2.Close_) as Close_,
-				Nullif(P3.Vwap, -99999) as Vwap,
-				coalesce(Nullif(P2.Volume, -99999), Nullif(P1.Volume, -99999)) as Volume,
-
+				P3.Vwap,
+				coalesce(P2.Volume, P1.Volume) as Volume,
 				A.Factor as SplitFactor,
 				Isnull(DV.CashDividend, 0) as CashDividend,
 				SH.Shares as tempShares
@@ -188,15 +225,15 @@ from			idc_dates D
 		on		D.Date_ = DF.Date_
 
 	-- IDC Data points
-	left join	qai.prc.PrcExc P1
+	left join	clean_prices1 P1
 		on		D.Code = P1.Code
 		and		D.Date_ = P1.Date_
 
-	left join	qai.prc.PrcDly P2
+	left join	clean_prices2 P2
 		on		D.Code = P2.Code
 		and		D.Date_ = P2.Date_
 
-	left join	qai.prc.PrcVol P3
+	left join	clean_prices3 P3
 		on		D.Code = P3.Code
 		and		D.Date_ = P3.Date_
 
