@@ -28,7 +28,7 @@ for strat in STRATS:
 
     strat = Strategy()
     strat.start()
-    results = strat.get_results()
+    results = strat.results
 
     # Write results
     results.to_csv(os.path.join(OUTDIR, '{0}_returns.csv'.format(mclass)))

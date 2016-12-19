@@ -9,7 +9,9 @@ from statsmodels.tsa.stattools import adfuller
 
 class PairsStrategy1(BasePairSelector):
 
-    def get_best_pairs(self, data, cut_date, window=60):
+    def get_best_pairs(self, data, cut_date, window=60,
+                       abs_corr_filter=0.5, abs_corr_move_filter=0.5,
+                       vol_ratio_filter=0.3):
         """
         """
         # Reshape Close data
@@ -19,27 +21,27 @@ class PairsStrategy1(BasePairSelector):
 
         train_close = close_data.loc[close_data.index < cut_date]
         pairs = self._get_stats_all_pairs(train_close)
-        fpairs = self._filter_pairs(pairs)
+        fpairs = self._filter_pairs(pairs, abs_corr_filter,
+                                    abs_corr_move_filter,
+                                    vol_ratio_filter)
         # Create daily z-scores
         test_pairs = self._get_test_zscores(close_data, cut_date,
                                             fpairs, window)
         return test_pairs
 
-    def _filter_pairs(self, pairs, adf_flag=False):
+    def _filter_pairs(self, pairs, abs_corr_filter,
+                      abs_corr_move_filter, vol_ratio_filter):
         """
         Function is to score based on incoming stats
         """
-        # Filter by matching volatility ratios
-        pairs = pairs.loc[
-            (pairs.volratio > .7) & (pairs.volratio < 1.3)].copy()
+        # Filters
+        pairs = pairs.loc[np.abs(pairs.volratio - 1) < vol_ratio_filter].copy()
+        pairs = pairs.loc[np.abs(pairs.corrcoef) > abs_corr_filter]
+        pairs = pairs.loc[np.abs(pairs.corrmoves) > abs_corr_move_filter]
         # Rank values
         rank1 = np.argsort(np.argsort(pairs.corrcoef))
         rank2 = np.argsort(np.argsort(pairs.corrmoves))
-        if adf_flag:
-            rank3 = np.argsort(np.argsort(-pairs.adf))
-            pairs.loc[:, 'score'] = rank1 + rank2 + rank3
-        else:
-            pairs.loc[:, 'score'] = rank1 + rank2
+        pairs.loc[:, 'score'] = rank1 + rank2
         pairs = pairs.sort_values('score', ascending=False)
         return pairs
 
