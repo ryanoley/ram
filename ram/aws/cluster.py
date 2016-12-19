@@ -191,12 +191,15 @@ class ClusterController(object):
         assert hasattr(self, 'client')
         lv = self.client.load_balanced_view()
         results = lv.map(function, iterable)
+        p_ix = -1
         # Report progress
         while not results.ready():
             ix = float(results.progress)
-            print '{0}% Complete'.format(str(np.round(ix/len(iterable), 2) *
-                                             100))
-            time.sleep(10)
+            if ix > p_ix:
+                print '{0}% Complete'.format(
+                    str(np.round(ix/len(iterable), 2) *100))
+            time.sleep(60)
+            p_ix = ix
         return results
 
     def put_file(self, local_path, remote_path='/ramdata/temp'):

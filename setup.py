@@ -16,6 +16,7 @@ PACKAGES = ['ram',
             'ram/strategy/statarb/constructor',
             'ram/strategy/statarb/pairselector',
             'ram/strategy/vxx',
+            'ram/strategy/yearend',
             'ram/utils',
             'ram/aws']
 
