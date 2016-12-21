@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from sklearn import linear_model
-from sklearn import ensemble 
+from sklearn import ensemble
+from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from ram.strategy.base import Strategy
 
@@ -160,11 +161,7 @@ class YearEnd(Strategy):
         ind_data = self._industry_avg(df.GSECTOR, df[avg_cols])
         df = df.merge(ind_data, left_index=True, right_index=True)
 
-        rank_cols = ['DISCOUNT20', 'DISCOUNT60', 'DISCOUNT120', 'DISCOUNT250']
-        rank_data = self._rank_cols(df[rank_cols])
-        df = df.merge(rank_data, left_index=True, right_index=True)
-
-        df.SI = df.SI.fillna(0.)
+        df.SI = df.SI.fillna(df.SI.median())
 
         return df.reset_index(drop=True)
 
@@ -186,21 +183,17 @@ class YearEnd(Strategy):
                 ind_data.loc[iix, 'Ind_{}'.format(col)] = m
         return ind_data
 
-    def _rank_cols(self, base_data):
-        '''
-        Rank the series in base_data
-        '''
-        rank_data = pd.DataFrame(index = base_data.index)
-        for col in base_data.columns:
-            ranks = np.argsort(np.argsort(base_data[col]))
-            rank_data.loc[:, 'Rank_{}'.format(col)] = ranks
-        return rank_data
-  
     def generate_signals(self, train, resp, test):
         '''
         Train various classes of models on using train and resp.  Return
         DataFrame with predicted values for each model using test. 
         '''
+        # SCALE VARS
+        train_scale = preprocessing.scale(train)
+        test_scale = preprocessing.scale(test)
+        for i, col in enumerate(train.columns):
+            train.loc[:,col] = train_scale[:,i]
+            test.loc[:,col] = test_scale[:,i]
         # TRANSFORM TECHICAL VARS VIA PCA
         tech_cols = [x for x in train.columns if x.find('Ind') < 0]
         tech_cols.remove('SI')
@@ -367,7 +360,7 @@ class YearEnd(Strategy):
                                                     'RetL', 'RetS', 'RetLS'],
                                            dtype=float)
             self.model_combs = []
-            for l in range(3, signals.shape[1]):
+            for l in range(2, signals.shape[1] + 1):
                for c in itertools.combinations(range(signals.shape[1]), l):
                     self.model_combs.append(c)
 
