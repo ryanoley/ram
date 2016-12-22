@@ -16,7 +16,7 @@ class YearEnd(Strategy):
 
     def __init__(self, hold_per=4, univ_size=1000, exit_offset=0,
                  output_dir=None):
-        super( YearEnd, self ).__init__()
+        super(YearEnd, self).__init__()
         self.date_iter = self._get_date_iterator(hold_per, exit_offset)
         self.hold_per = hold_per
         self.univ_size = univ_size
@@ -34,7 +34,7 @@ class YearEnd(Strategy):
 
         fdoy = pd.date_range('2000-01-01', '2016-01-01', freq='AS')
         fdoy = np.array([x.to_pydatetime() for x in fdoy])
-        fbdoy =  np.array([db_dates[db_dates > x].min() for x in fdoy])
+        fbdoy = np.array([db_dates[db_dates > x].min() for x in fdoy])
         fbdix = np.array([np.where(db_dates == x)[0][0] for x in fbdoy])
 
         exitix = fbdix + exit_offset
@@ -52,7 +52,7 @@ class YearEnd(Strategy):
             train = self.priortrain.append(self.priortest)
             train.reset_index(drop=True, inplace=True)
         else:
-            train = self.get_univ_iter(self.date_iter[ : ix])
+            train = self.get_univ_iter(self.date_iter[:ix])
         self.priortrain = train.copy()
         test = self.get_univ_ix(index)
         self.priortest = test.copy()
@@ -70,7 +70,8 @@ class YearEnd(Strategy):
         test_ranks, test_n, test_cID = self._get_selection_params(signals)
         test.loc[:, 'AggSignal'] = test_ranks
         test.sort_values('AggSignal', inplace=True)
-        long_ix, short_ix = self.get_portfolio_ix(test.GSECTOR.copy(), n=test_n)
+        long_ix, short_ix = self.get_portfolio_ix(test.GSECTOR.copy(),
+                                                  n_ind=test_n)
 
         # GET DAILY RETURNS
         long_ids = list(test.loc[long_ix, 'SecCode'])
@@ -124,6 +125,7 @@ class YearEnd(Strategy):
                     'VOL20_Close', 'VOL60_Close',
                     'VOL120_Close', 'VOL250_Close',
                     'MFI5_Close', 'MFI20_Close']
+
         df = self.datahandler.get_filtered_univ_data(
             features=features,
             start_date=eval_date,
@@ -152,7 +154,7 @@ class YearEnd(Strategy):
 
         # RENAME COLUMNS
         skip_cols = ['Vwap', ExitCol, 'GSECTOR', 'SI']
-        df.rename(columns={x:x.split('_')[0] for x in features if
+        df.rename(columns={x: x.split('_')[0] for x in features if
                            x not in skip_cols}, inplace=True)
 
         # CREATE INDUSTRY AND RANK VARIABLES
@@ -171,13 +173,13 @@ class YearEnd(Strategy):
         ind_series. Returns dataframe with median values for each series
         in base data by group.
         '''
-        ind_data = pd.DataFrame(index = base_data.index)
+        ind_data = pd.DataFrame(index=base_data.index)
         igrp = base_data.groupby(ind_series)
         igrps = igrp.groups
 
         for i in igrps.keys():
             iix = igrps[i]
-            medians = base_data.loc[iix,:].median()
+            medians = base_data.loc[iix, :].median()
 
             for (col, m) in medians.iteritems():
                 ind_data.loc[iix, 'Ind_{}'.format(col)] = m
@@ -186,14 +188,14 @@ class YearEnd(Strategy):
     def generate_signals(self, train, resp, test):
         '''
         Train various classes of models on using train and resp.  Return
-        DataFrame with predicted values for each model using test. 
+        DataFrame with predicted values for each model using test.
         '''
         # SCALE VARS
         train_scale = preprocessing.scale(train)
         test_scale = preprocessing.scale(test)
         for i, col in enumerate(train.columns):
-            train.loc[:,col] = train_scale[:,i]
-            test.loc[:,col] = test_scale[:,i]
+            train.loc[:, col] = train_scale[:, i]
+            test.loc[:, col] = test_scale[:, i]
         # TRANSFORM TECHICAL VARS VIA PCA
         tech_cols = [x for x in train.columns if x.find('Ind') < 0]
         tech_cols.remove('SI')
@@ -216,10 +218,11 @@ class YearEnd(Strategy):
         lr_preds = lr.predict(test[model_cols])
 
         # RF Regressor
-        rfr_model = ensemble.RandomForestRegressor(n_estimators = 100,
-                                  min_samples_split=100,
-                                  min_samples_leaf=30,
-                                  random_state=123)
+        rfr_model = ensemble.RandomForestRegressor(
+            n_estimators=100,
+            min_samples_split=100,
+            min_samples_leaf=30,
+            random_state=123)
         rfr_model.fit(train[model_cols], resp)
         rfr_preds = rfr_model.predict(test[model_cols])
 
@@ -236,33 +239,33 @@ class YearEnd(Strategy):
         # Classifiers
         binary_thresh = .0125
         bin_resp = resp >= binary_thresh
-        #Linear Regression with Binary Response
+        # Linear Regression with Binary Response
         lrb1 = linear_model.LinearRegression()
         lrb1.fit(train[model_cols], bin_resp)
         lrb_preds1 = lrb1.predict(test[model_cols])
 
-        #Logistic Regression
+        # Logistic Regression
         lgr1 = linear_model.LogisticRegression()
         lgr1.fit(train[model_cols], bin_resp)
         lgr_preds1 = lgr1.predict_proba(test[model_cols])[:, 1]
 
         binary_thresh = .0225
         bin_resp = resp >= binary_thresh
-        #Linear Regression with Binary Response
+        # Linear Regression with Binary Response
         lrb2 = linear_model.LinearRegression()
         lrb2.fit(train[model_cols], bin_resp)
         lrb_preds2 = lrb2.predict(test[model_cols])
 
-        #Logistic Regression
+        # Logistic Regression
         lgr2 = linear_model.LogisticRegression()
         lgr2.fit(train[model_cols], bin_resp)
-        lgr_preds2 = lgr2.predict_proba(test[model_cols])[:,1]
+        lgr_preds2 = lgr2.predict_proba(test[model_cols])[:, 1]
 
         pred_arr = np.vstack([lr_preds, rfr_preds, rdg_preds, brdg_preds,
                               lrb_preds1, lgr_preds1, lrb_preds2, lgr_preds2])
         pred_df = pd.DataFrame(data=pred_arr.transpose(),
-                               columns=['LR','RFR','RDG','BRDG','LRB1','LGR1',
-                                        'LRB2', 'LGR2'])
+                               columns=['LR', 'RFR', 'RDG', 'BRDG',
+                                        'LRB1', 'LGR1', 'LRB2', 'LGR2'])
         for col in pred_df:
             pred_df.loc[:, col] = np.argsort(np.argsort(pred_df[col]))
         return pred_df
@@ -274,42 +277,42 @@ class YearEnd(Strategy):
         and  number of stocks on each side.
         '''
         if not hasattr(self, 'strategies'):
-            n = 100
+            n_ = 100
             cid = np.nan
             agg_signal = signals.mean(axis=1)
         else:
             grp = self.strategies.groupby(['cID', 'n'])
             df = pd.DataFrame(grp.RetLS.mean())
             df['cID'] = [x[0] for x in df.index]
-            df['n'] = [x[1] for x in df.index]
+            df['n_'] = [x[1] for x in df.index]
             df.reset_index(drop=True, inplace=True)
             df.sort_values('RetLS', inplace=True)
             cid = df.iloc[-1]['cID']
-            n = df.iloc[-1]['n']
+            n_ = df.iloc[-1]['n_']
             sel_models = self.model_combs[int(cid)]
             agg_signal = signals.iloc[:, sel_models].mean(axis=1)
-        return np.array(agg_signal), n, cid
+        return np.array(agg_signal), n_, cid
 
-    def get_portfolio_ix(self, industries, n, ind_pct=.25):
+    def get_portfolio_ix(self, industries, n_ind, ind_pct=.25):
         '''
         Select the top and bottom n indicies from industries series limiting
         the total number in each group to ind_pct of the total. Returns
         two lists with long and short indices.
         '''
-        max_i = int(n * ind_pct)
-        ind_counts_long = {x:0 for x in industries.unique()}
-        ind_counts_short = {x:0 for x in industries.unique()}
+        max_i = int(n_ind * ind_pct)
+        ind_counts_long = {x: 0 for x in industries.unique()}
+        ind_counts_short = {x: 0 for x in industries.unique()}
         sel_ix_long = []
         sel_ix_short = []
 
-        while (len(sel_ix_long) < n) and (len(industries) > 0):
+        while (len(sel_ix_long) < n_ind) and (len(industries) > 0):
             ix = industries.index[-1]
             ind = industries.pop(ix)
             if ind_counts_long[ind] < max_i:
                 sel_ix_long.append(ix)
                 ind_counts_long[ind] += 1
 
-        while (len(sel_ix_short) < n) and (len(industries) > 0):
+        while (len(sel_ix_short) < n_ind) and (len(industries) > 0):
             ix = industries.index[0]
             ind = industries.pop(ix)
             if ind_counts_short[ind] < max_i:
@@ -322,7 +325,7 @@ class YearEnd(Strategy):
         '''
         Get the daily returns of a list of long and short SecCodes between
         start and end dates.  Apply transaction cost.
-        ''' 
+        '''
         # Equity Returns
         returns = self.datahandler.get_id_data(
             ids=longs + shorts,
@@ -331,7 +334,7 @@ class YearEnd(Strategy):
             end_date=end)
         returns.sort_values(['ID', 'Date'], inplace=True)
 
-        # Could do this all at once, concern is missing data        
+        # Could do this all at once, concern is missing data
         for i in returns.ID.unique():
             cost = self.COST if i in longs else self.COST * -1
             tmp = returns[returns.ID == i].copy()
@@ -340,8 +343,8 @@ class YearEnd(Strategy):
             tmp['R2'] = tmp.Close / tmp.PriorClose
             tmp['R3'] = tmp.Vwap / tmp.PriorClose
             tmp['Ret'] = tmp.R2
-            tmp.loc[tmp.Date == start, 'Ret']  = tmp.R1 - (cost / 2)
-            tmp.loc[tmp.Date == end, 'Ret']  = tmp.R3 - (cost / 2)
+            tmp.loc[tmp.Date == start, 'Ret'] = tmp.R1 - (cost / 2)
+            tmp.loc[tmp.Date == end, 'Ret'] = tmp.R3 - (cost / 2)
             returns.loc[tmp.index, 'Ret'] = tmp.Ret
 
         returns.Ret -= 1
@@ -361,7 +364,7 @@ class YearEnd(Strategy):
                                            dtype=float)
             self.model_combs = []
             for l in range(2, signals.shape[1] + 1):
-               for c in itertools.combinations(range(signals.shape[1]), l):
+                for c in itertools.combinations(range(signals.shape[1]), l):
                     self.model_combs.append(c)
 
         # SET ITERABLE DF
@@ -370,15 +373,15 @@ class YearEnd(Strategy):
         signals.loc[:, 'Ret'] = test.Ret.copy()
         signals.loc[:, 'GSECTOR'] = test.GSECTOR.copy()
         signals.loc[:, 'Date'] = test.Date.copy()
-        
+
         for i, c in enumerate(self.model_combs):
-            signals.loc[:,'Signal'] = signals.iloc[:, c].mean(axis=1)
+            signals.loc[:, 'Signal'] = signals.iloc[:, c].mean(axis=1)
             signals.sort_values('Signal', inplace=True)
             for p in port_size:
                 ix = len(self.strategies)
                 long_ix, short_ix = self.get_portfolio_ix(
                     signals.GSECTOR.copy(), p)
-                self.strategies.loc[ix, 'Year'] = test.iloc[0,:]['Date'].year
+                self.strategies.loc[ix, 'Year'] = test.iloc[0, :]['Date'].year
                 self.strategies.loc[ix, 'n'] = p
                 self.strategies.loc[ix, 'cID'] = i
                 LongRet = signals.loc[long_ix, 'Ret'].mean()
@@ -392,11 +395,11 @@ class YearEnd(Strategy):
 
 if __name__ == '__main__':
 
-    ye = YearEnd(hold_per = 4, univ_size = 1600, exit_offset=0)
+    ye = YearEnd(hold_per=4, univ_size=1600, exit_offset=0)
+    import pdb; pdb.set_trace()
+
     ye.start()
 
     # Build entire research df
     univ = ye.get_univ_iter(ye.date_iter)
     univ = pd.read_csv('C:/temp/yearend.csv')
-
-
