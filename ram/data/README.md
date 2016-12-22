@@ -30,7 +30,7 @@ Features must adhere to a strict format to be returned correctly. Best to use ex
 * AvgDolVol, MarketCap, SplitFactor
 * GSECTOR, GGROUP (Gics Sector and Group data)
 * SI (NOTE: This is currently one day lagged. TODO: Add lag functionality)
-
+* Ticker
 
 ### Technical variables (20-period example construction provided)
 
