@@ -105,7 +105,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
                 on C.IdcCode = B.IdcCode
                 and B.Date_ = (
                     select max(Date_) from ram.dbo.ShortInterest b
-                    where b.Date_ < A.Date_ and b.IdcCode = C.IdcCode)
+                    where b.Date_ <= A.Date_ and b.IdcCode = C.IdcCode)
             )
             """.format(last_table, table)
         last_table = 'cte6'
