@@ -61,7 +61,7 @@ class YearEnd(Strategy):
 
         # GET SIGNALS
         features = list(set(train.columns) - set(
-            ['SecCode', 'Date', 'Vwap', 'LEAD{}_Vwap'.format(self.hold_per),
+            ['SecCode', 'Date', 'Vwap', 'LEAD{}_Vwap'.format(self.hold_per+1),
              'RClose', 'MarketCap', 'AvgDolVol', 'GSECTOR', 'Ret', 'RetH']))
         signals = self.generate_signals(train[features].copy(), train.RetH,
                                         test[features].copy())
@@ -108,40 +108,40 @@ class YearEnd(Strategy):
         Pass hold_per and univ_size here.
         '''
         # SET INPUTS FOR DATA HANDLER AND GET DATA
-        (eval_date, entry_date, exit_date) = index
-        ExitCol = 'LEAD{}_Vwap'.format(self.hold_per)
+        eval_date = index[0]
+        ExitCol = 'LEAD{}_Vwap'.format(self.hold_per + 1)
         filter_args = {'filter': 'AvgDolVol',
                        'where': 'MarketCap >= 100 and Close_ >= 15',
                        'univ_size': self.univ_size}
-        features = ['Vwap', ExitCol, 'GSECTOR', 'LAG1_RClose', 'SI', 
-                    'LAG1_MarketCap', 'LAG1_AvgDolVol',
-                    'LAG1_PRMA5_Close', 'LAG1_PRMA20_Close',
-                    'LAG1_PRMA60_Close', 'LAG1_PRMA250_Close',
-                    'LAG1_BOLL20_Close', 'LAG1_BOLL60_Close',
-                    'LAG1_BOLL250_Close',
-                    'LAG1_RSI5_Close', 'LAG1_RSI60_Close',
-                    'LAG1_RSI120_Close',
-                    'LAG1_DISCOUNT20_Close', 'LAG1_DISCOUNT60_Close',
-                    'LAG1_DISCOUNT120_Close', 'LAG1_DISCOUNT250_Close',
-                    'LAG1_VOL20_Close', 'LAG1_VOL60_Close',
-                    'LAG1_VOL120_Close', 'LAG1_VOL250_Close',
-                    'LAG1_MFI5_Close', 'LAG1_MFI20_Close']
+        features = ['LEAD1_Vwap', ExitCol, 'GSECTOR', 'RClose', 'SI', 
+                    'MarketCap', 'AvgDolVol',
+                    'PRMA5_Close', 'PRMA20_Close',
+                    'PRMA60_Close', 'PRMA250_Close',
+                    'BOLL20_Close', 'BOLL60_Close', 'BOLL250_Close',
+                    'RSI5_Close', 'RSI60_Close', 'RSI120_Close',
+                    'DISCOUNT20_Close', 'DISCOUNT60_Close',
+                    'DISCOUNT120_Close', 'DISCOUNT250_Close',
+                    'VOL20_Close', 'VOL60_Close',
+                    'VOL120_Close', 'VOL250_Close',
+                    'MFI5_Close', 'MFI20_Close']
         df = self.datahandler.get_filtered_univ_data(
             features=features,
-            start_date=entry_date,
-            end_date=entry_date,
+            start_date=eval_date,
+            end_date=eval_date,
             filter_date=eval_date,
             filter_args=filter_args)
+        df.rename(columns={'LEAD1_Vwap':'Vwap'}, inplace=True)
 
         # HEDGE SOME VARS WITH SPY
-        spy_features = ['Vwap', ExitCol,
-                        'LAG1_PRMA5_Close', 'LAG1_PRMA20_Close',
-                        'LAG1_PRMA60_Close', 'LAG1_PRMA250_Close']
+        spy_features = ['LEAD1_Vwap', ExitCol,
+                        'PRMA5_Close', 'PRMA20_Close',
+                        'PRMA60_Close', 'PRMA250_Close']
         spy = self.datahandler.get_etf_data(
             ['SPY'],
             features=spy_features,
-            start_date=entry_date,
-            end_date=entry_date)
+            start_date=eval_date,
+            end_date=eval_date)
+        spy.rename(columns={'LEAD1_Vwap':'Vwap'}, inplace=True)
 
         for col in spy_features[2:]:
             df[col] -= float(spy[col])
@@ -152,7 +152,7 @@ class YearEnd(Strategy):
 
         # RENAME COLUMNS
         skip_cols = ['Vwap', ExitCol, 'GSECTOR', 'SI']
-        df.rename(columns={x:x.split('_')[1] for x in features if
+        df.rename(columns={x:x.split('_')[0] for x in features if
                            x not in skip_cols}, inplace=True)
 
         # CREATE INDUSTRY AND RANK VARIABLES
@@ -389,6 +389,7 @@ class YearEnd(Strategy):
         return
 
 
+
 if __name__ == '__main__':
 
     ye = YearEnd(hold_per = 4, univ_size = 1600, exit_offset=0)
@@ -397,4 +398,5 @@ if __name__ == '__main__':
     # Build entire research df
     univ = ye.get_univ_iter(ye.date_iter)
     univ = pd.read_csv('C:/temp/yearend.csv')
+
 
