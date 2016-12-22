@@ -219,11 +219,12 @@ if __name__ == '__main__':
     dh = DataHandlerSQL()
 
     filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
-                   'univ_size': 20}
+                   'univ_size': 200}
 
     univ = dh.get_filtered_univ_data(
         features=['LAG2_BOLL30_Close', 'Close', 'SI',
-                  'GSECTOR', 'GGROUP', 'BOLL30_Close'],
+                  'GSECTOR', 'GGROUP', 'BOLL30_Close',
+                  'Ticker'],
         start_date='2016-06-01',
         end_date='2016-10-20',
         filter_date='2016-06-01',

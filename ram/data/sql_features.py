@@ -36,6 +36,10 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     if 'SI' in features:
         features.remove('SI')
         si_feature = True
+    ticker_feature = False
+    if 'Ticker' in features:
+        features.remove('Ticker')
+        ticker_feature = True
 
     # Get individual entries for CTEs per feature
     ctes = []
@@ -105,6 +109,19 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
             )
             """.format(last_table, table)
         last_table = 'cte6'
+
+    if ticker_feature:
+        features.append('Ticker')
+        sqlcmd += \
+            """
+            , cte7 as (
+                select A.*, B.HistoricalTicker as Ticker from {0} A
+                left join {1} B
+                on A.SecCode = B.SecCode
+                and A.Date_ = B.Date_
+            )
+            """.format(last_table, table)
+        last_table = 'cte7'
 
     sqlcmd += \
         """
