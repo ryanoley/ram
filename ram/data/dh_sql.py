@@ -176,7 +176,7 @@ class DataHandlerSQL(DataHandler):
             select  IsrCode, SecCode, {3},
                     ROW_NUMBER() over (
                         PARTITION BY IsrCode
-                        ORDER BY {3} DESC) AS rank_val
+                        ORDER BY {3} DESC, SecCode) AS rank_val
             from ram.dbo.{4}
             where Date_ = '{1}'
             and NormalTradingFlag = 1
