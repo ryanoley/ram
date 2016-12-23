@@ -61,8 +61,9 @@ class YearEnd(Strategy):
 
         # GET SIGNALS
         features = list(set(train.columns) - set(
-            ['SecCode', 'Date', 'Vwap', 'LEAD{}_Vwap'.format(self.hold_per+1),
-             'RClose', 'MarketCap', 'AvgDolVol', 'GSECTOR', 'Ret', 'RetH']))
+            ['SecCode', 'Date', 'Ticker', 'RClose', 'MarketCap', 'AvgDolVol',
+             'GSECTOR','Vwap', 'LEAD{}_Vwap'.format(self.hold_per+1),
+             'Ret', 'RetH']))
         signals = self.generate_signals(train[features].copy(), train.RetH,
                                         test[features].copy())
 
@@ -114,9 +115,9 @@ class YearEnd(Strategy):
         filter_args = {'filter': 'AvgDolVol',
                        'where': 'MarketCap >= 100 and Close_ >= 15',
                        'univ_size': self.univ_size}
-        features = ['LEAD1_Vwap', ExitCol, 'GSECTOR', 'RClose', 'SI', 
-                    'MarketCap', 'AvgDolVol',
-                    'PRMA5_Close', 'PRMA20_Close',
+        features = ['LEAD1_Vwap', ExitCol, 'Ticker', 'GSECTOR',
+                    'RClose', 'MarketCap', 'AvgDolVol',
+                    'SI', 'PRMA5_Close', 'PRMA20_Close',
                     'PRMA60_Close', 'PRMA250_Close',
                     'BOLL20_Close', 'BOLL60_Close', 'BOLL250_Close',
                     'RSI5_Close', 'RSI60_Close', 'RSI120_Close',
@@ -153,7 +154,7 @@ class YearEnd(Strategy):
         df['RetH'] = (df[ExitCol] / df.Vwap) - float(spy[ExitCol] / spy.Vwap)
 
         # RENAME COLUMNS
-        skip_cols = ['Vwap', ExitCol, 'GSECTOR', 'SI']
+        skip_cols = [ExitCol]
         df.rename(columns={x: x.split('_')[0] for x in features if
                            x not in skip_cols}, inplace=True)
 
@@ -164,7 +165,7 @@ class YearEnd(Strategy):
         df = df.merge(ind_data, left_index=True, right_index=True)
 
         df.SI = df.SI.fillna(df.SI.median())
-
+        df.drop_duplicates('SecCode', inplace=True)
         return df.reset_index(drop=True)
 
     def _industry_avg(self, ind_series, base_data):
@@ -227,7 +228,7 @@ class YearEnd(Strategy):
         rfr_preds = rfr_model.predict(test[model_cols])
 
         # Ridge Regression
-        rdg = linear_model.Ridge(.7)
+        rdg = linear_model.Ridge(.7, random_state=123)
         rdg.fit(train[model_cols], resp)
         rdg_preds = rdg.predict(test[model_cols])
 
@@ -245,7 +246,7 @@ class YearEnd(Strategy):
         lrb_preds1 = lrb1.predict(test[model_cols])
 
         # Logistic Regression
-        lgr1 = linear_model.LogisticRegression()
+        lgr1 = linear_model.LogisticRegression(random_state=123)
         lgr1.fit(train[model_cols], bin_resp)
         lgr_preds1 = lgr1.predict_proba(test[model_cols])[:, 1]
 
@@ -357,16 +358,8 @@ class YearEnd(Strategy):
         '''
         # ITERABLES
         port_size = [50, 60, 70, 80, 90, 100]
-
         if not hasattr(self, 'strategies'):
-            self.strategies = pd.DataFrame(columns=['Year', 'n', 'cID',
-                                                    'RetL', 'RetS', 'RetLS'],
-                                           dtype=float)
-            self.model_combs = []
-            for l in range(2, signals.shape[1] + 1):
-                for c in itertools.combinations(range(signals.shape[1]), l):
-                    self.model_combs.append(c)
-
+            self._create_meta_iterators(signals)
         # SET ITERABLE DF
         signals.index = test.index
         signals.loc[:, 'SecCode'] = test.SecCode.copy()
@@ -391,15 +384,67 @@ class YearEnd(Strategy):
                 self.strategies.loc[ix, 'RetLS'] = LongRet - ShortRet
         return
 
+    def _create_meta_iterators(self, signals):
+        self.strategies = pd.DataFrame(columns=['Year', 'n', 'cID',
+                                        'RetL', 'RetS', 'RetLS'],
+                               dtype=float)
+        self.model_combs = []
+        for l in range(2, signals.shape[1] + 1):
+            for c in itertools.combinations(range(signals.shape[1]), l):
+                self.model_combs.append(c)
+        return
+
+    def get_live_trades(self, univ_csv=None, strategies=None):
+        '''
+        Get live trades.  Can either pass csv files or the entire history
+        will have to be run first.
+        '''
+        if univ_csv is not None and strategies is not None:
+            train = univ_csv
+            self.strategies = strategies
+        else:
+            if not hasattr(self, 'priortrain'):
+                self.start()
+            train = self.priortrain.append(self.priortest)
+            train.reset_index(drop=True, inplace=True)
+        # SET EVAL DATE
+        eval_dt = self.datahandler.get_all_dates().max()
+        test = self.get_univ_ix((eval_dt, eval_dt, eval_dt))
+        
+        # GET SIGNALS
+        features = list(set(train.columns) - set(
+            ['SecCode', 'Date', 'Ticker', 'RClose', 'MarketCap', 'AvgDolVol',
+             'GSECTOR','Vwap', 'LEAD{}_Vwap'.format(self.hold_per+1),
+             'Ret', 'RetH']))     
+        train.dropna(subset=features+ ['RetH'] , inplace=True)
+        test.dropna(subset=features, inplace=True)
+        signals = self.generate_signals(train[features].copy(), train.RetH,
+                                        test[features].copy())
+
+        # SET PORTFOLIOS
+        self._create_meta_iterators(signals)
+        test_ranks, test_n, test_cID = self._get_selection_params(signals)
+        test.loc[:, 'AggSignal'] = test_ranks
+        test.sort_values('AggSignal', inplace=True)
+        long_ix, short_ix = self.get_portfolio_ix(test.GSECTOR.copy(),
+                                                  n_ind=test_n + 20)
+        long_tkrs = list(test.loc[long_ix, 'Ticker'])
+        short_tkrs = list(test.loc[short_ix, 'Ticker'])
+        
+        return long_tkrs, short_tkrs
+
 
 
 if __name__ == '__main__':
 
     ye = YearEnd(hold_per=4, univ_size=1600, exit_offset=0)
-    import pdb; pdb.set_trace()
-
     ye.start()
 
     # Build entire research df
     univ = ye.get_univ_iter(ye.date_iter)
     univ = pd.read_csv('C:/temp/yearend.csv')
+
+
+
+
+
