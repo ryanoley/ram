@@ -359,6 +359,8 @@ class YearEnd(Strategy):
         # ITERABLES
         port_size = [50, 60, 70, 80, 90, 100]
         if not hasattr(self, 'strategies'):
+            self.strategies = pd.DataFrame(columns=['Year', 'n', 'cID',
+                                'RetL', 'RetS', 'RetLS'], dtype=float)
             self._create_meta_iterators(signals)
         # SET ITERABLE DF
         signals.index = test.index
@@ -385,9 +387,6 @@ class YearEnd(Strategy):
         return
 
     def _create_meta_iterators(self, signals):
-        self.strategies = pd.DataFrame(columns=['Year', 'n', 'cID',
-                                        'RetL', 'RetS', 'RetLS'],
-                               dtype=float)
         self.model_combs = []
         for l in range(2, signals.shape[1] + 1):
             for c in itertools.combinations(range(signals.shape[1]), l):
@@ -410,12 +409,12 @@ class YearEnd(Strategy):
         # SET EVAL DATE
         eval_dt = self.datahandler.get_all_dates().max()
         test = self.get_univ_ix((eval_dt, eval_dt, eval_dt))
-        
+
         # GET SIGNALS
         features = list(set(train.columns) - set(
             ['SecCode', 'Date', 'Ticker', 'RClose', 'MarketCap', 'AvgDolVol',
              'GSECTOR','Vwap', 'LEAD{}_Vwap'.format(self.hold_per+1),
-             'Ret', 'RetH']))     
+             'Ret', 'RetH']))  
         train.dropna(subset=features+ ['RetH'] , inplace=True)
         test.dropna(subset=features, inplace=True)
         signals = self.generate_signals(train[features].copy(), train.RetH,
@@ -437,14 +436,17 @@ class YearEnd(Strategy):
 
 if __name__ == '__main__':
 
+    # Set up to get live trades
+    DATA_DIR = os.path.join(os.getenv('DATA'), 'yearend')
+    
     ye = YearEnd(hold_per=4, univ_size=1600, exit_offset=0)
-    ye.start()
+    #ye.start()
 
-    # Build entire research df
-    univ = ye.get_univ_iter(ye.date_iter)
-    univ = pd.read_csv('C:/temp/yearend.csv')
-
-
-
+    # LOAD Univ and Strategies to save time
+    univ = pd.read_csv(os.path.join(DATA_DIR, 'yearend.csv'))
+    strategies = pd.read_csv(os.path.join(DATA_DIR, 'strategies.csv'))
+    longs, shorts = ye.get_live_trades(univ, strategies)
+    trades = pd.DataFrame(data={'long':longs, 'short':shorts})
+    trades.to_csv(os.path.join(DATA_DIR, 'LIVE_TRADES.csv'), index=False)
 
 
