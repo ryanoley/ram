@@ -5,10 +5,18 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
+from ram.strategy.statarb.pairselector.pairs2 import PairsStrategy2
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 
 class StatArbStrategy(Strategy):
+
+    def __init__(self, pairselector):
+        super(StatArbStrategy, self).__init__()
+        if pairselector == 'pairs1':
+            self.pairselector = PairsStrategy1()
+        else:
+            self.pairselector = PairsStrategy2()
 
     def get_iter_index(self):
         return range(len(self._get_date_iterator()))
@@ -17,7 +25,6 @@ class StatArbStrategy(Strategy):
 
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
-        self.pairselector = PairsStrategy1()
         self.constructor = PortfolioConstructor()
 
         data, trade_data = self._get_data(
@@ -88,6 +95,5 @@ class StatArbStrategy(Strategy):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy()
-    import pdb; pdb.set_trace()
+    strategy = StatArbStrategy('pairs2')
     strategy.start()
