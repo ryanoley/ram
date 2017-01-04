@@ -41,7 +41,7 @@ for strat in STRATS:
 
     ## TEMP FIX FOR STATARB
     if args:
-        mclass += args[0]
+        mclass += '_' + args
 
     # Write results
     results.to_csv(os.path.join(OUTDIR, '{0}_returns.csv'.format(mclass)))
