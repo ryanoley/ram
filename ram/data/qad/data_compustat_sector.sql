@@ -1,4 +1,4 @@
-
+use qai;
 -- Compustat historical Sector data
 if object_id('ram.dbo.ram_sector', 'U') is not null 
 	drop table ram.dbo.ram_sector

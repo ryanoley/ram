@@ -13,7 +13,8 @@ STRATS = [
     ('reversion', 'ReversionStrategy'),
     ('benchmarks', 'BenchmarksStrategy'),
     ('gap', 'GapStrategy'),
-    ('statarb', 'StatArbStrategy')
+    ('statarb', 'StatArbStrategy', ('pairs1')),
+    ('statarb', 'StatArbStrategy', ('pairs2'))
 ]
 
 print 'Updating strategies...'
@@ -22,13 +23,25 @@ for strat in STRATS:
 
     mdir = strat[0]
     mclass = strat[1]
+    try:
+        args = strat[2]
+    except:
+        args = None
+
     module = importlib.import_module('ram.strategy.{0}.main'.format(mdir))
 
     Strategy = getattr(module, mclass)
 
-    strat = Strategy()
+    if args:
+        strat = Strategy(args)
+    else:
+        strat = Strategy()
     strat.start()
-    results = strat.get_results()
+    results = strat.results
+
+    ## TEMP FIX FOR STATARB
+    if args:
+        mclass += '_' + args
 
     # Write results
     results.to_csv(os.path.join(OUTDIR, '{0}_returns.csv'.format(mclass)))

@@ -32,7 +32,7 @@ class DataHandlerSQL(DataHandler):
         self._dates = np.unique(self.sql_execute(
             """
             select distinct Date_
-            from ram.dbo.ram_master_equities
+            from ram.dbo.ram_master_equities_research
             order by Date_;
             """
         )).flatten()
@@ -159,7 +159,8 @@ class DataHandlerSQL(DataHandler):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_filtered_ids(self, filter_date, args):
+    def _get_filtered_ids(self, filter_date, args,
+                          table='ram_master_equities_research'):
         univ_size = args['univ_size']
         filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
         where = 'and {0}'.format(args['where']) if 'where' in args else ''
@@ -175,8 +176,8 @@ class DataHandlerSQL(DataHandler):
             select  IsrCode, SecCode, {3},
                     ROW_NUMBER() over (
                         PARTITION BY IsrCode
-                        ORDER BY {3} DESC) AS rank_val
-            from ram.dbo.ram_master_equities
+                        ORDER BY {3} DESC, SecCode) AS rank_val
+            from ram.dbo.{4}
             where Date_ = '{1}'
             and NormalTradingFlag = 1
             {2}
@@ -184,7 +185,7 @@ class DataHandlerSQL(DataHandler):
             select top {0} SecCode from tempdata
             where rank_val = 1
             order by {3} desc;
-            """.format(univ_size, fdate, where, filter_col)
+            """.format(univ_size, fdate, where, filter_col, table)
         )).flatten()
         return ids
 
@@ -218,10 +219,12 @@ if __name__ == '__main__':
     dh = DataHandlerSQL()
 
     filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
-                   'univ_size': 20}
+                   'univ_size': 200}
+
     univ = dh.get_filtered_univ_data(
         features=['LAG2_BOLL30_Close', 'Close', 'SI',
-                  'GSECTOR', 'GGROUP', 'BOLL30_Close'],
+                  'GSECTOR', 'GGROUP', 'BOLL30_Close',
+                  'Ticker'],
         start_date='2016-06-01',
         end_date='2016-10-20',
         filter_date='2016-06-01',

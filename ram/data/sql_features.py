@@ -10,7 +10,7 @@ MANIPFUNCS = ['LAG', 'LEAD', 'RANK']
 
 
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
-                             table='ram.dbo.ram_master_equities'):
+                             table='ram.dbo.ram_master_equities_research'):
 
     # Shallow copy
     features = features[:]
@@ -36,6 +36,10 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     if 'SI' in features:
         features.remove('SI')
         si_feature = True
+    ticker_feature = False
+    if 'Ticker' in features:
+        features.remove('Ticker')
+        ticker_feature = True
 
     # Get individual entries for CTEs per feature
     ctes = []
@@ -95,16 +99,29 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
             , cte6 as (
                 select A.*, B.SI as SI from {0} A
                 join (select distinct IdcCode, SecCode
-                      from ram.dbo.ram_master_equities) C
+                      from {1}) C
                 on A.SecCode = C.SecCode
                 left join ram.dbo.ShortInterest B
                 on C.IdcCode = B.IdcCode
                 and B.Date_ = (
                     select max(Date_) from ram.dbo.ShortInterest b
-                    where b.Date_ < A.Date_ and b.IdcCode = C.IdcCode)
+                    where b.Date_ <= A.Date_ and b.IdcCode = C.IdcCode)
             )
-            """.format(last_table)
+            """.format(last_table, table)
         last_table = 'cte6'
+
+    if ticker_feature:
+        features.append('Ticker')
+        sqlcmd += \
+            """
+            , cte7 as (
+                select A.*, B.HistoricalTicker as Ticker from {0} A
+                left join {1} B
+                on A.SecCode = B.SecCode
+                and A.Date_ = B.Date_
+            )
+            """.format(last_table, table)
+        last_table = 'cte7'
 
     sqlcmd += \
         """
