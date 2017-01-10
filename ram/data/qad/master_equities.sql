@@ -214,6 +214,7 @@ from			idc_dates D
 		on		D.Code = F.Code
 		and		F.SecType = 'C'
 		and		F.Issue not like '%UNIT%'
+		and		F.Issue not like '%RCPT%'  -- Depository Receipts and other odd securities
 
 	join		exchanges E
 		on		D.Code = E.Code
