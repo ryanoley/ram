@@ -156,7 +156,7 @@ def main():
     # UPDATE QAD TABLE/GET TABLE STATS
     #################################
     connection = pypyodbc.connect('Driver={SQL Server};Server=QADIRECT;'
-                                  'Database=ram;uid=ramuser;pwd=183madison')
+                                  'Database=ram;uid=rammuser;pwd=183madison')
     cursor = connection.cursor()
 
     if args.update_qad_status:
@@ -209,5 +209,9 @@ if __name__ == '__main__':
     try:
         main()
     except Exception, e:
-        subject = "[[[RAM/QAD Database Alert {0}]]]".format(dt.date.today())
+        with open('./RAMErrorLog.log', 'a') as file:
+            file.write('\n \n----------------------\n')
+            file.write(str(dt.datetime.now()))
+            file.write('\n' + str(e))
+        subject = "** RAM/QAD Database Alert {0} **".format(dt.date.today())
         send_email(str(e), subject)
