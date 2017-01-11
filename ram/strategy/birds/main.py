@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -5,6 +6,7 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from sklearn.linear_model import LinearRegression
+from ram.utils.statistics import create_strategy_report
 
 
 class BirdsStrategy(Strategy):
@@ -16,7 +18,7 @@ class BirdsStrategy(Strategy):
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         train_data, test_data, features, response_labels, ret_labels = \
-            self._get_data(t_start, cut_date, t_end, univ_size=1000)
+            self._get_data(t_start, cut_date, t_end, univ_size=500)
 
         cl = LinearRegression()
         cl.fit(X=train_data[features], y=train_data[response_labels])
@@ -127,11 +129,8 @@ if __name__ == '__main__':
 
     strategy.start()
 
-    results = strat.results
+    results = strategy.results
 
     OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'strategy_output')
     # Write results
     results.to_csv(os.path.join(OUTDIR, 'BirdsStrategy_returns.csv'))
-
-    # Stats
-    create_strategy_report(results, 'BirdsStrategy', OUTDIR)
