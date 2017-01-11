@@ -192,7 +192,7 @@ def main():
     log_str = _build_logging_msg(prior_bdate, qad_status, ram_status)
 
     if ~np.all([qad_chk1, qad_chk2, ram_chk]):
-        subject = "[[[ RAM/QAD Database Alert {0} ]]]".format(dt.date.today())
+        subject = "** RAM/QAD Database ALERT {0} **".format(dt.date.today())
         send_email(log_str, subject)
 
     if args.write_log:
