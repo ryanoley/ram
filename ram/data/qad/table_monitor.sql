@@ -153,7 +153,7 @@ from ram.dbo.sm_SmartEstimate_eps
 
 
 
---insert into ram.dbo.table_monitor
+insert into ram.dbo.table_monitor
 
 select * from mstr_eq
 union
@@ -180,6 +180,4 @@ union
 select * from sm_si
 union
 select * from sm_se_eps
-
-
 
