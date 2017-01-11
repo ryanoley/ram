@@ -41,43 +41,43 @@ def _poll_qad_monitor(cursor):
     '''
     SQLCommandSys = ("select top 1 UPDDate, UPDNumber "
                      "from ram.dbo.qad_monitor "
-                        "where TableName = 'MQASys' "
-                        "order by MonitorDate desc")
+                     "where TableName = 'MQASys' "
+                     "order by MonitorDate desc")
     cursor.execute(SQLCommandSys)
     sqlres2 = cursor.fetchall()
-    sys_upd_dt =  sqlres2[0][0].date()
-    sys_upd_num =  sqlres2[0][1]
+    sys_upd_dt = sqlres2[0][0].date()
+    sys_upd_num = sqlres2[0][1]
 
     SQLCommandSys = ("select top 1 UPDDate, UPDNumber, StartTime, EndTime "
                      "from ram.dbo.qad_monitor "
-                        "where TableName = 'QADLog' "
-                        "order by MonitorDate desc")
+                     "where TableName = 'QADLog' "
+                     "order by MonitorDate desc")
     cursor.execute(SQLCommandSys)
     sqlres3 = cursor.fetchall()
-    log_upd_dt =  sqlres3[0][0].date()
-    log_upd_num =  sqlres3[0][1]
-    log_tstart =  sqlres3[0][2]
-    log_tend =  sqlres3[0][3]
-    
-    return {'SysUpdDt':sys_upd_dt, 'SysUpdNum':sys_upd_num,
-            'LogUpdDt':log_upd_dt, 'LogUpdNum':log_upd_num,
-            'LogUpdStart':log_tstart, 'LogUpdEnd':log_tend} 
+    log_upd_dt = sqlres3[0][0].date()
+    log_upd_num = sqlres3[0][1]
+    log_tstart = sqlres3[0][2]
+    log_tend = sqlres3[0][3]
+
+    return {'SysUpdDt': sys_upd_dt, 'SysUpdNum': sys_upd_num,
+            'LogUpdDt': log_upd_dt, 'LogUpdNum': log_upd_num,
+            'LogUpdStart': log_tstart, 'LogUpdEnd': log_tend}
 
 
 def _poll_table_monitor(cursor):
     '''
     Select RAM related update information from the table_monitor table.
     '''
-    SQLCommandRAM = ("select TableName, MaxTableDate " 
+    SQLCommandRAM = ("select TableName, MaxTableDate "
                      "from ram.dbo.table_monitor "
                      "where MonitorDateTime = ("
-                        "select max(MonitorDateTime) " 
-                        "from ram.dbo.table_monitor)")
+                     "select max(MonitorDateTime) "
+                     "from ram.dbo.table_monitor)")
     cursor.execute(SQLCommandRAM)
     sqlres4 = cursor.fetchall()
     tables = [x[0] for x in sqlres4]
     up_dts = [x[1].date() for x in sqlres4]
-    return {'RAMTables':tables, 'RAMUpdDts':up_dts}
+    return {'RAMTables': tables, 'RAMUpdDts': up_dts}
 
 
 def _build_logging_msg(prior_bdate, qad, ram):
@@ -88,25 +88,24 @@ def _build_logging_msg(prior_bdate, qad, ram):
     today = dt.date.today()
     last_upd_diff = int((dt.datetime.now() - qad['LogUpdEnd']
                          ).total_seconds() / 60)
-    status_str = (
-    'Today: {0}'
-    '\nPrior Business Date: {1}'
-    '\nQAD Last Update: {2}'
-             '\n\tUPD #: {3}'
-    '\nCurrent UPD Date: {4}'
-             '\n\tUPD #: {5}' 
-             '\n\tStarted: {6}' 
-             '\n\tEnded: {7}'
-             '\n\tProcessed min ago: {8}'
-    '\nRAM Tables:').format(today, prior_bdate, qad['SysUpdDt'],
-                            qad['SysUpdNum'], qad['LogUpdDt'],
-                            qad['LogUpdNum'], qad['LogUpdStart'],
-                            qad['LogUpdEnd'], last_upd_diff)
+    status_str = ('Today: {0}'
+                  '\nPrior Business Date: {1}'
+                  '\nQAD Last Update: {2}'
+                  '\n\tUPD #: {3}'
+                  '\nCurrent UPD Date: {4}'
+                  '\n\tUPD #: {5}'
+                  '\n\tStarted: {6}'
+                  '\n\tEnded: {7}'
+                  '\n\tProcessed min ago: {8}'
+                  '\nRAM Tables:').format(today, prior_bdate, qad['SysUpdDt'],
+                                          qad['SysUpdNum'], qad['LogUpdDt'],
+                                          qad['LogUpdNum'], qad['LogUpdStart'],
+                                          qad['LogUpdEnd'], last_upd_diff)
 
-    for (x,y) in zip(ram['RAMTables'], ram['RAMUpdDts']):
-        status_str += ('\n\t{0}: {1}'.format(x,y))
+    for (x, y) in zip(ram['RAMTables'], ram['RAMUpdDts']):
+        status_str += ('\n\t{0}: {1}'.format(x, y))
 
-    return status_str    
+    return status_str
 
 
 def send_email(msg_body, subject, toaddr="ryan@roundaboutam.com"):
@@ -173,7 +172,7 @@ def main():
     ##################
     # QAD tables updated
     qad_chk1 = qad_status['SysUpdDt'] >= prior_bdate
-    # QAD processing updates 
+    # QAD processing updates
     prior_upd_lim = 90
     last_upd_diff = int((dt.datetime.now() - qad_status['LogUpdEnd']
                          ).total_seconds() / 60)
@@ -191,8 +190,8 @@ def main():
     # EMAIL ALERT AND LOG
     #####################
     log_str = _build_logging_msg(prior_bdate, qad_status, ram_status)
-    
-    if ~np.all([qad_chk1, qad_chk2, ram_chk, False]):
+
+    if ~np.all([qad_chk1, qad_chk2, ram_chk]):
         subject = "RAM/QAD Database Alert {0}".format(dt.date.today())
         send_email(log_str, subject)
 
@@ -204,7 +203,6 @@ def main():
             file.write('\n' + log_str)
     else:
         print log_str
-
 
 
 if __name__ == '__main__':
