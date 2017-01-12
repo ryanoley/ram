@@ -156,7 +156,7 @@ def main():
     # UPDATE QAD TABLE/GET TABLE STATS
     #################################
     connection = pypyodbc.connect('Driver={SQL Server};Server=QADIRECT;'
-                                  'Database=ram;uid=rammuser;pwd=183madison')
+                                  'Database=ram;uid=ramuser;pwd=183madison')
     cursor = connection.cursor()
 
     if args.update_qad_status:
