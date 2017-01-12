@@ -20,7 +20,6 @@ class ClusterController(object):
         assert self.verify_sc_setup()
         self.islive = False
 
-
     def verify_sc_setup(self):
         # verify base config exists
         assert os.path.exists(self.aws_config_base)
@@ -32,14 +31,12 @@ class ClusterController(object):
         self.get_live_clusters()
         return True
 
-    def set_config(self, n_cores, region=None, inst_type='m3.medium'):
+    def set_config(self, n_nodes, region=None, inst_type='m3.medium'):
         '''
         Create a config for a particular cluster instance.  Fill in fields
         for instance_type, region, n_nodes, and spot bid.  Write the
         config out to /data/ram/aws/configs.
         '''
-        n_nodes = n_cores
-        # n_nodes = n_cores / 8 for use with c3.8xlarge inst_type
         self._n_nodes = n_nodes
 
         regionbid = self.get_region_bid(inst_type, region)
@@ -90,8 +87,8 @@ class ClusterController(object):
             return
 
         spot_info = self.get_spot_history(inst_type, region)
-        conf = raw_input(('{0} in {1}: live={2}, avg={3}, max={4}. Enter max'
-                          'bid, or enter n/x to exit.').format(
+        conf = raw_input(('{0} in {1}: live={2}, avg={3}, max={4}.\n\n'
+                          'Enter max bid, or enter x to exit: ').format(
                             inst_type, region, spot_info['live'],
                             spot_info['avg'], spot_info['max']))
         if conf in ['n','x']:
@@ -320,6 +317,7 @@ class ClusterController(object):
             print '/{1}/{2} updated on node: {0}'.format(nodei, repo, branch)
         print 'Rebooting Cluster'
         self.restart_cluster()
+
 
 if __name__ == '__main__':
     cc = ClusterController()

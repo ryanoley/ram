@@ -20,6 +20,7 @@ def update_qad_monitor(cursor):
     cursor.commit()
     return
 
+
 def update_ram_monitor(cursor):
     '''
     Run sql script to retrieve most recent RAM table values and write
@@ -32,6 +33,7 @@ def update_ram_monitor(cursor):
     cursor.execute(sqlscript)
     cursor.commit()
     return
+
 
 def _get_prior_buisiness_date(cursor):
     '''
@@ -189,7 +191,7 @@ def main():
     ##################
     # STATUS CHECKS
     ##################
-    # QAD tables updated
+    # QAD Tables
     if args.check_qad:
         qad_chk1 = qad_status['SysUpdDt'] >= prior_bdate
         # QAD processing updates
@@ -199,7 +201,7 @@ def main():
         qad_chk2 = last_upd_diff <= prior_upd_lim
     else:
         qad_chk1, qad_chk2 = True, True
-    # RAM tables udpated
+    # RAM Tables
     if args.check_ram:
         check_tables = ['univ_filter_data_etf', 'univ_filter_data',
                         'sm_SmartEstimate_eps', 'sm_ShortInterest', 'sm_ARM',
@@ -234,6 +236,7 @@ if __name__ == '__main__':
     try:
         main()
     except Exception, e:
+        # If script crashes log error locally and send email
         with open('./RAMErrorLog.log', 'a') as file:
             file.write('\n \n----------------------\n')
             file.write(str(dt.datetime.now()))
