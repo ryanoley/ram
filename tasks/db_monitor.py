@@ -20,6 +20,18 @@ def update_qad_monitor(cursor):
     cursor.commit()
     return
 
+def update_ram_monitor(cursor):
+    '''
+    Run sql script to retrieve most recent RAM table values and write
+    them to table_monitor.
+    '''
+    db_update_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'data',
+                                  'qad', 'table_monitor.sql')
+    with open(db_update_path, 'r') as sqlfile:
+        sqlscript = sqlfile.read()
+    cursor.execute(sqlscript)
+    cursor.commit()
+    return
 
 def _get_prior_buisiness_date(cursor):
     '''
@@ -141,10 +153,16 @@ def main():
     ###########################################################################
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-update_qad_status', '--update_qad_status', action='store_true',
+        '-update_db_stats', '--update_db_stats', action='store_true',
         help='Update values in qad_monitor table in database')
     parser.add_argument(
-        '-write_log', '--write_log', action='store_true',
+        '-check_qad', '--check_qad', action='store_true',
+        help='Verify status of QAD updates and tables')
+    parser.add_argument(
+        '-check_ram', '--check_ram', action='store_true',
+        help='Verify status of RAM core tables')
+    parser.add_argument(
+        '-log_to_console', '--log_to_console', action='store_true',
         help='Write output to log file. If not, output will write to console')
     parser.add_argument(
         '-log_path', '--log_path',
@@ -159,8 +177,9 @@ def main():
                                   'Database=ram;uid=ramuser;pwd=183madison')
     cursor = connection.cursor()
 
-    if args.update_qad_status:
+    if args.update_db_stats:
         update_qad_monitor(cursor)
+        update_ram_monitor(cursor)
 
     prior_bdate = _get_prior_buisiness_date(cursor)
     qad_status = _poll_qad_monitor(cursor)
@@ -171,20 +190,26 @@ def main():
     # STATUS CHECKS
     ##################
     # QAD tables updated
-    qad_chk1 = qad_status['SysUpdDt'] >= prior_bdate
-    # QAD processing updates
-    prior_upd_lim = 90
-    last_upd_diff = int((dt.datetime.now() - qad_status['LogUpdEnd']
-                         ).total_seconds() / 60)
-    qad_chk2 = last_upd_diff <= prior_upd_lim
+    if args.check_qad:
+        qad_chk1 = qad_status['SysUpdDt'] >= prior_bdate
+        # QAD processing updates
+        prior_upd_lim = 90
+        last_upd_diff = int((dt.datetime.now() - qad_status['LogUpdEnd']
+                             ).total_seconds() / 60)
+        qad_chk2 = last_upd_diff <= prior_upd_lim
+    else:
+        qad_chk1, qad_chk2 = True, True
     # RAM tables udpated
-    check_tables = ['univ_filter_data_etf', 'univ_filter_data',
-                    'sm_SmartEstimate_eps', 'sm_ShortInterest', 'sm_ARM',
-                    'ram_sector', 'ram_master_etf', 'ram_master_equities',
-                    'pead_event_dates_live', 'ern_event_dates_live']
-    ram_chk = np.all([y >= prior_bdate for (x, y) in
-                      zip(ram_status['RAMTables'], ram_status['RAMUpdDts'])
-                      if x in check_tables])
+    if args.check_ram:
+        check_tables = ['univ_filter_data_etf', 'univ_filter_data',
+                        'sm_SmartEstimate_eps', 'sm_ShortInterest', 'sm_ARM',
+                        'ram_sector', 'ram_master_etf', 'ram_master_equities',
+                        'pead_event_dates_live', 'ern_event_dates_live']
+        ram_chk = np.all([y >= prior_bdate for (x, y) in
+                          zip(ram_status['RAMTables'], ram_status['RAMUpdDts'])
+                          if x in check_tables])
+    else:
+        ram_chk = True
 
     #####################
     # EMAIL ALERT AND LOG
@@ -195,14 +220,14 @@ def main():
         subject = "** RAM/QAD Database ALERT {0} **".format(dt.date.today())
         send_email(log_str, subject)
 
-    if args.write_log:
+    if args.log_to_console:
+        print log_str
+    else:
         # Write log_str to log file
         with open(args.log_path, 'a') as file:
             file.write('\n \n----------------------\n')
             file.write(str(dt.datetime.now()))
             file.write('\n' + log_str)
-    else:
-        print log_str
 
 
 if __name__ == '__main__':
