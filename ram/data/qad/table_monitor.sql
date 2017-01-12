@@ -1,150 +1,183 @@
-
 /*
--- FIRST TIME ONLY
-
-if object_id('ram.dbo.table_monitor', 'U') is not null 
-	drop table ram.dbo.table_monitor
-
-create table	ram.dbo.table_monitor (
-
-				MonitorDateTime smalldatetime,
-				TableName varchar(255),
-				LastUpdateDate smalldatetime,
-
-				Count_ int,
-
-				SameDayRet1 int,
-				SameDayRet2 int,
-				SameDayRet3 int,
-
-				LagDayRet1 int,
-				LagDayRet2 int,
-				LagDayRet3 int,
-				LagDayRet4 int
-
-				primary key (MonitorDateTime, TableName)
-)
-
-go
+This script selects values from RAM custom tables
+and populates a monitor table in the RAM database 
+for internal monitoring purposes.
 */
 
--- The threshold value that flags an outlier return
-declare @ERRORRET float = 5
+declare @MonitorDate smalldatetime = getdate();
 
 
-; with data1 as (
-select			*,
-				-- Lag values
-				Lag(AdjOpen, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjOpen,
-				Lag(AdjHigh, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjHigh,
-				Lag(AdjLow, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjLow,
-				Lag(AdjClose, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjClose
+-- ram_master_equities
+with mstr_eq as (
+select 
+    @MonitorDate as MonitorDate,
+    'ram_master_equities' as TableName,
+    min(Date_) as MinTableDate,
+    max(Date_) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.ram_master_equities
+)
 
-from			ram.dbo.ram_master_equities
+,-- ram_master_equities_research
+mstr_eq_res as (
+select 
+    @MonitorDate as MonitorDate,
+    'ram_master_equities_research' as TableName,
+    min(Date_) as MinTableDate,
+    max(Date_) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.ram_master_equities_research
+)
+
+-- ram_master_etf
+, mstr_etf as (
+select 
+    @MonitorDate as MonitorDate,
+    'ram_master_etf' as TableName,
+    min(Date_) as MinTableDate,
+    max(Date_) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.ram_master_etf
+)
+
+-- ram_sector
+, ram_sector as (
+select 
+    @MonitorDate as MonitorDate,
+    'ram_sector' as TableName,
+    min(StartDate) as MinTableDate,
+    max(EndDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.ram_sector
+)
+
+-- univ_filter_data
+, univ_filter as (
+select 
+    @MonitorDate as MonitorDate,
+    'univ_filter_data' as TableName,
+    min(Date_) as MinTableDate,
+    max(Date_) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.univ_filter_data
+)
+
+-- univ_filter_data_etf
+, univ_filter_etf as (
+select 
+    @MonitorDate as MonitorDate,
+    'univ_filter_data_etf' as TableName,
+    min(Date_) as MinTableDate,
+    max(Date_) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.univ_filter_data_etf
+)
+
+-- ern_live
+, ern_live as (
+select 
+    @MonitorDate as MonitorDate,
+    'ern_event_dates_live' as TableName,
+    min(EvalDate) as MinTableDate,
+    max(EvalDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.ern_event_dates_live
+)
+
+-- pead_live
+, pead_live as (
+select 
+    @MonitorDate as MonitorDate,
+    'pead_event_dates_live' as TableName,
+    min(EvalDate) as MinTableDate,
+    max(EvalDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.pead_event_dates_live
+)
+
+-- report_dates
+, report_dates as (
+select 
+    @MonitorDate as MonitorDate,
+    'report_dates' as TableName,
+    min(ReportDate) as MinTableDate,
+    max(ReportDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.report_dates
+)
+
+-- short_interest
+, short_int as (
+select 
+    @MonitorDate as MonitorDate,
+    'ShortInterest' as TableName,
+    min(Date_) as MinTableDate,
+    max(Date_) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.ShortInterest
+)
+
+-- Starmine ARM
+, sm_arm as (
+select 
+    @MonitorDate as MonitorDate,
+    'sm_ARM' as TableName,
+    min(AsOfDate) as MinTableDate,
+    max(AsOfDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.sm_ARM
+)
+
+-- Starmine ShortInterest
+, sm_si as (
+select 
+    @MonitorDate as MonitorDate,
+    'sm_ShortInterest' as TableName,
+    min(AsOfDate) as MinTableDate,
+    max(AsOfDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.sm_ShortInterest
 )
 
 
-, data2 as (
-select			*,
-
-				-- Same day return flags
-				case when abs((AdjClose - AdjOpen) / AdjOpen) > @ERRORRET then 1 else 0 end as SameDayRet1,
-				case when abs((AdjHigh - AdjOpen) / AdjOpen) > @ERRORRET then 1 else 0 end as SameDayRet2,
-				case when abs((AdjLow - AdjOpen) / AdjOpen) > @ERRORRET then 1 else 0 end  as SameDayRet3,
-
-				-- Lag return flags
-				case when abs((AdjOpen - LagAdjOpen) / LagAdjOpen) > @ERRORRET then 1 else 0 end as LagDayRet1,
-				case when abs((AdjHigh - LagAdjHigh) / LagAdjHigh) > @ERRORRET then 1 else 0 end as LagDayRet2,
-				case when abs((AdjLow - LagAdjLow) / LagAdjLow) > @ERRORRET then 1 else 0 end  as LagDayRet3,
-				case when abs((AdjClose - LagAdjClose) / LagAdjClose) > @ERRORRET then 1 else 0 end  as LagDayRet4
-
-from			data1
+-- Starmine SmartEstimate
+, sm_se_eps as (
+select 
+    @MonitorDate as MonitorDate,
+    'sm_SmartEstimate_eps' as TableName,
+    min(AsOfDate) as MinTableDate,
+    max(AsOfDate) as MaxTableDate,
+    count(*) as Count_
+from ram.dbo.sm_SmartEstimate_eps
 )
 
 
-insert into		ram.dbo.table_monitor
 
-select			getdate() as MonitorDateTime,
-				'ram_master_equities' as TableName,
-				(select max(Date_) from ram.dbo.ram_master_equities) as LastUpdateDate,
-				count(*) as Count_,
-				sum(SameDayRet1) as SameDayRet1,
-				sum(SameDayRet2) as SameDayRet2,
-				sum(SameDayRet3) as SameDayRet3,
-				sum(LagDayRet1) as LagDayRet1,
-				sum(LagDayRet2) as LagDayRet2,
-				sum(LagDayRet3) as LagDayRet3,
-				sum(LagDayRet4) as LagDayRet4
-from			data2
-where			Close_ > 5
+insert into ram.dbo.table_monitor
 
-
-go
-
------------------------------------------------------------------------------------------------
----- ETF TABLE
-
--- The threshold value that flags an outlier return - Different than Equities
-declare @ERRORRET float = 1
-
-; with data1 as (
-select			*,
-				-- Lag values
-				Lag(AdjOpen, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjOpen,
-				Lag(AdjHigh, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjHigh,
-				Lag(AdjLow, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjLow,
-				Lag(AdjClose, 1) over (
-					partition by IdcCode
-					order by Date_) as LagAdjClose
-
-from			ram.dbo.ram_master_etf
-)
-
-
-, data2 as (
-select			*,
-
-				-- Same day return flags
-				case when abs((AdjClose - AdjOpen) / AdjOpen) > @ERRORRET then 1 else 0 end as SameDayRet1,
-				case when abs((AdjHigh - AdjOpen) / AdjOpen) > @ERRORRET then 1 else 0 end as SameDayRet2,
-				case when abs((AdjLow - AdjOpen) / AdjOpen) > @ERRORRET then 1 else 0 end  as SameDayRet3,
-
-				-- Lag return flags
-				case when abs((AdjOpen - LagAdjOpen) / LagAdjOpen) > @ERRORRET then 1 else 0 end as LagDayRet1,
-				case when abs((AdjHigh - LagAdjHigh) / LagAdjHigh) > @ERRORRET then 1 else 0 end as LagDayRet2,
-				case when abs((AdjLow - LagAdjLow) / LagAdjLow) > @ERRORRET then 1 else 0 end  as LagDayRet3,
-				case when abs((AdjClose - LagAdjClose) / LagAdjClose) > @ERRORRET then 1 else 0 end  as LagDayRet4
-
-from			data1
-)
-
-
-insert into		ram.dbo.table_monitor
-
-select			getdate() as MonitorDateTime,
-				'ram_master_etf' as TableName,
-				(select max(Date_) from ram.dbo.ram_master_equities) as LastUpdateDate,
-				count(*) as Count_,
-				sum(SameDayRet1) as SameDayRet1,
-				sum(SameDayRet2) as SameDayRet2,
-				sum(SameDayRet3) as SameDayRet3,
-				sum(LagDayRet1) as LagDayRet1,
-				sum(LagDayRet2) as LagDayRet2,
-				sum(LagDayRet3) as LagDayRet3,
-				sum(LagDayRet4) as LagDayRet4
-from			data2
+select * from mstr_eq
+union
+select * from mstr_eq_res
+union
+select * from mstr_etf
+union
+select * from ram_sector
+union
+select * from univ_filter
+union
+select * from univ_filter_etf
+union
+select * from ern_live
+union
+select * from pead_live
+union
+select * from report_dates
+union
+select * from short_int
+union
+select * from sm_arm
+union
+select * from sm_si
+union
+select * from sm_se_eps
 

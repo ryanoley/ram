@@ -6,6 +6,7 @@ import datetime as dt
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram.data.dh_sql import DataHandlerSQL
+from gearbox import ProgBar
 
 
 class Strategy(object):
@@ -23,7 +24,7 @@ class Strategy(object):
         """
         results = pd.DataFrame()
 
-        for i in self.get_iter_index():
+        for i in ProgBar(self.get_iter_index()):
             temp_result = self.run_index(i)
             # Enforce that the index is DateTime
             assert isinstance(temp_result.index, pd.DatetimeIndex)

@@ -15,13 +15,11 @@ class ClusterController(object):
     aws_config_base = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'aws',
                                    'config')
 
-    def __init__(self, strategy):
+    def __init__(self):
         # check that starcluster is installed and connectivity
         assert self.verify_sc_setup()
         self.islive = False
-        # set strategy related vars
-        # iterable = strategy.get_terable()
-        # wrapper = strategy.get_wrapper()
+
 
     def verify_sc_setup(self):
         # verify base config exists
@@ -92,14 +90,14 @@ class ClusterController(object):
             return
 
         spot_info = self.get_spot_history(inst_type, region)
-        conf = raw_input(('{0} in {1}: live={2}, avg={3}, max={4}. Max bid ' +
-                         'will be set at {4}, please confirm (y/n) ').format(
+        conf = raw_input(('{0} in {1}: live={2}, avg={3}, max={4}. Enter max'
+                          'bid, or enter n/x to exit.').format(
                             inst_type, region, spot_info['live'],
                             spot_info['avg'], spot_info['max']))
-        if conf != 'y':
+        if conf in ['n','x']:
             return
 
-        return (region, spot_info['max'])
+        return (region, str(float(conf)))
 
     def launch_cluster(self):
         '''
@@ -324,7 +322,7 @@ class ClusterController(object):
         self.restart_cluster()
 
 if __name__ == '__main__':
-    cc = ClusterController('strat')
+    cc = ClusterController()
     cc.set_config(2)
     # cc.launch_cluster()
     cc.teardown()
