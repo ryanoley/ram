@@ -15,29 +15,63 @@ class BirdsStrategy(Strategy):
         return range(len(self._get_date_iterator()))
 
     def run_index(self, index):
+
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         train_data, test_data, features, response_labels, ret_labels = \
             self._get_data(t_start, cut_date, t_end, univ_size=500)
 
         cl = LinearRegression()
+
         cl.fit(X=train_data[features], y=train_data[response_labels])
 
         preds = pd.DataFrame(columns=response_labels, index=test_data.index)
         preds[:] = cl.predict(test_data[features])
         preds['Date'] = test_data.Date
 
-        uniq_dates = np.unique(test_data.Date)
-        outdata = pd.DataFrame(columns=ret_labels, index=uniq_dates)
+        pred_thresh = np.arange(.5, .55, .01)
 
-        for yl, rl in zip(response_labels, ret_labels):
-            for d in uniq_dates:
-                ests = preds.loc[preds.Date == d, yl]
-                rets = test_data.loc[test_data.Date == d, rl]
-                rets = rets.iloc[np.argsort(ests)]
-                # Top 10 bottom 10 percent
-                n_pos = int(len(rets) * .1)
-                outdata.loc[d, rl] = np.mean(rets[-n_pos:]) - np.mean(rets[:n_pos])
+        uniq_dates = np.unique(test_data.Date)
+
+        col_labels = []
+        for p in pred_thresh:
+            for r in ret_labels:
+                col_labels.append('{0}_{1}'.format(r, p))
+
+        outdata = pd.DataFrame(columns=col_labels, index=uniq_dates)
+
+        univ_proportion = 0.10
+
+        for pt in pred_thresh:
+            for yl, rl in zip(response_labels, ret_labels):
+                for d in uniq_dates:
+
+                    ests = preds.loc[preds.Date == d, yl]
+                    rets = test_data.loc[test_data.Date == d, rl]
+
+                    pos_per_side = int(len(ests) * univ_proportion)
+
+                    if (ests > pt).sum() > pos_per_side:
+                        ## Will take everything and scale accordingly
+                        retL = rets[ests > pt].mean()
+                        posL = pos_per_side
+                    else:
+                        ## Max position size enforced
+                        retL = (rets[ests > pt]).sum() / pos_per_side
+                        posL = (ests > pt).sum()
+
+                    if (ests < (1-pt)).sum() > pos_per_side:
+                        retS = rets[ests < (1-pt)].mean()
+                        posS = pos_per_side
+                    else:
+                        ## Max position size enforced
+                        retL = (rets[ests < (1-pt)]).sum() / pos_per_side
+                        posS = (ests < (1-pt)).sum()
+
+                    col = '{0}_{1}'.format(rl, pt)
+
+                    outdata.loc[d, col] = (posS * retL - posL * retS) / pos_per_side
+
         return outdata
 
     def _get_date_iterator(self):
@@ -69,7 +103,7 @@ class BirdsStrategy(Strategy):
         """
         Makes the appropriate period's data.
         """
-        n_days_forward = 20
+        n_days_forward = 4
 
         # Adjust date by one day for filter date
         adj_filter_date = filter_date - dt.timedelta(days=1)
@@ -133,4 +167,4 @@ if __name__ == '__main__':
 
     OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'strategy_output')
     # Write results
-    results.to_csv(os.path.join(OUTDIR, 'BirdsStrategy_returns.csv'))
+    results.to_csv(os.path.join(OUTDIR, 'BirdsStrategy2_returns.csv'))
