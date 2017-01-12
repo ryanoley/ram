@@ -30,47 +30,47 @@ class BirdsStrategy(Strategy):
         preds['Date'] = test_data.Date
 
         pred_thresh = np.arange(.5, .55, .01)
+        univ_proportion = np.arange(0.05, 0.15)
 
         uniq_dates = np.unique(test_data.Date)
 
         col_labels = []
         for p in pred_thresh:
-            for r in ret_labels:
-                col_labels.append('{0}_{1}'.format(r, p))
+            for u in univ_proportion:
+                for r in ret_labels:
+                    col_labels.append('{0}_{1}_{2}'.format(r, u, p))
 
         outdata = pd.DataFrame(columns=col_labels, index=uniq_dates)
 
-        univ_proportion = 0.10
+        for u in univ_proportion:
+            for pt in pred_thresh:
+                for yl, rl in zip(response_labels, ret_labels):
+                    for d in uniq_dates:
+                        ests = preds.loc[preds.Date == d, yl]
+                        rets = test_data.loc[test_data.Date == d, rl]
+    
+                        pos_per_side = int(len(ests) * u)
+    
+                        if (ests > pt).sum() > pos_per_side:
+                            ## Will take everything and scale accordingly
+                            retL = rets[ests > pt].mean()
+                            posL = pos_per_side
+                        else:
+                            ## Max position size enforced
+                            retL = (rets[ests > pt]).sum() / pos_per_side
+                            posL = (ests > pt).sum()
+    
+                        if (ests < (1-pt)).sum() > pos_per_side:
+                            retS = rets[ests < (1-pt)].mean()
+                            posS = pos_per_side
+                        else:
+                            ## Max position size enforced
+                            retS = (rets[ests < (1-pt)]).sum() / pos_per_side
+                            posS = (ests < (1-pt)).sum()
+    
+                        col = '{0}_{1}_{2}'.format(rl, u, pt)
 
-        for pt in pred_thresh:
-            for yl, rl in zip(response_labels, ret_labels):
-                for d in uniq_dates:
-
-                    ests = preds.loc[preds.Date == d, yl]
-                    rets = test_data.loc[test_data.Date == d, rl]
-
-                    pos_per_side = int(len(ests) * univ_proportion)
-
-                    if (ests > pt).sum() > pos_per_side:
-                        ## Will take everything and scale accordingly
-                        retL = rets[ests > pt].mean()
-                        posL = pos_per_side
-                    else:
-                        ## Max position size enforced
-                        retL = (rets[ests > pt]).sum() / pos_per_side
-                        posL = (ests > pt).sum()
-
-                    if (ests < (1-pt)).sum() > pos_per_side:
-                        retS = rets[ests < (1-pt)].mean()
-                        posS = pos_per_side
-                    else:
-                        ## Max position size enforced
-                        retL = (rets[ests < (1-pt)]).sum() / pos_per_side
-                        posS = (ests < (1-pt)).sum()
-
-                    col = '{0}_{1}'.format(rl, pt)
-
-                    outdata.loc[d, col] = (posS * retL - posL * retS) / pos_per_side
+                        outdata.loc[d, col] = (posS * retL - posL * retS) / pos_per_side
 
         return outdata
 
