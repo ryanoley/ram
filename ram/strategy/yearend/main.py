@@ -429,9 +429,14 @@ class YearEnd(Strategy):
                                                   n_ind=test_n + 20)
         long_tkrs = list(test.loc[long_ix, 'Ticker'])
         short_tkrs = list(test.loc[short_ix, 'Ticker'])
-        
+
         return long_tkrs, short_tkrs
 
+
+def run_parallel(ix):
+    from ram.strategy.yearend.main import YearEnd
+    ye = YearEnd(hold_per=4, univ_size=1600, exit_offset=0)
+    return ye.run_index(ix)
 
 
 if __name__ == '__main__':
