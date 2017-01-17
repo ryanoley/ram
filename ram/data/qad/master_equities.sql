@@ -214,7 +214,15 @@ from			idc_dates D
 		on		D.Code = F.Code
 		and		F.SecType = 'C'
 		and		F.Issue not like '%UNIT%'
+		and		F.Issue not like '%UNT%'
 		and		F.Issue not like '%RCPT%'  -- Depository Receipts and other odd securities
+		and		F.Issue not like '%WHEN%'  -- When issueds and distributed
+		and		F.Issue not like '%PARTN%' -- Partnerships
+		and		F.Issue not like '%DISTRIB%'
+		and		F.Issue not like '%SPINOFF%'
+		and		F.Issue not like '%MERGE%'
+		and		F.Issue not like '%REIT%'
+		and		F.Issue not like '%BEN INT%'
 
 	join		exchanges E
 		on		D.Code = E.Code
