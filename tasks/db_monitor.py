@@ -122,7 +122,7 @@ def _build_logging_msg(prior_bdate, qad, ram):
     return status_str
 
 
-def send_email(msg_body, subject, toaddr="ryan@roundaboutam.com"):
+def send_email(msg_body, subject, toaddr="analysts@roundaboutam.com"):
     '''
     Send an email with msg in the body from the notifications@roundaboutam.com
     address.
