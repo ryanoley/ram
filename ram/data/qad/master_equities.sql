@@ -228,6 +228,7 @@ from			idc_dates D
 		on		D.Code = E.Code
 		and		D.Date_ between E.StartDate and E.AltEndDate
 		and		E.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
+		and		right(E.Cusip, 2) != 'XX'
 
 	-- Trading dates lag column for 'NormalTradingFlag'
 	join		trading_dates_filter DF
