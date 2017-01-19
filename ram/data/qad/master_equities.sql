@@ -223,6 +223,8 @@ from			idc_dates D
 		and		F.Issue not like '%MERGE%'
 		and		F.Issue not like '%REIT%'
 		and		F.Issue not like '%BEN INT%'
+		and		F.Issuer not like '%TERM TRUST%'
+		and		F.Issuer not like '%INCOME%'
 
 	join		exchanges E
 		on		D.Code = E.Code
