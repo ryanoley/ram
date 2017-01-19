@@ -220,7 +220,8 @@ from			idc_dates D
 		and		F.Issue not like '%PARTN%' -- Partnerships
 		and		F.Issue not like '%DISTRIB%'
 		and		F.Issue not like '%SPINOFF%'
-		and		F.Issue not like '%MERGE%'
+		and		F.Issue not like '% MERG%'	-- Mergers
+		and		F.Issue not like '%-MERG%'
 		and		F.Issue not like '%REIT%'
 		and		F.Issue not like '%BEN INT%'
 		and		F.Issuer not like '%TERM TRUST%'
