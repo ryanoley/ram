@@ -214,12 +214,25 @@ from			idc_dates D
 		on		D.Code = F.Code
 		and		F.SecType = 'C'
 		and		F.Issue not like '%UNIT%'
+		and		F.Issue not like '%UNT%'
 		and		F.Issue not like '%RCPT%'  -- Depository Receipts and other odd securities
+		and		F.Issue not like '%WHEN%'  -- When issueds and distributed
+		and		F.Issue not like '%PARTN%' -- Partnerships
+		and		F.Issue not like '%DISTRIB%'
+		and		F.Issue not like '%SPINOFF%'
+		and		F.Issue not like '% MERG%'	-- Mergers
+		and		F.Issue not like '%-MERG%'
+		and		F.Issue not like '%REIT%'
+		and		F.Issue not like '%BEN INT%'
+		and		F.Issuer not like '%TERM TRUST%'
+		and		F.Issuer not like '%INCOME%'
+		and		F.Issuer not like '% MUNI %'
 
 	join		exchanges E
 		on		D.Code = E.Code
 		and		D.Date_ between E.StartDate and E.AltEndDate
 		and		E.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
+		and		right(E.Cusip, 2) != 'XX'
 
 	-- Trading dates lag column for 'NormalTradingFlag'
 	join		trading_dates_filter DF
