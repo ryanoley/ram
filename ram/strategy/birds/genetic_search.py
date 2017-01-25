@@ -1,16 +1,97 @@
 import numpy as np
 import pandas as pd
 import datetime as dt
+from random import randint, random, randint
 
 ###############################################################################
 
-def init_population(count, n):
+def init_population(count, n_confs):
     """
     Create a number of individuals (i.e. a population).
     where the weights sum to zero (across rows)
     """
-    weights = np.random.rand(count, n)
-    return weights / weights.sum(axis=1)[:, np.newaxis]
+    weightsL = np.random.rand(count, n_confs)
+    weightsL = weightsL / weightsL.sum(axis=1)[:, np.newaxis]
+
+    weightsS = np.random.rand(count, n_confs)
+    weightsS = weightsS / weightsS.sum(axis=1)[:, np.newaxis]
+
+    return [(w1, w2) for w1, w2 in zip(weightsL, weightsS)]
+
+
+
+
+
+def evolve_and_score(pop, ret_data, estsL, rowsL, estsS, rowsS, port_size):
+
+    ##  Parameters
+    retain = 0.2
+    random_select = 0.05
+    mutate = 0.01
+
+    ##  Score
+    scores = []
+    ind = 0  # Temp fix for duplicate values
+    for wL, wS in pop:
+        estsL2 = make_weighted_estimate(estsL, wL)
+        estsS2 = make_weighted_estimate(estsS, wS)
+
+        sig_rowsL = get_min_est_rows(-1 * estsL2, rowsL, topX=port_size)
+        sig_rowsS = get_min_est_rows(estsS2, rowsS, topX=port_size)
+
+        sharpe = get_long_short_sharpe(ret_data.iloc[sig_rowsL],
+                                       ret_data.iloc[sig_rowsS])
+        scores.append((sharpe, ind, (wL, wS)))
+        ind += 1
+
+    ##  Retain top values
+    report_score = sum([x[0] for x in scores]) / float(len(scores))
+    scores = [x[2] for x in sorted(scores)[::-1]]
+
+    retain_length = int(len(scores)*retain)
+    parents = scores[:retain_length]
+
+    # randomly add other individuals to
+    # promote genetic diversity
+    for individual in scores[retain_length:]:
+        if random_select > random():
+            parents.append(individual)
+
+    # mutate some individuals
+    for individual in parents:
+        if mutate > random():
+            pos_to_mutateL = randint(0, len(individual[0])-1)
+            pos_to_mutateS = randint(0, len(individual[0])-1)
+            individual[0][pos_to_mutateL] = random()
+            individual[1][pos_to_mutateL] = random()
+
+    # crossover parents to create children
+    parents_length = len(parents)
+    desired_length = len(pop) - parents_length
+    children = []
+
+    while len(children) < desired_length:
+        male = randint(0, parents_length-1)
+        female = randint(0, parents_length-1)
+        if male != female:
+            male = parents[male]
+            female = parents[female]
+            half = len(male[0]) / 2
+            child = (
+                np.append(male[0][:half], female[0][half:]),
+                np.append(male[1][:half], female[1][half:])
+            )
+            children.append(child)
+    parents.extend(children)
+    # Ensure all sum to one
+    output = []
+    for weights in parents:
+        output.append((
+            weights[0] / weights[0].sum(),
+            weights[1] / weights[1].sum()
+        ))
+    return output, report_score
+
 
 
 
@@ -35,7 +116,6 @@ def get_daily_pl(data):
     return dates, rets
 
 
-
 def _bucket_mean(x, y):
     """
     Buckets over x array, counts, and takes the mean of y array, and returns
@@ -55,11 +135,10 @@ def _bucket_mean(x, y):
 
 ###############################################################################
 
-def get_signals(ests, rows, topX=10):
+def get_min_est_rows(ests, rows, topX=10):
     inds = np.argsort(ests, axis=1)
-    n = inds.shape[0]
-    return np.take(rows, inds, axis=1)[range(n), range(n), :topX]
-
+    return np.unique(np.take(rows, inds, axis=1)[
+        range(inds.shape[0]), range(inds.shape[0]), :topX].ravel())
 
 ###############################################################################
 
@@ -90,8 +169,9 @@ def make_weighted_estimate(ests, weights):
     return (ests * weights[:, None, None]).mean(axis=0)
 
 
-
-def get_optimal_combination(df, estsL, estsS):
+def get_optimal_combination(df, estsL, estsS, port_size=2, epochs=30):
+    ##  Parameters
+    pop_size = 100
 
     ##  Assert columns have proper rows in them
     assert np.all(pd.Series([
@@ -106,21 +186,15 @@ def get_optimal_combination(df, estsL, estsS):
     estsL2, rowsL = make_estimate_arrays(df, estsL)
     estsS2, rowsS = make_estimate_arrays(df, estsS)
 
-    # Get population of weights - First half
-    n_confs = estsL.shape[1] * 2
-    #weights = init_population(2, n_confs)
-    weights = np.array([[2, 0, 1, 1], [1, 10, 1, 1]])
+    ##  Init population
+    p = init_population(pop_size, estsL.shape[1])
 
-    w = weights[0]
+    ##  Iterate x Epochs
+    fitness_history = []
+    for i in xrange(epochs):
+        p, score = evolve_and_score(p, df, estsL2, rowsL,
+                                    estsS2, rowsS, port_size)
+        fitness_history.append(score)
+        print score
 
-    estsL3 = make_weighted_estimate(estsL2, w[:2])
-    estsS3 = make_weighted_estimate(estsS2, w[2:])
-
-    signalsL = get_signals(-1 * estsL3, rowsL, topX=1)
-    signalsS = get_signals(estsS3, rowsS, topX=1)
-
-    long_rets = df.iloc[signalsL.ravel()]
-    short_rets = df.iloc[signalsS.ravel()]
-
-    z = get_long_short_sharpe(long_rets, short_rets)
-
+    return p[0]
