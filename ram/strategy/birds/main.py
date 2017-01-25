@@ -1,5 +1,4 @@
 import os
-import sys
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -7,12 +6,17 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from sklearn import preprocessing
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import BaggingClassifier
+from sklearn.preprocessing import PolynomialFeatures
 
+from sklearn.linear_model import RidgeClassifierCV
+from sklearn.linear_model import LogisticRegression
+
+from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import RandomForestClassifier
 
 from ram.utils.statistics import create_strategy_report
+
+import ram.strategy.birds.genetic_search as gs
 
 
 class BirdsStrategy(Strategy):
@@ -24,10 +28,6 @@ class BirdsStrategy(Strategy):
 
         t_start, test_start_date, t_end = self._get_date_iterator()[index]
 
-        if index < 30:
-            return pd.DataFrame(index=[t_start])
-
-        import pdb; pdb.set_trace()
         train_data, test_data, features = \
             self._get_data(t_start, test_start_date, t_end, univ_size=500)
 
@@ -37,52 +37,76 @@ class BirdsStrategy(Strategy):
         test_preds = pd.DataFrame(index=test_data.index)
         test_preds = (test_preds.copy(), test_preds.copy())
 
+        train_preds, test_preds = self._poly_ridge(
+            train_preds, train_data, test_preds, test_data, features)
+
         train_preds, test_preds = self._logistic_regression(
             train_preds, train_data, test_preds, test_data, features)
 
         train_preds, test_preds = self._random_forest(
             train_preds, train_data, test_preds, test_data, features)
 
-        weights = [1, 1]
-        n_pos = 50
+        port_size = 50
+        weights = gs.get_optimal_combination(train_data,
+                                             train_preds[0],
+                                             train_preds[1],
+                                             port_size=port_size,
+                                             epochs=10)
 
-        daily_pl_train = self._daily_pl(weights, n_pos, train_preds, train_data)
-        daily_pl_test = self._daily_pl(weights, n_pos, test_preds, test_data)
-        sys.exit()
+        daily_pl_test = self._daily_pl(weights, port_size,
+                                       test_preds, test_data)
+
         return daily_pl_test
 
-    def _daily_pl(self, weights, n_pos, preds, data):
+    def _daily_pl(self, weights, port_size, preds, data):
 
-        univ_size = data.groupby('Date')['ReturnDay1'].count().mode()[0]
-        perc = n_pos / float(univ_size)
+        estsL, rowsL = gs.make_estimate_arrays(data, preds[0])
+        estsS, rowsS = gs.make_estimate_arrays(data, preds[1])
 
-        data['long_pred'] = preds[0].multiply(weights).sum(axis=1)
-        data['short_pred'] = preds[1].multiply(weights).sum(axis=1)
+        estsL2 = gs.make_weighted_estimate(estsL, weights[0])
+        estsS2 = gs.make_weighted_estimate(estsS, weights[1])
 
-        longs = data.groupby('Date')['long_pred'].quantile(1-perc).reset_index()
-        longs.columns = ['Date', 'long_thresh']
-        shorts = data.groupby('Date')['short_pred'].quantile(1-perc).reset_index()
-        shorts.columns = ['Date', 'short_thresh']
-        data = data.merge(longs).merge(shorts)
+        sig_rowsL = gs.get_min_est_rows(-1 * estsL2, rowsL, topX=port_size)
+        sig_rowsS = gs.get_min_est_rows(estsS2, rowsS, topX=port_size)
 
-        longs = data[data.long_pred >= data.long_thresh]
-        shorts = data[data.short_pred >= data.short_thresh]
+        long_ = gs.get_daily_pl(data.iloc[sig_rowsL])
+        short = gs.get_daily_pl(data.iloc[sig_rowsS])
+        rets = long_[1] - short[1]
 
-        day1 = longs.groupby('T_1')['ReturnDay1'].mean() - shorts.groupby('T_1')['ReturnDay1'].mean()
-        day2 = longs.groupby('T_2')['ReturnDay2'].mean() - shorts.groupby('T_2')['ReturnDay2'].mean()
-        day3 = longs.groupby('T_3')['ReturnDay3'].mean() - shorts.groupby('T_3')['ReturnDay3'].mean()
-
-        return pd.DataFrame(day1).join(day2, how='outer').join(
-            day3, how='outer').fillna(0).mean(axis=1)
+        return pd.DataFrame({'Rets': rets}, index=long_[0])
 
     ###########################################################################
+
+    def _poly_ridge(self, train_preds, train_data,
+                    test_preds, test_data, features):
+
+        poly = PolynomialFeatures(degree=2)
+        poly.fit(X=train_data[features])
+
+        cl = RidgeClassifierCV(alphas=(0.001, 0.01, 0.1, 1.0))
+        cl.fit(X=poly.transform(train_data[features]), y=train_data.Signal)
+
+        short_ind = np.where(cl.classes_ == -1)[0][0]
+        long_ind = np.where(cl.classes_ == 1)[0][0]
+
+        train_p = cl._predict_proba_lr(poly.transform(train_data[features]))
+        test_p = cl._predict_proba_lr(poly.transform(test_data[features]))
+
+        train_preds[0]['PolyRidge_01'] = train_p[:, long_ind]
+        train_preds[1]['PolyRidge_01'] = train_p[:, short_ind]
+
+        test_preds[0]['PolyRidge_01'] = test_p[:, long_ind]
+        test_preds[1]['PolyRidge_01'] = test_p[:, short_ind]
+
+        return train_preds, test_preds
 
     def _logistic_regression(self, train_preds, train_data,
                              test_preds, test_data, features):
 
-        cl = BaggingClassifier(LogisticRegression(), n_jobs=4,
-                               max_samples=0.8, max_features=.8,
-                               random_state=123)
+        #cl = BaggingClassifier(LogisticRegression(), n_jobs=4,
+        #                       max_samples=0.8, max_features=.8,
+        #                       random_state=123)
+        cl = LogisticRegression()
         cl.fit(X=train_data[features], y=train_data.Signal)
 
         short_ind = np.where(cl.classes_ == -1)[0][0]
@@ -151,16 +175,19 @@ class BirdsStrategy(Strategy):
 
         #######################################################################
         #######################################################################
-        ## Features
+        # Features
 
         # ASSUMING THREE DAY RETURN
 
         basic_features = ['Close', 'LEAD1_Close', 'LEAD2_Close', 'LEAD3_Close']
 
         # Features for training
-        train_features = ['PRMA{0}_Close'.format(x) for x in [10, 20, 30, 40, 50]]
-        train_features += ['VOL{0}_Close'.format(x) for x in [10, 20, 30, 40, 50]]
-        train_features += ['DISCOUNT{0}_Close'.format(x) for x in [63, 126, 252]]
+        train_features = ['PRMA{0}_Close'.format(x) for x in [10, 20, 30,
+                                                              40, 50]]
+        train_features += ['VOL{0}_Close'.format(x) for x in [10, 20, 30,
+                                                              40, 50]]
+        train_features += ['DISCOUNT{0}_Close'.format(x) for x in [63,
+                                                                   126, 252]]
         train_features += ['MFI{0}_Close'.format(x) for x in [20, 40, 60]]
 
         #######################################################################
@@ -182,8 +209,10 @@ class BirdsStrategy(Strategy):
         # Returns
         data['Return'] = data.LEAD3_Close / data.Close - 1
         data['ReturnDay1'] = data.LEAD1_Close / data.Close - 1
-        data['ReturnDay2'] = (data.ReturnDay1 + 1) * data.LEAD2_Close / data.LEAD1_Close - 1
-        data['ReturnDay3'] = (data.ReturnDay1 + 1) * (data.ReturnDay2 + 1) * data.LEAD3_Close / data.LEAD2_Close - 1
+        data['ReturnDay2'] = (data.ReturnDay1 + 1) * data.LEAD2_Close / \
+            data.LEAD1_Close - 1
+        data['ReturnDay3'] = (data.ReturnDay1 + 1) * (data.ReturnDay2 + 1) * \
+            data.LEAD3_Close / data.LEAD2_Close - 1
         data = data.drop('Close', axis=1)
         data = data.drop('LEAD1_Close', axis=1)
         data = data.drop('LEAD2_Close', axis=1)
@@ -212,9 +241,11 @@ class BirdsStrategy(Strategy):
             test_data.loc[:, train_features])
 
         # Create binaries for classification
-        shorts = train_data.groupby('Date')['Return'].quantile(.25).reset_index()
+        shorts = train_data.groupby('Date')[
+            'Return'].quantile(.25).reset_index()
         shorts.columns = ['Date', 'ShortThresh']
-        longs = train_data.groupby('Date')['Return'].quantile(.75).reset_index()
+        longs = train_data.groupby('Date')[
+            'Return'].quantile(.75).reset_index()
         longs.columns = ['Date', 'LongThresh']
         train_data = train_data.merge(longs).merge(shorts)
         train_data['Signal'] = np.where(
@@ -233,11 +264,14 @@ class BirdsStrategy(Strategy):
 if __name__ == '__main__':
 
     strategy = BirdsStrategy()
-
     strategy.start()
 
     results = strategy.results
 
     OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'strategy_output')
+
+    mclass = 'BirdsStrategy3'
     # Write results
-    results.to_csv(os.path.join(OUTDIR, 'BirdsStrategy2_returns.csv'))
+    results.to_csv(os.path.join(OUTDIR, '{0}_returns.csv'.format(mclass)))
+    # Stats
+    create_strategy_report(results, mclass, OUTDIR)
