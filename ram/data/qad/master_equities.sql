@@ -308,7 +308,7 @@ from			idc_dates D
 		and		D.Date_ between SH.StartDate and SH.EndDate
 
 	left join ram.dbo.ram_gvkey_map GV
-		on		I.IdcCode = GV.IdcCode
+		on		D.Code = GV.IdcCode
 		and		D.Date_ between GV.StartDate and GV.EndDate
 
 where		not (I2.SIC = 0 AND M2.Name like '%FUND%')
@@ -483,12 +483,12 @@ insert into ram.dbo.ram_master_equities
 select * from final_table
 
 -- General Indexes
---create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
---create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
+create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
+create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
 
 -- Filter Indexes
---create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
---create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
+create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
+create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
 
 drop table #idc_dates_table
 drop table #idc_shares_table
