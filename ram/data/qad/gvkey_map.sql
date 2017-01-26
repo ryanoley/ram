@@ -10,11 +10,11 @@ if object_id('ram.dbo.ram_gvkey_map', 'U') is not null
 
 
 create table	ram.dbo.ram_gvkey_map (
-				IsrCode int,
+				IdcCode int,
 				StartDate smalldatetime,
 				EndDate smalldatetime,
 				GVKey int,
-				primary key (IsrCode, StartDate, GVKey)
+				primary key (IdcCode, StartDate, GVKey)
 )
 
 
@@ -91,8 +91,7 @@ from			gvkeys_idccodes2
 
 
 , gvkeys_idccodes4 as (
-select			Code,
-				Cusip,
+select			Code as IdcCode,
 				StartDate,
 				isnull(dateadd(day, -1, lead(StartDate, 1) over (
 					partition by Code
@@ -102,16 +101,5 @@ from gvkeys_idccodes3
 )
 
 
-, gvkeys_idccodes5 as (
-select			M.IsrCode,
-				G.StartDate,
-				G.EndDate,
-				G.GvKey
-from			gvkeys_idccodes4 G
-	join		(select distinct SecCode, IdcCode, IsrCode from ram.dbo.ram_master_equities) M
-		on		G.Code = M.IdcCode
-
-)
-
 insert into ram.dbo.ram_gvkey_map
-select * from gvkeys_idccodes5
+select * from gvkeys_idccodes4

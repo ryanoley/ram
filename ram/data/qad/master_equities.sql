@@ -16,6 +16,8 @@ create table	ram.dbo.ram_master_equities (
 				IdcCode int,
 				HistoricalCusip varchar(15),
 				HistoricalTicker varchar(15),
+				GVKey int,
+
 				Date_ smalldatetime,
 
 				-- Raw values
@@ -98,6 +100,7 @@ create table #idc_dates_table
 	IsrCode int,
 	HistoricalCusip varchar(15),
 	HistoricalTicker varchar(15),
+	GVKey int,
     Date_ datetime,
 	DateLagC datetime,
 	Open_ real,
@@ -136,6 +139,7 @@ select		Code,
 			Ticker,
 			Exchange
 from		qai.prc.PrcScChg 
+where		concat(BaseTicker, 'WI') != Ticker		-- When issued
 
 )
 
@@ -188,6 +192,7 @@ from			qai.prc.PrcVol
 
 )
 
+-- ############################################################################################
 
 , idc_data as (
 
@@ -196,6 +201,7 @@ select			M.SecCode,
 				I.IsrCode,
 				E.Cusip as HistoricalCusip,
 				E.Ticker as HistoricalTicker,
+				GV.GVKey,
 				D.Date_,
 				DF.DateLagC,
 				coalesce(P1.Open_, P2.Open_) as Open_,
@@ -220,10 +226,11 @@ from			idc_dates D
 		and		F.Issue not like '%PARTN%' -- Partnerships
 		and		F.Issue not like '%DISTRIB%'
 		and		F.Issue not like '%SPINOFF%'
-		and		F.Issue not like '% MERG%'	-- Mergers
-		and		F.Issue not like '%-MERG%'
+		and		F.Issue not like '%MERGE%'
 		and		F.Issue not like '%REIT%'
 		and		F.Issue not like '%BEN INT%'
+		and		F.Issuer not like '% MERG%'
+		and		F.Issuer not like '%-MERG%'
 		and		F.Issuer not like '%TERM TRUST%'
 		and		F.Issuer not like '%INCOME%'
 		and		F.Issuer not like '% MUNI %'
@@ -300,6 +307,10 @@ from			idc_dates D
 		on		D.Code = SH.Code 
 		and		D.Date_ between SH.StartDate and SH.EndDate
 
+	left join ram.dbo.ram_gvkey_map GV
+		on		I.IdcCode = GV.IdcCode
+		and		D.Date_ between GV.StartDate and GV.EndDate
+
 where		not (I2.SIC = 0 AND M2.Name like '%FUND%')
 
 )
@@ -316,7 +327,6 @@ go
 
 
 CREATE CLUSTERED INDEX IDX_Code_Date ON #idc_dates_table(SecCode, Date_)
-
 
 
 -- ############################################################################################
@@ -363,6 +373,7 @@ select				IDC.IsrCode,
 
 					IDC.HistoricalCusip,
 					IDC.HistoricalTicker,
+					IDC.GVKey,
 					IDC.Date_,
 					IDC.DateLagC,
 
@@ -396,8 +407,6 @@ where				DD.DsInfoCode not in (select DsInfoCode from ds_drop_ids)
 )
 
 
-
-
 , agg_data as (
 
 select			*,
@@ -425,6 +434,8 @@ from			data_merge
 
 )
 
+-- ############################################################################################
+--  Final Formatting
 
 , final_table as (
 select 			D.IsrCode,
@@ -433,6 +444,7 @@ select 			D.IsrCode,
 				D.IdcCode,
 				D.HistoricalCusip,
 				D.HistoricalTicker,
+				D.GVKey,
 
 				D.Date_,
 
@@ -462,7 +474,7 @@ select 			D.IsrCode,
 				case when DateLag = DateLagC then 1 else 0 end as NormalTradingFlag
 
 from			agg_data D
-where			Date_ >= '1995-01-01'
+where			D.Date_ >= '1995-01-01'
 
 )
 
@@ -471,12 +483,12 @@ insert into ram.dbo.ram_master_equities
 select * from final_table
 
 -- General Indexes
-create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
-create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
+--create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
+--create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
 
 -- Filter Indexes
-create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
-create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
+--create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
+--create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
 
 drop table #idc_dates_table
 drop table #idc_shares_table
