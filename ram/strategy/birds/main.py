@@ -28,6 +28,12 @@ class BirdsStrategy(Strategy):
 
         t_start, test_start_date, t_end = self._get_date_iterator()[index]
 
+        if index < 30:
+            return pd.DataFrame(index=[t_start])
+
+        if index > 31:
+            return pd.DataFrame(index=[t_start])
+
         train_data, test_data, features = \
             self._get_data(t_start, test_start_date, t_end, univ_size=500)
 

@@ -222,9 +222,16 @@ if __name__ == '__main__':
                    'univ_size': 200}
 
     univ = dh.get_filtered_univ_data(
-        features=['LAG2_BOLL30_Close', 'Close', 'SI',
-                  'GSECTOR', 'GGROUP', 'BOLL30_Close',
+        features=['LAG2_BOLL30_Close',
+                  'Close', 'SI', 'GSECTOR', 'GGROUP', 'BOLL30_Close',
                   'Ticker'],
+        start_date='2016-06-01',
+        end_date='2016-10-20',
+        filter_date='2016-06-01',
+        filter_args=filter_args)
+
+    univ = dh.get_filtered_univ_data(
+        features=['LAG2_RANK_BOLL30_Close'],
         start_date='2016-06-01',
         end_date='2016-10-20',
         filter_date='2016-06-01',

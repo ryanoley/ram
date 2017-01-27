@@ -20,18 +20,25 @@ class TestSqlFeatures(unittest.TestCase):
 
     def test_parse_input_var(self):
         result = sqlf.parse_input_var('LAG1_ROpen')
-        benchmark = {'name': '[LAG1_ROpen]', 'datacol': 'Open_',
-                     'manip': ('LAG', 1), 'var': ('pass_through_var', 0)}
+        benchmark = {'name': '[LAG1_ROpen]', 'datacol': 'Open_', 'rank': False,
+                     'shift': ('LAG', 1), 'var': ('pass_through_var', 0)}
         self.assertDictEqual(result, benchmark)
         result = sqlf.parse_input_var('LEAD1_PRMA20_Open')
         benchmark = {'name': '[LEAD1_PRMA20_Open]', 'datacol': 'AdjOpen',
-                     'manip': ('LEAD', 1), 'var': ('PRMA', 20)}
+                     'rank': False, 'shift': ('LEAD', 1), 'var': ('PRMA', 20)}
         self.assertDictEqual(result, benchmark)
         result = sqlf.parse_input_var('AvgDolVol')
         benchmark = {'name': '[AvgDolVol]', 'datacol': 'AvgDolVol',
-                     'var': ('pass_through_var', 0),
-                     'manip': ('pass_through_manip', 0)}
+                     'var': ('pass_through_var', 0), 'rank': False,
+                     'shift': ('pass_through_shift', 0)}
         self.assertDictEqual(result, benchmark)
+        result = sqlf.parse_input_var('LAG1_RANK_PRMA10_Close')
+        benchmark = {'name': '[LAG1_RANK_PRMA10_Close]',
+                     'datacol': 'AdjClose',
+                     'var': ('PRMA', 10), 'rank': True,
+                     'shift': ('LAG', 1)}
+        self.assertDictEqual(result, benchmark)
+
         # Test that these fail
         self.assertRaises(Exception, sqlf.parse_input_var, 'XERB')
         self.assertRaises(Exception, sqlf.parse_input_var, 'Lag1_Open')
@@ -47,7 +54,7 @@ class TestSqlFeatures(unittest.TestCase):
             'as [LAG1_PRMA10_Close]')
         self.assertEqual(result[1], '[LAG1_PRMA10_Close]')
         self.assertEqual(
-            result[3],
+            result[4],
             'lag([LAG1_PRMA10_Close], 1) over ( partition by SecCode '
             'order by Date_) as [LAG1_PRMA10_Close]')
 

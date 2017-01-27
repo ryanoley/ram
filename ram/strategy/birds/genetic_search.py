@@ -19,9 +19,7 @@ def init_population(count, n_confs):
     return [(w1, w2) for w1, w2 in zip(weightsL, weightsS)]
 
 
-
-
-
+@profile
 def evolve_and_score(pop, ret_data, estsL, rowsL, estsS, rowsS, port_size):
 
     ##  Parameters
@@ -97,7 +95,7 @@ def evolve_and_score(pop, ret_data, estsL, rowsL, estsS, rowsS, port_size):
 
 ###############################################################################
 
-
+@profile
 def get_long_short_sharpe(longdf, shortdf):
     long_ = get_daily_pl(longdf)
     short = get_daily_pl(shortdf)
@@ -105,6 +103,7 @@ def get_long_short_sharpe(longdf, shortdf):
     return np.mean(rets) / np.std(rets)
 
 
+@profile
 def get_daily_pl(data):
     dates = np.concatenate((data['T_1'].values,
                             data['T_2'].values,
@@ -115,7 +114,7 @@ def get_daily_pl(data):
     dates, _, rets = _bucket_mean(dates, rets)
     return dates, rets
 
-
+@profile
 def _bucket_mean(x, y):
     """
     Buckets over x array, counts, and takes the mean of y array, and returns
@@ -137,8 +136,7 @@ def _bucket_mean(x, y):
 
 def get_min_est_rows(ests, rows, topX=10):
     inds = np.argsort(ests, axis=1)
-    return np.unique(np.take(rows, inds, axis=1)[
-        range(inds.shape[0]), range(inds.shape[0]), :topX].ravel())
+    return np.unique(np.concatenate([rows[i][inds[i][:topX]] for i in range(len(rows))]))
 
 ###############################################################################
 

@@ -6,7 +6,7 @@ import datetime as dt
 #   called in the parser
 
 TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI']
-MANIPFUNCS = ['LAG', 'LEAD', 'RANK']
+SHIFTFUNCS = ['LAG', 'LEAD']
 
 
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
@@ -46,19 +46,20 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     for f in features:
         ctes.append(make_cmds(f))
     # Format for entry into CTEs
-    cte1, cte2, cte3, cte4 = zip(*ctes)
+    cte1, cte2, cte3, cte4, cte5 = zip(*ctes)
     vars1 = ', '.join(cte1)
     vars2 = ', '.join(cte2)
     vars3 = ', '.join(cte3)
     vars4 = ', '.join(cte4)
+    vars5 = ', '.join(cte5)
 
     sqlcmd = \
         """
         ; with cte1 as (
             select SecCode, Date_, {0}
-            from {7}
-            where Date_ between '{4}' and '{5}'
-            {6}
+            from {8}
+            where Date_ between '{5}' and '{6}'
+            {7}
         )
         , cte2 as (
             select SecCode, Date_, {1}
@@ -70,33 +71,36 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         ), cte4 as (
             select SecCode, Date_, {3}
             from cte3
+        ), cte5 as (
+            select SecCode, Date_, {4}
+            from cte4
         )
         """.format(
-            vars1, vars2, vars3, vars4,
+            vars1, vars2, vars3, vars4, vars5,
             sdate, fdate, ids_str, table)
 
     # This string is used for the additional tables that are merged
-    last_table = 'cte4'
+    last_table = 'cte5'
 
     if gics_features:
         features += gics_features
         gics_features = ', '.join(gics_features)
         sqlcmd += \
             """
-            , cte5 as (
+            , cte6 as (
                 select A.*, {0} from {1} A
                 left join ram.dbo.ram_sector B
                 on A.SecCode = B.SecCode
                 and A.Date_ between B.StartDate and B.EndDate
             )
             """.format(gics_features, last_table)
-        last_table = 'cte5'
+        last_table = 'cte6'
 
     if si_feature:
         features.append('SI')
         sqlcmd += \
             """
-            , cte6 as (
+            , cte7 as (
                 select A.*, B.SI as SI from {0} A
                 join (select distinct IdcCode, SecCode
                       from {1}) C
@@ -108,20 +112,20 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
                     where b.Date_ <= A.Date_ and b.IdcCode = C.IdcCode)
             )
             """.format(last_table, table)
-        last_table = 'cte6'
+        last_table = 'cte7'
 
     if ticker_feature:
         features.append('Ticker')
         sqlcmd += \
             """
-            , cte7 as (
+            , cte8 as (
                 select A.*, B.HistoricalTicker as Ticker from {0} A
                 left join {1} B
                 on A.SecCode = B.SecCode
                 and A.Date_ = B.Date_
             )
             """.format(last_table, table)
-        last_table = 'cte7'
+        last_table = 'cte8'
 
     sqlcmd += \
         """
@@ -138,9 +142,10 @@ def make_cmds(vstring):
     # if there is no manipulation for a variable, aka just return
     # data from the table.
     cte1, cte2, cte3 = globals()[params['var'][0]](params)
-    cte4 = globals()[params['manip'][0]](params)
+    cte4 = RANK(params)
+    cte5 = globals()[params['shift'][0]](params)
     return clean_sql_cmd(cte1), clean_sql_cmd(cte2), \
-        clean_sql_cmd(cte3), clean_sql_cmd(cte4)
+        clean_sql_cmd(cte3), clean_sql_cmd(cte4), clean_sql_cmd(cte5)
 
 
 def parse_input_var(vstring):
@@ -151,14 +156,18 @@ def parse_input_var(vstring):
         LAG1_PRMA10_Close
     """
     args = [x for x in re.split('(\d+)|_', vstring) if x]
-    out = {'name': '[{0}]'.format(vstring)}
+    out = {'name': '[{0}]'.format(vstring), 'rank': False}
 
     while args:
 
         # Manipulations
-        if args[0] in MANIPFUNCS:
-            out['manip'] = (args[0], int(args[1]))
+        if args[0] in SHIFTFUNCS:
+            out['shift'] = (args[0], int(args[1]))
             args = args[2:]
+
+        elif args[0] == 'RANK':
+            out['rank'] = True
+            args = args[1:]
 
         # Variables
         elif args[0] in TECHFUNCS:
@@ -191,8 +200,8 @@ def parse_input_var(vstring):
     if 'var' not in out:
         out['var'] = ('pass_through_var', 0)
 
-    if 'manip' not in out:
-        out['manip'] = ('pass_through_manip', 0)
+    if 'shift' not in out:
+        out['shift'] = ('pass_through_shift', 0)
 
     return out
 
@@ -217,7 +226,7 @@ def format_ids(ids):
 
 def LAG(params):
     name = params['name']
-    periods = params['manip'][1]
+    periods = params['shift'][1]
 
     sqlcmd = \
         """
@@ -230,7 +239,7 @@ def LAG(params):
 
 def LEAD(params):
     name = params['name']
-    periods = params['manip'][1]
+    periods = params['shift'][1]
 
     sqlcmd = \
         """
@@ -243,16 +252,23 @@ def LEAD(params):
 
 def RANK(params):
     name = params['name']
-    sqlcmd = \
-        """
-        Rank() over (
-            partition by Date_
-            order by {0}) as {0}
-        """.format(name)
-    return sqlcmd
+    if params['rank']:
+        sqlcmd = \
+            """
+            Rank() over (
+                partition by Date_
+                order by {0}) as {0}
+            """.format(name)
+        return sqlcmd
+    else:
+        sqlcmd = \
+            """
+            {0}
+            """.format(name)
+        return sqlcmd
 
 
-def pass_through_manip(params):
+def pass_through_shift(params):
     name = params['name']
     sqlcmd = \
         """
