@@ -486,6 +486,9 @@ select * from final_table
 create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
 create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
 
+create index seccode_date on ram.dbo.ram_master_equities (SecCode, Date_)
+create index date_seccode on ram.dbo.ram_master_equities (Date_, SecCode)
+
 -- Filter Indexes
 create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
 create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
