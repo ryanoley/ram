@@ -233,7 +233,116 @@ def MFI(data_column, feature_name, length_arg, table):
             (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF
             from {2}
         ) a ) a
-    """.format(length_arg, feature_name, table)
+    """.format(length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def RSI(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+    """
+        select SecCode, Date_,
+            100 * UpMove / NullIf(UpMove - DownMove, 0) as {0}
+        from
+        (
+        select SecCode, Date_,
+            sum(UpMove) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row) as UpMove,
+
+            sum(DownMove) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row) as DownMove
+        from
+        (
+        select SecCode, Date_,
+            case when
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_)) > 0
+            then
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_))
+            else 0 end as UpMove,
+
+            case when
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_)) < 0
+            then
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_))
+            else 0 end as DownMove
+            from {2}
+        ) a ) a
+    """.format(feature_name, length_arg-1, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def DISCOUNT(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "DISCOUNT requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            -1 * ({0} / max({0}) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row) - 1) as {2}
+        from {3}
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def BOLL(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "BOLL requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            (Price - (AvgPrice - 2 * StdPrice)) / nullif((4 * StdPrice), 0)
+            as {0}
+        from
+        (
+            select SecCode, Date_,
+                {1} as Price,
+                avg({1}) over (
+                    partition by SecCode
+                    order by Date_
+                    rows between {2} preceding and current row) as AvgPrice,
+                stdev({1}) over (
+                    partition by SecCode
+                    order by Date_
+                    rows between {2} preceding and current row) as StdPrice
+            from {3}
+        ) a
+        """.format(feature_name, data_column, length_arg-1, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def VOL(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "VOL requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            stdev(Price/ LagPrice) over (
+                partition by SecCode
+                order by Date_
+                rows between {0} preceding and current row) as {1}
+        from
+        (
+            select SecCode, Date_,
+                {2} as Price,
+                lag({2}, 1) over (
+                    partition by SecCode
+                    order by Date_) as LagPrice
+            from {3}
+        ) a
+        """.format(length_arg-1, feature_name, data_column, table)
     return clean_sql_cmd(sqlcmd)
 
 

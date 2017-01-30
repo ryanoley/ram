@@ -6,7 +6,7 @@ import datetime as dt
 from ram.data.base import DataHandler
 
 from ram.utils.time_funcs import check_input_date
-from ram.data.sql_features2 import sqlcmd_from_feature_list
+from ram.data.sql_features import sqlcmd_from_feature_list
 
 
 class DataHandlerSQL(DataHandler):
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     import pdb; pdb.set_trace()
 
     univ = dh.get_filtered_univ_data(
-        features=['PRMA10_Close'],
+        features=['VOL20_Close', 'LAG2_VOL20_Close'],
         start_date='2016-06-01',
         end_date='2016-10-20',
         filter_date='2016-06-01',
