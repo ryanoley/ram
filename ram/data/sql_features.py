@@ -21,10 +21,13 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
     # Combine everything
     sqlcmd = \
         """
+        ; with X as (
         select A.SecCode, A.Date_ {0} from {1} A
         {2}
-        {3}
-        """.format(column_commands, table, join_commands, filter_commands)
+        {3})
+        select * from X where Date_ between '{4}' and '{5}'
+        """.format(column_commands, table, join_commands, filter_commands,
+                   start_date, end_date)
 
     return clean_sql_cmd(sqlcmd), features
 
@@ -140,7 +143,7 @@ def parse_input_var(vstring, table, filter_commands):
 
         # Data to be passed to a technical function
         elif (sql_func != DATACOL) and \
-            (arg[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']):
+             (arg[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']):
             sql_func_data_column = 'Adj' + arg[0]
 
         # Adjusted data
@@ -201,7 +204,7 @@ def PRMA(data_column, feature_name, length_arg, table):
 
 def MFI(data_column, feature_name, length_arg, table):
     sqlcmd = \
-    """
+        """
         select SecCode, Date_,
             sum(MonFlowP) over (
                 partition by SecCode
@@ -238,13 +241,13 @@ def MFI(data_column, feature_name, length_arg, table):
             (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF
             from {2}
         ) a ) A
-    """.format(length_arg-1, feature_name, table)
+        """.format(length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
 
 def RSI(data_column, feature_name, length_arg, table):
     sqlcmd = \
-    """
+        """
         select SecCode, Date_,
             100 * UpMove / NullIf(UpMove - DownMove, 0) as {0}
         from
