@@ -2,208 +2,348 @@ import re
 import datetime as dt
 
 
-#   All funcs need to be registered here so that they are properly
-#   called in the parser
-
-TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI']
-SHIFTFUNCS = ['LAG', 'LEAD']
-
+###############################################################################
 
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
                              table='ram.dbo.ram_master_equities_research'):
-
-    # Shallow copy
-    features = features[:]
-
-    if len(ids):
-        ids_str = 'and SecCode in ' + format_ids(ids)
-    else:
-        ids_str = ''
-
-    # First pull date ranges. Make this dynamic somehow?
-    sdate = start_date - dt.timedelta(days=365)
-    fdate = end_date + dt.timedelta(days=30)
-
-    # Check if sector data is present
-    gics_features = []
-    if 'GSECTOR' in features:
-        features.remove('GSECTOR')
-        gics_features.append('GSECTOR')
-    if 'GGROUP' in features:
-        features.remove('GGROUP')
-        gics_features.append('GGROUP')
-    si_feature = False
-    if 'SI' in features:
-        features.remove('SI')
-        si_feature = True
-    ticker_feature = False
-    if 'Ticker' in features:
-        features.remove('Ticker')
-        ticker_feature = True
-
-    # Get individual entries for CTEs per feature
-    ctes = []
+    feature_data = []
     for f in features:
-        ctes.append(make_cmds(f))
-    # Format for entry into CTEs
-    cte1, cte2, cte3, cte4, cte5 = zip(*ctes)
-    vars1 = ', '.join(cte1)
-    vars2 = ', '.join(cte2)
-    vars3 = ', '.join(cte3)
-    vars4 = ', '.join(cte4)
-    vars5 = ', '.join(cte5)
+        feature_data.append(
+            parse_input_var(
+                f, table,
+                make_id_date_filter(ids, start_date, end_date)
+            )
+        )
 
+    column_commands, join_commands = make_commands(feature_data)
+    filter_commands = make_id_date_filter(ids, start_date, end_date, 'A.')
+
+    # Combine everything
     sqlcmd = \
         """
-        ; with cte1 as (
-            select SecCode, Date_, {0}
-            from {8}
-            where Date_ between '{5}' and '{6}'
-            {7}
-        )
-        , cte2 as (
-            select SecCode, Date_, {1}
-            from cte1
-        )
-        , cte3 as (
-            select SecCode, Date_, {2}
-            from cte2
-        ), cte4 as (
-            select SecCode, Date_, {3}
-            from cte3
-        ), cte5 as (
-            select SecCode, Date_, {4}
-            from cte4
-        )
-        """.format(
-            vars1, vars2, vars3, vars4, vars5,
-            sdate, fdate, ids_str, table)
+        select A.SecCode, A.Date_ {0} from {1} A
+        {2}
+        {3}
+        """.format(column_commands, table, join_commands, filter_commands)
 
-    # This string is used for the additional tables that are merged
-    last_table = 'cte5'
-
-    if gics_features:
-        features += gics_features
-        gics_features = ', '.join(gics_features)
-        sqlcmd += \
-            """
-            , cte6 as (
-                select A.*, {0} from {1} A
-                left join ram.dbo.ram_sector B
-                on A.SecCode = B.SecCode
-                and A.Date_ between B.StartDate and B.EndDate
-            )
-            """.format(gics_features, last_table)
-        last_table = 'cte6'
-
-    if si_feature:
-        features.append('SI')
-        sqlcmd += \
-            """
-            , cte7 as (
-                select A.*, B.SI as SI from {0} A
-                join (select distinct IdcCode, SecCode
-                      from {1}) C
-                on A.SecCode = C.SecCode
-                left join ram.dbo.ShortInterest B
-                on C.IdcCode = B.IdcCode
-                and B.Date_ = (
-                    select max(Date_) from ram.dbo.ShortInterest b
-                    where b.Date_ <= A.Date_ and b.IdcCode = C.IdcCode)
-            )
-            """.format(last_table, table)
-        last_table = 'cte7'
-
-    if ticker_feature:
-        features.append('Ticker')
-        sqlcmd += \
-            """
-            , cte8 as (
-                select A.*, B.HistoricalTicker as Ticker from {0} A
-                left join {1} B
-                on A.SecCode = B.SecCode
-                and A.Date_ = B.Date_
-            )
-            """.format(last_table, table)
-        last_table = 'cte8'
-
-    sqlcmd += \
-        """
-        select * from {0}
-        where Date_ between '{1}' and '{2}'
-        order by SecCode, Date_
-        """.format(last_table, start_date, end_date)
     return clean_sql_cmd(sqlcmd), features
 
 
-def make_cmds(vstring):
-    params = parse_input_var(vstring)
-    # Call function that corresponds to user input. Will handle
-    # if there is no manipulation for a variable, aka just return
-    # data from the table.
-    cte1, cte2, cte3 = globals()[params['var'][0]](params)
-    cte4 = RANK(params)
-    cte5 = globals()[params['shift'][0]](params)
-    return clean_sql_cmd(cte1), clean_sql_cmd(cte2), \
-        clean_sql_cmd(cte3), clean_sql_cmd(cte4), clean_sql_cmd(cte5)
+def make_commands(feature_data):
 
+    col_cmds = ''
+    join_cmds = ''
 
-def parse_input_var(vstring):
-    """
-    Takes individual Feature and parses into dictionary used downstream.
+    for i, f in enumerate(feature_data):
 
-    The format should be something like:
-        LAG1_PRMA10_Close
-    """
-    args = [x for x in re.split('(\d+)|_', vstring) if x]
-    out = {'name': '[{0}]'.format(vstring), 'rank': False}
+        if f['shift'] and f['rank']:
+            shift_cmd, shift_n = f['shift']
+            col_cmds += \
+                """
+                , RANK({0}(x{1}.{2}, {3}) over (
+                    partition by x{1}.SecCode
+                    order by x{1}.Date_)) over (
+                    partition by SecCode
+                    order by Date_) as {2}
+                """.format(shift_cmd, i, f['feature_name'], shift_n)
 
-    while args:
+        elif f['shift']:
+            shift_cmd, shift_n = f['shift']
+            col_cmds += \
+                """
+                , {0}(x{1}.{2}, {3}) over (
+                    partition by x{1}.SecCode
+                    order by x{1}.Date_) as {2}
+                """.format(shift_cmd, i, f['feature_name'], shift_n)
 
-        # Manipulations
-        if args[0] in SHIFTFUNCS:
-            out['shift'] = (args[0], int(args[1]))
-            args = args[2:]
-
-        elif args[0] == 'RANK':
-            out['rank'] = True
-            args = args[1:]
-
-        # Variables
-        elif args[0] in TECHFUNCS:
-            out['var'] = (args[0], int(args[1]))
-            args = args[2:]
-
-        # Adjustment irrelevant columns
-        elif args[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
-            out['datacol'] = args[0]
-            break
-
-        # Adjusted data
-        elif args[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']:
-            out['datacol'] = 'Adj' + args[0]
-            break
-
-        # Raw data
-        elif args[0][0] == 'R':
-            col = args[0][1:]
-            assert col in ['Open', 'High', 'Low', 'Close', 'Vwap',
-                           'Volume', 'CashDividend']
-            if col in ['Open', 'Close']:
-                col += '_'
-            out['datacol'] = col
-            break
+        elif f['rank']:
+            col_cmds += \
+                """
+                , RANK(x{0}.{1}) over (
+                    partition by x{0}.SecCode
+                    order by x{0}.Date_) as {1}
+                """.format(i, f['feature_name'])
 
         else:
-            raise Exception('Input not properly formatted')
+            col_cmds += \
+                """
+                , x{0}.{1}
+                """.format(i, f['feature_name'])
 
-    if 'var' not in out:
-        out['var'] = ('pass_through_var', 0)
+        join_cmds += \
+            """
+            left join ({0}) x{1}
+                on A.SecCode = x{1}.SecCode
+                and A.Date_ = x{1}.Date_
+            """.format(f['sqlcmd'], i)
 
-    if 'shift' not in out:
-        out['shift'] = ('pass_through_shift', 0)
+    return clean_sql_cmd(col_cmds), clean_sql_cmd(join_cmds)
+
+
+def make_id_date_filter(ids, start_date, end_date, prefix=''):
+    # First pull date ranges. Make this dynamic somehow?
+    sdate = start_date - dt.timedelta(days=365)
+    fdate = end_date + dt.timedelta(days=30)
+    sqlcmd = \
+        """
+        where {0}Date_ between '{1}' and '{2}'
+        and {0}SecCode in {3}
+        """.format(prefix, sdate, fdate, format_ids(ids))
+    return sqlcmd
+
+
+###############################################################################
+
+def parse_input_var(vstring, table, filter_commands):
+
+    TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI']
+
+    # Return object that is used downstream per requested feature
+    out = {
+        'shift': False,
+        'rank': False,
+        'feature_name': vstring,
+        'sqlcmd': False
+    }
+
+    # Function used to generate SQL script
+    sql_func = DATACOL
+    sql_func_args = None
+    sql_func_data_column = None
+
+    # Parse and iterate input args
+    for arg in vstring.split('_'):
+
+        arg = re.findall('\d+|\D+', arg)
+
+        if arg[0] in ['LEAD', 'LAG']:
+            out['shift'] = (arg[0], int(arg[1]))
+
+        elif arg[0] == 'RANK':
+            out['rank'] = True
+
+        elif arg[0] in TECHFUNCS:
+            sql_func = globals()[arg[0]]
+            sql_func_args = int(arg[1])
+
+        # Raw data
+        elif arg[0] in ['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap',
+                        'RVolume', 'RCashDividend']:
+            arg[0] = arg[0][1:]
+            sql_func_data_column = arg[0]
+            if arg[0] in ['Open', 'Close']:
+                sql_func_data_column += '_'
+
+        # Data to be passed to a technical function
+        elif (sql_func != DATACOL) and \
+            (arg[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']):
+            sql_func_data_column = 'Adj' + arg[0]
+
+        # Adjusted data
+        elif arg[0] in ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose',
+                        'AdjVwap', 'AdjVolume']:
+            sql_func_data_column = arg[0]
+
+        # Adjustment irrelevant columns
+        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
+            sql_func_data_column = arg[0]
+
+        else:
+            raise Exception('Input not properly formatted: {{ %s }}' % vstring)
+
+    out['sqlcmd'] = sql_func(sql_func_data_column, vstring,
+                             sql_func_args, table)
+    out['sqlcmd'] += filter_commands
 
     return out
+
+
+###############################################################################
+#  NOTE: All feature functions must have the same interface
+
+def DATACOL(data_column, feature_name, args, table):
+    sqlcmd = \
+        """
+        select SecCode, Date_, {0} as {1}
+        from {2}
+        """.format(data_column, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def MA(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+        """
+        select SecCode, Date_, avg({0}) over (
+            partition by SecCode
+            order by Date_
+            rows between {1} preceding and current row) as {2}
+        from {3}
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def PRMA(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+        """
+        select SecCode, Date_, {0} / avg({0}) over (
+            partition by SecCode
+            order by Date_
+            rows between {1} preceding and current row) as {2}
+        from {3}
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def MFI(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+    """
+        select SecCode, Date_,
+            sum(MonFlowP) over (
+                partition by SecCode
+                order by Date_
+                rows between {0} preceding and current row) /
+
+            nullif(sum(MonFlow) over (
+                partition by SecCode
+                order by Date_
+                rows between {0} preceding and current row), 0) * 100 as {1}
+
+            from
+
+        (
+        select SecCode, Date_,
+            case
+                when TypPrice > LagTypPrice
+                then RawMF
+                else 0 end as MonFlowP,
+
+            case
+                when LagTypPrice is null then RawMF
+                when TypPrice != LagTypPrice then RawMF
+                else 0 end as MonFlow
+
+            from
+        (
+        select SecCode, Date_,
+            (AdjHigh + AdjLow + AdjClose) / 3 as TypPrice,
+
+            lag((AdjHigh + AdjLow + AdjClose) / 3, 1) over (
+                partition by SecCode
+                order by Date_) as LagTypPrice,
+            (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF
+            from {2}
+        ) a ) a
+    """.format(length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def RSI(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+    """
+        select SecCode, Date_,
+            100 * UpMove / NullIf(UpMove - DownMove, 0) as {0}
+        from
+        (
+        select SecCode, Date_,
+            sum(UpMove) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row) as UpMove,
+
+            sum(DownMove) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row) as DownMove
+        from
+        (
+        select SecCode, Date_,
+            case when
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_)) > 0
+            then
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_))
+            else 0 end as UpMove,
+
+            case when
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_)) < 0
+            then
+                (AdjClose - lag(AdjClose, 1) over (
+                                partition by SecCode
+                                order by Date_))
+            else 0 end as DownMove
+            from {2}
+        ) a ) a
+    """.format(feature_name, length_arg-1, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def DISCOUNT(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "DISCOUNT requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            -1 * ({0} / max({0}) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row) - 1) as {2}
+        from {3}
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def BOLL(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "BOLL requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            (Price - (AvgPrice - 2 * StdPrice)) / nullif((4 * StdPrice), 0)
+            as {0}
+        from
+        (
+            select SecCode, Date_,
+                {1} as Price,
+                avg({1}) over (
+                    partition by SecCode
+                    order by Date_
+                    rows between {2} preceding and current row) as AvgPrice,
+                stdev({1}) over (
+                    partition by SecCode
+                    order by Date_
+                    rows between {2} preceding and current row) as StdPrice
+            from {3}
+        ) a
+        """.format(feature_name, data_column, length_arg-1, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def VOL(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "VOL requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            stdev(Price/ LagPrice) over (
+                partition by SecCode
+                order by Date_
+                rows between {0} preceding and current row) as {1}
+        from
+        (
+            select SecCode, Date_,
+                {2} as Price,
+                lag({2}, 1) over (
+                    partition by SecCode
+                    order by Date_) as LagPrice
+            from {3}
+        ) a
+        """.format(length_arg-1, feature_name, data_column, table)
+    return clean_sql_cmd(sqlcmd)
 
 
 def clean_sql_cmd(sqlcmd):
@@ -220,274 +360,3 @@ def format_ids(ids):
     idsstr = str([str(i) for i in ids])
     idsstr = idsstr.replace('[', '(').replace(']', ')')
     return idsstr
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-def LAG(params):
-    name = params['name']
-    periods = params['shift'][1]
-
-    sqlcmd = \
-        """
-        lag({0}, {1}) over (
-            partition by SecCode
-            order by Date_) as {0}
-        """.format(name, periods)
-    return sqlcmd
-
-
-def LEAD(params):
-    name = params['name']
-    periods = params['shift'][1]
-
-    sqlcmd = \
-        """
-        lead({0}, {1}) over (
-            partition by SecCode
-            order by Date_) as {0}
-        """.format(name, periods)
-    return sqlcmd
-
-
-def RANK(params):
-    name = params['name']
-    if params['rank']:
-        sqlcmd = \
-            """
-            Rank() over (
-                partition by Date_
-                order by {0}) as {0}
-            """.format(name)
-        return sqlcmd
-    else:
-        sqlcmd = \
-            """
-            {0}
-            """.format(name)
-        return sqlcmd
-
-
-def pass_through_shift(params):
-    name = params['name']
-    sqlcmd = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#  All variable functions need to return TWO commands for CTEs
-
-def pass_through_var(params):
-    name = params['name']
-    column = params['datacol']
-    sqlcmd1 = \
-        """
-        {0} as {1}
-        """.format(column, name)
-    sqlcmd2 = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd1, sqlcmd2, sqlcmd2
-
-
-def PRMA(params):
-    column = params['datacol']
-    length = params['var'][1]
-    name = params['name']
-    sqlcmd1 = \
-        """
-        {0} / avg({0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) as {2}
-        """.format(column, length-1, name)
-    sqlcmd2 = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd1, sqlcmd2, sqlcmd2
-
-
-def MA(params):
-    column = params['datacol']
-    length = params['var'][1]
-    name = params['name']
-    sqlcmd1 = \
-        """
-        avg({0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) as {2}
-        """.format(column, length-1, name)
-    sqlcmd2 = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd1, sqlcmd2, sqlcmd2
-
-
-def VOL(params):
-    column = params['datacol']
-    length = params['var'][1]
-    name = params['name']
-    # Quick fix!
-    name2 = name[1:-1]
-    sqlcmd1 = \
-        """
-        {0} as {1},
-        lag({0}, 1) over (
-            partition by SecCode
-            order by Date_) as TEMPLAG{2}
-        """.format(column, name, name2)
-    sqlcmd2 = \
-        """
-        stdev({1}/ TEMPLAG{2}) over (
-            partition by SecCode
-            order by Date_
-            rows between {3} preceding and current row) as {1}
-        """.format(column, name, name2, length-1)
-    sqlcmd3 = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd1, sqlcmd2, sqlcmd3
-
-
-def BOLL(params):
-    column = params['datacol']
-    length = params['var'][1]
-    name = params['name']
-    # Quick fix!
-    name2 = name[1:-1]
-    sqlcmd1 = \
-        """
-        {0} as TEMPP{2},
-        avg({0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) as TEMPMEAN{2},
-        stdev({0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) as TEMPSTD{2}
-        """.format(column, length-1, name2)
-    sqlcmd2 = \
-        """
-        (TEMPP{0} - (TEMPMEAN{0} - 2 * TEMPSTD{0})) /
-            nullif((4 * TEMPSTD{0}), 0) as {1}
-        """.format(name2, name)
-    sqlcmd3 = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd1, sqlcmd2, sqlcmd3
-
-
-def DISCOUNT(params):
-    column = params['datacol']
-    length = params['var'][1]
-    name = params['name']
-    sqlcmd1 = \
-        """
-        -1 * ({0} / max({0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) - 1) as {2}
-        """.format(column, length-1, name)
-    sqlcmd2 = \
-        """
-        {0}
-        """.format(name)
-    return sqlcmd1, sqlcmd2, sqlcmd2
-
-
-def RSI(params):
-    length = params['var'][1]
-    name = params['name']
-    # Quick fix!
-    name2 = name[1:-1]
-    sqlcmd1 = \
-        """
-        case when
-            (AdjClose - lag(AdjClose, 1) over (
-                            partition by SecCode
-                            order by Date_)) > 0
-        then
-            (AdjClose - lag(AdjClose, 1) over (
-                            partition by SecCode
-                            order by Date_))
-        else 0 end as UpMove{0},
-
-        case when
-            (AdjClose - lag(AdjClose, 1) over (
-                            partition by SecCode
-                            order by Date_)) < 0
-        then
-            (AdjClose - lag(AdjClose, 1) over (
-                            partition by SecCode
-                            order by Date_))
-        else 0 end as DownMove{0}
-        """.format(name2)
-    sqlcmd2 = \
-        """
-        sum(UpMove{0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) as UpMove{0},
-
-        sum(DownMove{0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) as DownMove{0}
-        """.format(name2, length-1)
-    sqlcmd3 = \
-        """
-        100 * UpMove{0} / NullIf(UpMove{0} - DownMove{0}, 0) as {0}
-        """.format(name2)
-    return sqlcmd1, sqlcmd2, sqlcmd3
-
-
-def MFI(params):
-    length = params['var'][1]
-    name = params['name']
-    # Quick fix!
-    name2 = name[1:-1]
-    sqlcmd1 = \
-        """
-        (AdjHigh + AdjLow + AdjClose) / 3 as TypPrice{0},
-        lag((AdjHigh + AdjLow + AdjClose) / 3, 1) over (
-            partition by SecCode
-            order by Date_) as LagTypPrice{0},
-        (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF{0}
-        """.format(name2)
-
-    sqlcmd2 = \
-        """
-        case
-            when TypPrice{0} > LagTypPrice{0}
-            then RawMF{0}
-            else 0 end as MonFlowP{0},
-
-        case
-            when LagTypPrice{0} is null then RawMF{0}
-            when TypPrice{0} != LagTypPrice{0} then RawMF{0}
-            else 0 end as MonFlow{0}
-        """.format(name2)
-
-    sqlcmd3 = \
-        """
-        sum(MonFlowP{0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row) /
-
-        nullif(sum(MonFlow{0}) over (
-            partition by SecCode
-            order by Date_
-            rows between {1} preceding and current row), 0) * 100 as {0}
-        """.format(name2, length-1)
-    return sqlcmd1, sqlcmd2, sqlcmd3

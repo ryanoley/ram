@@ -1,6 +1,7 @@
 import unittest
+import datetime as dt
 
-import ram.data.sql_features as sqlf
+from ram.data.sql_features2 import *
 
 
 class TestSqlFeatures(unittest.TestCase):
@@ -8,55 +9,61 @@ class TestSqlFeatures(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_clean_sql_cmd(self):
-        result = sqlf.clean_sql_cmd('\n    select *   from table1')
-        benchmark = 'select * from table1'
-        self.assertEqual(result, benchmark)
+    def test_sqlcmd_from_feature_list(self):
+        start_date = dt.datetime(2011, 1, 1)
+        end_date = dt.datetime(2012, 1, 1)
+        ids = ['AAPL']
+        features = ['LAG1_RClose', 'LAG1_MA10_Close', 'LAG1_RANK_PRMA10_Close']
+        result = sqlcmd_from_feature_list(features, ids, start_date, end_date)
 
-    def test_format_ids(self):
-        result = sqlf.format_ids(['A', 'B', 'C'])
-        benchmark = "('A', 'B', 'C')"
-        self.assertEqual(result, benchmark)
+    def test_make_commands(self):
+        feature_data = [parse_input_var('LEAD2_RClose', 'ABC', ''),
+                        parse_input_var('LAG1_RANK_MA10_Close', 'ABC', '')]
+        result = make_commands(feature_data)
+        benchmark = ', LEAD(x0.LEAD2_RClose, 2) over ( partition by ' + \
+                    'x0.SecCode order by x0.Date_) as LEAD2_RClose , RANK(' + \
+                    'LAG(x1.LAG1_RANK_MA10_Close, 1) over ( partition ' + \
+                    'by x1.SecCode order by x1.Date_)) over ( partition ' + \
+                    'by SecCode order by Date_) as LAG1_RANK_MA10_Close'
+        self.assertEqual(result[0], benchmark)
+        benchmark = 'left join (select SecCode, Date_, Close_ ' + \
+                    'as LEAD2_RClose from ABC) x0 on A.SecCode = ' + \
+                    'x0.SecCode and A.Date_ = x0.Date_ left join (select ' + \
+                    'SecCode, Date_, avg(AdjClose) over ( partition by ' + \
+                    'SecCode order by Date_ rows between 9 preceding and ' + \
+                    'current row) as LAG1_RANK_MA10_Close from ABC) x1 on ' + \
+                    'A.SecCode = x1.SecCode and A.Date_ = x1.Date_'
+        self.assertEqual(result[1], benchmark)
 
     def test_parse_input_var(self):
-        result = sqlf.parse_input_var('LAG1_ROpen')
-        benchmark = {'name': '[LAG1_ROpen]', 'datacol': 'Open_', 'rank': False,
-                     'shift': ('LAG', 1), 'var': ('pass_through_var', 0)}
+        result = parse_input_var('LAG1_ROpen', 'ABC', '')
+        benchmark = {
+            'shift': ('LAG', 1),
+            'sqlcmd': DATACOL('Open_', 'LAG1_ROpen', None, 'ABC'),
+            'feature_name': 'LAG1_ROpen',
+            'rank': False
+        }
         self.assertDictEqual(result, benchmark)
-        result = sqlf.parse_input_var('LEAD1_PRMA20_Open')
-        benchmark = {'name': '[LEAD1_PRMA20_Open]', 'datacol': 'AdjOpen',
-                     'rank': False, 'shift': ('LEAD', 1), 'var': ('PRMA', 20)}
-        self.assertDictEqual(result, benchmark)
-        result = sqlf.parse_input_var('AvgDolVol')
-        benchmark = {'name': '[AvgDolVol]', 'datacol': 'AvgDolVol',
-                     'var': ('pass_through_var', 0), 'rank': False,
-                     'shift': ('pass_through_shift', 0)}
-        self.assertDictEqual(result, benchmark)
-        result = sqlf.parse_input_var('LAG1_RANK_PRMA10_Close')
-        benchmark = {'name': '[LAG1_RANK_PRMA10_Close]',
-                     'datacol': 'AdjClose',
-                     'var': ('PRMA', 10), 'rank': True,
-                     'shift': ('LAG', 1)}
+        result = parse_input_var('LEAD2_RANK_PRMA10_Close', 'ABC', '')
+        benchmark = {
+            'shift': ('LEAD', 2),
+            'sqlcmd': PRMA('AdjClose', 'LEAD2_RANK_PRMA10_Close', 10, 'ABC'),
+            'feature_name': 'LEAD2_RANK_PRMA10_Close',
+            'rank': True
+        }
         self.assertDictEqual(result, benchmark)
 
-        # Test that these fail
-        self.assertRaises(Exception, sqlf.parse_input_var, 'XERB')
-        self.assertRaises(Exception, sqlf.parse_input_var, 'Lag1_Open')
-        self.assertRaises(Exception, sqlf.parse_input_var, 'OPEN')
+    def test_DATACOL(self):
+        result = DATACOL('Open_', 'LAG1_ROpen', None, 'ABC')
+        benchmark = "select SecCode, Date_, Open_ as LAG1_ROpen from ABC"
+        self.assertEqual(result, benchmark)
 
-    def test_make_cmds(self):
-        vstring = 'LAG1_PRMA10_Close'
-        result = sqlf.make_cmds(vstring)
-        self.assertEqual(
-            result[0],
-            'AdjClose / avg(AdjClose) over ( partition by SecCode '
-            'order by Date_ rows between 9 preceding and current row) '
-            'as [LAG1_PRMA10_Close]')
-        self.assertEqual(result[1], '[LAG1_PRMA10_Close]')
-        self.assertEqual(
-            result[4],
-            'lag([LAG1_PRMA10_Close], 1) over ( partition by SecCode '
-            'order by Date_) as [LAG1_PRMA10_Close]')
+    def test_MA(self):
+        result = MA('AdjClose', 'PRMA10_Close', 10, 'ABC')
+        benchmark = "select SecCode, Date_, avg(AdjClose) over ( " + \
+                    "partition by SecCode order by Date_ rows between " + \
+                    "9 preceding and current row) as PRMA10_Close from ABC"
+        self.assertEqual(result, benchmark)
 
     def tearDown(self):
         pass
