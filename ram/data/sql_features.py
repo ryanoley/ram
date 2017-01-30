@@ -100,7 +100,7 @@ def make_id_date_filter(ids, start_date, end_date):
 def parse_input_var(vstring, table, filter_commands):
 
     FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI',
-             'GSECTOR', 'GGROUP', 'SI']
+             'GSECTOR', 'GGROUP', 'SI', 'PRMAH']
 
     # Return object that is used downstream per requested feature
     out = {
@@ -198,6 +198,30 @@ def PRMA(data_column, feature_name, length_arg, table):
             order by Date_
             rows between {1} preceding and current row) as {2}
         from {3} A
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def PRMAH(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+        """
+        select  A.SecCode,
+                A.Date_,
+                A.{0} / avg(A.{0}) over (
+                    partition by A.SecCode
+                    order by A.Date_
+                    rows between {1} preceding and current row) -
+                    B.PRMASPY as {2}
+        from    {3} A
+        join (
+            select  b.Date_,
+                    b.{0} / avg(b.{0}) over (
+                        order by b.Date_
+                        rows between {1} preceding and current row) as PRMASPY
+            from    ram.dbo.ram_master_etf b
+            where   B.SecCode = 61494
+            ) B
+            on  A.Date_ = B.Date_
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
