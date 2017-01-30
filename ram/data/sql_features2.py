@@ -2,9 +2,7 @@ import re
 import datetime as dt
 
 
-
 ###############################################################################
-
 
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
                              table='ram.dbo.ram_master_equities_research'):
@@ -37,10 +35,40 @@ def make_commands(feature_data):
     join_cmds = ''
 
     for i, f in enumerate(feature_data):
-        col_cmds += \
-            """
-            , x{0}.{1}
-            """.format(i, f['feature_name'])
+
+        if f['shift'] and f['rank']:
+            shift_cmd, shift_n = f['shift']
+            col_cmds += \
+                """
+                , RANK({0}(x{1}.{2}, {3}) over (
+                    partition by SecCode
+                    order by Date_)) over (
+                    partition by SecCode
+                    order by Date_) as {2}
+                """.format(shift_cmd, i, f['feature_name'], shift_n)
+
+        elif f['shift']:
+            shift_cmd, shift_n = f['shift']
+            col_cmds += \
+                """
+                , {0}(x{1}.{2}, {3}) over (
+                    partition by SecCode
+                    order by Date_) as {2}
+                """.format(shift_cmd, i, f['feature_name'], shift_n)
+
+        elif f['rank']:
+            col_cmds += \
+                """
+                , RANK(x{0}.{1}) over (
+                    partition by SecCode
+                    order by Date_) as {1}
+                """.format(i, f['feature_name'])
+
+        else:
+            col_cmds += \
+                """
+                , x{0}.{1}
+                """.format(i, f['feature_name'])
 
         join_cmds += \
             """
@@ -104,7 +132,7 @@ def parse_input_var(vstring, table, filter_commands):
 
         # Raw data
         elif arg[0] in ['ROpen', 'RHigh', 'RLow', 'RClose',
-                         'RVwap', 'RVolume', 'CRashDividend']:
+                        'RVwap', 'RVolume', 'CRashDividend']:
             sql_func_data_column = arg[0][1:]
             if sql_func_data_column in ['Open', 'Close']:
                 sql_func_data_column += '_'
@@ -118,12 +146,13 @@ def parse_input_var(vstring, table, filter_commands):
 
     out['sqlcmd'] = sql_func(sql_func_data_column, vstring,
                              sql_func_args, table)
-    out['sqlcmd'] += ' ' + filter_commands
+    out['sqlcmd'] += filter_commands
 
     return out
 
 
 ###############################################################################
+#  NOTE: All feature functions must have the same interface
 
 def DATACOL(data_column, feature_name, args, table):
     sqlcmd = \
@@ -138,6 +167,18 @@ def MA(data_column, feature_name, length_arg, table):
     sqlcmd = \
         """
         select SecCode, Date_, avg({0}) over (
+            partition by SecCode
+            order by Date_
+            rows between {1} preceding and current row) as {2}
+        from {3}
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def PRMA(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+        """
+        select SecCode, Date_, {0} / avg({0}) over (
             partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as {2}
