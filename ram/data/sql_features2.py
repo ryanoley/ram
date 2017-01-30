@@ -41,8 +41,8 @@ def make_commands(feature_data):
             col_cmds += \
                 """
                 , RANK({0}(x{1}.{2}, {3}) over (
-                    partition by SecCode
-                    order by Date_)) over (
+                    partition by x{1}.SecCode
+                    order by x{1}.Date_)) over (
                     partition by SecCode
                     order by Date_) as {2}
                 """.format(shift_cmd, i, f['feature_name'], shift_n)
@@ -52,16 +52,16 @@ def make_commands(feature_data):
             col_cmds += \
                 """
                 , {0}(x{1}.{2}, {3}) over (
-                    partition by SecCode
-                    order by Date_) as {2}
+                    partition by x{1}.SecCode
+                    order by x{1}.Date_) as {2}
                 """.format(shift_cmd, i, f['feature_name'], shift_n)
 
         elif f['rank']:
             col_cmds += \
                 """
                 , RANK(x{0}.{1}) over (
-                    partition by SecCode
-                    order by Date_) as {1}
+                    partition by x{0}.SecCode
+                    order by x{0}.Date_) as {1}
                 """.format(i, f['feature_name'])
 
         else:
@@ -126,23 +126,30 @@ def parse_input_var(vstring, table, filter_commands):
             sql_func = globals()[arg[0]]
             sql_func_args = int(arg[1])
 
-        # Adjusted data
-        elif arg[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']:
+        # Raw data
+        elif arg[0] in ['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap',
+                        'RVolume', 'RCashDividend']:
+            arg[0] = arg[0][1:]
+            sql_func_data_column = arg[0]
+            if arg[0] in ['Open', 'Close']:
+                sql_func_data_column += '_'
+
+        # Data to be passed to a technical function
+        elif (sql_func != DATACOL) and \
+            (arg[0] in ['Open', 'High', 'Low', 'Close', 'Vwap', 'Volume']):
             sql_func_data_column = 'Adj' + arg[0]
 
-        # Raw data
-        elif arg[0] in ['ROpen', 'RHigh', 'RLow', 'RClose',
-                        'RVwap', 'RVolume', 'CRashDividend']:
-            sql_func_data_column = arg[0][1:]
-            if sql_func_data_column in ['Open', 'Close']:
-                sql_func_data_column += '_'
+        # Adjusted data
+        elif arg[0] in ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose',
+                        'AdjVwap', 'AdjVolume']:
+            sql_func_data_column = arg[0]
 
         # Adjustment irrelevant columns
         elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
             sql_func_data_column = arg[0]
 
         else:
-            raise Exception('Input not properly formatted')
+            raise Exception('Input not properly formatted: {{ %s }}' % vstring)
 
     out['sqlcmd'] = sql_func(sql_func_data_column, vstring,
                              sql_func_args, table)
@@ -184,6 +191,49 @@ def PRMA(data_column, feature_name, length_arg, table):
             rows between {1} preceding and current row) as {2}
         from {3}
         """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def MFI(data_column, feature_name, length_arg, table):
+    sqlcmd = \
+    """
+        select SecCode, Date_,
+            sum(MonFlowP) over (
+                partition by SecCode
+                order by Date_
+                rows between {0} preceding and current row) /
+
+            nullif(sum(MonFlow) over (
+                partition by SecCode
+                order by Date_
+                rows between {0} preceding and current row), 0) * 100 as {1}
+
+            from
+
+        (
+        select SecCode, Date_,
+            case
+                when TypPrice > LagTypPrice
+                then RawMF
+                else 0 end as MonFlowP,
+
+            case
+                when LagTypPrice is null then RawMF
+                when TypPrice != LagTypPrice then RawMF
+                else 0 end as MonFlow
+
+            from
+        (
+        select SecCode, Date_,
+            (AdjHigh + AdjLow + AdjClose) / 3 as TypPrice,
+
+            lag((AdjHigh + AdjLow + AdjClose) / 3, 1) over (
+                partition by SecCode
+                order by Date_) as LagTypPrice,
+            (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF
+            from {2}
+        ) a ) a
+    """.format(length_arg, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
 

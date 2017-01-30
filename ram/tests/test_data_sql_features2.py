@@ -13,21 +13,21 @@ class TestSqlFeatures(unittest.TestCase):
         start_date = dt.datetime(2011, 1, 1)
         end_date = dt.datetime(2012, 1, 1)
         ids = ['AAPL']
-        features = ['LAG1_Close', 'LAG1_MA10_Close', 'LAG1_RANK_PRMA10_Close']
+        features = ['LAG1_RClose', 'LAG1_MA10_Close', 'LAG1_RANK_PRMA10_Close']
         result = sqlcmd_from_feature_list(features, ids, start_date, end_date)
 
     def test_make_commands(self):
-        feature_data = [parse_input_var('LEAD2_Close', 'ABC', ''),
+        feature_data = [parse_input_var('LEAD2_RClose', 'ABC', ''),
                         parse_input_var('LAG1_RANK_MA10_Close', 'ABC', '')]
         result = make_commands(feature_data)
-        benchmark = ', LEAD(x0.LEAD2_Close, 2) over ( partition by ' + \
-                    'SecCode order by Date_) as LEAD2_Close , RANK(' + \
+        benchmark = ', LEAD(x0.LEAD2_RClose, 2) over ( partition by ' + \
+                    'x0.SecCode order by x0.Date_) as LEAD2_RClose , RANK(' + \
                     'LAG(x1.LAG1_RANK_MA10_Close, 1) over ( partition ' + \
-                    'by SecCode order by Date_)) over ( partition by ' + \
-                    'SecCode order by Date_) as LAG1_RANK_MA10_Close'
+                    'by x1.SecCode order by x1.Date_)) over ( partition ' + \
+                    'by SecCode order by Date_) as LAG1_RANK_MA10_Close'
         self.assertEqual(result[0], benchmark)
-        benchmark = 'left join (select SecCode, Date_, AdjClose ' + \
-                    'as LEAD2_Close from ABC) x0 on A.SecCode = ' + \
+        benchmark = 'left join (select SecCode, Date_, Close_ ' + \
+                    'as LEAD2_RClose from ABC) x0 on A.SecCode = ' + \
                     'x0.SecCode and A.Date_ = x0.Date_ left join (select ' + \
                     'SecCode, Date_, avg(AdjClose) over ( partition by ' + \
                     'SecCode order by Date_ rows between 9 preceding and ' + \
