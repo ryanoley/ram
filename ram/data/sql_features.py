@@ -16,7 +16,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         )
 
     column_commands, join_commands = make_commands(feature_data)
-    filter_commands = make_id_date_filter(ids, start_date, end_date, 'A.')
+    filter_commands = make_id_date_filter(ids, start_date, end_date)
 
     # Combine everything
     sqlcmd = \
@@ -80,15 +80,15 @@ def make_commands(feature_data):
     return clean_sql_cmd(col_cmds), clean_sql_cmd(join_cmds)
 
 
-def make_id_date_filter(ids, start_date, end_date, prefix=''):
+def make_id_date_filter(ids, start_date, end_date):
     # First pull date ranges. Make this dynamic somehow?
     sdate = start_date - dt.timedelta(days=365)
     fdate = end_date + dt.timedelta(days=30)
     sqlcmd = \
         """
-        where {0}Date_ between '{1}' and '{2}'
-        and {0}SecCode in {3}
-        """.format(prefix, sdate, fdate, format_ids(ids))
+        where A.Date_ between '{0}' and '{1}'
+        and A.SecCode in {2}
+        """.format(sdate, fdate, format_ids(ids))
     return sqlcmd
 
 
@@ -96,7 +96,8 @@ def make_id_date_filter(ids, start_date, end_date, prefix=''):
 
 def parse_input_var(vstring, table, filter_commands):
 
-    TECHFUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI']
+    FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI',
+             'GSECTOR', 'GGROUP', 'SI']
 
     # Return object that is used downstream per requested feature
     out = {
@@ -122,9 +123,12 @@ def parse_input_var(vstring, table, filter_commands):
         elif arg[0] == 'RANK':
             out['rank'] = True
 
-        elif arg[0] in TECHFUNCS:
+        elif arg[0] in FUNCS:
             sql_func = globals()[arg[0]]
-            sql_func_args = int(arg[1])
+            try:
+                sql_func_args = int(arg[1])
+            except:
+                sql_func_args = None
 
         # Raw data
         elif arg[0] in ['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap',
@@ -145,7 +149,8 @@ def parse_input_var(vstring, table, filter_commands):
             sql_func_data_column = arg[0]
 
         # Adjustment irrelevant columns
-        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
+        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor',
+                        'HistoricalTicker']:
             sql_func_data_column = arg[0]
 
         else:
@@ -165,7 +170,7 @@ def DATACOL(data_column, feature_name, args, table):
     sqlcmd = \
         """
         select SecCode, Date_, {0} as {1}
-        from {2}
+        from {2} A
         """.format(data_column, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -177,7 +182,7 @@ def MA(data_column, feature_name, length_arg, table):
             partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as {2}
-        from {3}
+        from {3} A
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -189,7 +194,7 @@ def PRMA(data_column, feature_name, length_arg, table):
             partition by SecCode
             order by Date_
             rows between {1} preceding and current row) as {2}
-        from {3}
+        from {3} A
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -232,7 +237,7 @@ def MFI(data_column, feature_name, length_arg, table):
                 order by Date_) as LagTypPrice,
             (AdjHigh + AdjLow + AdjClose) / 3 * AdjVolume as RawMF
             from {2}
-        ) a ) a
+        ) a ) A
     """.format(length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -277,7 +282,7 @@ def RSI(data_column, feature_name, length_arg, table):
                                 order by Date_))
             else 0 end as DownMove
             from {2}
-        ) a ) a
+        ) a ) A
     """.format(feature_name, length_arg-1, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -292,7 +297,7 @@ def DISCOUNT(data_column, feature_name, length_arg, table):
                 partition by SecCode
                 order by Date_
                 rows between {1} preceding and current row) - 1) as {2}
-        from {3}
+        from {3} A
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -318,7 +323,7 @@ def BOLL(data_column, feature_name, length_arg, table):
                     order by Date_
                     rows between {2} preceding and current row) as StdPrice
             from {3}
-        ) a
+        ) A
         """.format(feature_name, data_column, length_arg-1, table)
     return clean_sql_cmd(sqlcmd)
 
@@ -341,8 +346,53 @@ def VOL(data_column, feature_name, length_arg, table):
                     partition by SecCode
                     order by Date_) as LagPrice
             from {3}
-        ) a
+        ) A
         """.format(length_arg-1, feature_name, data_column, table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def GSECTOR(arg0, arg1, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.GSECTOR
+        from        {0} A
+        left join   ram.dbo.ram_sector B
+            on      A.SecCode = B.SecCode
+            and     A.Date_ between B.StartDate and B.EndDate
+        """.format(table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def GGROUP(arg0, arg1, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.GGROUP
+        from        {0} A
+        left join   ram.dbo.ram_sector B
+            on      A.SecCode = B.SecCode
+            and     A.Date_ between B.StartDate and B.EndDate
+        """.format(table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def SI(arg0, arg1, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.SI
+        from        {0} A
+        left join   ram.dbo.ShortInterest B
+            on      A.IdcCode = B.IdcCode
+            and     B.Date_ = (
+                select max(Date_) from ram.dbo.ShortInterest b
+                where b.Date_ <= B.Date_ and b.IdcCode = B.IdcCode
+            )
+        """.format(table)
     return clean_sql_cmd(sqlcmd)
 
 
