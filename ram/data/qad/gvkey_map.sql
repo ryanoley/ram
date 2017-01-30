@@ -23,7 +23,7 @@ create table	ram.dbo.ram_gvkey_map (
 select		Code,
 			Cusip,
 			min(StartDate) as StartDate,
-			IsNull(max(EndDate), '2079-01-01') as EndDate
+			max(IsNull(EndDate, '2079-01-01')) as EndDate
 from		qai.prc.PrcScChg P
 	join	(select distinct IdcCode from ram.dbo.ram_master_equities_research) M
 	on		P.Code = M.IdcCode
