@@ -1,7 +1,7 @@
 import unittest
 import datetime as dt
 
-from ram.data.sql_features2 import *
+from ram.data.sql_features import *
 
 
 class TestSqlFeatures(unittest.TestCase):
@@ -27,12 +27,12 @@ class TestSqlFeatures(unittest.TestCase):
                     'by SecCode order by Date_) as LAG1_RANK_MA10_Close'
         self.assertEqual(result[0], benchmark)
         benchmark = 'left join (select SecCode, Date_, Close_ ' + \
-                    'as LEAD2_RClose from ABC) x0 on A.SecCode = ' + \
+                    'as LEAD2_RClose from ABC A) x0 on A.SecCode = ' + \
                     'x0.SecCode and A.Date_ = x0.Date_ left join (select ' + \
                     'SecCode, Date_, avg(AdjClose) over ( partition by ' + \
                     'SecCode order by Date_ rows between 9 preceding and ' + \
-                    'current row) as LAG1_RANK_MA10_Close from ABC) x1 on ' + \
-                    'A.SecCode = x1.SecCode and A.Date_ = x1.Date_'
+                    'current row) as LAG1_RANK_MA10_Close from ABC A) x1 ' + \
+                    'on A.SecCode = x1.SecCode and A.Date_ = x1.Date_'
         self.assertEqual(result[1], benchmark)
 
     def test_parse_input_var(self):
@@ -55,14 +55,14 @@ class TestSqlFeatures(unittest.TestCase):
 
     def test_DATACOL(self):
         result = DATACOL('Open_', 'LAG1_ROpen', None, 'ABC')
-        benchmark = "select SecCode, Date_, Open_ as LAG1_ROpen from ABC"
+        benchmark = "select SecCode, Date_, Open_ as LAG1_ROpen from ABC A"
         self.assertEqual(result, benchmark)
 
     def test_MA(self):
         result = MA('AdjClose', 'PRMA10_Close', 10, 'ABC')
         benchmark = "select SecCode, Date_, avg(AdjClose) over ( " + \
                     "partition by SecCode order by Date_ rows between " + \
-                    "9 preceding and current row) as PRMA10_Close from ABC"
+                    "9 preceding and current row) as PRMA10_Close from ABC A"
         self.assertEqual(result, benchmark)
 
     def tearDown(self):

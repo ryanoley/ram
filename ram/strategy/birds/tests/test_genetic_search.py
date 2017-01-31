@@ -86,7 +86,7 @@ class TestGeneticSearch(unittest.TestCase):
         ests[4] = np.random.rand(50)
         self.estsS4 = ests
 
-    def test_get_optimal_combination(self):
+    def Xtest_get_optimal_combination(self):
         z = gs.get_optimal_combination(self.df4, self.estsL4, self.estsS4)
 
     def test_make_weighted_estimate(self):
@@ -128,7 +128,6 @@ class TestGeneticSearch(unittest.TestCase):
         self.assertIsInstance(pop[0], tuple)
 
     def test_get_min_est_rows(self):
-        import pdb; pdb.set_trace()
         ests = np.array([[2, 1, 3], [1, 2, 3]])
         rows = np.array([[1, 3, 5], [2, 4, 6]])
         result = gs.get_min_est_rows(ests, rows, 2)
