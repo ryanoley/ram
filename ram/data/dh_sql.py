@@ -11,7 +11,7 @@ from ram.data.sql_features import sqlcmd_from_feature_list
 
 class DataHandlerSQL(DataHandler):
 
-    def __init__(self):
+    def __init__(self, table='ram.dbo.ram_master_equities_research'):
 
         try:
             connection = pypyodbc.connect('Driver={SQL Server};'
@@ -27,14 +27,13 @@ class DataHandlerSQL(DataHandler):
 
         self._connection = connection
         self._cursor = connection.cursor()
+        self._table = table
 
         # Get all dates available in master database
         self._dates = np.unique(self.sql_execute(
             """
-            select distinct Date_
-            from ram.dbo.ram_master_equities_research
-            order by Date_;
-            """
+            select distinct Date_ from {0} order by Date_;
+            """.format(table)
         )).flatten()
 
     def get_all_dates(self):
@@ -75,12 +74,13 @@ class DataHandlerSQL(DataHandler):
             filter_args = {'univ_size': univ_size}
 
         if filter_date:
-            ids = self._get_filtered_ids(d2, filter_args)
+            ids = self._get_filtered_ids(d2, filter_args, self._table)
         else:
             ids = []
 
         # Get features, and strings for cte and regular query
-        sqlcmd, features = sqlcmd_from_feature_list(features, ids, d1, d3)
+        sqlcmd, features = sqlcmd_from_feature_list(
+            features, ids, d1, d3, self._table)
 
         univ = self.sql_execute(sqlcmd)
 
@@ -112,7 +112,8 @@ class DataHandlerSQL(DataHandler):
         d1, _, d3 = _format_dates(start_date, None, end_date)
 
         # Get features, and strings for cte and regular query
-        sqlcmd, features = sqlcmd_from_feature_list(features, ids, d1, d3)
+        sqlcmd, features = sqlcmd_from_feature_list(
+            features, ids, d1, d3, self._table)
 
         univ = self.sql_execute(sqlcmd)
 
@@ -159,12 +160,10 @@ class DataHandlerSQL(DataHandler):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_filtered_ids(self, filter_date, args,
-                          table='ram_master_equities_research'):
+    def _get_filtered_ids(self, filter_date, args, table):
         univ_size = args['univ_size']
         filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
         where = 'and {0}'.format(args['where']) if 'where' in args else ''
-
         # Get exact filter date
         fdate = self._dates[self._dates <= filter_date][-1]
 
@@ -173,13 +172,16 @@ class DataHandlerSQL(DataHandler):
         ids = np.array(self.sql_execute(
             """
             ; with tempdata as (
-            select  IsrCode, SecCode, {3},
+            select  M.IsrCode, M.SecCode, M.{3},
                     ROW_NUMBER() over (
-                        PARTITION BY IsrCode
-                        ORDER BY {3} DESC, SecCode) AS rank_val
-            from ram.dbo.{4}
-            where Date_ = '{1}'
-            and NormalTradingFlag = 1
+                        PARTITION BY M.IsrCode
+                        ORDER BY M.{3} DESC, M.SecCode) AS rank_val
+            from {4} M
+            left join ram.dbo.ram_sector S
+                on M.SecCode = S.SecCode
+                and M.Date_ between S.StartDate and S.EndDate
+            where M.Date_ = '{1}'
+            and M.NormalTradingFlag = 1
             {2}
             )
             select top {0} SecCode from tempdata
@@ -218,43 +220,22 @@ if __name__ == '__main__':
     # EXAMPLES
     dh = DataHandlerSQL()
 
-    filter_args = {'filter': 'AvgDolVol', 'where': 'MarketCap >= 200',
-                   'univ_size': 10}
-
-    import pdb; pdb.set_trace()
-
-    univ = dh.get_filtered_univ_data(
-        features=['VOL20_Close', 'LAG2_VOL20_Close'],
-        start_date='2016-06-01',
-        end_date='2016-10-20',
-        filter_date='2016-06-01',
-        filter_args=filter_args)
+    filter_args = {'filter': 'AvgDolVol',
+                   'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
+                   'univ_size': 1500}
 
     univ = dh.get_filtered_univ_data(
-        features=['LAG2_RANK_BOLL30_Close'],
+        features=['AdjClose', 'GSECTOR'],
         start_date='2016-06-01',
-        end_date='2016-10-20',
+        end_date='2016-06-20',
         filter_date='2016-06-01',
         filter_args=filter_args)
-
-    univ = dh.get_etf_data(
-        tickers=['SPY', 'VXX'],
-        features=['Close', 'RSI10', 'MFI10'],
-        start_date='2016-06-01',
-        end_date='2016-10-20')
 
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],
         features=['Close', 'RClose', 'AvgDolVol', 'LAG1_AvgDolVol'],
         start_date='2016-06-01',
         end_date='2016-10-20')
-
-    univ = dh.get_filtered_univ_data(
-        univ_size=10,
-        features=['Close', 'RClose', 'AvgDolVol', 'LAG1_AvgDolVol'],
-        start_date='2016-06-01',
-        end_date='2016-10-20',
-        filter_date='2016-06-01')
 
     univ = dh.get_id_data(
         ids=[43030],
