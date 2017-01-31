@@ -20,8 +20,7 @@ Features must adhere to a strict format to be returned correctly. Best to use ex
 
 `LAG1_PRMA10_Close`
 `LEAD1_PRMA10_Close`
-`RANK_PRMA10_Close`
-
+`LAG1_RANK_PRMA10_Close`
 
 ### Data columns available
 
@@ -29,7 +28,7 @@ Features must adhere to a strict format to be returned correctly. Best to use ex
 * Open, High, Low, Close, VWAP, Volume (Split and Div Adjusted - DEFAULT for technical variable calculations)
 * AvgDolVol, MarketCap, SplitFactor
 * GSECTOR, GGROUP (Gics Sector and Group data)
-* SI (NOTE: This is currently one day lagged. TODO: Add lag functionality)
+* SI
 * Ticker
 
 ### Technical variables (20-period example construction provided)
@@ -42,12 +41,23 @@ Features must adhere to a strict format to be returned correctly. Best to use ex
 * RSI20 : Relative Strength Index
 * MFI20 : Money Flow Index
 
-### Manipulations
+### Shifting values
 
-* LEAD1 : Return value from x rows forward
-* LAG1 : Return value from x rows backward
+* LEADx : Return value from x rows forward
+* LAGx : Return value from x rows backward
+
+### Additional
+
 * RANK : Rank 0-n all, 1 representing lowest value (DOES THIS MAKE SENSE?)
 
+### Filter Args
+
+These are used to filter the universe on the filter date before there is a selection of IDs by some other criteria.
+```python
+filter_args = {'filter': 'AvgDolVol',
+               'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
+               'univ_size': 1500}
+```
 
 ##### Note:
 
