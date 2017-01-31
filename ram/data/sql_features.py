@@ -16,6 +16,7 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         )
 
     column_commands, join_commands = make_commands(feature_data)
+    final_select_commands = make_final_commands(feature_data)
     filter_commands = make_id_date_filter(ids, start_date, end_date)
 
     # Combine everything
@@ -25,11 +26,29 @@ def sqlcmd_from_feature_list(features, ids, start_date, end_date,
         select A.SecCode, A.Date_ {0} from {1} A
         {2}
         {3})
-        select * from X where Date_ between '{4}' and '{5}'
+        select {4} from X where Date_ between '{5}' and '{6}'
         """.format(column_commands, table, join_commands, filter_commands,
-                   start_date, end_date)
+                   final_select_commands, start_date, end_date)
 
     return clean_sql_cmd(sqlcmd), features
+
+
+def make_final_commands(feature_data):
+    final_cmds = 'SecCode, Date_'
+    for f in feature_data:
+        if f['rank']:
+            final_cmds += \
+                """
+                , RANK() over (
+                    partition by Date_
+                    order by {0}) as {0}
+                """.format(f['feature_name'])
+        else:
+            final_cmds += \
+                """
+                , {0}
+                """.format(f['feature_name'])
+    return final_cmds
 
 
 def make_commands(feature_data):
@@ -38,19 +57,7 @@ def make_commands(feature_data):
     join_cmds = ''
 
     for i, f in enumerate(feature_data):
-
-        if f['shift'] and f['rank']:
-            shift_cmd, shift_n = f['shift']
-            col_cmds += \
-                """
-                , RANK({0}(x{1}.{2}, {3}) over (
-                    partition by x{1}.SecCode
-                    order by x{1}.Date_)) over (
-                    partition by SecCode
-                    order by Date_) as {2}
-                """.format(shift_cmd, i, f['feature_name'], shift_n)
-
-        elif f['shift']:
+        if f['shift']:
             shift_cmd, shift_n = f['shift']
             col_cmds += \
                 """
@@ -58,15 +65,6 @@ def make_commands(feature_data):
                     partition by x{1}.SecCode
                     order by x{1}.Date_) as {2}
                 """.format(shift_cmd, i, f['feature_name'], shift_n)
-
-        elif f['rank']:
-            col_cmds += \
-                """
-                , RANK(x{0}.{1}) over (
-                    partition by x{0}.SecCode
-                    order by x{0}.Date_) as {1}
-                """.format(i, f['feature_name'])
-
         else:
             col_cmds += \
                 """
