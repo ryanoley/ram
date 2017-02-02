@@ -23,17 +23,17 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, index):
 
+        import pdb; pdb.set_trace()
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         self.constructor = PortfolioConstructor()
 
-        data, trade_data = self._get_data(
-            t_start, cut_date, t_end, univ_size=100)
+        data = self._get_data(t_start, cut_date, t_end, univ_size=500)
 
-        z_scores = self.pairselector.get_best_pairs(
+        z_scores, pair_info = self.pairselector.get_best_pairs(
             data, cut_date, window=20)
 
-        return self.constructor.get_daily_pl(z_scores, trade_data)
+        return self.constructor.get_daily_pl(z_scores, data, pair_info)
 
     def _get_date_iterator(self):
         """
@@ -67,33 +67,30 @@ class StatArbStrategy(Strategy):
         # Adjust date by one day for filter date
         adj_filter_date = filter_date - dt.timedelta(days=1)
 
+        filter_args = {
+            'filter': 'AvgDolVol',
+            'where': 'MarketCap >= 200 and GSECTOR not in (55)',
+            'univ_size': univ_size}
+
+        features = ['AdjClose', 'GSECTOR', 'AvgDolVol', 'MarketCap',
+                    'LAG1_RANK_PRMA10_Close']
+
         data = self.datahandler.get_filtered_univ_data(
-            univ_size=univ_size,
-            features=['RClose', 'Close',
-                      'RCashDividend', 'SplitFactor'],
+            features=features,
             start_date=start_date,
             end_date=end_date,
-            filter_date=adj_filter_date)
-        # Adjustments to data
-        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
-        data = data.rename(columns={'RCashDividend': 'Dividend',
-                                    'RClose': 'Close',
-                                    'Close': 'ADJClose'})
-        # Adjustment for naming conventions
+            filter_date=adj_filter_date,
+            filter_args=filter_args)
+
         data.SecCode = data.SecCode.astype(str)
 
-        # Trading data - After filter date
-        trade_data = data[['Date', 'SecCode', 'Close',
-                           'SplitMultiplier', 'Dividend']].copy()
-        trade_data.Dividend = trade_data.Dividend.fillna(0)
-        trade_data = trade_data[trade_data.Date >= filter_date]
-
-        data = data[['SecCode', 'Date', 'ADJClose']]
-
-        return data, trade_data
+        return data
 
 
 if __name__ == '__main__':
 
     strategy = StatArbStrategy('pairs2')
     strategy.start()
+
+    from gearbox import to_desk
+    to_desk(strategy.results, 'statarb_run')

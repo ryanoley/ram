@@ -7,38 +7,43 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 
 class PairsStrategy2(BasePairSelector):
 
-    def get_best_pairs(self, data, cut_date, window=60,
-                       abs_corr_filter=0.5, abs_corr_move_filter=0.5,
-                       vol_ratio_filter=0.3):
+    def get_best_pairs(self, data, cut_date, window=60):
         """
         """
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
-                                values='ADJClose')
-        # Clean data
-        close_data = close_data.T.dropna().T
+                                values='AdjClose')
 
         train_close = close_data.loc[close_data.index < cut_date]
+
+        # Clean data for training
+        train_close = train_close.T.dropna().T
+
         pairs = self._get_stats_all_pairs(train_close)
-        fpairs = self._filter_pairs(pairs, abs_corr_filter,
-                                    abs_corr_move_filter,
-                                    vol_ratio_filter)
+        fpairs = self._filter_pairs(pairs, data)
+
         # Create daily z-scores
         test_pairs = self._get_test_zscores(close_data, cut_date,
                                             fpairs, window)
-        return test_pairs
+        return test_pairs, fpairs
 
-    def _filter_pairs(self, pairs, abs_corr_filter,
-                      abs_corr_move_filter, vol_ratio_filter):
+    def _filter_pairs(self, pairs, data, max_pairs=2000):
         """
         Function is to score based on incoming stats
         """
-        # Filters
+        # Merge GSECTOR
+        gsectors = data.groupby('SecCode')['GSECTOR'].min().reset_index()
+        pairs = pairs.merge(gsectors, left_on='Leg1', right_on='SecCode')
+        pairs = pairs.merge(gsectors, left_on='Leg2', right_on='SecCode')
+        pairs = pairs[pairs.GSECTOR_x == pairs.GSECTOR_y]
+        pairs['Sector'] = pairs.GSECTOR_x
+        pairs = pairs.loc[:, ['Leg1', 'Leg2', 'distances', 'Sector']]
         # Rank values
-        rank1 = np.argsort(np.argsort(-pairs.distances))
-        pairs.loc[:, 'score'] = rank1
-        pairs = pairs.sort_values('score', ascending=False)
+        rank1 = np.argsort(np.argsort(pairs.distances))
+        pairs.loc[:, 'score'] = rank1 + 1
+        pairs = pairs.sort_values('score', ascending=True)
+        pairs = pairs[pairs.score <= max_pairs].reset_index()
         return pairs
 
     def _get_stats_all_pairs(self, close_data):

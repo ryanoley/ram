@@ -5,7 +5,7 @@ import pandas as pd
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.statarb.position import PairPosition
+from ram.strategy.statarb.constructor.position import PairPosition
 
 
 class TestPairPosition(unittest.TestCase):
@@ -36,19 +36,8 @@ class TestPairPosition(unittest.TestCase):
         pos.update_position_prices(np.nan, 202)
         self.assertTrue(np.isnan(pos.p1))
         self.assertEqual(pos.p2, 202)
-        self.assertEqual(pos.daily_pl, 0)
+        self.assertEqual(pos.daily_pl, -1 * 1970 * 0.0003)
         self.assertEqual(pos.gross_exposure, 0)
-
-    def test_update_position_prices_splits_divs(self):
-        pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000)
-        # Do a split
-        pos.update_position_prices(101, 98, 0, 0, 1, 2)
-        self.assertTrue(pos.shares2, -10)
-        self.assertEqual(pos.daily_pl, 30)
-        self.assertEqual(pos.gross_exposure, 1990)
-        # Do dividends
-        pos.update_position_prices(101, 98, 1, 1, 1, 1)
-        self.assertEqual(pos.daily_pl, 20)
 
     def tearDown(self):
         pass

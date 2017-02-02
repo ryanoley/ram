@@ -21,10 +21,9 @@ class TestSqlFeatures(unittest.TestCase):
                         parse_input_var('LAG1_RANK_MA10_Close', 'ABC', '')]
         result = make_commands(feature_data)
         benchmark = ', LEAD(x0.LEAD2_RClose, 2) over ( partition by ' + \
-                    'x0.SecCode order by x0.Date_) as LEAD2_RClose , RANK(' + \
+                    'x0.SecCode order by x0.Date_) as LEAD2_RClose , ' + \
                     'LAG(x1.LAG1_RANK_MA10_Close, 1) over ( partition ' + \
-                    'by x1.SecCode order by x1.Date_)) over ( partition ' + \
-                    'by SecCode order by Date_) as LAG1_RANK_MA10_Close'
+                    'by x1.SecCode order by x1.Date_) as LAG1_RANK_MA10_Close'
         self.assertEqual(result[0], benchmark)
         benchmark = 'left join (select SecCode, Date_, Close_ ' + \
                     'as LEAD2_RClose from ABC A) x0 on A.SecCode = ' + \

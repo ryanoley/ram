@@ -2,34 +2,25 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.statarb.portfolio import PairPortfolio
+from ram.strategy.statarb.constructor.portfolio import PairPortfolio
+from ram.strategy.statarb.constructor.position import PairPosition
 from ram.strategy.statarb.constructor.base import BaseConstructor
 
 
 class PortfolioConstructor(BaseConstructor):
 
     def __init__(self):
-        self.portfolio = PairPortfolio()
+        self._portfolio = PairPortfolio()
         self.n_pairs = 100
-        self.max_pos_exposure = 0.05
-        self.min_pos_exposure = 0.001
+        self.booksize = 10e6
+        # Maximum number of net positions on one side of the portfolio
+        self.max_pos_count = 5
 
-    def get_daily_pl(self, scores, data):
+    def get_daily_pl(self, scores, data, pair_info):
 
         Close = data.pivot(index='Date',
                            columns='SecCode',
-                           values='Close')
-
-        Dividend = data.pivot(index='Date',
-                              columns='SecCode',
-                              values='Dividend').fillna(0)
-
-        SplitMultiplier = data.pivot(index='Date',
-                                     columns='SecCode',
-                                     values='SplitMultiplier').fillna(1)
-
-        # Map close price Tickers for faster updating
-        self.portfolio.map_close_id_index(Close)
+                           values='AdjClose')
 
         # Output object
         daily_df = pd.DataFrame(index=scores.index,
@@ -39,30 +30,28 @@ class PortfolioConstructor(BaseConstructor):
         for date in scores.index:
             # Get current period data
             cl = Close.loc[date]
-            div = Dividend.loc[date]
-            spl = SplitMultiplier.loc[date]
             sc = scores.loc[date]
 
-            # Update all the prices in portfolio. This calculates PL
-            # for individual positions
-            self.portfolio.update_prices(cl, div, spl)
+            # 1. Update all the prices in portfolio. This calculates PL
+            #    for individual positions
+            self._portfolio.update_prices(cl)
 
-            # 1. CLOSE PAIRS IF NEEDED
-            #  Closed pairs are still in portfolio dictionary and must
-            #  be cleaned at end
-            self._close_signals(sc)
+            # 2. CLOSE PAIRS IF NEEDED
+            #  Closed pairs are still in portfolio dictionary
+            #  and must be cleaned at end
+            self._close_signals(sc, z_exit=1)
 
-            # 2. OPEN PAIRS IF NEEDED
+            # 3. OPEN PAIRS IF NEEDED
             # Must consider portfolio
             self._execute_open_signals(sc, cl)
 
-            # Get exposure
-            daily_df.loc[date, 'PL'] = self.portfolio.get_portfolio_daily_pl()
+            # Report PL and Exposureexposure
+            daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
             daily_df.loc[date, 'Exposure'] = \
-                self.portfolio.get_gross_exposure()
+                self._portfolio.get_gross_exposure()
 
         # Clear all pairs in portfolio and adjust PL
-        cost = self.portfolio.remove_pairs(all_pairs=True)
+        cost = self._portfolio.remove_pairs(all_pairs=True)
         daily_df.loc[date, 'PL'] -= cost
         daily_df.loc[date, 'Exposure'] = 0
         daily_df['Ret'] = daily_df.PL / daily_df.Exposure
@@ -71,102 +60,78 @@ class PortfolioConstructor(BaseConstructor):
             daily_df.Exposure.iloc[-2]
         return daily_df.loc[:, ['Ret']]
 
-    def _close_signals(self, scores, z_exit=1, **kwargs):
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _close_signals(self, scores, z_exit=1):
         """
         Innovation can happen here
         """
         # Remove positions that have gross exposure of zero from update_prices
-        close_pairs = [nm for nm, pos in self.portfolio.positions.iteritems()
+        close_pairs = [nm for nm, pos in self._portfolio.pairs.iteritems()
                        if pos.gross_exposure == 0]
-        # Get current position z-scores
-        p_scores = self._position_scores(scores)
-        # Remove scores that are less than abs(z_exit)
-        for pair, val in p_scores.iteritems():
-            if np.abs(val) < z_exit | np.isnan(val):
-                close_pairs.append(pair)
-        self.portfolio.remove_pairs(close_pairs)
-        return
 
-    def _position_scores(self, scores):
-        p_scores = {}
-        # Get current positions
-        for pair in self.portfolio.positions.keys():
-            p_scores[pair] = scores[pair]
-        return p_scores
+        # Get current position z-scores, and decide if they need to be closed
+        for pair in self._portfolio.pairs.keys():
+            if np.abs(scores[pair]) < z_exit | np.isnan(scores[pair]):
+                close_pairs.append(pair)
+
+        # Close positions
+        self._portfolio.remove_pairs(close_pairs)
+        return
 
     def _execute_open_signals(self, scores, trade_prices):
         """
         Function that adds new positions.
         """
-        scores = scores.dropna()
-        current_pos = self.portfolio.positions.keys()
+        current_pos = self._portfolio.pairs.keys()
         # Count new pairs, if none, then exit
         new_pairs = self.n_pairs - len(current_pos)
         if new_pairs == 0:
             return
+        scores = scores.dropna()
         # Remove those currently in positions
         scores = scores[~scores.index.isin(current_pos)]
-        # SELECTION
-        pairs, sides, bet_size = self._get_new_pairs_max_exposure(
-            scores, new_pairs)
-        # Put on new positions
-        if pairs:
-            self.portfolio.add_pairs(pairs, sides, trade_prices, bet_size)
-        return
-
-    def _get_new_pairs_max_exposure(self, scores, new_pairs):
-        """
-        Successively add new pairs to portfolio as long as the new position
-        does add too much exposure to one symbol.
-        """
-        # This is just a relic but works well so keeping it for now.
-        BOOKSIZE = 10e6
-
-        gross_exp = self.portfolio.get_gross_exposure()
-        bet_size = max(BOOKSIZE - gross_exp, 0)
-        if bet_size == 0:
-            return [], [], 0
-
-        max_pos = self.max_pos_exposure * BOOKSIZE
-        min_pos = self.min_pos_exposure * BOOKSIZE
-
-        indiv_leg_size = bet_size / new_pairs / 2
-
-        if indiv_leg_size < min_pos:
-            indiv_leg_size = min_pos
-
-        # Get max size for individual symbol
-        # Current position values of all open values
-        symbolvals = self.portfolio.get_symbol_values()
-        # Currently how the pairs are selected
         scores = scores[np.argsort(np.abs(scores.values))][::-1]
+
+        # SELECTION
+        # Current position values of all open values
+        symbol_counts = self._portfolio.get_symbol_counts()
+
+        bet_size = self.booksize - self._portfolio.get_gross_exposure()
+        leg_size = bet_size / new_pairs / 2
+
         pairs = []
         sides = []
+
         for pair, sc in scores.iteritems():
+
             leg1, leg2 = pair.split('_')
-            # Get potential position sizes. If score is above 0, then short
-            # the first pair/long the second, and vica versa
-            val1, val2 = (-indiv_leg_size, indiv_leg_size) if sc >= 0 \
-                else (indiv_leg_size, -indiv_leg_size)
 
-            if leg1 in symbolvals:
-                if abs(symbolvals[leg1] + val1) > max_pos:
+            # Check if hit max value long for position
+            if leg1 in symbol_counts:
+                if abs(symbol_counts[leg1]) == self.max_pos_count:
                     continue
+                symbol_counts[leg1] += 1 if sc < 0 else -1
             else:
-                symbolvals[leg1] = 0
+                symbol_counts[leg1] = 1 if sc < 0 else -1
 
-            if leg2 in symbolvals:
-                if abs(symbolvals[leg2] + val2) > max_pos:
+            if leg2 in symbol_counts:
+                if abs(symbol_counts[leg2]) == self.max_pos_count:
                     continue
+                symbol_counts[leg2] += 1 if sc > 0 else -1
             else:
-                symbolvals[leg2] = 0
+                symbol_counts[leg2] = 1 if sc > 0 else -1
 
-            # If here, then add position
-            pairs.append(pair)
-            sides.append(-1 if sc >= 0 else 1)
-            symbolvals[leg1] += val1
-            symbolvals[leg2] += val2
-            gross_exp += abs(val1) + abs(val2)
-            if gross_exp >= BOOKSIZE:
+            # Create position
+            if sc >= 0:
+                pos = PairPosition(leg1, trade_prices[leg1], -leg_size,
+                                   leg2, trade_prices[leg2], leg_size)
+            else:
+                pos = PairPosition(leg1, trade_prices[leg1], leg_size,
+                                   leg2, trade_prices[leg2], -leg_size)
+            self._portfolio.add_pair(pos)
+
+            if len(self._portfolio.pairs) == self.n_pairs:
                 break
-        return pairs, sides, bet_size
+
+        return

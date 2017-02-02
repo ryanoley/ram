@@ -222,10 +222,19 @@ if __name__ == '__main__':
 
     filter_args = {'filter': 'AvgDolVol',
                    'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
-                   'univ_size': 1500}
+                   'univ_size': 500}
+
+    import pdb; pdb.set_trace()
+
+    univ = dh.get_id_data(
+        ids=[4760, 78331, 58973],
+        features=['AdjClose', 'AvgDolVol', 'MarketCap'],
+        start_date='1996-04-17',
+        end_date='1997-03-31')
 
     univ = dh.get_filtered_univ_data(
-        features=['AdjClose', 'GSECTOR'],
+        features=['AdjClose', 'GSECTOR', 'DISCOUNT126_Close',
+                  'PRMA10_Close', 'LAG1_PRMA10_Close'],
         start_date='2016-06-01',
         end_date='2016-06-20',
         filter_date='2016-06-01',
@@ -237,8 +246,3 @@ if __name__ == '__main__':
         start_date='2016-06-01',
         end_date='2016-10-20')
 
-    univ = dh.get_id_data(
-        ids=[43030],
-        features=['Close', 'RClose', 'AvgDolVol', 'LAG1_AvgDolVol'],
-        start_date='2016-06-01',
-        end_date='2016-10-20')
