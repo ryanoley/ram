@@ -1,5 +1,4 @@
 
-
 use ram;
 
 -------------------------------------------------------------
@@ -10,96 +9,157 @@ if object_id('ram.dbo.ram_gvkey_map', 'U') is not null
 
 
 create table	ram.dbo.ram_gvkey_map (
-				IdcCode int,
+				SecCode int,
 				StartDate smalldatetime,
 				EndDate smalldatetime,
 				GVKey int,
-				primary key (IdcCode, StartDate, GVKey)
+				IdcCode int,
+				primary key (SecCode, StartDate)
 )
 
 
-; with idccodes as (
-
-select		Code,
-			Cusip,
-			min(StartDate) as StartDate,
-			max(IsNull(EndDate, '2079-01-01')) as EndDate
-from		qai.prc.PrcScChg P
-	join	(select distinct IdcCode from ram.dbo.ram_master_equities_research) M
-	on		P.Code = M.IdcCode
-group by	Code, Cusip
-
-)
-
-
-, gvkeys as (
+; with gvkeys as (
 
 select		GVKEY,
-			Changedate,
-			Substring(Cusip, 0, 9) as Cusip
+			min(Changedate) as MinChangeDate,
+			Substring(Cusip, 0, 9) as ShortCusip
 from		qai.dbo.CSPITId
 where		Right(Cusip, 1) != 'X'
-group by	GVKey, Changedate, Substring(Cusip, 0, 9)
+group by	GVKey, Substring(Cusip, 0, 9)
 
 union
 select		GVKEY, 
-			Changedate,
-			Substring(Cusip, 0, 9) as Cusip
+			min(Changedate) as MinChangeDate,
+			Substring(Cusip, 0, 9) as ShortCusip
 from		qai.dbo.CSPITIdC
 where		Right(Cusip, 1) != 'X'
-group by	GVKey, Changedate, Substring(Cusip, 0, 9)
+group by	GVKey, Substring(Cusip, 0, 9)
+
+)
+
+, gvkeys2 as (
+select		GVKey,
+			ShortCusip,
+			MinChangeDate as MinGVKeyDate,
+			IsNull(Dateadd(day, -1, Lead(MinChangeDate, 1) over (
+				partition by ShortCusip
+				order by MinChangeDate)), '2079-01-01') as MaxGVKeyDate,
+			Row_Number() over (
+				partition by ShortCusip
+				order by MinChangeDate) as GVKeyNum
+from		gvkeys
 
 )
 
 
-, gvkeys_idccodes as (
+, idccodes as (
 
-select		I.Code,
-			I.Cusip,
-			I.StartDate,
-			I.EndDate,
-			G.GvKey,
-			min(Changedate) as Changedate
-from		idccodes I
-	join	gvkeys G
-	on		I.Cusip = G.Cusip
-	and		G.Changedate < I.EndDate
-group by I.Code, I.Cusip, I.StartDate, I.EndDate, G.GVKey
-
-)
-
-
-, gvkeys_idccodes2 as (
-select			*,
-				ROW_NUMBER() over (
-					partition by Code, StartDate
-					order by Changedate) as RowNum
-from			gvkeys_idccodes
-)
-
-, gvkeys_idccodes3 as (
 select			Code,
 				Cusip,
-				case
-					when RowNum = 1
-					then StartDate
-					else Changedate
-				end as StartDate,
-				GVKey
-from			gvkeys_idccodes2
+				min(StartDate) as StartDate,
+				max(isnull(EndDate, '2079-01-01')) as EndDate
+from			qai.prc.PrcScChg P
+where			Code in (select distinct IdcCode from ram.dbo.ram_master_equities_research)
+	and			Cusip != ''
+group by		Code, Cusip
+
 )
 
 
-, gvkeys_idccodes4 as (
-select			Code as IdcCode,
+, gvkeymap1 as (
+select			Code,
+				Cusip,
+				GVKey,
+				case
+					when GVCount = 2
+					then 
+						case
+							when GVKeyNum = 2
+							then MinGVKeyDate
+							else StartDate
+						end
+					else StartDate
+				end as StartDate,
+
+				case
+					when GVCount = 2
+					then 
+						case
+							when GVKeyNum = 1
+							then MaxGVKeyDate
+							else EndDate
+						end
+					else EndDate
+				end as EndDate
+
+from			idccodes I
+	left join	gvkeys2 G
+		on		I.Cusip = G.ShortCusip
+		and		G.MinGVKeyDate < I.EndDate
+		and		G.MaxGVKeyDate > I.StartDate
+	join		(select ShortCusip, Count(*) as GVCount from gvkeys2 group by ShortCusip) G2
+		on		G.ShortCusip = G2.ShortCusip
+
+)
+
+
+, gvkeymap2 as (	
+select		Code,
+			GVKey,
+			min(StartDate) as StartDate,
+			max(EndDate) as EndDate
+from		gvkeymap1
+group by	Code, GVKey
+
+)
+
+, gvkeymap3 as (
+select			M.SecCode,
+				G.StartDate,
+				G.EndDate,
+				G.GVKey,
+				G.Code as IdcCode
+from			gvkeymap2 G
+	left join	(select distinct IdcCode, SecCode from ram.dbo.ram_master_equities) M
+		on		G.Code = M.IdcCode
+)
+
+/*
+-- USE THIS TO GET HARD-CODED NAMES THAT DON'T MATCH
+, G2 as (
+select			SecCode,
+				GVKey,
 				StartDate,
-				isnull(dateadd(day, -1, lead(StartDate, 1) over (
-					partition by Code
-					order by StartDate)), '2079-01-01') as EndDate,
-				Gvkey
-from gvkeys_idccodes3
+				EndDate,
+				Lead(StartDate, 1) over (
+					partition by SecCode
+					order by StartDate) as LeadStartDate
+from			gvkeymap3
+)
+
+select	* from G2
+where LeadStartDate < EndDate
+*/
+
+-- MANUAL INTERVENTION TO DROP SOME WEIRD OBSERVATIONS
+, gvkeymap4 as (
+select		SecCode,
+			StartDate,
+			case
+				when SecCode = 6196 and GVKey = 3480
+				then DateAdd(day, -2, EndDate)
+				else EndDate
+			end as EndDate,
+			GVKey,
+			IdcCode
+
+from		gvkeymap3
+
+
+where		GVKey not in (14344, 6527, 14541, 5776)
+	and		SecCode not in (306176, 42101)
 )
 
 
 insert into ram.dbo.ram_gvkey_map
-select * from gvkeys_idccodes4
+select * from gvkeymap4
