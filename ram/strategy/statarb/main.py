@@ -23,6 +23,10 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, index):
 
+        if index < 8:
+            return pd.DataFrame([0], index=pd.DatetimeIndex([index]))
+            #import pdb; pdb.set_trace()
+
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         self.constructor = PortfolioConstructor()
@@ -71,8 +75,7 @@ class StatArbStrategy(Strategy):
             'where': 'MarketCap >= 200 and GSECTOR not in (55)',
             'univ_size': univ_size}
 
-        features = ['AdjClose', 'GSECTOR', 'AvgDolVol', 'MarketCap',
-                    'LAG1_RANK_PRMA10_Close']
+        features = ['AdjClose', 'GSECTOR', 'AvgDolVol', 'MarketCap']
 
         data = self.datahandler.get_filtered_univ_data(
             features=features,
@@ -81,6 +84,7 @@ class StatArbStrategy(Strategy):
             filter_date=adj_filter_date,
             filter_args=filter_args)
 
+        data = data.drop_duplicates()
         data.SecCode = data.SecCode.astype(str)
 
         return data
@@ -89,6 +93,7 @@ class StatArbStrategy(Strategy):
 if __name__ == '__main__':
 
     strategy = StatArbStrategy('pairs2')
+    import pdb; pdb.set_trace()
     strategy.start()
 
     from gearbox import to_desk
