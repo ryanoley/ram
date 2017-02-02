@@ -23,7 +23,6 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, index):
 
-        import pdb; pdb.set_trace()
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         self.constructor = PortfolioConstructor()
