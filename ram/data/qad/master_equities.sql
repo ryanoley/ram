@@ -10,12 +10,12 @@ if object_id('ram.dbo.ram_master_equities', 'U') is not null
 
 create table	ram.dbo.ram_master_equities (
 
-				IsrCode int,
 				SecCode int,
 				DsInfoCode int,
 				IdcCode int,
 				HistoricalCusip varchar(15),
 				HistoricalTicker varchar(15),
+				HistoricalIssuer varchar(45),
 				GVKey int,
 
 				Date_ smalldatetime,
@@ -41,7 +41,7 @@ create table	ram.dbo.ram_master_equities (
 				DividendFactor real,
 				SplitFactor real,
 				NormalTradingFlag smallint
-				primary key (SecCode, IdcCode, Date_)
+				primary key (SecCode, Date_)
 )
 
 
@@ -97,9 +97,9 @@ create table #idc_dates_table
 (
     SecCode int,
 	Code int,
-	IsrCode int,
 	HistoricalCusip varchar(15),
 	HistoricalTicker varchar(15),
+	HistoricalIssuer varchar(45),
 	GVKey int,
     Date_ datetime,
 	DateLagC datetime,
@@ -137,6 +137,7 @@ select		Code,
 				order by StartDate)), EndDate, getdate()) as AltEndDate,
 			Cusip,
 			Ticker,
+			Issuer,
 			Exchange
 from		qai.prc.PrcScChg 
 where		concat(BaseTicker, 'WI') != Ticker		-- When issued
@@ -198,9 +199,9 @@ from			qai.prc.PrcVol
 
 select			M.SecCode,
 				D.Code,
-				I.IsrCode,
 				E.Cusip as HistoricalCusip,
 				E.Ticker as HistoricalTicker,
+				E.Issuer as HistoricalIssuer,
 				GV.GVKey,
 				D.Date_,
 				DF.DateLagC,
@@ -366,13 +367,13 @@ where				SecCode in (select distinct SecCode from ds_counts where Count_ > 1)
 
 , data_merge as (
 
-select				IDC.IsrCode,
-					IDC.SecCode,
+select				IDC.SecCode,
 					DD.DsInfoCode,
 					IDC.Code as IdcCode,
 
 					IDC.HistoricalCusip,
 					IDC.HistoricalTicker,
+					IDC.HistoricalIssuer,
 					IDC.GVKey,
 					IDC.Date_,
 					IDC.DateLagC,
@@ -438,12 +439,12 @@ from			data_merge
 --  Final Formatting
 
 , final_table as (
-select 			D.IsrCode,
-				D.SecCode,
+select 			D.SecCode,
 				D.DsInfoCode,
 				D.IdcCode,
 				D.HistoricalCusip,
 				D.HistoricalTicker,
+				D.HistoricalIssuer,
 				D.GVKey,
 
 				D.Date_,
@@ -482,16 +483,10 @@ where			D.Date_ >= '1995-01-01'
 insert into ram.dbo.ram_master_equities
 select * from final_table
 
--- General Indexes
-create index idccode_date on ram.dbo.ram_master_equities (IdcCode, Date_)
-create index date_idccode on ram.dbo.ram_master_equities (Date_, IdcCode)
 
-create index seccode_date on ram.dbo.ram_master_equities (SecCode, Date_)
-create index date_seccode on ram.dbo.ram_master_equities (Date_, SecCode)
-
--- Filter Indexes
-create index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
-create index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
+-- Filter Indexes - Primarily for research for Commented out here but used in research table
+--create nonclustered index date_avgdolvol on ram.dbo.ram_master_equities (Date_, AvgDolVol)
+--create nonclustered index date_marketcap on ram.dbo.ram_master_equities (Date_, MarketCap)
 
 drop table #idc_dates_table
 drop table #idc_shares_table
