@@ -25,12 +25,16 @@ class Strategy(object):
         results = pd.DataFrame()
 
         for i in ProgBar(self.get_iter_index()):
-            temp_result = self.run_index(i)
+            output = self.run_index(i)
+            returns = output['data']
+            meta = output['meta']
             # Enforce that the index is DateTime
-            assert isinstance(temp_result.index, pd.DatetimeIndex)
-            results = results.add(temp_result, fill_value=0)
+            assert isinstance(returns.index, pd.DatetimeIndex)
+            assert isinstance(meta, dict)
+            results = results.add(returns, fill_value=0)
 
         self.results = results
+        self.meta = meta
 
     def run_index_writer(self, index):
         """

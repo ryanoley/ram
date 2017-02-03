@@ -7,9 +7,21 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 
 class PairsStrategy2(BasePairSelector):
 
-    def get_best_pairs(self, data, cut_date, window=60):
-        """
-        """
+    def __init__(self,
+                 z_window=[20],
+                 max_pairs=[1000]):
+        self.z_window = z_window
+        self.max_pairs = max_pairs
+
+    def get_meta_params(self):
+        return {'z_window': self.z_window,
+                'max_pairs': self.max_pairs}
+
+    def get_feature_names(self):
+        return ['AdjClose', 'AvgDolVol', 'GSECTOR']
+
+    def get_best_pairs(self, data, cut_date, z_window, max_pairs):
+
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
@@ -21,11 +33,11 @@ class PairsStrategy2(BasePairSelector):
         train_close = train_close.T.dropna().T
 
         pairs = self._get_stats_all_pairs(train_close)
-        fpairs = self._filter_pairs(pairs, data)
+        fpairs = self._filter_pairs(pairs, data, max_pairs)
 
         # Create daily z-scores
         test_pairs = self._get_test_zscores(close_data, cut_date,
-                                            fpairs, window)
+                                            fpairs, z_window)
         return test_pairs, fpairs
 
     def _filter_pairs(self, pairs, data, max_pairs=2000):

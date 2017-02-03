@@ -17,7 +17,8 @@ class PairPortfolio(object):
         """
         for pair in self.pairs.keys():
             leg1, leg2 = pair.split('_')
-            self.pairs[pair].update_position_prices(close[leg1], close[leg2])
+            c1, c2 = close[leg1], close[leg2]
+            self.pairs[pair].update_position_prices(c1, c2)
             self.port_daily_pl += self.pairs[pair].get_daily_pl()
         return
 

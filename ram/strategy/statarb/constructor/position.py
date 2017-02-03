@@ -31,11 +31,17 @@ class PairPosition(object):
         self.p2 = p2
         self.gross_exposure = abs(self.shares1) * p1 + abs(self.shares2) * p2
         self.daily_pl = 0
+        # Potential exit metrics
+        self.total_pl = self.get_cost()
+        self.days_held = 0
 
     def update_position_prices(self, p1, p2):
-        if np.isnan(p1) | np.isnan(p2):
-            # Assume position was closed
-            self.daily_pl = -1 * self.gross_exposure * .0003
+        if np.isnan(p1):
+            # Assume position was closed end of day for missing leg
+            self.daily_pl += (p2 - self.p2) * self.shares2
+            self.gross_exposure = 0
+        elif np.isnan(p2):
+            self.daily_pl += (p1 - self.p1) * self.shares1
             self.gross_exposure = 0
         else:
             self.daily_pl = (p1 - self.p1) * self.shares1 + \
@@ -44,6 +50,9 @@ class PairPosition(object):
                 abs(p2 * self.shares2)
         self.p1 = p1
         self.p2 = p2
+        # Potential exit metrics
+        self.total_pl += self.daily_pl
+        self.days_held += 1
 
     def get_daily_pl(self):
         pl = self.daily_pl
