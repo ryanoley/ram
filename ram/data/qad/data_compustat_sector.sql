@@ -11,30 +11,38 @@ create table	ram.dbo.ram_sector (
 				GGROUP int,
 				StartDate smalldatetime,
 				EndDate smalldatetime
-				primary key (SecCode, GVKey, StartDate, EndDate)
+				primary key (SecCode, StartDate, EndDate)
 )
 
 
 ; with sectors as (
-select GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP from qai.dbo.CSCoHGIC
+select		GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP from qai.dbo.CSCoHGIC
 union
-select GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP from qai.dbo.CSICoHGIC
+select		GVKey, INDFROM, coalesce(INDTHRU, getdate()) as INDTHRU, GSECTOR, GGROUP from qai.dbo.CSICoHGIC
 )
 
 
-, sectors2 as (
+, sectormap1 as (
+
 select			M.SecCode,
+				M.StartDate,
+				M.EndDate,
 				M.GVKey,
+				S.INDFROM,
+				S.INDTHRU,
 				S.GSECTOR,
 				S.GGROUP,
-				S.INDFROM as StartDate,
-				S.INDTHRU as EndDate,
-				ROW_NUMBER() over (
-					partition by M.SecCode
-					order by S.INDFROM) as RowNumber
-from			sectors S
-	join		(select distinct SecCode, GVKey from ram.dbo.ram_master_equities) M
-	on			S.GVKey = M.GVKey
+				Row_Number() over (
+					partition by M.SecCode, M.StartDate
+					order by S.INDFROM) as RowNum,
+				Count(SecCode) over (
+					partition by SecCode, StartDate) as Count_
+from			ram.dbo.ram_gvkey_map M
+	join		sectors S
+	on			M.GVKey = S.GVKEY
+	and			S.INDFROM < M.EndDate
+	and			S.INDTHRU > M.StartDate
+
 )
 
 
@@ -44,9 +52,23 @@ select			SecCode,
 				GSECTOR,
 				GGROUP,
 				case
-					when RowNumber = 1
-					then '1960-01-01'
+					when Count_ > 1
+					then	
+						case
+							when RowNum = 1
+							then StartDate
+							else INDFROM
+						end
 					else StartDate
 				end as StartDate,
-				EndDate
-from			sectors2
+				case
+					when Count_ > 1
+					then	
+						case
+							when RowNum = Count_
+							then EndDate
+							else INDTHRU
+						end
+					else EndDate
+				end as EndDate
+from			sectormap1
