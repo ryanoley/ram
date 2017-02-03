@@ -93,7 +93,7 @@ class StatArbStrategy(Strategy):
 if __name__ == '__main__':
 
     strategy = StatArbStrategy('pairs2')
-    import pdb; pdb.set_trace()
+
     strategy.start()
 
     from gearbox import to_desk

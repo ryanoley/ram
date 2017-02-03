@@ -58,6 +58,8 @@ create table #idc_shares_table
 	StartDate datetime,
 	EndDate datetime,
 	Shares real
+
+	primary key (Code, StartDate)
 )
 
 
@@ -83,9 +85,6 @@ FROM
 
 go
 
-CREATE CLUSTERED INDEX IDX_Code_Date ON #idc_shares_table(Code, StartDate, EndDate)
-
-go
 
 -- ############################################################################################
 --  IDC Data - ID Dates
@@ -113,6 +112,8 @@ create table #idc_dates_table
 	SplitFactor real,
 	CashDividend real,
 	tempShares real
+
+	primary key (SecCode, Date_)
 )
 
 
@@ -325,9 +326,6 @@ FROM
     idc_data
 
 go
-
-
-CREATE CLUSTERED INDEX IDX_Code_Date ON #idc_dates_table(SecCode, Date_)
 
 
 -- ############################################################################################

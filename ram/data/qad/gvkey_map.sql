@@ -120,9 +120,10 @@ select			M.SecCode,
 				G.GVKey,
 				G.Code as IdcCode
 from			gvkeymap2 G
-	left join	(select distinct IdcCode, SecCode from ram.dbo.ram_master_equities) M
+	left join	(select distinct IdcCode, SecCode from ram.dbo.ram_master_equities_research) M
 		on		G.Code = M.IdcCode
 )
+
 
 /*
 -- USE THIS TO GET HARD-CODED NAMES THAT DON'T MATCH
@@ -136,18 +137,20 @@ select			SecCode,
 					order by StartDate) as LeadStartDate
 from			gvkeymap3
 )
-
-select	* from G2
-where LeadStartDate < EndDate
+where LeadStartDate > EndDate
 */
 
+
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 -- MANUAL INTERVENTION TO DROP SOME WEIRD OBSERVATIONS
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 , gvkeymap4 as (
 select		SecCode,
 			StartDate,
 			case
 				when SecCode = 6196 and GVKey = 3480
-				then DateAdd(day, -2, EndDate)
+				then DateAdd(day, -3, EndDate)
 				else EndDate
 			end as EndDate,
 			GVKey,
