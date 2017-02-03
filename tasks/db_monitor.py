@@ -53,7 +53,8 @@ def _poll_qad_monitor(cursor):
     '''
     Select QAD related update information from the qad_monitor table.
     '''
-    SQLCommandSys = ("select top 1 UPDDate, UPDNumber "
+    SQLCommandSys = ("select top 1 isnull(UPDDate, '01/01/1990') as UPDDate, "
+                     "UPDNumber "
                      "from ram.dbo.qad_monitor "
                      "where TableName = 'MQASys' "
                      "order by MonitorDate desc")
@@ -62,7 +63,10 @@ def _poll_qad_monitor(cursor):
     sys_upd_dt = sqlres2[0][0].date()
     sys_upd_num = sqlres2[0][1]
 
-    SQLCommandSys = ("select top 1 UPDDate, UPDNumber, StartTime, EndTime "
+    SQLCommandSys = ("select top 1 isnull(UPDDate, '01/01/1990') as UPDDate, "
+                     "UPDNumber, "
+                     "isnull(StartTime, '01/01/1990') as StartTime, "
+                     "isnull(EndTime, '01/01/1990') as EndTime "
                      "from ram.dbo.qad_monitor "
                      "where TableName = 'QADLog' "
                      "order by MonitorDate desc")
@@ -82,7 +86,8 @@ def _poll_table_monitor(cursor):
     '''
     Select RAM related update information from the table_monitor table.
     '''
-    SQLCommandRAM = ("select TableName, MaxTableDate "
+    SQLCommandRAM = ("select TableName, "
+                     "isnull(MaxTableDate, '01/01/1900') as MaxTableDate "
                      "from ram.dbo.table_monitor "
                      "where MonitorDateTime = ("
                      "select max(MonitorDateTime) "
@@ -119,7 +124,7 @@ def _build_logging_msg(prior_bdate, qad, ram):
     for (x, y) in zip(ram['RAMTables'], ram['RAMUpdDts']):
         status_str += ('\n\t{0}: {1}'.format(x, y))
 
-    return status_str
+    return status_str.replace("1900-01-01", "TABLE EMPTY")
 
 
 def send_email(msg_body, subject, toaddr="analysts@roundaboutam.com"):
