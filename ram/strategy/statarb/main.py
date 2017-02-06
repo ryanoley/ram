@@ -36,7 +36,7 @@ class StatArbStrategy(Strategy):
         results = self.constructor.get_daily_pl(
             scores, data, pair_info, **args2)
 
-        return {'meta': {}, 'data': results}
+        return results
 
     def _get_date_iterator(self):
         """
