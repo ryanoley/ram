@@ -39,8 +39,10 @@ class PairPortfolio(object):
             before the position is corrected.
         """
         for pair, pos in self.pairs.iteritems():
-            if abs(pos.gross_exposure / base_exposure - 1) > perc_dev and \
-                    pos.open_position:
+            flag1 = abs(pos.gross_exposure / base_exposure - 1) > perc_dev
+            flag2 = abs(pos.net_exposure / base_exposure) > perc_dev
+            flag3 = pos.open_position
+            if (flag1 and flag3) or (flag2 and flag3):
                 pos.update_position_exposure(base_exposure)
         return
 

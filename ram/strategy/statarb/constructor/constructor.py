@@ -124,7 +124,7 @@ class PortfolioConstructor(BaseConstructor):
         self._portfolio.close_pairs(list(set(close_pairs)))
         return
 
-    def _adjust_open_positions(self, n_pairs, pos_exp_deviation=0.04):
+    def _adjust_open_positions(self, n_pairs, pos_exp_deviation=0.03):
         base_exposure = self.booksize / n_pairs
         self._portfolio.update_position_exposures(base_exposure,
                                                   pos_exp_deviation)
@@ -134,20 +134,19 @@ class PortfolioConstructor(BaseConstructor):
         """
         Function that adds new positions.
         """
-        assert max_pos_prop > 0 and max_pos_prop <= 1
-        max_pos_count = int(n_pairs * max_pos_prop)
-        self._get_pos_exposures()
-
         open_pairs = self._portfolio.get_open_positions()
         new_pairs = max(n_pairs - len(open_pairs), 0)
-
         if new_pairs == 0:
             return
+
+        pair_bet_size = self.booksize / n_pairs
         scores2 = pd.DataFrame({'abs_score': scores.abs(),
                                 'side': np.where(scores <= 0, 1, -1)})
         scores2 = scores2.sort_values(['abs_score'], ascending=False)
-        pair_bet_size = (self.booksize -
-                         self._portfolio.get_gross_exposure()) / new_pairs
+
+        assert max_pos_prop > 0 and max_pos_prop <= 1
+        max_pos_count = int(n_pairs * max_pos_prop)
+        self._get_pos_exposures()
 
         for pair, (sc, side) in scores2.iterrows():
             if pair in open_pairs:

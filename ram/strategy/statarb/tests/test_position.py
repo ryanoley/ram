@@ -20,6 +20,8 @@ class TestPairPosition(unittest.TestCase):
         self.assertEqual(pos.shares1, 10)
         self.assertEqual(pos.shares2, -5)
         self.assertEqual(pos.gross_exposure, 2000)
+        self.assertTrue(pos.open_position)
+        self.assertFalse(pos.to_close_position)
 
     def test_update_position_prices(self):
         pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000)
@@ -36,8 +38,10 @@ class TestPairPosition(unittest.TestCase):
         pos.update_position_prices(np.nan, 202)
         self.assertTrue(np.isnan(pos.p1))
         self.assertEqual(pos.p2, 202)
-        self.assertEqual(pos.daily_pl, 0)
-        self.assertEqual(pos.gross_exposure, 0)
+        self.assertEqual(pos.daily_pl, 10)
+        self.assertTrue(pos.to_close_position)
+        self.assertEqual(pos.shares1, 0)
+        self.assertEqual(pos.shares2, -5)
 
     def test_update_position_prices_splits_divs(self):
         pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000)
@@ -50,6 +54,24 @@ class TestPairPosition(unittest.TestCase):
         # Do dividends
         pos.update_position_prices(101, 98, 1, 1, 1, 1)
         self.assertEqual(pos.daily_pl, 70)
+
+    def test_update_position_exposure(self):
+        pos = PairPosition('IBM', 100, 50000, 'AAPL', 200, -50000)
+        pos.update_position_prices(104, 185)
+        pos.update_position_prices(101, 175)
+        self.assertEqual(pos.gross_exposure, 94250)
+        self.assertEqual(pos.net_exposure, 6750)
+        pos.update_position_exposure(100000)
+        self.assertEqual(pos.gross_exposure, 99870)
+        self.assertEqual(pos.net_exposure, 120)
+
+    def test_close_position(self):
+        pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000, 0.001)
+        self.assertTrue(pos.open_position)
+        self.assertEqual(pos.daily_pl, -0.015)
+        pos.close_position()
+        self.assertFalse(pos.open_position)
+        self.assertEqual(pos.daily_pl, -0.03)
 
     def tearDown(self):
         pass

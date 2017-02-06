@@ -25,12 +25,6 @@ class StatArbStrategy(Strategy):
 
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
-        if t_start < dt.datetime(2010, 1, 1):
-            out = {}
-            out['data'] = pd.DataFrame({}, index=pd.DatetimeIndex([0]))
-            out['meta'] = {}
-            return out
-
         data = self._get_data(t_start, cut_date, t_end,
                               univ_size=self.univ_size)
 
@@ -48,15 +42,9 @@ class StatArbStrategy(Strategy):
         """
         Bookend dates for start training, start test (~eval date)
         and end test sets.
-
-        Training data has one year's data, test is one quarter.
-
-        NOTE:   Could this be put into the data handler at some point?
         """
         all_dates = self.datahandler.get_all_dates()
-        # BUG: for some reason the filter doesn't work for earliest dates
-        if len(all_dates) > 326:
-            all_dates = all_dates[326:]
+        all_dates = all_dates[all_dates >= dt.datetime(2002, 12, 1)]
         # Generate first dates of quarter
         qtrs = np.array([(d.month-1)/3 + 1 for d in all_dates])
         inds = np.append([True], np.diff(qtrs) != 0)
@@ -96,11 +84,6 @@ class StatArbStrategy(Strategy):
         data.SecCode = data.SecCode.astype(str)
 
         return data
-
-    @staticmethod
-    def _make_iter(variants):
-        return [{x: y for x, y in zip(variants.keys(), vals)}
-            for vals in itertools.product(*variants.values())]
 
 
 if __name__ == '__main__':

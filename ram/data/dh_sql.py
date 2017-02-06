@@ -208,6 +208,10 @@ class DataHandlerSQL(DataHandler):
             print 'error running sqlcmd: ' + str(e)
             return []
 
+    def close_connections(self):
+        self._cursor.close()
+        self._connection.close()
+
 
 def _format_dates(start_date, filter_date, end_date):
         return check_input_date(start_date), \

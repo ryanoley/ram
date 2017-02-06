@@ -3,10 +3,7 @@ import numpy as np
 
 class PairPosition(object):
 
-    # Commission per share
-    COMM = 0.003
-
-    def __init__(self, leg1, p1, size1, leg2, p2, size2):
+    def __init__(self, leg1, p1, size1, leg2, p2, size2, comm=0.005):
         """
         Parameters
         ----------
@@ -23,6 +20,8 @@ class PairPosition(object):
         # Flags to aid accounting
         self.open_position = True
         self.to_close_position = False
+        # Commission per share
+        self.COMM = comm
         # IDs, position name
         self.pair = '{0}_{1}'.format(leg1, leg2)
         self.leg1 = leg1
@@ -45,6 +44,7 @@ class PairPosition(object):
         # Cost of entering the position calculated here
         self.daily_pl = -1 * (abs(self.shares1) +
                               abs(self.shares2)) * self.COMM
+        self.net_exposure = self.shares1 * p1 + self.shares2 * p2
         self.gross_exposure = abs(self.shares1) * p1 + abs(self.shares2) * p2
 
     def update_position_prices(self, p1, p2, d1=0, d2=0, sp1=1, sp2=1):
@@ -95,11 +95,13 @@ class PairPosition(object):
                 (p2 - self.p2) * self.shares2
             # Dividend income
             self.daily_pl += self.shares1 * d1 + self.shares2 * d2
+            self.net_exposure = p1 * self.shares1 + p2 * self.shares2
             self.gross_exposure = abs(p1 * self.shares1) + \
                 abs(p2 * self.shares2)
 
         self.p1 = p1
         self.p2 = p2
+        return
 
     def update_position_exposure(self, new_gross_exposure):
         leg_size = new_gross_exposure / 2.
@@ -110,8 +112,10 @@ class PairPosition(object):
         self.daily_pl += trans_cost
         self.shares1 = new_shares1
         self.shares2 = new_shares2
+        self.net_exposure = self.p1 * self.shares1 + self.p2 * self.shares2
         self.gross_exposure = abs(self.p1 * self.shares1) + \
                 abs(self.p2 * self.shares2)
+        return
 
     def close_position(self):
         if self.open_position:
@@ -119,6 +123,7 @@ class PairPosition(object):
                                    abs(self.shares2)) * self.COMM
             self.shares1 = 0
             self.shares2 = 0
+            self.net_exposure = 0
             self.gross_exposure = 0
             self.open_position = False
         return

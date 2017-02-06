@@ -22,19 +22,23 @@ class Strategy(object):
         """
         This should be the method implemented when running a strategy.
         """
-        results = pd.DataFrame()
+        try:
+            results = pd.DataFrame()
 
-        for i in ProgBar(self.get_iter_index()):
-            output = self.run_index(i)
-            returns = output['data']
-            meta = output['meta']
-            # Enforce that the index is DateTime
-            assert isinstance(returns.index, pd.DatetimeIndex)
-            assert isinstance(meta, dict)
-            results = results.add(returns, fill_value=0)
+            for i in ProgBar(self.get_iter_index()):
+                returns = self.run_index(i)
+                # Enforce that the index is DateTime
+                assert isinstance(returns.index, pd.DatetimeIndex)
+                results = results.add(returns, fill_value=0)
 
-        self.results = results
-        self.meta = meta
+            self.results = results
+
+        except KeyboardInterrupt:
+            print 'Closing Database Connection'
+            self.datahandler.close_connections()
+            raise KeyboardInterrupt
+
+        self.datahandler.close_connections()
 
     def run_index_writer(self, index):
         """

@@ -35,8 +35,8 @@ class TestConstructor(unittest.TestCase):
                                    self.pair_info, n_pairs=1,
                                    max_pos_prop=1)
         benchmark = pd.DataFrame({}, index=self.scores.index)
-        benchmark['PL'] = [-0.06, 109.895, -20, -25.045]
-        benchmark['Exposure'] = [200, 200, 200, 0.]
+        benchmark['PL'] = [-0.1, 109.825, -20.005, -24.08]
+        benchmark['Exposure'] = [200, 200, 189, 0.]
         assert_frame_equal(result, benchmark)
 
     def test_get_pos_exposures(self):
