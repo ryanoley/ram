@@ -85,7 +85,13 @@ class PortfolioConstructor(BaseConstructor):
             #  and must be cleaned at end
             self._close_signals(sc, z_exit=1)
 
-            # 3. OPEN PAIRS
+            # 3. ADJUST POSITIONS
+            #  When the exposures move drastically (say when the markets)
+            #  go up or down, it affects the size of the new positions
+            #  quite significantly
+            self._adjust_open_positions(n_pairs)
+
+            # 4. OPEN NEW PAIRS
             if date != scores.index[-1]:
                 self._execute_open_signals(sc, closes, n_pairs, max_pos_prop)
 
@@ -118,6 +124,11 @@ class PortfolioConstructor(BaseConstructor):
         self._portfolio.close_pairs(list(set(close_pairs)))
         return
 
+    def _adjust_open_positions(self, n_pairs, pos_exp_deviation=0.04):
+        base_exposure = self.booksize / n_pairs
+        self._portfolio.update_position_exposures(base_exposure,
+                                                  pos_exp_deviation)
+
     def _execute_open_signals(self, scores, trade_prices,
                               n_pairs, max_pos_prop):
         """
@@ -145,6 +156,9 @@ class PortfolioConstructor(BaseConstructor):
         return
 
     def _get_pos_exposures(self):
+        """
+        Get exposures each iteration.
+        """
         self._exposures = {}
         for pair, pos in self._portfolio.pairs.iteritems():
             leg1, leg2 = pair.split('_')

@@ -3,7 +3,7 @@ import numpy as np
 
 class PairPosition(object):
 
-    # Commission
+    # Commission per share
     COMM = 0.003
 
     def __init__(self, leg1, p1, size1, leg2, p2, size2):
@@ -100,6 +100,18 @@ class PairPosition(object):
 
         self.p1 = p1
         self.p2 = p2
+
+    def update_position_exposure(self, new_gross_exposure):
+        leg_size = new_gross_exposure / 2.
+        new_shares1 = int(leg_size / self.p1)
+        new_shares2 = int(leg_size / self.p2)
+        trans_cost = -1 * (abs(self.shares1 - new_shares1) +
+                           abs(self.shares2 - new_shares2)) * self.COMM
+        self.daily_pl += trans_cost
+        self.shares1 = new_shares1
+        self.shares2 = new_shares2
+        self.gross_exposure = abs(self.p1 * self.shares1) + \
+                abs(self.p2 * self.shares2)
 
     def close_position(self):
         if self.open_position:

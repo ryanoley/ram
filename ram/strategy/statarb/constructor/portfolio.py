@@ -28,6 +28,21 @@ class PairPortfolio(object):
             self.pairs[pair].update_position_prices(c1, c2, d1, d2, sp1, sp2)
         return
 
+    def update_position_exposures(self, base_exposure, perc_dev):
+        """
+        Parameters
+        ----------
+        base_exposure : numeric
+            Dollar value of the base exposure
+        perc_dev : numeric
+            Percent deviation from the base exposure that is allowed
+            before the position is corrected.
+        """
+        for pair, pos in self.pairs.iteritems():
+            if abs(pos.gross_exposure / base_exposure - 1) < perc_dev:
+                pos.update_position_exposure(base_exposure)
+        return
+
     def add_pair(self, pair, trade_prices, dollar_size, side):
         """
         Parameters
