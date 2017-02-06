@@ -26,7 +26,8 @@ class PortfolioConstructor(BaseConstructor):
         return ['AdjClose', 'RClose', 'RCashDividend',
                 'GSECTOR', 'SplitFactor']
 
-    def get_daily_pl(self, scores, data, pair_info, n_pairs, max_pos_prop):
+    def get_daily_pl(self, scores, data, pair_info, n_pairs, max_pos_prop,
+                     pos_perc_deviation):
         """
         Parameters
         ----------
@@ -38,13 +39,16 @@ class PortfolioConstructor(BaseConstructor):
             Any additional information that could be used to construct
             portfolio from the pair selection process.
 
-        n_pairs : ints
+        n_pairs : int
             Number of pairs in the portfolio at the end of each day
-        max_pos_prop : floats
+        max_pos_prop : float
             Maximum proportion a single Security can be long/short
             given the number of pairs. For example, if there are 100 pairs
             and the max prop is 0.05, the max number of longs/shorts for
             Stock X is 5.
+        pos_perc_deviation : float
+            The max absolute deviation from the initial position before
+            a rebalancing of the pair happens.
         """
         close_table = data.pivot(index='Date',
                                  columns='SecCode',
@@ -89,7 +93,7 @@ class PortfolioConstructor(BaseConstructor):
             #  When the exposures move drastically (say when the markets)
             #  go up or down, it affects the size of the new positions
             #  quite significantly
-            self._adjust_open_positions(n_pairs)
+            self._adjust_open_positions(n_pairs, pos_perc_deviation)
 
             # 4. OPEN NEW PAIRS
             if date != scores.index[-1]:
@@ -104,8 +108,11 @@ class PortfolioConstructor(BaseConstructor):
         self._portfolio.close_pairs(all_pairs=True)
         daily_df.loc[date, 'PL'] += self._portfolio.get_portfolio_daily_pl()
         daily_df.loc[date, 'Exposure'] = 0
-
-        return daily_df
+        # Could this be a flag?
+        daily_df['Ret'] = daily_df.PL / daily_df.Exposure
+        daily_df.Ret.iloc[-1] = daily_df.PL.iloc[-1] / \
+            daily_df.Exposure.iloc[-2]
+        return daily_df.loc[:, ['Ret']]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -124,10 +131,10 @@ class PortfolioConstructor(BaseConstructor):
         self._portfolio.close_pairs(list(set(close_pairs)))
         return
 
-    def _adjust_open_positions(self, n_pairs, pos_exp_deviation=0.03):
+    def _adjust_open_positions(self, n_pairs, pos_perc_deviation=0.03):
         base_exposure = self.booksize / n_pairs
         self._portfolio.update_position_exposures(base_exposure,
-                                                  pos_exp_deviation)
+                                                  pos_perc_deviation)
 
     def _execute_open_signals(self, scores, trade_prices,
                               n_pairs, max_pos_prop):
