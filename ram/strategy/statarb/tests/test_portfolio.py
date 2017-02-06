@@ -15,50 +15,35 @@ class TestPairPortfolio(unittest.TestCase):
     Tests the implementation class DataClass
     """
     def setUp(self):
-        self.zscores = pd.DataFrame({
-            'IBM_AAPL': [1, 2, 3],
-            'IBM_VMW': [-1, -2, -3],
-            'IBM_GOOGL': [1, 2, 3],
-            'GOOGL_AAPL': [1, 2, 3]},
-            index=pd.date_range('2010-01-01', periods=3))
-        self.close = pd.DataFrame({
-            'IBM': [100, 103, 106],
-            'AAPL': [100, 100, 99],
-            'VMW': [50, 52, 54],
-            'GOOGL': [20, 21, 22]},
-            index=pd.date_range('2010-01-01', periods=3))
+        trade_prices = {'IBM': 100, 'VMW': 200, 'GOOGL': 100, 'AAPL': 200}
+        port = PairPortfolio()
+        port.add_pair(pair='IBM_VMW',
+                      trade_prices=trade_prices,
+                      dollar_size=10000,
+                      side=1)
+        port.add_pair(pair='GOOGL_AAPL',
+                      trade_prices=trade_prices,
+                      dollar_size=10000,
+                      side=1)
+        self.port = port
 
     def test_add_pair(self):
-        port = PairPortfolio()
-        p1 = PairPosition('IBM', 100, 100000, 'VMW', 100, -100000)
-        port.add_pair(p1)
-        p2 = PairPosition('GOOGL', 100, 100000, 'AAPL', 100, -100000)
-        port.add_pair(p2)
+        port = self.port
         self.assertListEqual(port.pairs.keys(), ['IBM_VMW', 'GOOGL_AAPL'])
+        self.assertEqual(port.pairs['IBM_VMW'].shares1, 50)
+        self.assertEqual(port.pairs['IBM_VMW'].shares2, -25)
+        self.assertEqual(port.pairs['IBM_VMW'].gross_exposure, 10000)
 
-    def test_get_symbol_values(self):
-        port = PairPortfolio()
-        p1 = PairPosition('IBM', 100, 100000, 'VMW', 100, -100000)
-        port.add_pair(p1)
-        p2 = PairPosition('GOOGL', 100, 100000, 'AAPL', 100, -100000)
-        port.add_pair(p2)
-        result = port.get_gross_exposure()
-        result = port.get_symbol_counts()
-        benchmark = {'VMW': -1, 'AAPL': -1,
-                     'IBM': 1, 'GOOGL': 1}
-        self.assertDictEqual(result, benchmark)
-        p3 = PairPosition('GOOGL', 100, 100000, 'VMW', 100, -100000)
-        port.add_pair(p3)
-        result = port.get_symbol_counts()
-        benchmark = {'VMW': -2, 'AAPL': -1,
-                     'IBM': 1, 'GOOGL': 2}
-        self.assertDictEqual(result, benchmark)
-        p4 = PairPosition('VMW', 100, 100000, 'IBM', 100, -100000)
-        port.add_pair(p4)
-        result = port.get_symbol_counts()
-        benchmark = {'VMW': -1, 'AAPL': -1,
-                     'IBM': 0, 'GOOGL': 2}
-        self.assertDictEqual(result, benchmark)
+    def test_close_pairs(self):
+        port = self.port
+        port.close_pairs(['IBM_VMW'])
+        self.assertEqual(port.pairs.keys(), ['IBM_VMW', 'GOOGL_AAPL'])
+        self.assertEqual(port.pairs['IBM_VMW'].gross_exposure, 0)
+        self.assertNotEqual(port.pairs['GOOGL_AAPL'].gross_exposure, 0)
+        self.assertEqual(port.count_open_positions(), 1)
+        port.close_pairs(all_pairs=True)
+        self.assertEqual(port.count_open_positions(), 0)
+        self.assertEqual(port.pairs['IBM_VMW'].gross_exposure, 0)
 
     def tearDown(self):
         pass

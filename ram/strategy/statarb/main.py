@@ -33,7 +33,8 @@ class StatArbStrategy(Strategy):
 
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
-        if t_start < dt.datetime(2010, 1, 1):
+        #if t_start < dt.datetime(2010, 1, 1):
+        if t_start < dt.datetime(2015, 4, 1):
             out = {}
             out['data'] = pd.DataFrame({}, index=pd.DatetimeIndex([0]))
             out['meta'] = {}
@@ -51,8 +52,14 @@ class StatArbStrategy(Strategy):
                 data, cut_date, **args1)
 
             for args2 in self._make_iter(self.constructor.get_meta_params()):
-                results = self.constructor.get_daily_pl(
-                    scores, data, pair_info, **args2)
+                try:
+                    results = self.constructor.get_daily_pl(
+                        scores, data, pair_info, **args2)
+                except:
+                    import pdb; pdb.set_trace()
+                    results = self.constructor.get_daily_pl(
+                        scores, data, pair_info, **args2)
+
                 results.columns = [ind]
                 output_results = output_results.join(results, how='outer')
                 meta = args1
@@ -123,6 +130,7 @@ class StatArbStrategy(Strategy):
 if __name__ == '__main__':
 
     strategy = StatArbStrategy()
+    import pdb; pdb.set_trace()
     strategy.start()
 
     from gearbox import to_desk

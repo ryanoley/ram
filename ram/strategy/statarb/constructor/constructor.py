@@ -9,29 +9,57 @@ from ram.strategy.statarb.constructor.base import BaseConstructor
 
 class PortfolioConstructor(BaseConstructor):
 
-    def __init__(self,
-                 n_pairs=[100],
-                 max_pos_prop=[.05]
-                 ):
+    def __init__(self, booksize=10e6):
+        """
+        Parameters
+        ----------
+        booksize : numeric
+            Size of gross position
+        """
+        self.booksize = booksize
         self._portfolio = PairPortfolio()
-        self.booksize = 10e6
-        # Params
-        self.n_pairs = n_pairs
-        # Maximum number of net positions on one side of the portfolio
-        self.max_pos_prop = max_pos_prop
-
-    def get_meta_params(self):
-        return {'n_pairs': self.n_pairs,
-                'max_pos_prop': self.max_pos_prop}
 
     def get_feature_names(self):
-        return ['AdjClose', 'GSECTOR']
+        """
+        The columns from the database that are required.
+        """
+        return ['AdjClose', 'RClose', 'RCashDividend',
+                'GSECTOR', 'SplitFactor']
 
     def get_daily_pl(self, scores, data, pair_info, n_pairs, max_pos_prop):
+        """
+        Parameters
+        ----------
+        scores : pd.DataFrames
+            Dates in index and pairs in columns
+        data : pd.DataFrames
+            Daily data for each individual security
+        pair_info : pd.DataFrames
+            Any additional information that could be used to construct
+            portfolio from the pair selection process.
 
-        Close = data.pivot(index='Date',
-                           columns='SecCode',
-                           values='AdjClose')
+        n_pairs : ints
+            Number of pairs in the portfolio at the end of each day
+        max_pos_prop : floats
+            Maximum proportion a single Security can be long/short
+            given the number of pairs. For example, if there are 100 pairs
+            and the max prop is 0.05, the max number of longs/shorts for
+            Stock X is 5.
+        """
+        close_table = data.pivot(index='Date',
+                                 columns='SecCode',
+                                 values='AdjClose')
+
+        dividend_table = data.pivot(index='Date',
+                                    columns='SecCode',
+                                    values='RCashDividend').fillna(0)
+
+        # Instead of using the levels, use the change in levels.
+        # This is necessary for the updating of positions and prices
+        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
+        split_mult_table = data.pivot(index='Date',
+                                      columns='SecCode',
+                                      values='SplitMultiplier').fillna(1)
 
         # Output object
         daily_df = pd.DataFrame(index=scores.index,
@@ -40,22 +68,26 @@ class PortfolioConstructor(BaseConstructor):
 
         for date in scores.index:
 
-            # Get current period data
-            cl_prices = Close.loc[date].to_dict()
+            # Get current period data and put into dictionary
+            # for faster lookup
+            closes = close_table.loc[date].to_dict()
+            dividends = dividend_table.loc[date].to_dict()
+            splits = split_mult_table.loc[date].to_dict()
+
             sc = scores.loc[date]
 
             # 1. Update all the prices in portfolio. This calculates PL
             #    for individual positions
-            self._portfolio.update_prices(cl_prices)
+            self._portfolio.update_prices(closes, dividends, splits)
 
-            # 2. CLOSE PAIRS IF NEEDED
+            # 2. CLOSE PAIRS
             #  Closed pairs are still in portfolio dictionary
             #  and must be cleaned at end
             self._close_signals(sc, z_exit=1)
 
-            # 3. OPEN PAIRS IF NEEDED
-            # Must consider portfolio
-            self._execute_open_signals(sc, cl_prices, n_pairs, max_pos_prop)
+            # 3. OPEN PAIRS
+            if date != scores.index[-1]:
+                self._execute_open_signals(sc, closes, n_pairs, max_pos_prop)
 
             # Report PL and Exposureexposure
             daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
@@ -63,33 +95,27 @@ class PortfolioConstructor(BaseConstructor):
                 self._portfolio.get_gross_exposure()
 
         # Clear all pairs in portfolio and adjust PL
-        cost = self._portfolio.remove_pairs(all_pairs=True)
-        daily_df.loc[date, 'PL'] += cost
+        self._portfolio.close_pairs(all_pairs=True)
+        daily_df.loc[date, 'PL'] += self._portfolio.get_portfolio_daily_pl()
         daily_df.loc[date, 'Exposure'] = 0
-        daily_df['Ret'] = daily_df.PL / daily_df.Exposure
-        # Compensate for closed exposure
-        daily_df.Ret.iloc[-1] = daily_df.PL.iloc[-1] / \
-            daily_df.Exposure.iloc[-2]
-        return daily_df.loc[:, ['Ret']]
+
+        return daily_df
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _close_signals(self, scores, z_exit=1):
-        """
-        Innovation can happen here
-        """
-        scores2 = scores.to_dict()
-        # Remove positions that have gross exposure of zero from update_prices
-        close_pairs = [nm for nm, pos in self._portfolio.pairs.iteritems()
-                       if pos.gross_exposure == 0]
+        close_pairs = []
+
+        ### ADD LOGIC HERE FOR CLOSING WILD MOVERS ###
 
         # Get current position z-scores, and decide if they need to be closed
+        scores2 = scores.to_dict()
         for pair in self._portfolio.pairs.keys():
             if np.abs(scores2[pair]) < z_exit | np.isnan(scores2[pair]):
                 close_pairs.append(pair)
 
         # Close positions
-        self._portfolio.remove_pairs(list(set(close_pairs)))
+        self._portfolio.close_pairs(list(set(close_pairs)))
         return
 
     def _execute_open_signals(self, scores, trade_prices,
@@ -97,58 +123,52 @@ class PortfolioConstructor(BaseConstructor):
         """
         Function that adds new positions.
         """
-        assert max_pos_prop > 0 and max_pos_prop < 1
+        assert max_pos_prop > 0 and max_pos_prop <= 1
         max_pos_count = int(n_pairs * max_pos_prop)
-        current_pos = self._portfolio.pairs.keys()
-        # Count new pairs, if none, then exit
-        new_pairs = max(n_pairs - len(current_pos), 0)
+        self._get_pos_exposures()
+
+        new_pairs = max(n_pairs - self._portfolio.count_open_positions(), 0)
         if new_pairs == 0:
             return
-
-        scores2 = pd.DataFrame({'score': scores.abs(),
-                                'side': scores > 0})
-        scores2 = scores2.sort_values(['score'],
-            ascending=False)
-
-        # SELECTION
-        # Current position values of all open values
-        symbol_counts = self._portfolio.get_symbol_counts()
-
-        bet_size = self.booksize - self._portfolio.get_gross_exposure()
-        leg_size = bet_size / new_pairs / 2
-
-        pairs = []
-        sides = []
+        scores2 = pd.DataFrame({'abs_score': scores.abs(),
+                                'side': np.where(scores <= 0, 1, -1)})
+        scores2 = scores2.sort_values(['abs_score'], ascending=False)
+        pair_bet_size = (self.booksize -
+                         self._portfolio.get_gross_exposure()) / new_pairs
 
         for pair, (sc, side) in scores2.iterrows():
-
-            leg1, leg2 = pair.split('_')
-
-            # Check if hit max value long for position
-            if leg1 in symbol_counts:
-                if abs(symbol_counts[leg1]) == max_pos_count:
-                    continue
-                symbol_counts[leg1] += -1 if side else 1
-            else:
-                symbol_counts[leg1] = -1 if side else 1
-
-            if leg2 in symbol_counts:
-                if abs(symbol_counts[leg2]) == max_pos_count:
-                    continue
-                symbol_counts[leg2] += 1 if side else -1
-            else:
-                symbol_counts[leg2] = 1 if side else -1
-
-            # Create position
-            if side:
-                pos = PairPosition(leg1, trade_prices[leg1], -leg_size,
-                                   leg2, trade_prices[leg2], leg_size)
-            else:
-                pos = PairPosition(leg1, trade_prices[leg1], leg_size,
-                                   leg2, trade_prices[leg2], -leg_size)
-            self._portfolio.add_pair(pos)
-
-            if len(self._portfolio.pairs) == n_pairs:
+            if self._check_pos_exposures(pair, side, max_pos_count):
+                self._portfolio.add_pair(pair, trade_prices,
+                                         pair_bet_size, side)
+            if self._portfolio.count_open_positions() == n_pairs:
                 break
-
         return
+
+    def _get_pos_exposures(self):
+        self._exposures = {}
+        for pair, pos in self._portfolio.pairs.iteritems():
+            leg1, leg2 = pair.split('_')
+            if pos.open_position:
+                if leg1 not in self._exposures:
+                    self._exposures[leg1] = 0
+                if leg2 not in self._exposures:
+                    self._exposures[leg2] = 0
+                side = 1 if pos.shares1 > 0 else -1
+                self._exposures[leg1] += side
+                self._exposures[leg2] += -1 * side
+
+    def _check_pos_exposures(self, pair, side, max_pos_count):
+        leg1, leg2 = pair.split('_')
+
+        if leg1 not in self._exposures:
+            self._exposures[leg1] = 0
+        if leg2 not in self._exposures:
+            self._exposures[leg2] = 0
+
+        if abs(self._exposures[leg1]) < max_pos_count and \
+            abs(self._exposures[leg2]) < max_pos_count:
+            self._exposures[leg1] += side
+            self._exposures[leg1] += -1 * side
+            return True
+        else:
+            return False

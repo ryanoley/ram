@@ -36,8 +36,20 @@ class TestPairPosition(unittest.TestCase):
         pos.update_position_prices(np.nan, 202)
         self.assertTrue(np.isnan(pos.p1))
         self.assertEqual(pos.p2, 202)
-        self.assertEqual(pos.daily_pl, -1 * 1970 * 0.0003)
+        self.assertEqual(pos.daily_pl, 0)
         self.assertEqual(pos.gross_exposure, 0)
+
+    def test_update_position_prices_splits_divs(self):
+        pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000)
+        # Do a split
+        pos.update_position_prices(101, 105, 0, 0, 1, 2)
+        self.assertEqual(pos.p2_entry, 100)
+        self.assertTrue(pos.shares2, -10)
+        self.assertEqual(pos.daily_pl, -40)
+        self.assertEqual(pos.gross_exposure, 2060)
+        # Do dividends
+        pos.update_position_prices(101, 98, 1, 1, 1, 1)
+        self.assertEqual(pos.daily_pl, 70)
 
     def tearDown(self):
         pass
