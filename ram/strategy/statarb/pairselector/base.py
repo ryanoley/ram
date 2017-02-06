@@ -22,9 +22,5 @@ class BasePairSelector(object):
         raise NotImplementedError('BaseStrategy.get_best_pairs')
 
     @abstractmethod
-    def get_meta_params(self):
-        raise NotImplementedError('BaseStrategy.get_meta_params')
-
-    @abstractmethod
     def get_feature_names(self):
         raise NotImplementedError('BaseStrategy.get_feature_names')

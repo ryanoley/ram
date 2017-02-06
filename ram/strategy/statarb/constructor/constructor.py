@@ -138,7 +138,9 @@ class PortfolioConstructor(BaseConstructor):
         max_pos_count = int(n_pairs * max_pos_prop)
         self._get_pos_exposures()
 
-        new_pairs = max(n_pairs - self._portfolio.count_open_positions(), 0)
+        open_pairs = self._portfolio.get_open_positions()
+        new_pairs = max(n_pairs - len(open_pairs), 0)
+
         if new_pairs == 0:
             return
         scores2 = pd.DataFrame({'abs_score': scores.abs(),
@@ -148,6 +150,8 @@ class PortfolioConstructor(BaseConstructor):
                          self._portfolio.get_gross_exposure()) / new_pairs
 
         for pair, (sc, side) in scores2.iterrows():
+            if pair in open_pairs:
+                continue
             if self._check_pos_exposures(pair, side, max_pos_count):
                 self._portfolio.add_pair(pair, trade_prices,
                                          pair_bet_size, side)
@@ -182,7 +186,7 @@ class PortfolioConstructor(BaseConstructor):
         if abs(self._exposures[leg1]) < max_pos_count and \
                 abs(self._exposures[leg2]) < max_pos_count:
             self._exposures[leg1] += side
-            self._exposures[leg1] += -1 * side
+            self._exposures[leg2] += -1 * side
             return True
         else:
             return False

@@ -103,8 +103,8 @@ class PairPosition(object):
 
     def update_position_exposure(self, new_gross_exposure):
         leg_size = new_gross_exposure / 2.
-        new_shares1 = int(leg_size / self.p1)
-        new_shares2 = int(leg_size / self.p2)
+        new_shares1 = int(leg_size / self.p1) * np.sign(self.shares1)
+        new_shares2 = int(leg_size / self.p2) * np.sign(self.shares2)
         trans_cost = -1 * (abs(self.shares1 - new_shares1) +
                            abs(self.shares2 - new_shares2)) * self.COMM
         self.daily_pl += trans_cost

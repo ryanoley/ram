@@ -14,16 +14,8 @@ class StatArbStrategy(Strategy):
 
     def __init__(self, **args):
         super(StatArbStrategy, self).__init__()
-
-        self.pairselector = PairsStrategy2(
-            z_window=[20, 30, 40, 50, 60, 70, 80, 90, 120],
-            max_pairs = [1000, 2000]
-        )
-
-        self.constructor = PortfolioConstructor(
-            n_pairs=[100, 150, 200],
-            max_pos_prop=[.05, .10]
-        )
+        self.pairselector = PairsStrategy2()
+        self.constructor = PortfolioConstructor()
         self.univ_size = 500
 
     def get_iter_index(self):
@@ -33,8 +25,7 @@ class StatArbStrategy(Strategy):
 
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
-        #if t_start < dt.datetime(2010, 1, 1):
-        if t_start < dt.datetime(2015, 4, 1):
+        if t_start < dt.datetime(2010, 1, 1):
             out = {}
             out['data'] = pd.DataFrame({}, index=pd.DatetimeIndex([0]))
             out['meta'] = {}
@@ -43,31 +34,15 @@ class StatArbStrategy(Strategy):
         data = self._get_data(t_start, cut_date, t_end,
                               univ_size=self.univ_size)
 
-        # Create iterator
-        ind = 0
-        output_results = pd.DataFrame()
-        output_meta = {}
-        for args1 in self._make_iter(self.pairselector.get_meta_params()):
-            scores, pair_info = self.pairselector.get_best_pairs(
-                data, cut_date, **args1)
+        args1 = {'z_window': 30, 'max_pairs': 1000}
+        scores, pair_info = self.pairselector.get_best_pairs(
+            data, cut_date, **args1)
 
-            for args2 in self._make_iter(self.constructor.get_meta_params()):
-                try:
-                    results = self.constructor.get_daily_pl(
-                        scores, data, pair_info, **args2)
-                except:
-                    import pdb; pdb.set_trace()
-                    results = self.constructor.get_daily_pl(
-                        scores, data, pair_info, **args2)
+        args2 = {'n_pairs': 100, 'max_pos_prop': 0.05}
+        results = self.constructor.get_daily_pl(
+            scores, data, pair_info, **args2)
 
-                results.columns = [ind]
-                output_results = output_results.join(results, how='outer')
-                meta = args1
-                meta.update(args2)
-                output_meta[ind] = meta
-                ind += 1
-
-        return {'meta': output_meta, 'data': output_results}
+        return {'meta': {}, 'data': results}
 
     def _get_date_iterator(self):
         """
@@ -103,7 +78,8 @@ class StatArbStrategy(Strategy):
 
         filter_args = {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR not in (55)',
+            'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
+                'and Close_ > 15',
             'univ_size': univ_size}
 
         features = list(set(self.pairselector.get_feature_names() +
@@ -130,7 +106,6 @@ class StatArbStrategy(Strategy):
 if __name__ == '__main__':
 
     strategy = StatArbStrategy()
-    import pdb; pdb.set_trace()
     strategy.start()
 
     from gearbox import to_desk

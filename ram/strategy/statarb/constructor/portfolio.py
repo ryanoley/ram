@@ -39,7 +39,8 @@ class PairPortfolio(object):
             before the position is corrected.
         """
         for pair, pos in self.pairs.iteritems():
-            if abs(pos.gross_exposure / base_exposure - 1) < perc_dev:
+            if abs(pos.gross_exposure / base_exposure - 1) > perc_dev and \
+                    pos.open_position:
                 pos.update_position_exposure(base_exposure)
         return
 
@@ -76,6 +77,10 @@ class PairPortfolio(object):
             if pos.to_close_position:
                 pos.close_position()
         return
+
+    def get_open_positions(self):
+        return [pair for pair, pos in self.pairs.iteritems() \
+                if pos.open_position]
 
     def count_open_positions(self):
         return sum([pos.open_position for pos in self.pairs.itervalues()])
