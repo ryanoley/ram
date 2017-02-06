@@ -101,12 +101,12 @@ class PortfolioConstructor(BaseConstructor):
 
         return daily_df
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _close_signals(self, scores, z_exit=1):
         close_pairs = []
 
-        ### ADD LOGIC HERE FOR CLOSING WILD MOVERS ###
+        # ~~ ADD LOGIC HERE FOR CLOSING WILD MOVERS ~~ #
 
         # Get current position z-scores, and decide if they need to be closed
         scores2 = scores.to_dict()
@@ -166,7 +166,7 @@ class PortfolioConstructor(BaseConstructor):
             self._exposures[leg2] = 0
 
         if abs(self._exposures[leg1]) < max_pos_count and \
-            abs(self._exposures[leg2]) < max_pos_count:
+                abs(self._exposures[leg2]) < max_pos_count:
             self._exposures[leg1] += side
             self._exposures[leg1] += -1 * side
             return True
