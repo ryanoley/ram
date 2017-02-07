@@ -6,6 +6,8 @@ MAINTAINER = 'RAM'
 DESCRIPTION = 'Master System'
 
 PACKAGES = ['ram',
+            'ram/analysis',
+            'ram/aws',
             'ram/data',
             'ram/repository',
             'ram/strategy',
@@ -18,8 +20,7 @@ PACKAGES = ['ram',
             'ram/strategy/statarb/pairselector',
             'ram/strategy/vxx',
             'ram/strategy/yearend',
-            'ram/utils',
-            'ram/aws']
+            'ram/utils']
 
 setup(
     name=DISTNAME,
