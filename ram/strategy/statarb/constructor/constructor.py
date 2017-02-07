@@ -52,7 +52,7 @@ class PortfolioConstructor(BaseConstructor):
         """
         close_table = data.pivot(index='Date',
                                  columns='SecCode',
-                                 values='AdjClose')
+                                 values='RClose')
 
         dividend_table = data.pivot(index='Date',
                                     columns='SecCode',

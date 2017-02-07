@@ -30,14 +30,14 @@ class StatArbStrategy(Strategy):
                               univ_size=self.univ_size)
 
         args1 = make_arg_iter({
-            'z_window': [30, 40, 50, 60, 100, 140],
+            'z_window': [10, 15, 20, 25, 30, 40],
             'max_pairs': [1000, 1500]
         })
 
         args2 = make_arg_iter({
             'n_pairs': [80, 120, 180],
             'max_pos_prop': [0.05, 0.10],
-            'pos_perc_deviation': [0.3, 0.5, 0.7],
+            'pos_perc_deviation': [0.03, 0.05, 0.07],
         })
 
         ind = 0
@@ -53,13 +53,11 @@ class StatArbStrategy(Strategy):
                     scores, data, pair_info, **a2)
                 results.columns = [ind]
                 output_results = output_results.join(results, how='outer')
-                ind += 1
-
                 temp_params = {}
                 temp_params.update(a1)
                 temp_params.update(a2)
-
                 output_params[ind] = temp_params
+                ind += 1
 
         deliverable = {'returns': output_results,
                        'column_params': output_params}
@@ -73,7 +71,6 @@ class StatArbStrategy(Strategy):
         """
         all_dates = self.datahandler.get_all_dates()
         all_dates = all_dates[all_dates >= dt.datetime(2002, 12, 1)]
-        all_dates = all_dates[all_dates >= dt.datetime(2016, 2, 1)]
         # Generate first dates of quarter
         qtrs = np.array([(d.month-1)/3 + 1 for d in all_dates])
         inds = np.append([True], np.diff(qtrs) != 0)
