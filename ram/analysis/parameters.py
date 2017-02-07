@@ -1,3 +1,6 @@
+"""
+Analysis tools for the parameters that are supplied by a strategy.
+"""
 import json
 import pandas as pd
 
@@ -11,7 +14,9 @@ def analyze_parameters(data_path, param_path):
     with open(param_path) as json_data:
         params = json.load(json_data)
     json_data.close()
-    return format_param_results(df, params)
+    # Analysis
+    cparams = classify_params(params)
+    return format_param_results(df, cparams)
 
 
 def classify_params(params):
@@ -23,25 +28,26 @@ def classify_params(params):
             if v not in out[k]:
                 out[k][v] = []
             out[k][v].append(i)
+            out[k][v].sort()
     return out
 
 
-def format_param_results(data, params):
-    cparams = classify_params(params)
+def format_param_results(data, cparams):
     out = []
     for k, p in cparams.iteritems():
         for v, cols in p.iteritems():
             s1 = data.loc[:, cols].sum().mean()
             s2 = (data.loc[:, cols].mean() / data.loc[:, cols].std()).mean()
-            out.append([k, v, s1, s2])
-    out = pd.DataFrame(out, columns=['Param', 'Val', 'TotalRet', 'Sharpe'])
+            out.append([k, v, len(cols), s1, s2])
+    out = pd.DataFrame(out, columns=['Param', 'Val', 'Count',
+                                     'MeanTotalRet', 'MeanSharpe'])
     out = out.sort_values(['Param', 'Val']).reset_index(drop=True)
     return out
 
 
 if __name__ == '__main__':
     import os
-    ## Import data
+    # Import data
     ddir = '/Users/mitchellsuter/Desktop/statarb'
     data_path = os.path.join(ddir, 'statarb_run.csv')
     param_path = os.path.join(ddir, 'stat_arb_params.json')
