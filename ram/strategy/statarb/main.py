@@ -14,7 +14,7 @@ from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 class StatArbStrategy(Strategy):
 
     def __init__(self, **args):
-        super(StatArbStrategy, self).__init__()
+        super(StatArbStrategy, self).__init__(**args)
         self.pairselector = PairsStrategy2()
         self.constructor = PortfolioConstructor()
         self.univ_size = 500
@@ -61,11 +61,10 @@ class StatArbStrategy(Strategy):
 
                 output_params[ind] = temp_params
 
-        # write
-        with open('C:\Users\Mitchell\Desktop\stat_arb_params.json', 'w') as outfile:
-            json.dump(output_params, outfile)
+        deliverable = {'returns': output_results,
+                       'column_params': output_params}
 
-        return output_results
+        return deliverable
 
     def _get_date_iterator(self):
         """
@@ -74,6 +73,7 @@ class StatArbStrategy(Strategy):
         """
         all_dates = self.datahandler.get_all_dates()
         all_dates = all_dates[all_dates >= dt.datetime(2002, 12, 1)]
+        all_dates = all_dates[all_dates >= dt.datetime(2016, 2, 1)]
         # Generate first dates of quarter
         qtrs = np.array([(d.month-1)/3 + 1 for d in all_dates])
         inds = np.append([True], np.diff(qtrs) != 0)
@@ -122,8 +122,8 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy()
+    strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
+                               run_version='v1')
+    #strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
+    #                           run_version='v1')
     strategy.start()
-
-    from gearbox import to_desk
-    to_desk(strategy.results, 'statarb_run')
