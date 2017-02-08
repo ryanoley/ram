@@ -26,8 +26,9 @@ class PortfolioConstructor(BaseConstructor):
         return ['AdjClose', 'RClose', 'RCashDividend',
                 'GSECTOR', 'SplitFactor']
 
-    def get_daily_pl(self, scores, data, pair_info, n_pairs, max_pos_prop,
-                     pos_perc_deviation):
+    def get_daily_pl(self, scores, data, pair_info, n_pairs,
+                     max_pos_prop, pos_perc_deviation, min_z_enter,
+                     z_exit):
         """
         Parameters
         ----------
@@ -49,6 +50,10 @@ class PortfolioConstructor(BaseConstructor):
         pos_perc_deviation : float
             The max absolute deviation from the initial position before
             a rebalancing of the pair happens.
+        min_z_enter : numeric
+            What is the minimum Z-Score needed to put on a position
+        z_exit : numeric
+            At what point does one exit the position
         """
         close_table = data.pivot(index='Date',
                                  columns='SecCode',
@@ -87,7 +92,7 @@ class PortfolioConstructor(BaseConstructor):
             # 2. CLOSE PAIRS
             #  Closed pairs are still in portfolio dictionary
             #  and must be cleaned at end
-            self._close_signals(sc, z_exit=1)
+            self._close_signals(sc, z_exit)
 
             # 3. ADJUST POSITIONS
             #  When the exposures move drastically (say when the markets)
@@ -95,9 +100,10 @@ class PortfolioConstructor(BaseConstructor):
             #  quite significantly
             self._adjust_open_positions(n_pairs, pos_perc_deviation)
 
-            # 4. OPEN NEW PAIRS
+            # 4. OPEN NEW PAIRS - Just not last day of periodn
             if date != scores.index[-1]:
-                self._execute_open_signals(sc, closes, n_pairs, max_pos_prop)
+                self._execute_open_signals(sc, closes, n_pairs, max_pos_prop,
+                                           min_z_enter)
 
             # Report PL and Exposureexposure
             daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
@@ -137,7 +143,7 @@ class PortfolioConstructor(BaseConstructor):
                                                   pos_perc_deviation)
 
     def _execute_open_signals(self, scores, trade_prices,
-                              n_pairs, max_pos_prop):
+                              n_pairs, max_pos_prop, min_z_enter):
         """
         Function that adds new positions.
         """
@@ -158,6 +164,8 @@ class PortfolioConstructor(BaseConstructor):
         for pair, (sc, side) in scores2.iterrows():
             if pair in open_pairs:
                 continue
+            if sc < min_z_enter:
+                break
             if self._check_pos_exposures(pair, side, max_pos_count):
                 self._portfolio.add_pair(pair, trade_prices,
                                          pair_bet_size, side)

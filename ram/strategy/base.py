@@ -34,6 +34,9 @@ class Strategy(object):
                     rets = output['returns']
                 elif isinstance(output, pd.DataFrame):
                     rets = output
+                elif output is None:
+                    # For DEBUGGING
+                    continue
                 # Enforce that the index is DateTime
                 assert isinstance(rets.index, pd.DatetimeIndex)
                 returns = returns.add(rets, fill_value=0)
