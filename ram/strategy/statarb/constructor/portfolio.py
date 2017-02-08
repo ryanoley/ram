@@ -12,6 +12,7 @@ class PairPortfolio(object):
             # Position level statistics
             'holding_days': [],
             'rebalance_count': [],
+            'perc_gains': []
         }
 
     def update_prices(self, closes, dividends, splits):
@@ -113,6 +114,8 @@ class PairPortfolio(object):
                     rpair.stat_holding_days)
                 self.stats_container['rebalance_count'].append(
                     rpair.stat_rebalance_count)
+                self.stats_container['perc_gains'].append(
+                    rpair.stat_perc_gain)
 
         return port_daily_pl
 
@@ -120,7 +123,7 @@ class PairPortfolio(object):
         # Clean-up and return container
         stats = self.stats_container
         out = {}
-        out['total_positions'] = len(stats['holding_days'])
+        out['total_trades'] = len(stats['holding_days'])
 
         out['avg_holding_days'] = sum(stats['holding_days']) / float(
             len(stats['holding_days']))
@@ -129,4 +132,10 @@ class PairPortfolio(object):
         out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
             len(stats['rebalance_count']))
         out['max_rebalance_count'] = max(stats['rebalance_count'])
+
+        out['avg_perc_gain'] = sum(stats['perc_gains']) / float(
+            len(stats['perc_gains']))
+        out['max_perc_gain'] = max(stats['perc_gains'])
+        out['min_perc_gain'] = min(stats['perc_gains'])
+
         return out

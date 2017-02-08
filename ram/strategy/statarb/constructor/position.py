@@ -80,11 +80,15 @@ class PairPosition(object):
         if np.isnan(p1) and ~np.isnan(p2):
             self.daily_pl = (p2 - self.p2) * self.shares2
             self.shares1 = 0
+            # For downstream perc gain calculation
+            p1 = self.p1
             self.to_close_position = True
 
         elif ~np.isnan(p1) and np.isnan(p2):
             self.daily_pl = (p1 - self.p1) * self.shares1
             self.shares2 = 0
+            # For downstream perc gain calculation
+            p2 = self.p2
             self.to_close_position = True
 
         elif np.isnan(p1) and np.isnan(p2):

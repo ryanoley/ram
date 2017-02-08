@@ -27,6 +27,7 @@ class Strategy(object):
             # Objects that can be returned by run_index
             returns = pd.DataFrame()
             column_params = {}
+            statistics = {}
 
             for i in ProgBar(self.get_iter_index()):
                 output = self.run_index(i)
@@ -40,10 +41,15 @@ class Strategy(object):
                 # Enforce that the index is DateTime
                 assert isinstance(rets.index, pd.DatetimeIndex)
                 returns = returns.add(rets, fill_value=0)
+                if 'statistics' in output:
+                    statistics[i] = output['statistics']
 
             self.returns = returns
             if 'column_params' in output:
                 self.column_params = output['column_params']
+            if len(statistics) > 0:
+                self.statistics = statistics
+
             self._write_results()
 
         except KeyboardInterrupt:
@@ -88,6 +94,12 @@ class Strategy(object):
                 with open(os.path.join(self.strategy_output_dir,
                                        'params.json'), 'w') as outfile:
                     json.dump(self.column_params, outfile)
+                outfile.close()
+
+            if self.statistics:
+                with open(os.path.join(self.strategy_output_dir,
+                                       'statistics.json'), 'w') as outfile:
+                    json.dump(self.statistics, outfile)
                 outfile.close()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

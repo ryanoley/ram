@@ -26,20 +26,46 @@ class PortfolioConstructor(BaseConstructor):
         return ['AdjClose', 'RClose', 'RCashDividend',
                 'GSECTOR', 'SplitFactor']
 
-    def get_daily_pl(self, scores, data, pair_info, n_pairs,
-                     max_pos_prop, pos_perc_deviation, min_z_enter,
-                     z_exit):
+    def set_and_prep_data(self, scores, pair_info, data):
+        # Trim data
+        data = data[data.Date.isin(scores.index)].copy()
+
+        self.close_dict = data.pivot(
+            index='Date', columns='SecCode', values='RClose').T.to_dict()
+
+        self.dividend_dict = data.pivot(
+            index='Date', columns='SecCode',
+            values='RCashDividend').fillna(0).T.to_dict()
+
+        # Instead of using the levels, use the change in levels.
+        # This is necessary for the updating of positions and prices
+        data.loc[:, 'SplitMultiplier'] = \
+            data.SplitFactor.pct_change().fillna(0) + 1
+        self.split_mult_dict = data.pivot(
+            index='Date', columns='SecCode',
+            values='SplitMultiplier').fillna(1).T.to_dict()
+
+        # Need all scores for exit
+        self.exit_scores = scores.T.to_dict()
+
+        scores = scores.unstack().reset_index()
+        scores.columns = ['Pair', 'Date', 'score']
+        scores['abs_score'] = scores.score.abs()
+        scores['side'] = np.where(scores.score <= 0, 1, -1)
+        scores = scores.sort_values(['Date', 'abs_score'], ascending=False)
+        scores['deliverable'] = zip(scores.abs_score, scores.Pair, scores.side)
+        self.enter_scores = {}
+        for d in np.unique(self.exit_scores.keys()):
+            self.enter_scores[d] = scores.deliverable[scores.Date == d].values
+
+        self.all_dates = np.unique(self.exit_scores.keys())
+        self.pair_info = pair_info
+
+    def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation,
+                     min_z_enter, z_exit):
         """
         Parameters
         ----------
-        scores : pd.DataFrames
-            Dates in index and pairs in columns
-        data : pd.DataFrames
-            Daily data for each individual security
-        pair_info : pd.DataFrames
-            Any additional information that could be used to construct
-            portfolio from the pair selection process.
-
         n_pairs : int
             Number of pairs in the portfolio at the end of each day
         max_pos_prop : float
@@ -55,35 +81,19 @@ class PortfolioConstructor(BaseConstructor):
         z_exit : numeric
             At what point does one exit the position
         """
-        close_table = data.pivot(index='Date',
-                                 columns='SecCode',
-                                 values='RClose')
-
-        dividend_table = data.pivot(index='Date',
-                                    columns='SecCode',
-                                    values='RCashDividend').fillna(0)
-
-        # Instead of using the levels, use the change in levels.
-        # This is necessary for the updating of positions and prices
-        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
-        split_mult_table = data.pivot(index='Date',
-                                      columns='SecCode',
-                                      values='SplitMultiplier').fillna(1)
-
         # Output object
-        daily_df = pd.DataFrame(index=scores.index,
+        daily_df = pd.DataFrame(index=self.all_dates,
                                 columns=['PL', 'Exposure'],
                                 dtype=float)
 
-        for date in scores.index:
+        for date in self.all_dates:
 
-            # Get current period data and put into dictionary
-            # for faster lookup
-            closes = close_table.loc[date].to_dict()
-            dividends = dividend_table.loc[date].to_dict()
-            splits = split_mult_table.loc[date].to_dict()
+            closes = self.close_dict[date]
+            dividends = self.dividend_dict[date]
+            splits = self.split_mult_dict[date]
 
-            sc = scores.loc[date]
+            exit_scores = self.exit_scores[date]
+            enter_scores = self.enter_scores[date]
 
             # 1. Update all the prices in portfolio. This calculates PL
             #    for individual positions
@@ -92,7 +102,7 @@ class PortfolioConstructor(BaseConstructor):
             # 2. CLOSE PAIRS
             #  Closed pairs are still in portfolio dictionary
             #  and must be cleaned at end
-            self._close_signals(sc, z_exit)
+            self._close_signals(exit_scores, z_exit)
 
             # 3. ADJUST POSITIONS
             #  When the exposures move drastically (say when the markets)
@@ -101,11 +111,11 @@ class PortfolioConstructor(BaseConstructor):
             self._adjust_open_positions(n_pairs, pos_perc_deviation)
 
             # 4. OPEN NEW PAIRS - Just not last day of periodn
-            if date != scores.index[-1]:
-                self._execute_open_signals(sc, closes, n_pairs, max_pos_prop,
-                                           min_z_enter)
+            if date != self.all_dates[-1]:
+                self._execute_open_signals(enter_scores, closes, n_pairs,
+                                           max_pos_prop, min_z_enter)
 
-            # Report PL and Exposureexposure
+            # Report PL and Exposure
             daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
             daily_df.loc[date, 'Exposure'] = \
                 self._portfolio.get_gross_exposure()
@@ -129,9 +139,8 @@ class PortfolioConstructor(BaseConstructor):
         # ~~ ADD LOGIC HERE FOR CLOSING WILD MOVERS ~~ #
 
         # Get current position z-scores, and decide if they need to be closed
-        scores2 = scores.to_dict()
         for pair in self._portfolio.pairs.keys():
-            if np.abs(scores2[pair]) < z_exit or np.isnan(scores2[pair]):
+            if np.abs(scores[pair]) < z_exit or np.isnan(scores[pair]):
                 close_pairs.append(pair)
 
         # Close positions
@@ -154,15 +163,12 @@ class PortfolioConstructor(BaseConstructor):
             return
 
         pair_bet_size = self.booksize / n_pairs
-        scores2 = pd.DataFrame({'abs_score': scores.abs(),
-                                'side': np.where(scores <= 0, 1, -1)})
-        scores2 = scores2.sort_values(['abs_score'], ascending=False)
 
         assert max_pos_prop > 0 and max_pos_prop <= 1
         max_pos_count = int(n_pairs * max_pos_prop)
         self._get_pos_exposures()
 
-        for pair, (sc, side) in scores2.iterrows():
+        for sc, pair, side in scores:
             if pair in open_pairs:
                 continue
             if sc < min_z_enter:

@@ -23,24 +23,21 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, index):
 
-        if index < 20:
-            return
-
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         data = self._get_data(t_start, cut_date, t_end,
                               univ_size=self.univ_size)
 
         args1 = make_arg_iter({
-            'z_window': [10, 30],
+            'z_window': [10, 15, 20, 30],
             'max_pairs': [2000, 4000],
             'same_sector': [False, True],
-            'vol_ratio_filter': [.3, 10]
+            'vol_ratio_filter': [.3, .7, 10]
         })
 
         args2 = make_arg_iter({
             'n_pairs': [100, 200],
-            'max_pos_prop': [0.05],
+            'max_pos_prop': [0.05, 0.10],
             'pos_perc_deviation': [0.03, 0.07, 0.12],
             'min_z_enter': [1.4, 2.0],
             'z_exit': [1, 1.2]
@@ -55,11 +52,12 @@ class StatArbStrategy(Strategy):
             scores, pair_info = self.pairselector.get_best_pairs(
                 data, cut_date, **a1)
 
-            import pdb; pdb.set_trace()
+            # Optimization
+            self.constructor.set_and_prep_data(scores, pair_info, data)
 
             for a2 in args2:
-                results, stats = self.constructor.get_daily_pl(
-                    scores, data, pair_info, **a2)
+                results, stats = self.constructor.get_daily_pl(**a2)
+
                 results.columns = [ind]
                 output_results = output_results.join(results, how='outer')
                 temp_params = {}
@@ -131,7 +129,7 @@ def make_arg_iter(variants):
 if __name__ == '__main__':
 
     strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
-                               run_version='v4')
+                               run_version='v5')
     #strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
     #                           run_version='v4')
     strategy.start()
