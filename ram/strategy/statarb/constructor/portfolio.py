@@ -8,6 +8,11 @@ class PairPortfolio(object):
 
     def __init__(self):
         self.pairs = {}
+        self.stats_container = {
+            # Position level statistics
+            'holding_days': [],
+            'rebalance_count': [],
+        }
 
     def update_prices(self, closes, dividends, splits):
         """
@@ -91,11 +96,37 @@ class PairPortfolio(object):
         return sum([pos.gross_exposure for pos in self.pairs.itervalues()])
 
     def get_portfolio_daily_pl(self):
+        """
+        NOTE: Here the daily_pls are reset for individual positions,
+        closed pairs are finally removed from the portfolio,
+        and final statistics are gathered from those removed pairs.
+        """
         port_daily_pl = 0
         # Get PL and Clean out positions
         for pair in self.pairs.keys():
             port_daily_pl += self.pairs[pair].daily_pl
             self.pairs[pair].daily_pl = 0
             if not self.pairs[pair].open_position:
-                self.pairs.pop(pair)
+                rpair = self.pairs.pop(pair)
+                # Record some stats
+                self.stats_container['holding_days'].append(
+                    rpair.stat_holding_days)
+                self.stats_container['rebalance_count'].append(
+                    rpair.stat_rebalance_count)
+
         return port_daily_pl
+
+    def get_period_stats(self):
+        # Clean-up and return container
+        stats = self.stats_container
+        out = {}
+        out['total_positions'] = len(stats['holding_days'])
+
+        out['avg_holding_days'] = sum(stats['holding_days']) / float(
+            len(stats['holding_days']))
+        out['max_holding_days'] = max(stats['holding_days']) 
+
+        out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
+            len(stats['rebalance_count']))
+        out['max_rebalance_count'] = max(stats['rebalance_count'])
+        return out

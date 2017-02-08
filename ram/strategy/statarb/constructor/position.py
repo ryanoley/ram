@@ -46,6 +46,10 @@ class PairPosition(object):
                               abs(self.shares2)) * self.COMM
         self.net_exposure = self.shares1 * p1 + self.shares2 * p2
         self.gross_exposure = abs(self.shares1) * p1 + abs(self.shares2) * p2
+        # Stats
+        self.stat_holding_days = 0
+        self.stat_perc_gain = 0
+        self.stat_rebalance_count = 0
 
     def update_position_prices(self, p1, p2, d1=0, d2=0, sp1=1, sp2=1):
         """
@@ -99,6 +103,14 @@ class PairPosition(object):
             self.gross_exposure = abs(p1 * self.shares1) + \
                 abs(p2 * self.shares2)
 
+        # Stats
+        self.stat_holding_days +=1
+        self.stat_perc_gain = ((p1 - self.p1_entry) * self.shares1 + \
+                               (p2 - self.p2_entry) * self.shares2) / \
+            float((self.p1_entry * abs(self.shares1) +
+                  self.p2_entry * abs(self.shares2)))
+
+        # Update current prices for daily vol
         self.p1 = p1
         self.p2 = p2
         return
@@ -115,6 +127,7 @@ class PairPosition(object):
         self.net_exposure = self.p1 * self.shares1 + self.p2 * self.shares2
         self.gross_exposure = abs(self.p1 * self.shares1) + \
                 abs(self.p2 * self.shares2)
+        self.stat_rebalance_count += 1
         return
 
     def close_position(self):

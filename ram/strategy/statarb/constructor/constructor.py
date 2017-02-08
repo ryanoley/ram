@@ -118,7 +118,8 @@ class PortfolioConstructor(BaseConstructor):
         daily_df['Ret'] = daily_df.PL / daily_df.Exposure
         daily_df.Ret.iloc[-1] = daily_df.PL.iloc[-1] / \
             daily_df.Exposure.iloc[-2]
-        return daily_df.loc[:, ['Ret']]
+
+        return daily_df.loc[:, ['Ret']], self._portfolio.get_period_stats()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

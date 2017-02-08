@@ -64,6 +64,7 @@ class TestPairPosition(unittest.TestCase):
         pos.update_position_exposure(100000)
         self.assertEqual(pos.gross_exposure, 99870)
         self.assertEqual(pos.net_exposure, 120)
+        self.assertEqual(pos.stat_rebalance_count, 1)
 
     def test_close_position(self):
         pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000, 0.001)
@@ -72,6 +73,15 @@ class TestPairPosition(unittest.TestCase):
         pos.close_position()
         self.assertFalse(pos.open_position)
         self.assertEqual(pos.daily_pl, -0.03)
+
+    def test_position_stats(self):
+        pos = PairPosition('IBM', 100, 1000, 'AAPL', 200, -1000, 0)
+        pos.update_position_prices(104, 200)
+        self.assertEqual(pos.stat_perc_gain, 0.02)
+        self.assertEqual(pos.stat_holding_days, 1)
+        pos.update_position_prices(96, 200)
+        self.assertEqual(pos.stat_perc_gain, -0.02)
+        self.assertEqual(pos.stat_holding_days, 2)
 
     def tearDown(self):
         pass

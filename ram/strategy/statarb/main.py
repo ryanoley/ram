@@ -23,6 +23,9 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, index):
 
+        if index < 20:
+            return
+
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         data = self._get_data(t_start, cut_date, t_end,
@@ -46,13 +49,16 @@ class StatArbStrategy(Strategy):
         ind = 0
         output_results = pd.DataFrame()
         output_params = {}
+        output_stats = {}
 
         for a1 in args1:
             scores, pair_info = self.pairselector.get_best_pairs(
                 data, cut_date, **a1)
 
+            import pdb; pdb.set_trace()
+
             for a2 in args2:
-                results = self.constructor.get_daily_pl(
+                results, stats = self.constructor.get_daily_pl(
                     scores, data, pair_info, **a2)
                 results.columns = [ind]
                 output_results = output_results.join(results, how='outer')
@@ -60,10 +66,12 @@ class StatArbStrategy(Strategy):
                 temp_params.update(a1)
                 temp_params.update(a2)
                 output_params[ind] = temp_params
+                output_stats[ind] = stats
                 ind += 1
 
         deliverable = {'returns': output_results,
-                       'column_params': output_params}
+                       'column_params': output_params,
+                       'statistics': output_stats}
 
         return deliverable
 

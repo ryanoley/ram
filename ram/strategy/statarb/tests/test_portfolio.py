@@ -45,6 +45,27 @@ class TestPairPortfolio(unittest.TestCase):
         self.assertEqual(port.count_open_positions(), 0)
         self.assertEqual(port.pairs['IBM_VMW'].gross_exposure, 0)
 
+    def test_get_period_stats(self):
+        port = self.port
+        closes = {'IBM': 103, 'VMW': 202, 'GOOGL': 110, 'AAPL': 198}
+        dividends = {'IBM': 0, 'VMW': 0, 'GOOGL': 0, 'AAPL': 0}
+        splits = {'IBM': 1, 'VMW': 1, 'GOOGL': 1, 'AAPL': 1}
+        port.update_prices(closes, dividends, splits)
+        port.close_pairs(['IBM_VMW'])
+        port.get_portfolio_daily_pl()
+        port.update_prices(closes, dividends, splits)
+        port.close_pairs(all_pairs=True)
+        port.get_portfolio_daily_pl()
+        result = port.get_period_stats()
+        benchmark = {
+            'total_positions': 2,
+            'avg_rebalance_count': 0.0,
+            'max_holding_days': 2,
+            'max_rebalance_count': 0,
+            'avg_holding_days': 1.5
+        }
+        self.assertDictEqual(result, benchmark)
+
     def tearDown(self):
         pass
 
