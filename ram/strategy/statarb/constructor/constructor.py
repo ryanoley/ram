@@ -130,7 +130,7 @@ class PortfolioConstructor(BaseConstructor):
         # Get current position z-scores, and decide if they need to be closed
         scores2 = scores.to_dict()
         for pair in self._portfolio.pairs.keys():
-            if np.abs(scores2[pair]) < z_exit | np.isnan(scores2[pair]):
+            if np.abs(scores2[pair]) < z_exit or np.isnan(scores2[pair]):
                 close_pairs.append(pair)
 
         # Close positions
