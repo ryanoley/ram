@@ -24,19 +24,35 @@ class TestConstructor(unittest.TestCase):
             'SecCode': ['AAPL'] * 4 + ['GOOGL'] * 4 + ['IBM'] * 4,
             'Date': dates * 3,
             'AdjClose': [10, 9, 5, 5] + [10, 20, 18, 15] + [9, 10, 11, 12],
+            'RClose': [10, 9, 5, 5] + [10, 20, 18, 15] + [9, 10, 11, 12],
             'RCashDividend': [0] * 12,
             'SplitFactor': [1] * 12
         })
         self.pair_info = pd.DataFrame({})
 
+    def test_set_and_prep_data(self):
+        cons = PortfolioConstructor(booksize=200)
+        cons.set_and_prep_data(self.scores, self.pair_info, self.data)
+        result = cons.close_dict[pd.Timestamp('2015-01-01')]
+        benchmark = {'AAPL': 10, 'GOOGL': 10, 'IBM': 9}
+        self.assertDictEqual(result, benchmark)
+        result = cons.close_dict[pd.Timestamp('2015-01-04')]
+        benchmark = {'AAPL': 5, 'GOOGL': 15, 'IBM': 12}
+        self.assertDictEqual(result, benchmark)
+        result = cons.exit_scores[pd.Timestamp('2015-01-01')]
+        benchmark = {'AAPL_GOOGL': 2, 'GOOGL_IBM': 0, 'AAPL_IBM': 0}
+        self.assertDictEqual(result, benchmark)
+        result = cons.exit_scores[pd.Timestamp('2015-01-04')]
+        benchmark = {'AAPL_GOOGL': 0, 'GOOGL_IBM': -2, 'AAPL_IBM': 1}
+        self.assertDictEqual(result, benchmark)
+
     def test_get_daily_pl(self):
-        port = PortfolioConstructor(booksize=200)
-        result = port.get_daily_pl(self.scores, self.data,
-                                   self.pair_info, n_pairs=1,
-                                   max_pos_prop=1)
+        cons = PortfolioConstructor(booksize=200)
+        cons.set_and_prep_data(self.scores, self.pair_info, self.data)
+        result, stats = cons.get_daily_pl(
+            n_pairs=1, max_pos_prop=1, pos_perc_deviation=1, z_exit=1)
         benchmark = pd.DataFrame({}, index=self.scores.index)
-        benchmark['PL'] = [-0.1, 109.825, -20.005, -24.08]
-        benchmark['Exposure'] = [200, 200, 189, 0.]
+        benchmark['Ret'] = [-0.000500, 0.549125, -0.100000, -0.125375]
         assert_frame_equal(result, benchmark)
 
     def test_get_pos_exposures(self):

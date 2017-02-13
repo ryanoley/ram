@@ -36,7 +36,7 @@ class TestPairPosition(unittest.TestCase):
         self.assertEqual(pos.daily_pl, -55)
         self.assertEqual(pos.gross_exposure, 1970)
         pos.update_position_prices(np.nan, 202)
-        self.assertTrue(np.isnan(pos.p1))
+        self.assertEqual(pos.p1, 95)
         self.assertEqual(pos.p2, 202)
         self.assertEqual(pos.daily_pl, 10)
         self.assertTrue(pos.to_close_position)

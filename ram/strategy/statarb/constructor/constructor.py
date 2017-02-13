@@ -61,8 +61,7 @@ class PortfolioConstructor(BaseConstructor):
         self.all_dates = np.unique(self.exit_scores.keys())
         self.pair_info = pair_info
 
-    def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation,
-                     min_z_enter, z_exit):
+    def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation, z_exit):
         """
         Parameters
         ----------
@@ -76,11 +75,12 @@ class PortfolioConstructor(BaseConstructor):
         pos_perc_deviation : float
             The max absolute deviation from the initial position before
             a rebalancing of the pair happens.
-        min_z_enter : numeric
-            What is the minimum Z-Score needed to put on a position
         z_exit : numeric
             At what point does one exit the position
         """
+        # New portfolio created for each
+        self._portfolio = PairPortfolio()
+
         # Output object
         daily_df = pd.DataFrame(index=self.all_dates,
                                 columns=['PL', 'Exposure'],
@@ -112,8 +112,8 @@ class PortfolioConstructor(BaseConstructor):
 
             # 4. OPEN NEW PAIRS - Just not last day of periodn
             if date != self.all_dates[-1]:
-                self._execute_open_signals(enter_scores, closes, n_pairs,
-                                           max_pos_prop, min_z_enter)
+                self._execute_open_signals(enter_scores, closes,
+                                           n_pairs, max_pos_prop)
 
             # Report PL and Exposure
             daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
@@ -124,10 +124,12 @@ class PortfolioConstructor(BaseConstructor):
         self._portfolio.close_pairs(all_pairs=True)
         daily_df.loc[date, 'PL'] += self._portfolio.get_portfolio_daily_pl()
         daily_df.loc[date, 'Exposure'] = 0
-        # Could this be a flag?
-        daily_df['Ret'] = daily_df.PL / daily_df.Exposure
-        daily_df.Ret.iloc[-1] = daily_df.PL.iloc[-1] / \
-            daily_df.Exposure.iloc[-2]
+
+        # Shift because with executing on Close prices should consider
+        # yesterday's EOD exposure
+        daily_df['Ret'] = daily_df.PL / daily_df.Exposure.shift(1)
+        daily_df.Ret.iloc[0] = daily_df.PL.iloc[0] / \
+            daily_df.Exposure.iloc[0]
 
         return daily_df.loc[:, ['Ret']], self._portfolio.get_period_stats()
 
@@ -153,7 +155,7 @@ class PortfolioConstructor(BaseConstructor):
                                                   pos_perc_deviation)
 
     def _execute_open_signals(self, scores, trade_prices,
-                              n_pairs, max_pos_prop, min_z_enter):
+                              n_pairs, max_pos_prop):
         """
         Function that adds new positions.
         """
@@ -171,8 +173,6 @@ class PortfolioConstructor(BaseConstructor):
         for sc, pair, side in scores:
             if pair in open_pairs:
                 continue
-            if sc < min_z_enter:
-                break
             if self._check_pos_exposures(pair, side, max_pos_count):
                 self._portfolio.add_pair(pair, trade_prices,
                                          pair_bet_size, side)

@@ -60,13 +60,14 @@ class TestPairsStrategy1(unittest.TestCase):
     def test_get_spread_zscores(self):
         prices = pd.DataFrame({'V1': [10, 12, 15, 14],
                                'V2': [21, 24, 25, 22]})
-        close1 = prices.loc[:, 'V1']
-        close2 = prices.loc[:, 'V2']
+        close1 = prices.loc[:, ['V1', 'V2']]
+        close2 = prices.loc[:, ['V2', 'V1']]
         pairs = PairsStrategy1()
         results = pairs._get_spread_zscores(close1, close2, 3)
-        benchmark = pd.Series([np.nan, np.nan, 1.131308968, 0.795301976],
-                              name='V1')
-        assert_series_equal(results, benchmark)
+        benchmark = pd.DataFrame(index=range(4))
+        benchmark['V1'] = [np.nan, np.nan, 1.131308968, 0.795301976]
+        benchmark['V2'] = [np.nan, np.nan, -1.131308968, -0.795301976]
+        assert_frame_equal(results, benchmark)
         # Missing values in close prices
         prices = pd.DataFrame({'V1': [10, 12, 15, np.nan],
                                'V2': [21, 24, 25, 22]})

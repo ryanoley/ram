@@ -58,7 +58,10 @@ class TestPairPortfolio(unittest.TestCase):
         port.get_portfolio_daily_pl()
         result = port.get_period_stats()
         benchmark = {
-            'total_positions': 2,
+            'avg_perc_gain': 0.0325,
+            'max_perc_gain': 0.055,
+            'min_perc_gain': 0.01,
+            'total_trades': 2,
             'avg_rebalance_count': 0.0,
             'max_holding_days': 2,
             'max_rebalance_count': 0,

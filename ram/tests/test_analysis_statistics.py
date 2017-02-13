@@ -6,7 +6,7 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-import ram.utils.statistics as stats
+import ram.analysis.statistics as stats
 
 
 class TestPairs(unittest.TestCase):

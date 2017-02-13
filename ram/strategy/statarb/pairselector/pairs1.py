@@ -44,7 +44,8 @@ class PairsStrategy1(BasePairSelector):
             pairs = pairs.merge(gsectors, left_on='Leg2', right_on='SecCode')
             pairs = pairs[pairs.GSECTOR_x == pairs.GSECTOR_y]
             pairs['Sector'] = pairs.GSECTOR_x
-            pairs = pairs.drop(['GSECTOR_x', 'GSECTOR_y'], axis=1)
+            pairs = pairs.drop(['GSECTOR_x', 'GSECTOR_y',
+                                'SecCode_x', 'SecCode_y'], axis=1)
         # Vol ratio filter
         pairs = pairs.loc[np.abs(pairs.volratio - 1) < vol_ratio_filter].copy()
         # Rank values

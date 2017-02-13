@@ -44,6 +44,7 @@ class PairPortfolio(object):
             Percent deviation from the base exposure that is allowed
             before the position is corrected.
         """
+        base_exposure = float(base_exposure)
         for pair, pos in self.pairs.iteritems():
             flag1 = abs(pos.gross_exposure / base_exposure - 1) > perc_dev
             flag2 = abs(pos.net_exposure / base_exposure) > perc_dev
@@ -137,5 +138,13 @@ class PairPortfolio(object):
             len(stats['perc_gains']))
         out['max_perc_gain'] = max(stats['perc_gains'])
         out['min_perc_gain'] = min(stats['perc_gains'])
+
+        # Flush stats
+        self.stats_container = {
+            # Position level statistics
+            'holding_days': [],
+            'rebalance_count': [],
+            'perc_gains': []
+        }
 
         return out

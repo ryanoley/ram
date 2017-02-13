@@ -29,7 +29,7 @@ class TestStrategyBase(unittest.TestCase):
     def setUp(self):
         self.outdir = os.path.join(os.getenv('GITHUB'), 'ram',
                                    'ram', 'tests')
-        self.strategy = TestStrategy(self.outdir)
+        self.strategy = TestStrategy(self.outdir, 'test1')
 
     def test_run_index(self):
         result = self.strategy.run_index(0)
@@ -45,17 +45,17 @@ class TestStrategyBase(unittest.TestCase):
             'V1': [0, 1, 2, 3.]},
             index=pd.date_range(start='2016-01-{0:02d}'.format(1),
                                 periods=4))
-        assert_frame_equal(self.strategy.results, benchmark)
+        assert_frame_equal(self.strategy.returns, benchmark)
 
     def test_run_index_writer(self):
         self.strategy.run_index_writer(0)
         self.strategy.run_index_writer(1)
-        result = os.listdir(os.path.join(self.outdir, 'output_TestStrategy'))
+        result = os.listdir(self.strategy.strategy_output_dir)
         benchmark = ['result_00000.csv', 'result_00001.csv']
         self.assertListEqual(result, benchmark)
 
     def tearDown(self):
-        shutil.rmtree(self.outdir+'/output_TestStrategy')
+        shutil.rmtree(self.outdir+'/TestStrategy')
 
 
 if __name__ == '__main__':

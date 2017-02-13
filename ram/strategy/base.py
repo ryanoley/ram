@@ -47,8 +47,12 @@ class Strategy(object):
             self.returns = returns
             if 'column_params' in output:
                 self.column_params = output['column_params']
+            else:
+                self.column_params = None
             if len(statistics) > 0:
                 self.statistics = statistics
+            else:
+                self.statistics = None
 
             self._write_results()
 
@@ -68,7 +72,7 @@ class Strategy(object):
             results = results['returns']
         # Enforce that the index is DateTime
         assert isinstance(results.index, pd.DatetimeIndex)
-        results.to_csv(self.output_dir+'/result_{0:05d}.csv'.format(index))
+        results.to_csv(self.strategy_output_dir+'/result_{0:05d}.csv'.format(index))
 
     def _set_output_dir(self, output_dir, run_version):
         self.strategy_output_dir = None

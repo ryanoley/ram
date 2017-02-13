@@ -39,7 +39,6 @@ class StatArbStrategy(Strategy):
             'n_pairs': [100, 200, 300, 400],
             'max_pos_prop': [0.07],
             'pos_perc_deviation': [0.03, 0.07],
-            'min_z_enter': [1.7, 2.0],
             'z_exit': [0.5, 0.7, 1]
         })
 
@@ -128,8 +127,8 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    #strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
-    #                           run_version='v5')
-    strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
-                               run_version='v10')
+    strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
+                               run_version='v11')
+    #strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
+    #                           run_version='v10')
     strategy.start()
