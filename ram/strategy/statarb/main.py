@@ -29,18 +29,18 @@ class StatArbStrategy(Strategy):
                               univ_size=self.univ_size)
 
         args1 = make_arg_iter({
-            'z_window': [10, 15, 20, 30],
-            'max_pairs': [2000, 4000],
-            'same_sector': [False, True],
-            'vol_ratio_filter': [.3, .7, 10]
+            'z_window': [5, 10],
+            'max_pairs': [6000],
+            'same_sector': [True],
+            'vol_ratio_filter': [.5]
         })
 
         args2 = make_arg_iter({
-            'n_pairs': [100, 200],
-            'max_pos_prop': [0.05, 0.10],
-            'pos_perc_deviation': [0.03, 0.07, 0.12],
-            'min_z_enter': [1.4, 2.0],
-            'z_exit': [1, 1.2]
+            'n_pairs': [100, 200, 300, 400],
+            'max_pos_prop': [0.07],
+            'pos_perc_deviation': [0.03, 0.07],
+            'min_z_enter': [1.7, 2.0],
+            'z_exit': [0.5, 0.7, 1]
         })
 
         ind = 0
@@ -128,8 +128,8 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
-                               run_version='v5')
-    #strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
-    #                           run_version='v4')
+    #strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
+    #                           run_version='v5')
+    strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
+                               run_version='v10')
     strategy.start()
