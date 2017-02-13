@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import subprocess
 import pandas as pd
 import datetime as dt
 
@@ -24,6 +25,7 @@ class Strategy(object):
         This should be the method implemented when running a strategy.
         """
         try:
+            start_time = str(dt.datetime.utcnow())
             # Objects that can be returned by run_index
             returns = pd.DataFrame()
             column_params = {}
@@ -53,7 +55,12 @@ class Strategy(object):
                 self.statistics = statistics
             else:
                 self.statistics = None
-
+            self.run_meta = {
+                'latest_git_commit': subprocess.check_output(
+                    ['git','describe', '--always']).replace('\n',''),
+                'run_start_time': start_time,
+                'run_end_time': str(dt.datetime.utcnow())
+            }
             self._write_results()
 
         except KeyboardInterrupt:
@@ -99,12 +106,15 @@ class Strategy(object):
                                        'params.json'), 'w') as outfile:
                     json.dump(self.column_params, outfile)
                 outfile.close()
-
             if self.statistics:
                 with open(os.path.join(self.strategy_output_dir,
                                        'statistics.json'), 'w') as outfile:
                     json.dump(self.statistics, outfile)
                 outfile.close()
+            with open(os.path.join(self.strategy_output_dir,
+                                   'meta.json'), 'w') as outfile:
+                json.dump(self.run_meta, outfile)
+            outfile.close()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
