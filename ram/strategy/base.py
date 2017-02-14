@@ -25,7 +25,10 @@ class Strategy(object):
         This should be the method implemented when running a strategy.
         """
         try:
+            # Meta data
             start_time = str(dt.datetime.utcnow())
+            git_branch, git_commit = self._get_git_branch_commit()
+
             # Objects that can be returned by run_index
             returns = pd.DataFrame()
             column_params = {}
@@ -56,8 +59,8 @@ class Strategy(object):
             else:
                 self.statistics = None
             self.run_meta = {
-                'latest_git_commit': subprocess.check_output(
-                    ['git','describe', '--always']).replace('\n',''),
+                'latest_git_commit': git_commit,
+                'git_branch': git_branch,
                 'run_start_time': start_time,
                 'run_end_time': str(dt.datetime.utcnow())
             }
@@ -115,6 +118,18 @@ class Strategy(object):
                                    'meta.json'), 'w') as outfile:
                 json.dump(self.run_meta, outfile)
             outfile.close()
+
+
+    def _get_git_branch_commit(self):
+        repo_dir = os.path.join(os.getenv('GITHUB'), 'ram')
+
+        git_branch = open(os.path.join(repo_dir, '.git/HEAD'), 'r').read()
+        git_branch = git_branch.split('/')[-1].replace('\n', '')
+
+        git_commit = os.path.join(repo_dir, '.git/refs/heads', git_branch)
+        git_commit = open(git_commit).read().replace('\n', '')
+
+        return git_branch, git_commit
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
