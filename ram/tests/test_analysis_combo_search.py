@@ -1,3 +1,5 @@
+import os
+import shutil
 import unittest
 import numpy as np
 import pandas as pd
@@ -119,9 +121,42 @@ class TestCombinationSearch(unittest.TestCase):
         benchmark = np.array([ 1.76776695,  2.12132034,  2.47487373])
         assert_array_equal(results.round(5), benchmark.round(5))
 
-    def tearDown(self):
-        pass
+    def test_write_init_output_load_session(self):
+        dates = [dt.datetime(2015, 1, i) for i in range(1, 4)]
+        data1 = pd.DataFrame({
+            'V1': [1, 2, 3],
+            'V2': [2, 3, 4]
+        }, index=dates)
+        dates = [dt.datetime(2015, 1, i) for i in range(3, 6)]
+        data2 = pd.DataFrame({
+            'V2': [1, 2, 3],
+            'V3': [2, 3, 4]
+        }, index=dates)
+        output_dir = os.path.join(os.getenv('GITHUB'), 'ram',
+                                  'ram', 'tests', 'combo_search')
+        comb = CombinationSearch(output_dir=output_dir)
+        comb.add_data(data1, 'commit_1')
+        comb.add_data(data2, 'commit_2')
+        comb.set_training_params(freq='m', n_periods=2,
+                                 n_ports_per_combo=5, n_best_combos=2)
+        comb._create_results_objects()
+        comb._write_init_output()
+        output_dir = os.path.join(os.getenv('GITHUB'), 'ram',
+                                  'ram', 'tests', 'combo_search')
+        comb2 = CombinationSearch(output_dir=output_dir)
+        comb2._load_comb_search_session()
+        dates = [dt.date(2015, 1, i) for i in range(1, 6)]
+        benchmark = pd.DataFrame(index=dates, columns=[0, 1], dtype=np.float_)
+        assert_frame_equal(comb2.best_results_rets, benchmark)
 
+    def tearDown(self):
+        try:
+            output_dir = os.path.join(
+                os.getenv('GITHUB'), 'ram',
+                'ram', 'tests', 'combo_search')
+            shutil.rmtree(output_dir)
+        except:
+            pass
 
 if __name__ == '__main__':
     unittest.main()

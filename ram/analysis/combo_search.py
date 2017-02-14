@@ -1,16 +1,19 @@
 import os
+import json
 import random
 import numpy as np
 import pandas as pd
 
-from gearbox import read_csv
+from gearbox import convert_date_array
 
 
 class CombinationSearch(object):
 
-    def __init__(self):
+    def __init__(self, output_dir=None):
+        self.output_dir = output_dir
         self.data = pd.DataFrame({}, index=pd.DatetimeIndex([]))
         self.data_labels = {}
+        self.seed_ind = 0
 
     def add_data(self, new_data, frame_label):
         assert isinstance(new_data, pd.DataFrame)
@@ -28,31 +31,39 @@ class CombinationSearch(object):
         self._train_n_ports_per_combo = n_ports_per_combo
         self._train_n_best_combos = n_best_combos
 
+    def restart(self):
+        self._load_comb_search_session()
+        self._loop()
+
     def start(self):
         assert self._train_freq
         assert self._train_n_periods
-
+        assert self._train_n_ports_per_combo
+        assert self._train_n_best_combos
         self._clean_input_data()
-        self._create_training_indexes()
         self._create_results_objects()
+        self._write_init_output()
+        self._loop()
 
+    def _loop(self):
+        self._create_training_indexes()
         try:
-            self.seed_ind = 0
             while True:
                 for t1, t2, t3 in self._time_indexes:
                     train_data = self.data.iloc[t1:t2]
                     test_data = self.data.iloc[t2:t3]
+
                     test_results, train_scores, combs = \
                         self._fit_top_combinations(
                             t2, train_data, test_data, self.seed_ind)
+
                     self._process_results(
                         t2, test_results, train_scores, combs)
                     self.seed_ind += 1
+                self._write_results_output()
 
         except KeyboardInterrupt:
-            pass
-            # Write out everything so it can be restarted at same spot with
-            # same everything.
+            self._write_results_output()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #  This is where the innovation happens
@@ -60,7 +71,7 @@ class CombinationSearch(object):
     def _fit_top_combinations(self, time_index, train_data,
                               test_data, seed_ind):
         random.seed(seed_ind)
-        combs = self._generate_random_combs(time_index)
+        combs = self._generate_random_combs(train_data.shape[1], time_index)
         # Calculate sharpes
         sharpes = self._get_sharpes(train_data, combs)
         best_inds = np.argsort(-sharpes)[:self._train_n_best_combos]
@@ -76,14 +87,21 @@ class CombinationSearch(object):
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
 
-    def _generate_random_combs(self):
+    def _generate_random_combs(self, n_choices, time_index):
         combs = np.array([
-            random.sample(range(train_data.shape[1]),
+            random.sample(range(n_choices),
                           self._train_n_ports_per_combo)
             for x in range(10000)])
         # Get unique values
         combs = np.sort(combs, axis=1)
         combs = np.vstack({tuple(row) for row in combs})
+        # Make sure the combinations aren't in the current best
+        if time_index in self.best_results_combs:
+            current_combs = self.best_results_combs[time_index]
+            for c in current_combs:
+                inds = np.sum(combs == c, axis=1) != 5
+                combs = combs[inds]
+        return combs
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -147,3 +165,77 @@ class CombinationSearch(object):
             self.best_results_rets.loc[test_rets.index] = test_rets
             self.best_results_scores[time_index] = scores
             self.best_results_combs[time_index] = combs
+
+    def _write_init_output(self):
+        if self.output_dir:
+            if os.path.exists(self.output_dir):
+                raise Exception, 'Cannot overwrite directory'
+            os.makedirs(self.output_dir)
+            # Write data
+            self.data.to_csv(os.path.join(self.output_dir, 'master_data.csv'))
+            # Write parameters
+            params = {
+                'train_freq': self._train_freq,
+                'train_n_periods': self._train_n_periods,
+                'train_n_ports_per_combo': self._train_n_ports_per_combo,
+                'train_n_best_combos': self._train_n_best_combos}
+            outpath = os.path.join(self.output_dir, 'params.json')
+            with open(outpath, 'w') as outfile:
+                json.dump(params, outfile)
+            outfile.close()
+            self._write_results_output()
+        return
+
+    def _write_results_output(self):
+        if self.output_dir:
+            self.best_results_rets.to_csv(os.path.join(self.output_dir,
+                                                       'best_returns.csv'))
+
+            outpath = os.path.join(self.output_dir, 'best_scores.json')
+            with open(outpath, 'w') as outfile:
+                json.dump(self.best_results_scores, outfile)
+            outfile.close()
+
+            outpath = os.path.join(self.output_dir, 'best_combs.json')
+            with open(outpath, 'w') as outfile:
+                json.dump(self.best_results_combs, outfile)
+            outfile.close()
+
+            outpath = os.path.join(self.output_dir, 'seed.json')
+            with open(outpath, 'w') as outfile:
+                json.dump({'seed_ind': self.seed_ind}, outfile)
+            outfile.close()
+
+        return
+
+    def _load_comb_search_session(self):
+        if self.output_dir:
+            # Load data
+            self.data = self._read_csv(os.path.join(self.output_dir,
+                                                    'master_data.csv'))
+            # Load parameters
+            outpath = os.path.join(self.output_dir, 'params.json')
+            params = json.load(open(outpath, 'r'))
+            self._train_freq = params['train_freq']
+            self._train_n_ports_per_combo = params['train_n_ports_per_combo']
+            self._train_n_periods = params['train_n_periods']
+            self._train_n_best_combos = params['train_n_best_combos']
+            # Best results data
+            self.best_results_rets = self._read_csv(
+                os.path.join(self.output_dir, 'best_returns.csv'))
+            outpath = os.path.join(self.output_dir, 'best_scores.json')
+            self.best_results_scores = json.load(open(outpath, 'r'))
+            outpath = os.path.join(self.output_dir, 'best_combs.json')
+            self.best_results_combs = json.load(open(outpath, 'r'))
+            outpath = os.path.join(self.output_dir, 'seed.json')
+            self.seed_ind = json.load(open(outpath, 'r'))['seed_ind']
+        return
+
+    @staticmethod
+    def _read_csv(path):
+        data = pd.read_csv(path, index_col=None)
+        data.columns = range(-1, data.shape[1]-1)
+        data.loc[:, -1] = convert_date_array(data.loc[:, -1])
+        data = data.set_index(-1)
+        data.index.name = None
+        return data
