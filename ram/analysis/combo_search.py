@@ -20,7 +20,7 @@ class CombinationSearch(object):
         assert isinstance(new_data.index, pd.DatetimeIndex)
         # Map inputted data column names
         self.data_labels[frame_label] = new_data.columns
-        self.data = self.data.join(new_data, how='outer')
+        self.data = self.data.join(new_data, how='outer', rsuffix='R')
         self.data.columns = range(self.data.shape[1])
         return
 
@@ -33,6 +33,7 @@ class CombinationSearch(object):
 
     def restart(self):
         self._load_comb_search_session()
+        print 'Restarting Search'
         self._loop()
 
     def start(self):
@@ -43,6 +44,7 @@ class CombinationSearch(object):
         self._clean_input_data()
         self._create_results_objects()
         self._write_init_output()
+        print 'Starting New Combination Search'
         self._loop()
 
     def _loop(self):
@@ -60,10 +62,10 @@ class CombinationSearch(object):
                     self._process_results(
                         t2, test_results, train_scores, combs)
                     self.seed_ind += 1
-                self._write_results_output()
+                self._write_results_output(False)
 
         except KeyboardInterrupt:
-            self._write_results_output()
+            self._write_results_output(True)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #  This is where the innovation happens
@@ -183,29 +185,23 @@ class CombinationSearch(object):
             with open(outpath, 'w') as outfile:
                 json.dump(params, outfile)
             outfile.close()
-            self._write_results_output()
+            self._write_results_output(True)
         return
 
-    def _write_results_output(self):
+    def _write_results_output(self, write_params=False):
         if self.output_dir:
             self.best_results_rets.to_csv(os.path.join(self.output_dir,
                                                        'best_returns.csv'))
+            if write_params:
+                outpath = os.path.join(self.output_dir, 'best_scores.json')
+                self._write_params(self.best_results_scores, outpath)
 
-            outpath = os.path.join(self.output_dir, 'best_scores.json')
-            with open(outpath, 'w') as outfile:
-                json.dump(self.best_results_scores, outfile)
-            outfile.close()
+                outpath = os.path.join(self.output_dir, 'best_combs.json')
+                self._write_params(self.best_results_combs, outpath)
 
-            outpath = os.path.join(self.output_dir, 'best_combs.json')
-            with open(outpath, 'w') as outfile:
-                json.dump(self.best_results_combs, outfile)
-            outfile.close()
-
-            outpath = os.path.join(self.output_dir, 'seed.json')
-            with open(outpath, 'w') as outfile:
-                json.dump({'seed_ind': self.seed_ind}, outfile)
-            outfile.close()
-
+                outpath = os.path.join(self.output_dir, 'seed.json')
+                self._write_params(
+                    {'seed_ind': np.array([self.seed_ind])}, outpath)
         return
 
     def _load_comb_search_session(self):
@@ -225,10 +221,16 @@ class CombinationSearch(object):
                 os.path.join(self.output_dir, 'best_returns.csv'))
             outpath = os.path.join(self.output_dir, 'best_scores.json')
             self.best_results_scores = json.load(open(outpath, 'r'))
+            self.best_results_scores = {
+                int(key): np.array(vals) for key, vals in
+                self.best_results_scores.iteritems()}
             outpath = os.path.join(self.output_dir, 'best_combs.json')
             self.best_results_combs = json.load(open(outpath, 'r'))
+            self.best_results_combs = {
+                int(key): np.array(vals) for key, vals in
+                self.best_results_combs.iteritems()}
             outpath = os.path.join(self.output_dir, 'seed.json')
-            self.seed_ind = json.load(open(outpath, 'r'))['seed_ind']
+            self.seed_ind = json.load(open(outpath, 'r'))['seed_ind'][0]
         return
 
     @staticmethod
@@ -237,5 +239,14 @@ class CombinationSearch(object):
         data.columns = range(-1, data.shape[1]-1)
         data.loc[:, -1] = convert_date_array(data.loc[:, -1])
         data = data.set_index(-1)
+        data.index = data.index.to_datetime()
         data.index.name = None
         return data
+
+    @staticmethod
+    def _write_params(params, path):
+        outparams = {key: vals.tolist() for key, vals
+                     in params.iteritems()}
+        with open(path, 'w') as outfile:
+            json.dump(outparams, outfile)
+        outfile.close()
