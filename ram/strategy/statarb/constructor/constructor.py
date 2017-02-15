@@ -113,7 +113,7 @@ class PortfolioConstructor(BaseConstructor):
             # 4. OPEN NEW PAIRS - Just not last day of periodn
             if date != self.all_dates[-1]:
                 self._execute_open_signals(enter_scores, closes,
-                                           n_pairs, max_pos_prop)
+                                           n_pairs, max_pos_prop, z_exit)
 
             # Report PL and Exposure
             daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
@@ -155,7 +155,7 @@ class PortfolioConstructor(BaseConstructor):
                                                   pos_perc_deviation)
 
     def _execute_open_signals(self, scores, trade_prices,
-                              n_pairs, max_pos_prop):
+                              n_pairs, max_pos_prop, z_exit):
         """
         Function that adds new positions.
         """
@@ -173,6 +173,8 @@ class PortfolioConstructor(BaseConstructor):
         for sc, pair, side in scores:
             if pair in open_pairs:
                 continue
+            if sc < (z_exit * 1.2):
+                break
             if self._check_pos_exposures(pair, side, max_pos_count):
                 self._portfolio.add_pair(pair, trade_prices,
                                          pair_bet_size, side)

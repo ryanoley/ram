@@ -29,17 +29,17 @@ class StatArbStrategy(Strategy):
                               univ_size=self.univ_size)
 
         args1 = make_arg_iter({
-            'z_window': [5, 10],
-            'max_pairs': [6000],
+            'z_window': [20, 30, 40],
+            'max_pairs': [1000, 3000, 6000],
             'same_sector': [True],
-            'vol_ratio_filter': [.5]
+            'vol_ratio_filter': [.3, .6]
         })
 
         args2 = make_arg_iter({
-            'n_pairs': [100, 200, 300, 400],
-            'max_pos_prop': [0.07],
-            'pos_perc_deviation': [0.03, 0.07],
-            'z_exit': [0.5, 0.7, 1]
+            'n_pairs': [50, 100, 200],
+            'max_pos_prop': [0.05, 0.1],
+            'pos_perc_deviation': [0.07, 0.14],
+            'z_exit': [0.6, 1, 1.2]
         })
 
         ind = 0
