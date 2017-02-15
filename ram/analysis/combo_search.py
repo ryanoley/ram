@@ -25,13 +25,11 @@ class CombinationSearch(object):
         return
 
     def set_training_params(self, freq='m', n_periods=12,
-                            n_ports_per_combo=5, n_best_combos=5,
-                            maximum_optim=False):
+                            n_ports_per_combo=5, n_best_combos=5):
         self._train_freq = freq
         self._train_n_periods = n_periods
         self._train_n_ports_per_combo = n_ports_per_combo
         self._train_n_best_combos = n_best_combos
-        self._train_maximum_optim = maximum_optim
 
     def restart(self):
         self._load_comb_search_session()
@@ -81,10 +79,7 @@ class CombinationSearch(object):
             train_data.shape[1], time_index)
 
         # Calculate sharpes
-        if self._train_maximum_optim:
-            scores = self._get_means(train_data, combs)
-        else:
-            scores = self._get_sharpes(train_data, combs)
+        scores = self._get_sharpes(train_data, combs)
 
         best_inds = np.argsort(-scores)[:self._train_n_best_combos]
 
@@ -97,10 +92,6 @@ class CombinationSearch(object):
     def _get_sharpes(self, data, combs):
         ports = self._get_ports(data, combs)
         return np.mean(ports, axis=1) / np.std(ports, axis=1)
-
-    def _get_means(self, data, combs):
-        ports = self._get_ports(data, combs)
-        return np.mean(ports, axis=1)
 
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
@@ -137,6 +128,10 @@ class CombinationSearch(object):
             # Get changes in months
             transition_indexes = np.where(np.diff(
                 [d.month for d in self.data.index]))[0] + 1
+        elif self._train_freq == 'w':
+            # 0s are mondays so get the day it goes from 4 to 0
+            transition_indexes = np.where(np.diff(
+                [d.weekday() for d in self.data.index]) < 0)[0] + 1
         else:
             # Get changes in months
             transition_indexes = np.where(np.diff(
