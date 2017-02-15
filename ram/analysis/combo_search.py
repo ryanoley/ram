@@ -25,13 +25,11 @@ class CombinationSearch(object):
         return
 
     def set_training_params(self, freq='m', n_periods=12,
-                            n_ports_per_combo=5, n_best_combos=5,
-                            long_short_combs=False):
+                            n_ports_per_combo=5, n_best_combos=5):
         self._train_freq = freq
         self._train_n_periods = n_periods
         self._train_n_ports_per_combo = n_ports_per_combo
         self._train_n_best_combos = n_best_combos
-        self._train_long_short_combs = long_short_combs
 
     def restart(self):
         self._load_comb_search_session()
@@ -74,30 +72,20 @@ class CombinationSearch(object):
 
     def _fit_top_combinations(self, time_index, train_data,
                               test_data, seed_ind):
+
         random.seed(seed_ind)
-        if self._train_long_short_combs:
-            combs = self._generate_random_combs_long_short(
-                train_data.shape[1], time_index)
-            sharpes = self._get_sharpes_long_short(train_data, combs)
-        else:
-            combs = self._generate_random_combs(
-                train_data.shape[1], time_index)
-            # Calculate sharpes
-            sharpes = self._get_sharpes(train_data, combs)
+
+        combs = self._generate_random_combs(
+            train_data.shape[1], time_index)
+
+        # Calculate sharpes
+        sharpes = self._get_sharpes(train_data, combs)
 
         best_inds = np.argsort(-sharpes)[:self._train_n_best_combos]
 
-        if self._train_long_short_combs:
-            combs1 = combs[:, :(combs.shape[1]/2)][best_inds]
-            combs2 = combs[:, (combs.shape[1]/2):][best_inds]
-            ports = self._get_ports(test_data, combs1) - \
-                self._get_ports(test_data, combs2)
-            test_results = pd.DataFrame(ports.T, index=test_data.index)
-
-        else:
-            test_results = pd.DataFrame(
-                self._get_ports(test_data, combs[best_inds]).T,
-                index=test_data.index)
+        test_results = pd.DataFrame(
+            self._get_ports(test_data, combs[best_inds]).T,
+            index=test_data.index)
 
         return test_results, sharpes[best_inds], combs[best_inds]
 
@@ -105,45 +93,21 @@ class CombinationSearch(object):
         ports = self._get_ports(data, combs)
         return np.mean(ports, axis=1) / np.std(ports, axis=1)
 
-    def _get_sharpes_long_short(self, data, combs):
-        combs1 = combs[:, :(combs.shape[1]/2)]
-        combs2 = combs[:, (combs.shape[1]/2):]
-        ports = self._get_ports(data, combs1) - self._get_ports(data, combs2)
-        return np.mean(ports, axis=1) / np.std(ports, axis=1)
-
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
 
     def _generate_random_combs(self, n_choices, time_index):
-        combs = np.array([
-            random.sample(range(n_choices),
-                          self._train_n_ports_per_combo)
-            for x in range(10000)])
-        # Get unique values
+        combs = np.random.randint(0, high=n_choices,
+                                  size=(10000, self._train_n_ports_per_combo))
+        # Sort items in each row, then sort rows
         combs = np.sort(combs, axis=1)
-        combs = np.vstack({tuple(row) for row in combs})
-        # Make sure the combinations aren't in the current best
-        if time_index in self.best_results_combs:
-            current_combs = self.best_results_combs[time_index]
-            for c in current_combs:
-                inds = np.sum(combs == c, axis=1) != 5
-                combs = combs[inds]
-        return combs
-
-    def _generate_random_combs_long_short(self, n_choices, time_index):
-        combs = np.array([
-            random.sample(range(n_choices),
-                          self._train_n_ports_per_combo * 2)
-            for x in range(10000)])
-        # Split
-        combs1 = combs[:, :(combs.shape[1]/2)]
-        combs2 = combs[:, (combs.shape[1]/2):]
-        # Sort
-        combs1 = np.sort(combs1, axis=1)
-        combs2 = np.sort(combs2, axis=1)
-        # Put back into tuples
-        combs = np.hstack((combs1, combs2))
-        combs = np.vstack({tuple(row) for row in combs})
+        combs = combs[np.lexsort([combs[:, i] for i in
+                                  range(combs.shape[1]-1, -1, -1)])]
+        # Drop repeats in same row
+        combs = combs[np.sum(np.diff(combs, axis=1) == 0, axis=1) == 0]
+        # Drop repeat rows
+        combs = combs[np.append(True, np.sum(
+            np.diff(combs, axis=0), axis=1) != 0)]
         # Make sure the combinations aren't in the current best
         if time_index in self.best_results_combs:
             current_combs = self.best_results_combs[time_index]
