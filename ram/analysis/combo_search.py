@@ -25,11 +25,13 @@ class CombinationSearch(object):
         return
 
     def set_training_params(self, freq='m', n_periods=12,
-                            n_ports_per_combo=5, n_best_combos=5):
+                            n_ports_per_combo=5, n_best_combos=5,
+                            maximum_optim=False):
         self._train_freq = freq
         self._train_n_periods = n_periods
         self._train_n_ports_per_combo = n_ports_per_combo
         self._train_n_best_combos = n_best_combos
+        self._train_maximum_optim = maximum_optim
 
     def restart(self):
         self._load_comb_search_session()
@@ -79,19 +81,26 @@ class CombinationSearch(object):
             train_data.shape[1], time_index)
 
         # Calculate sharpes
-        sharpes = self._get_sharpes(train_data, combs)
+        if self._train_maximum_optim:
+            scores = self._get_means(train_data, combs)
+        else:
+            scores = self._get_sharpes(train_data, combs)
 
-        best_inds = np.argsort(-sharpes)[:self._train_n_best_combos]
+        best_inds = np.argsort(-scores)[:self._train_n_best_combos]
 
         test_results = pd.DataFrame(
             self._get_ports(test_data, combs[best_inds]).T,
             index=test_data.index)
 
-        return test_results, sharpes[best_inds], combs[best_inds]
+        return test_results, scores[best_inds], combs[best_inds]
 
     def _get_sharpes(self, data, combs):
         ports = self._get_ports(data, combs)
         return np.mean(ports, axis=1) / np.std(ports, axis=1)
+
+    def _get_means(self, data, combs):
+        ports = self._get_ports(data, combs)
+        return np.mean(ports, axis=1)
 
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
