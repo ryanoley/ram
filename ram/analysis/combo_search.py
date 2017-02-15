@@ -236,6 +236,10 @@ class CombinationSearch(object):
         return
 
     def _write_results_output(self, write_params=False):
+
+        print 'Population mean score: {0}'.format(
+            np.concatenate(self.best_results_scores.values()).mean())
+
         if self.output_dir:
             self.best_results_rets.to_csv(os.path.join(self.output_dir,
                                                        'best_returns.csv'))
