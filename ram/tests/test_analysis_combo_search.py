@@ -73,7 +73,8 @@ class TestCombinationSearch(unittest.TestCase):
         comb = self.comb
         import pdb; pdb.set_trace()
         comb.set_training_params(freq='m', n_periods=2,
-                                 n_ports_per_combo=5, n_best_combos=2)
+                                 n_ports_per_combo=5, n_best_combos=2,
+                                 long_short_combs=True)
         comb.start()
 
     def test_process_results(self):
