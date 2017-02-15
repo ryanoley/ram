@@ -40,6 +40,6 @@ if __name__ == '__main__':
         df = CombinationSearch._read_csv(os.path.join(dpath, 'results.csv'))
         comb.add_data(df, 'commit_4')
 
-        comb.set_training_params(freq='m', n_periods=36,
+        comb.set_training_params(freq='w', n_periods=104,
                                  n_ports_per_combo=5, n_best_combos=10)
         comb.start()
