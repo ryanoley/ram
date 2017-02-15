@@ -86,9 +86,19 @@ class CombinationSearch(object):
             sharpes = self._get_sharpes(train_data, combs)
 
         best_inds = np.argsort(-sharpes)[:self._train_n_best_combos]
-        test_results = pd.DataFrame(
-            self._get_ports(test_data, combs[best_inds]).T,
-            index=test_data.index)
+
+        if self._train_long_short_combs:
+            combs1 = combs[:, :(combs.shape[1]/2)][best_inds]
+            combs2 = combs[:, (combs.shape[1]/2):][best_inds]
+            ports = self._get_ports(test_data, combs1) - \
+                self._get_ports(test_data, combs2)
+            test_results = pd.DataFrame(ports.T, index=test_data.index)
+
+        else:
+            test_results = pd.DataFrame(
+                self._get_ports(test_data, combs[best_inds]).T,
+                index=test_data.index)
+
         return test_results, sharpes[best_inds], combs[best_inds]
 
     def _get_sharpes(self, data, combs):
