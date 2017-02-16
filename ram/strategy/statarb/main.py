@@ -127,8 +127,8 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
-                               run_version='v11')
-    #strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
-    #                           run_version='v10')
+    #strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
+    #                           run_version='v11')
+    strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
+                               run_version='v5')
     strategy.start()
