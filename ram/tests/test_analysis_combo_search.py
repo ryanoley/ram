@@ -72,9 +72,8 @@ class TestCombinationSearch(unittest.TestCase):
     def Xtest_start(self):
         comb = self.comb
         import pdb; pdb.set_trace()
-        comb.set_training_params(freq='m', n_periods=2,
-                                 n_ports_per_combo=5, n_best_combos=2,
-                                 long_short_combs=True)
+        comb.set_training_params(freq='w', n_periods=2,
+                                 n_ports_per_combo=5, n_best_combos=2)
         comb.start()
 
     def test_process_results(self):
@@ -91,7 +90,7 @@ class TestCombinationSearch(unittest.TestCase):
         comb = CombinationSearch()
         comb.add_data(data1, 'commit_1')
         comb.add_data(data2, 'commit_2')
-        comb._train_n_best_combos = 1
+        comb.set_training_params(n_best_combos=1)
         comb._create_results_objects()
         dates = [dt.datetime(2015, 1, i) for i in range(1, 3)]
         test_rets = pd.DataFrame({0: [1, 2.]}, index=dates)
@@ -141,14 +140,16 @@ class TestCombinationSearch(unittest.TestCase):
         comb.set_training_params(freq='m', n_periods=2,
                                  n_ports_per_combo=5, n_best_combos=2)
         comb._create_results_objects()
+        comb.params['seed_ind'] = 99
         comb._write_init_output()
         output_dir = os.path.join(os.getenv('GITHUB'), 'ram',
                                   'ram', 'tests', 'combo_search')
         comb2 = CombinationSearch(output_dir=output_dir)
         comb2._load_comb_search_session()
-        dates = [dt.date(2015, 1, i) for i in range(1, 6)]
+        dates = pd.DatetimeIndex([dt.date(2015, 1, i) for i in range(1, 6)])
         benchmark = pd.DataFrame(index=dates, columns=[0, 1], dtype=np.float_)
         assert_frame_equal(comb2.best_results_rets, benchmark)
+        self.assertEqual(comb2.params['seed_ind'], 99)
 
     def tearDown(self):
         try:
