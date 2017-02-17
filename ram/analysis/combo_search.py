@@ -1,6 +1,5 @@
 import os
 import json
-import random
 import numpy as np
 import pandas as pd
 
@@ -96,7 +95,7 @@ class CombinationSearch(object):
 
     def _generate_random_combs(self, n_choices, time_index):
         # Set seed and update
-        random.seed(self.params['seed_ind'])
+        np.random.seed(self.params['seed_ind'])
         self.params['seed_ind'] += 1
 
         combs = np.random.randint(

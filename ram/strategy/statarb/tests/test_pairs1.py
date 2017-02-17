@@ -6,16 +6,11 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-# Create correlated data using Cholesky decomposition
-from numpy.linalg import cholesky as chol
-
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
 
 
 class TestPairsStrategy1(unittest.TestCase):
-    """
-    Tests the implementation class DataClass
-    """
+
     def setUp(self):
         pass
 
