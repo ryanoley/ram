@@ -7,79 +7,98 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 
 class PairsStrategy2(BasePairSelector):
 
-    def __init__(self, secs_per_side=2):
-        self.secs_per_side = secs_per_side
+    def __init__(self):
+        pass
 
     def get_feature_names(self):
         return ['AdjClose', 'AvgDolVol', 'GSECTOR']
 
     def get_best_pairs(self, data, cut_date, n_per_side=2, max_pairs=1000,
                        z_window=20, **kwargs):
+
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
                                 values='AdjClose')
 
-        train_close = close_data.loc[close_data.index < cut_date]
+        # Get clean ids from training
+        clean_ids = self._get_clean_ids(close_data, cut_date)
+        close_data = close_data.loc[:, clean_ids]
 
-        # Clean data for training
-        train_close = train_close.T.dropna().T
-        train_close = train_close / train_close.iloc[0]
+        sectors = self._classify_sectors(data, clean_ids)
 
-        # Classify seccodes by Sector
-        tmp = data[['SecCode','GSECTOR']].drop_duplicates()
-        tmp = tmp[tmp.SecCode.isin(train_close.columns)]
-        sectors = {}
-        for sc in np.unique(tmp.GSECTOR):
-            sectors[sc] = tmp[tmp.GSECTOR == sc].SecCode.tolist()
+        # All indexes are created on
+        ret_data = close_data.pct_change().iloc[1:]
 
-        # Generate random combos
-        port_scores, columns = self._get_sector_portfolios(
-            train_close, sectors, n_per_side, max_pairs)
+        # Output objects
+        test_z_scores = pd.DataFrame(index=ret_data.loc[cut_date:].index)
+        port_scores = pd.DataFrame()
 
-        # Create daily z-scores
-        test_pairs = self._get_test_zscores(close_data, cut_date,
-                                            columns, port_scores, z_window)
-        return test_pairs, fpairs
-
-    def _get_sector_portfolios(self, data, sectors, n_per_side, max_pairs):
-        ret_data = data.pct_change().dropna()
-        comb_scores = pd.DataFrame()
-        comb_names = np.array([['a','a','a','a']])
         for sec, seccodes in sectors.iteritems():
-            # Get data
-            sec_data = np.array(ret_data.loc[:, seccodes]).T
+
+            # Get data for the Sector
+            sec_ret_data = ret_data.loc[:, seccodes]
+
             # Get combinations of random columns
-            combs1, combs2 = self._generate_random_cols(len(seccodes),
-                                                        n_per_side)
-            sum_comb_rets = self._get_comb_scores(sec_data, combs1, combs2)
+            combs1, combs2 = self._generate_random_cols(
+                len(seccodes), n_per_side)
 
-            cn = self._concatenate_seccodes(seccodes, combs1, combs2)
+            comb_indexes = self._get_comb_indexes(sec_ret_data, combs1, combs2)
 
-            comb_scores = comb_scores.append(pd.DataFrame({
-                'Scores': sum_comb_rets,
-                'Sector': sec
+            # Get "scores" for these column combinations
+            scores = self._get_comb_scores(comb_indexes, cut_date)
+
+            # Get top values assuming all top pairs come from just this sector
+            inds = scores.sort_values()[:max_pairs]
+
+            # Get Test Z Scores of these indexes
+            z_scores = self._get_spread_zscores(
+                comb_indexes.loc[:, inds.index], z_window, cut_date)
+
+            port_scores = port_scores.append(pd.DataFrame({
+                'Scores': scores,
+                'Sector': sec,
             }))
-            comb_names = np.vstack((comb_names, cn))
 
-        comb_names = comb_names[1:]
+            test_z_scores = test_z_scores.join(z_scores)
 
-        inds = np.argsort(comb_scores.Scores).values
+        # Final sort and selection
+        port_scores = port_scores.sort_values('Scores')[:max_pairs]
 
-        comb_scores = comb_scores.iloc[inds][:max_pairs]
-        comb_names = comb_names[inds][:max_pairs]
+        return test_z_scores.loc[:, port_scores.index], port_scores
 
-        return comb_scores, comb_names
+    @staticmethod
+    def _get_clean_ids(close_data, cut_date):
+        # CLEAN: Remove columns that have any missing training data
+        return close_data.loc[close_data.index < cut_date] \
+            .T.dropna().T.columns.tolist()
 
-    def _get_comb_scores(self, sec_data, combs1, combs2):
+    ###########################################################################
+
+    def _get_comb_indexes(self, sec_data, combs1, combs2):
+        """
+        Each day the returns for each Side (comb array) are averaged
+        as if they were equal-weighted portfolios that are rebalanced daily.
+
+        These returns are cumsum'd to create and index, and then the
+        opposite side is subtracted from it.
+        """
         # Ensure proper type
-        sec_data = np.array(sec_data)
+        sec_dataA = np.array(sec_data.T)
         combs1 = np.array(combs1)
         combs2 = np.array(combs2)
-        comb_rets = \
-            np.cumsum(np.mean(sec_data[combs1], axis=1), axis=1) - \
-            np.cumsum(np.mean(sec_data[combs2], axis=1), axis=1)
-        return np.sum(np.abs(comb_rets), axis=1)
+        comb_indexes = pd.DataFrame(
+            (np.cumsum(np.mean(sec_dataA[combs1], axis=1), axis=1) - \
+             np.cumsum(np.mean(sec_dataA[combs2], axis=1), axis=1)).T)
+        comb_indexes.index = sec_data.index
+        comb_indexes.columns = self._concatenate_seccodes(
+            sec_data.columns.values, combs1, combs2)
+        return comb_indexes
+
+    def _get_comb_scores(self, comb_indexes, cut_date):
+        return comb_indexes.loc[comb_indexes.index < cut_date].abs().sum()
+
+    ###########################################################################
 
     def _generate_random_cols(self, n_choices, n_per_side):
         """
@@ -139,30 +158,31 @@ class PairsStrategy2(BasePairSelector):
     @staticmethod
     def _concatenate_seccodes(seccodes, combs1, combs2):
         z1 = np.array(seccodes)[combs1]
+        z1 = ['_'.join(x) for x in z1]
         z2 = np.array(seccodes)[combs2]
-        return np.hstack((z1, z2))
+        z2 = ['_'.join(x) for x in z2]
+        return ['~'.join(x) for x in zip(z1, z2)]
 
     ###########################################################################
 
-    def _get_test_zscores(self, Close, cut_date, columns, fpairs, window):
-        import pdb; pdb.set_trace()
+    @staticmethod
+    def _classify_sectors(data, clean_ids):
+        # Classify seccodes by Sector
+        tmp = data[['SecCode','GSECTOR']].drop_duplicates()
+        tmp = tmp[tmp.SecCode.isin(clean_ids)]
+        sectors = {}
+        for sc in np.unique(tmp.GSECTOR):
+            sectors[sc] = tmp[tmp.GSECTOR == sc].SecCode.tolist()
+        return sectors
 
-        # Create two data frames that represent Leg1 and Leg2
-        df_leg1 = Close.loc[:, fpairs.Leg1]
-        df_leg2 = Close.loc[:, fpairs.Leg2]
-        outdf = self._get_spread_zscores(df_leg1, df_leg2, window)
-        # Add correct column names
-        outdf.columns = ['{0}_{1}'.format(x, y) for x, y in
-                         zip(fpairs.Leg1, fpairs.Leg2)]
-        return outdf.loc[outdf.index >= cut_date]
+    ###########################################################################
 
-    def _get_spread_zscores(self, close1, close2, window):
+    def _get_spread_zscores(self, comb_indexes, window, cut_date):
         """
         Simple normalization
         """
-        spreads = np.subtract(np.log(close1), np.log(close2))
-        ma, std = self._get_moving_avg_std(spreads, window)
-        return (spreads - ma) / std
+        ma, std = self._get_moving_avg_std(comb_indexes, window)
+        return ((comb_indexes - ma) / std).loc[cut_date:]
 
     @staticmethod
     def _get_moving_avg_std(X, window):

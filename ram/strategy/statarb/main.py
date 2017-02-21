@@ -7,14 +7,18 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
+from ram.strategy.statarb.pairselector.pairs2 import PairsStrategy2
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 
 class StatArbStrategy(Strategy):
 
-    def __init__(self, **args):
+    def __init__(self, pairs2=False, **args):
         super(StatArbStrategy, self).__init__(**args)
-        self.pairselector = PairsStrategy1()
+        if pairs2:
+            self.pairselector = PairsStrategy2()
+        else:
+            self.pairselector = PairsStrategy1()
         self.constructor = PortfolioConstructor()
         self.univ_size = 500
 
@@ -31,8 +35,7 @@ class StatArbStrategy(Strategy):
         args1 = make_arg_iter({
             'z_window': [20, 30, 40],
             'max_pairs': [1000, 3000, 6000],
-            'same_sector': [True],
-            'vol_ratio_filter': [.3, .6]
+            'n_per_side': [2, 3, 4]
         })
 
         args2 = make_arg_iter({
@@ -127,8 +130,9 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    #strategy = StatArbStrategy(output_dir='/Users/mitchellsuter/Desktop',
-    #                           run_version='v11')
-    strategy = StatArbStrategy(output_dir='C:\Users\Mitchell\Desktop',
-                               run_version='v5')
+    import pdb; pdb.set_trace()
+    strategy = StatArbStrategy(True, output_dir='/Users/mitchellsuter/Desktop',
+                               run_version='v11')
+    #strategy = StatArbStrategy(True, output_dir='C:\Users\Mitchell\Desktop',
+    #                           run_version='v5')
     strategy.start()

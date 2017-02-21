@@ -3,7 +3,6 @@ import pandas as pd
 import datetime as dt
 
 from ram.strategy.statarb.constructor.portfolio import PairPortfolio
-from ram.strategy.statarb.constructor.position import PairPosition
 from ram.strategy.statarb.constructor.base import BaseConstructor
 
 
@@ -164,7 +163,7 @@ class PortfolioConstructor(BaseConstructor):
         if new_pairs == 0:
             return
 
-        pair_bet_size = self.booksize / n_pairs
+        gross_bet_size = self.booksize / n_pairs
 
         assert max_pos_prop > 0 and max_pos_prop <= 1
         max_pos_count = int(n_pairs * max_pos_prop)
@@ -177,7 +176,7 @@ class PortfolioConstructor(BaseConstructor):
                 break
             if self._check_pos_exposures(pair, side, max_pos_count):
                 self._portfolio.add_pair(pair, trade_prices,
-                                         pair_bet_size, side)
+                                         gross_bet_size, side)
             if self._portfolio.count_open_positions() == n_pairs:
                 break
         return
@@ -187,29 +186,27 @@ class PortfolioConstructor(BaseConstructor):
         Get exposures each iteration.
         """
         self._exposures = {}
-        for pair, pos in self._portfolio.pairs.iteritems():
-            leg1, leg2 = pair.split('_')
+        for _, pos in self._portfolio.pairs.iteritems():
             if pos.open_position:
-                if leg1 not in self._exposures:
-                    self._exposures[leg1] = 0
-                if leg2 not in self._exposures:
-                    self._exposures[leg2] = 0
-                side = 1 if pos.shares1 > 0 else -1
-                self._exposures[leg1] += side
-                self._exposures[leg2] += -1 * side
+                for leg, shares in zip(pos.legs, pos.shares):
+                    if leg not in self._exposures:
+                        self._exposures[leg] = 0
+                    self._exposures[leg] += np.sign(shares)
 
     def _check_pos_exposures(self, pair, side, max_pos_count):
-        leg1, leg2 = pair.split('_')
-
-        if leg1 not in self._exposures:
-            self._exposures[leg1] = 0
-        if leg2 not in self._exposures:
-            self._exposures[leg2] = 0
-
-        if abs(self._exposures[leg1]) < max_pos_count and \
-                abs(self._exposures[leg2]) < max_pos_count:
-            self._exposures[leg1] += side
-            self._exposures[leg2] += -1 * side
-            return True
-        else:
+        side1, side2 = pair.split('~')
+        legs1 = side1.split('_')
+        legs2 = side2.split('_')
+        legs = np.append(legs1, legs2)
+        sides = np.append(np.repeat(side, len(legs1)),
+                          np.repeat(-side, len(legs2)))
+        for leg in legs:
+            if leg not in self._exposures:
+                self._exposures[leg] = 0
+        exps = np.array([self._exposures[l] for l in legs])
+        if np.any(np.abs(exps + sides) == max_pos_count):
             return False
+        else:
+            for leg, side in zip(legs, sides):
+                self._exposures[leg] += side
+            return True

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from ram.strategy.statarb.constructor.position import PairPosition
+from ram.strategy.statarb.constructor.position import MultiLegPosition
 
 
 class PairPortfolio(object):
@@ -24,14 +24,7 @@ class PairPortfolio(object):
         closes/dividends/splits : dict
         """
         for pair in self.pairs.keys():
-            # Extract prices from dictionaries
-            leg1, leg2 = pair.split('_')
-            c1, c2 = closes[leg1], closes[leg2]
-            d1, d2 = dividends[leg1], dividends[leg2]
-            sp1, sp2 = splits[leg1], splits[leg2]
-            # Only update the Position state, don't extract anything here.
-            # Other adjustments need to happen downstream.
-            self.pairs[pair].update_position_prices(c1, c2, d1, d2, sp1, sp2)
+            self.pairs[pair].update_position_prices(closes, dividends, splits)
         return
 
     def update_position_exposures(self, base_exposure, perc_dev):
@@ -53,7 +46,7 @@ class PairPortfolio(object):
                 pos.update_position_exposure(base_exposure)
         return
 
-    def add_pair(self, pair, trade_prices, dollar_size, side):
+    def add_pair(self, pair, trade_prices, gross_bet_size, side):
         """
         Parameters
         ----------
@@ -65,13 +58,20 @@ class PairPortfolio(object):
         side : 1, -1
             Going long the pair means going LONG Leg1 and SHORT Leg2
         """
-        assert pair not in self.pairs.keys()
-        assert side in [1, -1]
-        leg1, leg2 = pair.split('_')
-        leg_size = max(dollar_size / 2., 0.)
-        self.pairs[pair] = PairPosition(
-            leg1, trade_prices[leg1], side * leg_size,
-            leg2, trade_prices[leg2], -1 * side * leg_size)
+        # Split securities
+        side1, side2 = pair.split('~')
+        legs1 = np.array(side1.split('_'))
+        legs2 = np.array(side2.split('_'))
+        legs = np.append(legs1, legs2)
+        # Get prices
+        prices = np.array([trade_prices[l] for l in legs])
+        # Get sizes
+        sizes1 = np.repeat(gross_bet_size / 2 / len(legs1),
+                           len(legs1)) * side
+        sizes2 = np.repeat(gross_bet_size / 2 / len(legs2),
+                           len(legs2)) * side * -1
+        sizes = np.append(sizes1, sizes2)
+        self.pairs[pair] = MultiLegPosition(legs, prices, sizes)
         return
 
     def close_pairs(self, close_pairs=None, all_pairs=False):
