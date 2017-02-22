@@ -36,6 +36,10 @@ class PairsStrategy2(BasePairSelector):
 
         for sec, seccodes in sectors.iteritems():
 
+            if len(seccodes) < (2 * n_per_side):
+                # Happens with low univ size counts
+                continue
+
             # Get data for the Sector
             sec_ret_data = ret_data.loc[:, seccodes]
 
