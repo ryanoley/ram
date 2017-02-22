@@ -47,24 +47,32 @@ class PairsStrategy2(BasePairSelector):
             combs1, combs2 = self._generate_random_cols(
                 len(seccodes), n_per_side)
 
-            comb_indexes = self._get_comb_indexes(sec_ret_data, combs1, combs2)
+            # Due to size of combinations, this iterates in chunks of 20k
+            chunksize = 10000
+            iter_count = combs1.shape[0] / chunksize + 1
+            for i in range(iter_count + 1):
+                start_i = i * chunksize
+                end_i = (i+1) * chunksize
+                comb_indexes = self._get_comb_indexes(sec_ret_data,
+                                                      combs1[start_i:end_i],
+                                                      combs2[start_i:end_i])
 
-            # Get "scores" for these column combinations
-            scores = self._get_comb_scores(comb_indexes, cut_date)
+                # Get "scores" for these column combinations
+                scores = self._get_comb_scores(comb_indexes, cut_date)
 
-            # Get top values assuming all top pairs come from just this sector
-            inds = scores.sort_values()[:max_pairs]
+                # Get top values assuming all top pairs come from just this sector
+                scores_sorted = scores.sort_values()[:max_pairs/iter_count]
 
-            # Get Test Z Scores of these indexes
-            z_scores = self._get_spread_zscores(
-                comb_indexes.loc[:, inds.index], z_window, cut_date)
+                # Get Test Z Scores of these indexes
+                z_scores = self._get_spread_zscores(
+                    comb_indexes.loc[:, scores_sorted.index], z_window, cut_date)
 
-            port_scores = port_scores.append(pd.DataFrame({
-                'Scores': scores,
-                'Sector': sec,
-            }))
+                port_scores = port_scores.append(pd.DataFrame({
+                    'Scores': scores_sorted,
+                    'Sector': sec,
+                }))
 
-            test_z_scores = test_z_scores.join(z_scores)
+                test_z_scores = test_z_scores.join(z_scores)
 
         # Final sort and selection
         port_scores = port_scores.sort_values('Scores')[:max_pairs]
@@ -117,7 +125,7 @@ class PairsStrategy2(BasePairSelector):
                                                   side
         """
         combs = np.random.randint(0, high=n_choices,
-                                  size=(200000, n_per_side * 2))
+                                  size=(400000, n_per_side * 2))
         combs1 = combs[:, :n_per_side]
         combs2 = combs[:, n_per_side:]
         return self._filter_combs(combs1, combs2)

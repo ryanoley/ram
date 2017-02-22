@@ -42,8 +42,13 @@ class TestPairsStrategy2(unittest.TestCase):
         self.assertListEqual(result, benchmark)
 
     def test_classify_sectors(self):
-        result = PairsStrategy2._classify_sectors(self.data)
+        clean_inds = ['V1', 'V2', 'V3', 'V4']
+        result = PairsStrategy2._classify_sectors(self.data, clean_inds)
         benchmark = {20: ['V1', 'V2', 'V3', 'V4']}
+        self.assertDictEqual(result, benchmark)
+        clean_inds = ['V1', 'V2']
+        result = PairsStrategy2._classify_sectors(self.data, clean_inds)
+        benchmark = {20: ['V1', 'V2']}
         self.assertDictEqual(result, benchmark)
 
     def test_concatenate_seccodes(self):

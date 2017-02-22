@@ -5,7 +5,7 @@ import pandas as pd
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.statarb.constructor.position_comb import MultiLegPosition
+from ram.strategy.statarb.constructor.position import MultiLegPosition
 
 
 class TestMultiLegPosition(unittest.TestCase):

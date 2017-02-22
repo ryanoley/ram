@@ -15,9 +15,9 @@ class TestConstructor(unittest.TestCase):
         dates = [dt.datetime(2015, 1, 1), dt.datetime(2015, 1, 2),
                  dt.datetime(2015, 1, 3), dt.datetime(2015, 1, 4)]
         self.scores = pd.DataFrame({
-            'AAPL_GOOGL': [2, 0, 4, 0],
-            'AAPL_IBM': [0, 0, 3, 1],
-            'GOOGL_IBM': [0, -2, -3, -2],
+            'AAPL~GOOGL': [2, 0, 4, 0],
+            'AAPL~IBM': [0, 0, 3, 1],
+            'GOOGL~IBM': [0, -2, -3, -2],
         }, index=dates)
 
         self.data = pd.DataFrame({
@@ -40,10 +40,10 @@ class TestConstructor(unittest.TestCase):
         benchmark = {'AAPL': 5, 'GOOGL': 15, 'IBM': 12}
         self.assertDictEqual(result, benchmark)
         result = cons.exit_scores[pd.Timestamp('2015-01-01')]
-        benchmark = {'AAPL_GOOGL': 2, 'GOOGL_IBM': 0, 'AAPL_IBM': 0}
+        benchmark = {'AAPL~GOOGL': 2, 'GOOGL~IBM': 0, 'AAPL~IBM': 0}
         self.assertDictEqual(result, benchmark)
         result = cons.exit_scores[pd.Timestamp('2015-01-04')]
-        benchmark = {'AAPL_GOOGL': 0, 'GOOGL_IBM': -2, 'AAPL_IBM': 1}
+        benchmark = {'AAPL~GOOGL': 0, 'GOOGL~IBM': -2, 'AAPL~IBM': 1}
         self.assertDictEqual(result, benchmark)
 
     def test_get_daily_pl(self):
@@ -59,11 +59,11 @@ class TestConstructor(unittest.TestCase):
         port = PortfolioConstructor(booksize=200)
         trade_prices = {'IBM': 100, 'VMW': 200, 'GOOGL': 100, 'AAPL': 200}
         port._portfolio.add_pair(
-            pair='IBM_VMW', trade_prices=trade_prices,
-            dollar_size=10000, side=1)
+            pair='IBM~VMW', trade_prices=trade_prices,
+            gross_bet_size=10000, side=1)
         port._portfolio.add_pair(
-            pair='IBM_GOOGL', trade_prices=trade_prices,
-            dollar_size=10000, side=1)
+            pair='IBM~GOOGL', trade_prices=trade_prices,
+            gross_bet_size=10000, side=1)
         port._get_pos_exposures()
         result = port._exposures
         benchmark = {'IBM': 2, 'VMW': -1, 'GOOGL': -1}

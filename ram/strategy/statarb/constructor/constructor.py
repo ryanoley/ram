@@ -204,7 +204,7 @@ class PortfolioConstructor(BaseConstructor):
             if leg not in self._exposures:
                 self._exposures[leg] = 0
         exps = np.array([self._exposures[l] for l in legs])
-        if np.any(np.abs(exps + sides) == max_pos_count):
+        if np.any(np.abs(exps + sides) > max_pos_count):
             return False
         else:
             for leg, side in zip(legs, sides):
