@@ -13,8 +13,8 @@ from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 class StatArbStrategy(Strategy):
 
-    def __init__(self, pairs2=False, **args):
-        super(StatArbStrategy, self).__init__(**args)
+    def __init__(self, pairs2=False, write_flag=False):
+        super(StatArbStrategy, self).__init__(write_flag)
         if pairs2:
             self.pairselector = PairsStrategy2()
         else:
@@ -131,8 +131,6 @@ def make_arg_iter(variants):
 if __name__ == '__main__':
 
     import pdb; pdb.set_trace()
-    strategy = StatArbStrategy(True, output_dir='/Users/mitchellsuter/Desktop',
-                               run_version='v11')
-    #strategy = StatArbStrategy(True, output_dir='C:\Users\Mitchell\Desktop',
-    #                           run_version='v5')
+    #strategy = StatArbStrategy(True, False)
+    strategy = StatArbStrategy(False, False)
     strategy.start()

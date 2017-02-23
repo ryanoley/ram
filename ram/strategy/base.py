@@ -11,12 +11,15 @@ from ram.data.dh_sql import DataHandlerSQL
 from gearbox import ProgBar
 
 
+OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'simulations')
+
+
 class Strategy(object):
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, output_dir=None, run_version=None):
-        self._set_output_dir(output_dir, run_version)
+    def __init__(self, write_flag=False):
+        self._set_output_dir(write_flag)
         # Connect to QADirect
         self.datahandler = DataHandlerSQL()
 
@@ -84,24 +87,32 @@ class Strategy(object):
         assert isinstance(results.index, pd.DatetimeIndex)
         results.to_csv(self.strategy_output_dir+'/result_{0:05d}.csv'.format(index))
 
-    def _set_output_dir(self, output_dir, run_version):
-        self.strategy_output_dir = None
-        if output_dir:
-            if not run_version:
-                assert 'Provide strategy run_version to Strategy.init'
+    def _set_output_dir(self, write_flag):
+        self.write_flag = write_flag
+        if write_flag:
+            if raw_input("\nCreate a description to be written to "
+                         "file? [y/n]: ") == "y":
+                self._description = raw_input("\nDescription: \n")
+            # Make directory for simulations
+            if not os.path.exists(OUTDIR):
+                os.makedirs(OUTDIR)
             # Make directory for StrategyClass
-            ddir = os.path.join(output_dir, self.__class__.__name__)
-            if not os.path.exists(output_dir):
-                os.makedirs(ddir)
+            strategy_dir = os.path.join(OUTDIR, self.__class__.__name__)
+            if not os.path.exists(strategy_dir):
+                os.makedirs(strategy_dir)
+            # Get all run versions
+            all_dirs = [x for x in os.listdir(strategy_dir) if x[:3] == 'run']
+            if all_dirs:
+                new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
+            else:
+                new_ind = 1
             # Output directory setup
-            self.strategy_output_dir = os.path.join(ddir, run_version)
-            # Clean output directory if present
-            if os.path.exists(self.strategy_output_dir):
-                shutil.rmtree(self.strategy_output_dir)
+            self.strategy_output_dir = os.path.join(
+                strategy_dir, 'run_{0:04d}'.format(new_ind))
             os.makedirs(self.strategy_output_dir)
 
     def _write_results(self):
-        if self.strategy_output_dir:
+        if self.write_flag:
             self.returns.to_csv(os.path.join(self.strategy_output_dir,
                                              'results.csv'))
             if self.column_params:
@@ -114,11 +125,14 @@ class Strategy(object):
                                        'statistics.json'), 'w') as outfile:
                     json.dump(self.statistics, outfile)
                 outfile.close()
+            if self._description:
+                pass
+            if hasattr(self, '_description'):
+                run_meta['description'] = self._description
             with open(os.path.join(self.strategy_output_dir,
                                    'meta.json'), 'w') as outfile:
                 json.dump(self.run_meta, outfile)
             outfile.close()
-
 
     def _get_git_branch_commit(self):
         repo_dir = os.path.join(os.getenv('GITHUB'), 'ram')
