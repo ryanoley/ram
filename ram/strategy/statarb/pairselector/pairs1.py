@@ -127,7 +127,7 @@ class PairsStrategy1(BasePairSelector):
         df_leg2 = Close.loc[:, fpairs.Leg2]
         outdf = self._get_spread_zscores(df_leg1, df_leg2, window)
         # Add correct column names
-        outdf.columns = ['{0}_{1}'.format(x, y) for x, y in
+        outdf.columns = ['{0}~{1}'.format(x, y) for x, y in
                          zip(fpairs.Leg1, fpairs.Leg2)]
         return outdf.loc[outdf.index >= cut_date]
 
