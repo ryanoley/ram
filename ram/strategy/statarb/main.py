@@ -95,7 +95,7 @@ class StatArbStrategy(Strategy):
         filter_args = {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
-                'and Close_ > 15',
+                'and Close_ between 15 and 1000',
             'univ_size': univ_size}
 
         features = list(set(self.pairselector.get_feature_names() +
