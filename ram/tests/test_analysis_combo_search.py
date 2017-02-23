@@ -18,26 +18,41 @@ class TestCombinationSearch(unittest.TestCase):
                  for i in range(150)]
         data = pd.DataFrame(np.random.randn(150, 50),
                             index=dates)
-        self.comb = CombinationSearch()
-        self.comb.add_data(data, 'commit_1')
-
-    def test_init(self):
-        comb = CombinationSearch()
-
-    def test_add_data_clean_input_data(self):
+        self.data = data
         dates = [dt.datetime(2015, 1, i) for i in range(1, 4)]
-        data1 = pd.DataFrame({
+        self.data1 = pd.DataFrame({
             'V1': [1, 2, 3],
             'V2': [2, 3, 4]
         }, index=dates)
         dates = [dt.datetime(2015, 1, i) for i in range(3, 6)]
-        data2 = pd.DataFrame({
+        self.data2 = pd.DataFrame({
             'V2': [1, 2, 3],
             'V3': [2, 3, 4]
         }, index=dates)
-        comb = CombinationSearch()
-        comb.add_data(data1, 'commit_1')
-        comb.add_data(data2, 'commit_2')
+        # Write to folder
+        dir1 = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
+                            'tests', 'simulations')
+        self.base_dir = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
+                                     'tests', 'simulations')
+        os.mkdir(self.base_dir)
+        os.mkdir(os.path.join(self.base_dir, 'StatArbStrategy'))
+        os.mkdir(os.path.join(self.base_dir, 'StatArbStrategy', 'run_0001'))
+        os.mkdir(os.path.join(self.base_dir, 'StatArbStrategy', 'run_0002'))
+        self.data1.to_csv(os.path.join(self.base_dir, 'StatArbStrategy',
+                                       'run_0001', 'results.csv'))
+        self.data2.to_csv(os.path.join(self.base_dir, 'StatArbStrategy',
+                                       'run_0002', 'results.csv'))
+
+    def Xtest_start(self):
+        # For dev purposes and not testing due to infinite loop
+        comb = CombinationSearch('StatArbStrategy', True)
+        comb.simulation_dir = self.base_dir
+        comb.start('run_0001')
+
+    def test_add_data_clean_input_data(self):
+        comb = CombinationSearch('StatArbStrategy')
+        comb._add_data(self.data1, 'commit_1')
+        comb._add_data(self.data2, 'commit_2')
         dates = [dt.datetime(2015, 1, i) for i in range(1, 6)]
         benchmark = pd.DataFrame(index=dates)
         benchmark[0] = [1, 2, 3, np.nan, np.nan]
@@ -57,7 +72,8 @@ class TestCombinationSearch(unittest.TestCase):
         assert_frame_equal(comb.data, benchmark)
 
     def test_create_training_indexes(self):
-        comb = self.comb
+        comb = CombinationSearch('StatArbStrategy')
+        comb._add_data(self.data, 'commit_1')
         comb.set_training_params(freq='m', n_periods=2)
         comb._create_training_indexes()
         result = comb._time_indexes
@@ -68,13 +84,6 @@ class TestCombinationSearch(unittest.TestCase):
         result = comb._time_indexes
         benchmark = [(0, 31, 59), (0, 59, 90), (0, 90, 120), (0, 120, 150)]
         self.assertListEqual(result, benchmark)
-
-    def Xtest_start(self):
-        comb = self.comb
-        import pdb; pdb.set_trace()
-        comb.set_training_params(freq='w', n_periods=2,
-                                 n_ports_per_combo=5, n_best_combos=2)
-        comb.start()
 
     def test_process_results(self):
         dates = [dt.datetime(2015, 1, i) for i in range(1, 4)]
@@ -87,9 +96,9 @@ class TestCombinationSearch(unittest.TestCase):
             'V2': [1, 2, 3],
             'V3': [2, 3, 4]
         }, index=dates)
-        comb = CombinationSearch()
-        comb.add_data(data1, 'commit_1')
-        comb.add_data(data2, 'commit_2')
+        comb = CombinationSearch('StatArbStrategy')
+        comb._add_data(data1, 'commit_1')
+        comb._add_data(data2, 'commit_2')
         comb.set_training_params(n_best_combos=1)
         comb._create_results_objects()
         dates = [dt.datetime(2015, 1, i) for i in range(1, 3)]
@@ -117,7 +126,8 @@ class TestCombinationSearch(unittest.TestCase):
     def test_get_sharpes(self):
         df = pd.DataFrame({0: range(5), 1: range(1, 6), 2: range(2, 7)})
         combs = [(0, 1), (0, 2), (1, 2)]
-        results = self.comb._get_sharpes(df, combs)
+        comb = CombinationSearch('StatArbStrategy')
+        results = comb._get_sharpes(df, combs)
         benchmark = np.array([ 1.76776695,  2.12132034,  2.47487373])
         assert_array_equal(results.round(5), benchmark.round(5))
 
@@ -132,33 +142,28 @@ class TestCombinationSearch(unittest.TestCase):
             'V2': [1, 2, 3],
             'V3': [2, 3, 4]
         }, index=dates)
-        output_dir = os.path.join(os.getenv('GITHUB'), 'ram',
-                                  'ram', 'tests', 'combo_search')
-        comb = CombinationSearch(output_dir=output_dir)
-        comb.add_data(data1, 'commit_1')
-        comb.add_data(data2, 'commit_2')
+        comb = CombinationSearch('StatArbStrategy', True)
+        comb.simulation_dir = self.base_dir
+        comb._add_data(data1, 'commit_1')
+        comb._add_data(data2, 'commit_2')
         comb.set_training_params(freq='m', n_periods=2,
                                  n_ports_per_combo=5, n_best_combos=2)
         comb._create_results_objects()
         comb.params['seed_ind'] = 99
         comb._write_init_output()
-        output_dir = os.path.join(os.getenv('GITHUB'), 'ram',
-                                  'ram', 'tests', 'combo_search')
-        comb2 = CombinationSearch(output_dir=output_dir)
-        comb2._load_comb_search_session()
+
+        comb2 = CombinationSearch('StatArbStrategy')
+        comb2.simulation_dir = self.base_dir
+        comb2._load_comb_search_session('combo_0001')
+
         dates = pd.DatetimeIndex([dt.date(2015, 1, i) for i in range(1, 6)])
         benchmark = pd.DataFrame(index=dates, columns=[0, 1], dtype=np.float_)
         assert_frame_equal(comb2.best_results_rets, benchmark)
         self.assertEqual(comb2.params['seed_ind'], 99)
 
     def tearDown(self):
-        try:
-            output_dir = os.path.join(
-                os.getenv('GITHUB'), 'ram',
-                'ram', 'tests', 'combo_search')
-            shutil.rmtree(output_dir)
-        except:
-            pass
+        shutil.rmtree(self.base_dir)
+
 
 if __name__ == '__main__':
     unittest.main()
