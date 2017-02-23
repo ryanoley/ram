@@ -85,7 +85,8 @@ class Strategy(object):
             results = results['returns']
         # Enforce that the index is DateTime
         assert isinstance(results.index, pd.DatetimeIndex)
-        results.to_csv(self.strategy_output_dir+'/result_{0:05d}.csv'.format(index))
+        if self.write_flag:
+            results.to_csv(self.strategy_output_dir+'/result_{0:05d}.csv'.format(index))
 
     def _prompt_for_description(self):
         desc = raw_input("\nEnter a description of this run:\n")
