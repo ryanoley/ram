@@ -6,12 +6,15 @@ import pandas as pd
 from gearbox import convert_date_array
 
 
+OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'simulations')
+
+
 class CombinationSearch(object):
 
-    def __init__(self, output_dir=None):
-        self.output_dir = output_dir
-        self.data = pd.DataFrame({}, index=pd.DatetimeIndex([]))
-        self.data_labels = {}
+    def __init__(self, strategy_class, write_flag=False):
+        self.strategy_class = strategy_class
+        self.write_flag = write_flag
+        self.simulation_dir = OUTDIR
         # Default parameters
         self.params = {
             'freq': 'm',
@@ -21,9 +24,13 @@ class CombinationSearch(object):
             'seed_ind': 0
         }
 
-    def add_data(self, new_data, frame_label):
+    def _add_data(self, new_data, frame_label):
         assert isinstance(new_data, pd.DataFrame)
         assert isinstance(new_data.index, pd.DatetimeIndex)
+        if not hasattr(self, 'data'):
+            # Global objects
+            self.data = pd.DataFrame({}, index=pd.DatetimeIndex([]))
+            self.data_labels = {}
         # Map inputted data column names
         self.data_labels[frame_label] = new_data.columns
         self.data = self.data.join(new_data, how='outer', rsuffix='R')
@@ -34,12 +41,15 @@ class CombinationSearch(object):
         for key, value in kwargs.iteritems():
             self.params[key] = value
 
-    def restart(self):
-        self._load_comb_search_session()
+    def restart(self, combo_name):
+        self._load_comb_search_session(combo_name)
         print 'Restarting Search'
         self._loop()
 
-    def start(self):
+    def start(self, runs):
+        if not isinstance(runs, list):
+            runs = [runs]
+        self._import_data(runs)
         self._clean_input_data()
         self._create_results_objects()
         self._write_init_output()
@@ -123,6 +133,12 @@ class CombinationSearch(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def _import_data(self, runs):
+        # Read in return data
+        ddir = os.path.join(self.simulation_dir, self.strategy_class)
+        for run in runs:
+            self._add_data(self._read_csv(os.path.join(ddir, run,
+                                                       'results.csv')), run)
     def _clean_input_data(self):
         ind = self.data.isnull() & self.data.fillna(method='pad').notnull()
         self.data.where(~ind, other=0, inplace=True)
@@ -189,9 +205,18 @@ class CombinationSearch(object):
             self.best_results_combs[time_index] = combs
 
     def _write_init_output(self):
-        if self.output_dir:
-            if os.path.exists(self.output_dir):
-                raise Exception('Cannot overwrite directory')
+        if self.write_flag:
+            # Create combo output folder
+            strat_dir = os.path.join(self.simulation_dir, self.strategy_class)
+            # Get all combo versions
+            all_dirs = [x for x in os.listdir(strat_dir) if x[:5] == 'combo']
+            if all_dirs:
+                new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
+            else:
+                new_ind = 1
+            # Output directory setup
+            self.output_dir = os.path.join(
+                strat_dir, 'combo_{0:04d}'.format(new_ind))
             os.makedirs(self.output_dir)
             # Write data
             self.data.to_csv(os.path.join(self.output_dir, 'master_data.csv'))
@@ -211,7 +236,7 @@ class CombinationSearch(object):
         except:
             pass
 
-        if self.output_dir:
+        if self.write_flag:
             self.best_results_rets.to_csv(os.path.join(self.output_dir,
                                                        'best_returns.csv'))
             if write_params:
@@ -222,31 +247,34 @@ class CombinationSearch(object):
                 self._write_params(self.best_results_combs, outpath)
         return
 
-    def _load_comb_search_session(self):
-        if self.output_dir:
-            # Load data
-            self.data = self._read_csv(os.path.join(self.output_dir,
-                                                    'master_data.csv'))
-            # Load parameters
-            outpath = os.path.join(self.output_dir, 'params.json')
-            params = json.load(open(outpath, 'r'))
-            self.set_training_params(**params)
+    def _load_comb_search_session(self, combo_name):
+        combo_dir = os.path.join(self.simulation_dir,
+                                 self.strategy_class, combo_name)
 
-            # Best results data
-            self.best_results_rets = self._read_csv(
-                os.path.join(self.output_dir, 'best_returns.csv'))
+        assert os.path.isdir(combo_dir)
 
-            outpath = os.path.join(self.output_dir, 'best_scores.json')
-            self.best_results_scores = json.load(open(outpath, 'r'))
-            self.best_results_scores = {
-                int(key): np.array(vals) for key, vals in
-                self.best_results_scores.iteritems()}
+        self.data = self._read_csv(os.path.join(combo_dir,
+                                                'master_data.csv'))
+        # Load parameters
+        outpath = os.path.join(combo_dir, 'params.json')
+        params = json.load(open(outpath, 'r'))
+        self.set_training_params(**params)
 
-            outpath = os.path.join(self.output_dir, 'best_combs.json')
-            self.best_results_combs = json.load(open(outpath, 'r'))
-            self.best_results_combs = {
-                int(key): np.array(vals) for key, vals in
-                self.best_results_combs.iteritems()}
+        # Best results data
+        self.best_results_rets = self._read_csv(
+            os.path.join(combo_dir, 'best_returns.csv'))
+
+        outpath = os.path.join(combo_dir, 'best_scores.json')
+        self.best_results_scores = json.load(open(outpath, 'r'))
+        self.best_results_scores = {
+            int(key): np.array(vals) for key, vals in
+            self.best_results_scores.iteritems()}
+
+        outpath = os.path.join(combo_dir, 'best_combs.json')
+        self.best_results_combs = json.load(open(outpath, 'r'))
+        self.best_results_combs = {
+            int(key): np.array(vals) for key, vals in
+            self.best_results_combs.iteritems()}
         return
 
     @staticmethod
