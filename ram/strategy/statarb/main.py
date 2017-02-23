@@ -33,9 +33,9 @@ class StatArbStrategy(Strategy):
                               univ_size=self.univ_size)
 
         args1 = make_arg_iter({
-            'z_window': [20, 30, 40],
-            'max_pairs': [1000, 3000, 6000],
-            'n_per_side': [2, 3, 4]
+            'z_window': [10, 35],
+            'max_pairs': [6000],
+            'n_per_side': [2, 4]
         })
 
         args2 = make_arg_iter({
@@ -130,7 +130,6 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    import pdb; pdb.set_trace()
     #strategy = StatArbStrategy(True, False)
-    strategy = StatArbStrategy(False, False)
+    strategy = StatArbStrategy(False, True)
     strategy.start()
