@@ -7,6 +7,10 @@ class BasePairSelector(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
+    def get_iterable_args(self, data, cut_date):
+        raise NotImplementedError('BasePairSelector.get_iterable_args')
+
+    @abstractmethod
     def get_best_pairs(self, data, cut_date):
         """
         Returns
@@ -19,8 +23,8 @@ class BasePairSelector(object):
             that could be used with them downstream for portfolio construction
             like Sector.
         """
-        raise NotImplementedError('BaseStrategy.get_best_pairs')
+        raise NotImplementedError('BasePairSelector.get_best_pairs')
 
     @abstractmethod
     def get_feature_names(self):
-        raise NotImplementedError('BaseStrategy.get_feature_names')
+        raise NotImplementedError('BasePairSelector.get_feature_names')

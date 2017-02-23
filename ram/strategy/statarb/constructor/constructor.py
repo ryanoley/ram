@@ -18,6 +18,14 @@ class PortfolioConstructor(BaseConstructor):
         self.booksize = booksize
         self._portfolio = PairPortfolio()
 
+    def get_iterable_args(self):
+        return {
+            'n_pairs': [50, 100, 200],
+            'max_pos_prop': [0.05, 0.1],
+            'pos_perc_deviation': [0.07, 0.14],
+            'z_exit': [0.6, 1, 1.2]
+        }
+
     def get_feature_names(self):
         """
         The columns from the database that are required.

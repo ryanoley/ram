@@ -87,12 +87,17 @@ class Strategy(object):
         assert isinstance(results.index, pd.DatetimeIndex)
         results.to_csv(self.strategy_output_dir+'/result_{0:05d}.csv'.format(index))
 
+    def _prompt_for_description(self):
+        desc = raw_input("\nEnter a description of this run:\n")
+        if len(desc) == 0:
+            print '\nMust enter description!!\n'
+            desc = self._prompt_for_description()
+        return desc
+
     def _set_output_dir(self, write_flag):
         self.write_flag = write_flag
         if write_flag:
-            if raw_input("\nCreate a description to be written to "
-                         "file? [y/n]: ") == "y":
-                self._description = raw_input("\nDescription: \n")
+            self._description = self._prompt_for_description()
             # Make directory for simulations
             if not os.path.exists(OUTDIR):
                 os.makedirs(OUTDIR)
@@ -127,8 +132,7 @@ class Strategy(object):
                 outfile.close()
             if self._description:
                 pass
-            if hasattr(self, '_description'):
-                run_meta['description'] = self._description
+            run_meta['description'] = self._description
             with open(os.path.join(self.strategy_output_dir,
                                    'meta.json'), 'w') as outfile:
                 json.dump(self.run_meta, outfile)

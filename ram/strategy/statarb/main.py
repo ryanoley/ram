@@ -32,18 +32,9 @@ class StatArbStrategy(Strategy):
         data = self._get_data(t_start, cut_date, t_end,
                               univ_size=self.univ_size)
 
-        args1 = make_arg_iter({
-            'z_window': [20, 30, 40],
-            'max_pairs': [1000, 3000, 6000],
-            'n_per_side': [2, 3, 4]
-        })
+        args1 = make_arg_iter(self.pairselector.get_iterable_args())
 
-        args2 = make_arg_iter({
-            'n_pairs': [50, 100, 200],
-            'max_pos_prop': [0.05, 0.1],
-            'pos_perc_deviation': [0.07, 0.14],
-            'z_exit': [0.6, 1, 1.2]
-        })
+        args2 = make_arg_iter(self.constructor.get_iterable_args())
 
         ind = 0
         output_results = pd.DataFrame()

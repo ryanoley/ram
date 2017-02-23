@@ -255,7 +255,7 @@ class CombinationSearch(object):
         data.columns = range(-1, data.shape[1]-1)
         data.loc[:, -1] = convert_date_array(data.loc[:, -1])
         data = data.set_index(-1)
-        data.index = data.index.to_datetime()
+        data.index = pd.to_datetime(data.index)
         data.index.name = None
         return data
 

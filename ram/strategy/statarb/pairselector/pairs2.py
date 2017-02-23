@@ -7,8 +7,10 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 
 class PairsStrategy2(BasePairSelector):
 
-    def __init__(self):
-        pass
+    def get_iterable_args(self):
+        return { 'z_window': [20, 30, 40],
+                 'max_pairs': [1000, 3000, 6000],
+                 'n_per_side': [2, 3, 4] }
 
     def get_feature_names(self):
         return ['AdjClose', 'AvgDolVol', 'GSECTOR']
