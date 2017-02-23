@@ -245,31 +245,32 @@ class CombinationSearch(object):
 
                 outpath = os.path.join(self.output_dir, 'best_combs.json')
                 self._write_params(self.best_results_combs, outpath)
+
+                outpath = os.path.join(self.output_dir, 'params.json')
+                with open(outpath, 'w') as outfile:
+                    json.dump(self.params, outfile)
+                outfile.close()
         return
 
     def _load_comb_search_session(self, combo_name):
         combo_dir = os.path.join(self.simulation_dir,
                                  self.strategy_class, combo_name)
-
+        self.output_dir = combo_dir
         assert os.path.isdir(combo_dir)
-
         self.data = self._read_csv(os.path.join(combo_dir,
                                                 'master_data.csv'))
         # Load parameters
         outpath = os.path.join(combo_dir, 'params.json')
         params = json.load(open(outpath, 'r'))
         self.set_training_params(**params)
-
         # Best results data
         self.best_results_rets = self._read_csv(
             os.path.join(combo_dir, 'best_returns.csv'))
-
         outpath = os.path.join(combo_dir, 'best_scores.json')
         self.best_results_scores = json.load(open(outpath, 'r'))
         self.best_results_scores = {
             int(key): np.array(vals) for key, vals in
             self.best_results_scores.iteritems()}
-
         outpath = os.path.join(combo_dir, 'best_combs.json')
         self.best_results_combs = json.load(open(outpath, 'r'))
         self.best_results_combs = {
