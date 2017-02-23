@@ -121,7 +121,6 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    import pdb; pdb.set_trace()
     #strategy = StatArbStrategy(True, False)
-    strategy = StatArbStrategy(False, False)
+    strategy = StatArbStrategy(False, True)
     strategy.start()
