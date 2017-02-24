@@ -39,10 +39,18 @@ class VXXStrategy(Strategy):
             model.fit(X=X_train, y=y_train.loc[:, 'signal2'])
             pred2 = model.predict(X_test)[0]
 
+            # Long and short
             results.loc[t, 'R1'] = np.where(pred1, 1, -1) * y_test['Ret1'][0]
-            results.loc[t, 'R2'] = np.where(pred1, 1, -1) * y_test['Ret2'][0]
+            results.loc[t, 'R2'] = np.where(pred2, 1, -1) * y_test['Ret2'][0]
+            # Long only
+            results.loc[t, 'R3'] = np.where(pred1, 1, 0) * y_test['Ret1'][0]
+            results.loc[t, 'R4'] = np.where(pred2, 1, 0) * y_test['Ret2'][0]
 
-        return results.dropna()
+        deliverable = {'returns': results.dropna(),
+                       'column_params': {},
+                       'statistics': {}}
+
+        return deliverable
 
     ###########################################################################
 
@@ -53,9 +61,11 @@ class VXXStrategy(Strategy):
 
         prices = self.datahandler.get_etf_data(
             tickers='VXX',
-            features=['Open', 'High', 'Low', 'Close'],
+            features=['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose'],
             start_date=start_date,
             end_date=end_date)
+
+        prices.columns = ['SecCode', 'Date', 'Open', 'High', 'Low', 'Close']
 
         X = pd.DataFrame(index=prices.index)
 
@@ -87,10 +97,5 @@ class VXXStrategy(Strategy):
 
 if __name__ == '__main__':
 
-    strategy = VXXStrategy()
+    strategy = VXXStrategy(True)
     strategy.start()
-
-    path = '/Users/mitchellsuter/Desktop/'
-    name = 'VXXStrategy'
-
-    create_strategy_report(strategy.results, name, path)
