@@ -43,7 +43,7 @@ class CombinationSearch(object):
         for key, value in kwargs.iteritems():
             self.params[key] = value
 
-    def restart(self, combo_name):
+    def restart(self, combo_name=None):
         self._load_comb_search_session(combo_name)
         print 'Restarting Search'
         self._loop()
@@ -247,8 +247,15 @@ class CombinationSearch(object):
         return
 
     def _load_comb_search_session(self, combo_name):
-        combo_dir = os.path.join(self.simulation_dir,
-                                 self.strategy_class, combo_name)
+        if combo_name:
+            combo_dir = os.path.join(self.simulation_dir,
+                                     self.strategy_class, combo_name)
+        else:
+            strat_dir = os.path.join(self.simulation_dir, self.strategy_class)
+            # Locate most recent
+            combo_name = max([x for x in os.listdir(strat_dir)
+                              if x[:5] == 'combo'])
+            combo_dir = os.path.join(strat_dir, combo_name)
         self.output_dir = combo_dir
         assert os.path.isdir(combo_dir)
         self.data = self._read_csv(os.path.join(combo_dir,
