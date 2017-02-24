@@ -58,24 +58,20 @@ class CombinationSearch(object):
 
     def _loop(self):
         self._create_training_indexes()
-        try:
-            while True:
-                for t1, t2, t3 in self._time_indexes:
+        while True:
+            for t1, t2, t3 in self._time_indexes:
 
-                    train_data = self.data.iloc[t1:t2]
-                    test_data = self.data.iloc[t2:t3]
+                train_data = self.data.iloc[t1:t2]
+                test_data = self.data.iloc[t2:t3]
 
-                    test_results, train_scores, combs = \
-                        self._fit_top_combinations(
-                            t2, train_data, test_data)
+                test_results, train_scores, combs = \
+                    self._fit_top_combinations(
+                        t2, train_data, test_data)
 
-                    self._process_results(
-                        t2, test_results, train_scores, combs)
+                self._process_results(
+                    t2, test_results, train_scores, combs)
 
-                self._write_results_output(False)
-
-        except KeyboardInterrupt:
-            self._write_results_output(True)
+            self._write_results_output()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #  This is where the innovation happens
@@ -229,7 +225,7 @@ class CombinationSearch(object):
             self._write_results_output(True)
         return
 
-    def _write_results_output(self, write_params=False):
+    def _write_results_output(self):
 
         try:
             print 'Population mean score: {0}'.format(
@@ -240,17 +236,17 @@ class CombinationSearch(object):
         if self.write_flag:
             self.best_results_rets.to_csv(os.path.join(self.output_dir,
                                                        'best_returns.csv'))
-            if write_params:
-                outpath = os.path.join(self.output_dir, 'best_scores.json')
-                self._write_params(self.best_results_scores, outpath)
 
-                outpath = os.path.join(self.output_dir, 'best_combs.json')
-                self._write_params(self.best_results_combs, outpath)
+            outpath = os.path.join(self.output_dir, 'best_scores.json')
+            self._write_params(self.best_results_scores, outpath)
 
-                outpath = os.path.join(self.output_dir, 'params.json')
-                with open(outpath, 'w') as outfile:
-                    json.dump(self.params, outfile)
-                outfile.close()
+            outpath = os.path.join(self.output_dir, 'best_combs.json')
+            self._write_params(self.best_results_combs, outpath)
+
+            outpath = os.path.join(self.output_dir, 'params.json')
+            with open(outpath, 'w') as outfile:
+                json.dump(self.params, outfile)
+            outfile.close()
         return
 
     def _load_comb_search_session(self, combo_name):
@@ -291,7 +287,7 @@ class CombinationSearch(object):
 
     @staticmethod
     def _write_params(params, path):
-        outparams = {key: vals.tolist() for key, vals
+        outparams = {str(key): vals.tolist() for key, vals
                      in params.iteritems()}
         with open(path, 'w') as outfile:
             json.dump(outparams, outfile)
