@@ -1,39 +1,8 @@
 """
 Analysis tools for the parameters that are supplied by a strategy.
 """
-import os
-
-import json
 import numpy as np
 import pandas as pd
-
-from gearbox import read_csv, convert_date_array
-
-
-def analyze_run(run_path):
-    df = read_csv(os.path.join(run_path, 'results.csv'))
-    df.index = convert_date_array(df.index)
-    with open(os.path.join(run_path, 'params.json')) as json_data:
-        params = json.load(json_data)
-    json_data.close()
-    # Get meta data
-    with open(os.path.join(run_path, 'meta.json')) as json_data:
-        meta = json.load(json_data)
-    json_data.close()
-    # Get stats
-    with open(os.path.join(run_path, 'statistics.json')) as json_data:
-        stats = json.load(json_data)
-    json_data.close()
-    # See if description exists in meta data to print to screen
-    if 'description' in meta:
-        description = meta['description']
-    else:
-        description = 'No description'
-    # Analysis
-    cparams = classify_params(params)
-    astats = aggregate_statistics(stats)
-    # Format and output
-    return format_param_results(df, cparams, astats), description
 
 
 def aggregate_statistics(stats):
@@ -95,12 +64,4 @@ def format_param_results(data, cparams, astats):
                                      'MeanTotalRet', 'MeanSharpe'] +
                        stat_names)
     out = out.sort_values(['Param', 'Val']).reset_index(drop=True)
-    return out
-
-
-def find_results_csv_directories(search_dir):
-    out = []
-    for path, _, file_names in os.walk(search_dir):
-        if os.path.basename(path)[:3] == 'run' and 'results.csv' in file_names:
-            out.append(path)
     return out

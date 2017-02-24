@@ -107,7 +107,7 @@ def _get_drawdowns(df):
         index=df.columns)
 
     for col, vals in df.iteritems():
-        dd, dd_days = metrics.draw_downs(vals.values)
+        dd, dd_days = metrics.draw_downs(vals.values, True)
         ind = np.argsort(dd)
         worst_dd = dd[ind][0]
         worst_dd_days = dd_days[ind][0]
