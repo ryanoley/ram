@@ -88,7 +88,7 @@ class PairPortfolio(object):
         return
 
     def get_open_positions(self):
-        return [pair for pair, pos in self.pairs.iteritems() \
+        return [pair for pair, pos in self.pairs.iteritems()
                 if pos.open_position]
 
     def count_open_positions(self):
@@ -128,7 +128,7 @@ class PairPortfolio(object):
 
         out['avg_holding_days'] = sum(stats['holding_days']) / float(
             len(stats['holding_days']))
-        out['max_holding_days'] = max(stats['holding_days']) 
+        out['max_holding_days'] = max(stats['holding_days'])
 
         out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
             len(stats['rebalance_count']))

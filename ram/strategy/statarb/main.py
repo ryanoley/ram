@@ -95,7 +95,7 @@ class StatArbStrategy(Strategy):
         filter_args = {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
-                'and Close_ between 15 and 1000',
+            'and Close_ between 15 and 1000',
             'univ_size': univ_size}
 
         features = list(set(self.pairselector.get_feature_names() +
@@ -116,11 +116,10 @@ class StatArbStrategy(Strategy):
 
 def make_arg_iter(variants):
     return [{x: y for x, y in zip(variants.keys(), vals)}
-        for vals in itertools.product(*variants.values())]
+            for vals in itertools.product(*variants.values())]
 
 
 if __name__ == '__main__':
 
-    #strategy = StatArbStrategy(True, False)
     strategy = StatArbStrategy(False, True)
     strategy.start()

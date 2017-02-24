@@ -88,7 +88,7 @@ class MultiLegPosition(object):
         if np.any(np.isnan(new_prices)):
             inds = ~np.isnan(new_prices)
             self.daily_pl = np.sum((new_prices[inds] -
-                                    self.prices_current[inds]) * \
+                                   self.prices_current[inds]) *
                                    self.shares[inds])
             # Dividend income
             self.daily_pl += np.sum(self.shares[inds] * new_dividends[inds])
@@ -116,7 +116,7 @@ class MultiLegPosition(object):
                 np.sum(np.abs(self.shares) * self.prices_entry)
 
         # Stats
-        self.stat_holding_days +=1
+        self.stat_holding_days += 1
         self.prices_current = new_prices
         return
 

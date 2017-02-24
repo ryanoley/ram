@@ -8,9 +8,9 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 class PairsStrategy2(BasePairSelector):
 
     def get_iterable_args(self):
-        return { 'z_window': [20, 30, 40],
-                 'max_pairs': [1000, 3000, 6000],
-                 'n_per_side': [2, 3, 4] }
+        return {'z_window': [20, 30, 40],
+                'max_pairs': [1000, 3000, 6000],
+                'n_per_side': [2, 3, 4]}
 
     def get_feature_names(self):
         return ['AdjClose', 'AvgDolVol', 'GSECTOR']
@@ -62,12 +62,13 @@ class PairsStrategy2(BasePairSelector):
                 # Get "scores" for these column combinations
                 scores = self._get_comb_scores(comb_indexes, cut_date)
 
-                # Get top values assuming all top pairs come from just this sector
+                # Get top values assuming all top pairs come from this sector
                 scores_sorted = scores.sort_values()[:max_pairs/iter_count]
 
                 # Get Test Z Scores of these indexes
                 z_scores = self._get_spread_zscores(
-                    comb_indexes.loc[:, scores_sorted.index], z_window, cut_date)
+                    comb_indexes.loc[:, scores_sorted.index],
+                    z_window, cut_date)
 
                 port_scores = port_scores.append(pd.DataFrame({
                     'Scores': scores_sorted,
@@ -102,7 +103,7 @@ class PairsStrategy2(BasePairSelector):
         combs1 = np.array(combs1)
         combs2 = np.array(combs2)
         comb_indexes = pd.DataFrame(
-            (np.cumsum(np.mean(sec_dataA[combs1], axis=1), axis=1) - \
+            (np.cumsum(np.mean(sec_dataA[combs1], axis=1), axis=1) -
              np.cumsum(np.mean(sec_dataA[combs2], axis=1), axis=1)).T)
         comb_indexes.index = sec_data.index
         comb_indexes.columns = self._concatenate_seccodes(
@@ -154,15 +155,16 @@ class PairsStrategy2(BasePairSelector):
 
         # Ensure same ports aren't flipped
         combs1a = np.where((combs1[:, 0] < combs2[:, 0])[:, np.newaxis],
-                            combs1, combs2)
+                           combs1, combs2)
         combs2a = np.where((combs1[:, 0] >= combs2[:, 0])[:, np.newaxis],
-                            combs1, combs2)
+                           combs1, combs2)
 
         # Drop repeat rows
         combs = np.hstack((combs1a, combs2a))
         combs = combs[np.lexsort([combs[:, i] for i in
                                   range(combs.shape[1]-1, -1, -1)])]
-        inds = np.append(True, np.sum(np.diff(combs, axis=0) != 0, axis=1) != 0)
+        inds = np.append(True, np.sum(np.diff(combs, axis=0) != 0,
+                                      axis=1) != 0)
         combs = combs[inds]
         # Split again
         n_cols = combs1.shape[1]
@@ -182,7 +184,7 @@ class PairsStrategy2(BasePairSelector):
     @staticmethod
     def _classify_sectors(data, clean_ids):
         # Classify seccodes by Sector
-        tmp = data[['SecCode','GSECTOR']].drop_duplicates()
+        tmp = data[['SecCode', 'GSECTOR']].drop_duplicates()
         tmp = tmp[tmp.SecCode.isin(clean_ids)]
         sectors = {}
         for sc in np.unique(tmp.GSECTOR):

@@ -139,6 +139,7 @@ class CombinationSearch(object):
         for run in runs:
             self._add_data(self._read_csv(os.path.join(ddir, run,
                                                        'results.csv')), run)
+
     def _clean_input_data(self):
         ind = self.data.isnull() & self.data.fillna(method='pad').notnull()
         self.data.where(~ind, other=0, inplace=True)
