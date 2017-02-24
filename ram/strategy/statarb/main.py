@@ -9,17 +9,21 @@ from ram.strategy.base import Strategy
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
 from ram.strategy.statarb.pairselector.pairs2 import PairsStrategy2
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
+from ram.strategy.statarb.constructor.constructor2 import PortfolioConstructor2
 
 
 class StatArbStrategy(Strategy):
 
-    def __init__(self, pairs2=False, write_flag=False):
+    def __init__(self, pairs2=False, constructor2=False, write_flag=False):
         super(StatArbStrategy, self).__init__(write_flag)
         if pairs2:
             self.pairselector = PairsStrategy2()
         else:
             self.pairselector = PairsStrategy1()
-        self.constructor = PortfolioConstructor()
+        if constructor2:
+            self.constructor = PortfolioConstructor2()
+        else:
+            self.constructor = PortfolioConstructor()
         self.univ_size = 500
 
     def get_iter_index(self):
@@ -121,5 +125,5 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(False, True)
+    strategy = StatArbStrategy(False, True, False)
     strategy.start()

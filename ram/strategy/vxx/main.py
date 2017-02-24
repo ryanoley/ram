@@ -40,11 +40,13 @@ class VXXStrategy(Strategy):
             pred2 = model.predict(X_test)[0]
 
             # Long and short
-            results.loc[t, 'R1'] = np.where(pred1, 1, -1) * y_test['Ret1'][0]
-            results.loc[t, 'R2'] = np.where(pred2, 1, -1) * y_test['Ret2'][0]
+            r1 = y_test['Ret1'][0]
+            r2 = y_test['Ret2'][0]
+            results.loc[t, 'R1'] = np.where(pred1, r1, -r1)
+            results.loc[t, 'R2'] = np.where(pred2, r1, -r1) 
             # Long only
-            results.loc[t, 'R3'] = np.where(pred1, 1, 0) * y_test['Ret1'][0]
-            results.loc[t, 'R4'] = np.where(pred2, 1, 0) * y_test['Ret2'][0]
+            results.loc[t, 'R3'] = np.where(pred1, r1, np.nan)
+            results.loc[t, 'R4'] = np.where(pred1, r1, np.nan)
 
         deliverable = {'returns': results.dropna(),
                        'column_params': {},
@@ -97,5 +99,6 @@ class VXXStrategy(Strategy):
 
 if __name__ == '__main__':
 
-    strategy = VXXStrategy(True)
+    import pdb; pdb.set_trace()
+    strategy = VXXStrategy()
     strategy.start()
