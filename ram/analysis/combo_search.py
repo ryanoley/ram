@@ -21,7 +21,8 @@ class CombinationSearch(object):
             'n_periods': 12,
             'n_ports_per_combo': 5,
             'n_best_combos': 5,
-            'seed_ind': 0
+            'seed_ind': 0,
+            'runs': []
         }
 
     def _add_data(self, new_data, frame_label):
@@ -35,6 +36,7 @@ class CombinationSearch(object):
         self.data_labels[frame_label] = new_data.columns
         self.data = self.data.join(new_data, how='outer', rsuffix='R')
         self.data.columns = range(self.data.shape[1])
+        self.params['runs'].append(frame_label)
         return
 
     def set_training_params(self, **kwargs):
@@ -217,12 +219,7 @@ class CombinationSearch(object):
             os.makedirs(self.output_dir)
             # Write data
             self.data.to_csv(os.path.join(self.output_dir, 'master_data.csv'))
-            # Write parameters
-            outpath = os.path.join(self.output_dir, 'params.json')
-            with open(outpath, 'w') as outfile:
-                json.dump(self.params, outfile)
-            outfile.close()
-            self._write_results_output(True)
+            self._write_results_output()
         return
 
     def _write_results_output(self):
