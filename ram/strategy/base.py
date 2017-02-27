@@ -133,7 +133,7 @@ class Strategy(object):
                 outfile.close()
             if self._description:
                 pass
-            run_meta['description'] = self._description
+            self.run_meta['description'] = self._description
             with open(os.path.join(self.strategy_output_dir,
                                    'meta.json'), 'w') as outfile:
                 json.dump(self.run_meta, outfile)
