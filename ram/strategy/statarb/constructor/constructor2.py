@@ -107,10 +107,8 @@ class PortfolioConstructor2(BaseConstructor):
         new_positions = self._get_top_x_positions(scores,
                                                   n_pairs,
                                                   max_pos_count)
-        close_pairs = []
         for pair in self._portfolio.pairs.keys():
             if pair not in [x[1] for x in new_positions]:
-                close_pairs.append(pair)
                 self._portfolio.pairs[pair].close_position()
         return new_positions
 
