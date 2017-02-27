@@ -1,18 +1,36 @@
+import re
 import numpy as np
 import pandas as pd
 import datetime as dt
 
 from ram.strategy.statarb.constructor.portfolio import PairPortfolio
-from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
+from ram.strategy.statarb.constructor.base import BaseConstructor
 
 
-class PortfolioConstructor2(PortfolioConstructor):
+class PortfolioConstructor2(BaseConstructor):
+
+    def __init__(self, booksize=10e6):
+        """
+        Parameters
+        ----------
+        booksize : numeric
+            Size of gross position
+        """
+        self.booksize = booksize
+        self._portfolio = PairPortfolio()
+
+    def get_feature_names(self):
+        """
+        The columns from the database that are required.
+        """
+        return ['AdjClose', 'RClose', 'RCashDividend',
+                'GSECTOR', 'SplitFactor']
 
     def get_iterable_args(self):
         return {
-            'n_pairs': [50, 100, 200],
+            'n_pairs': [100, 200, 300],
             'max_pos_prop': [0.05, 0.1],
-            'pos_perc_deviation': [0.07, 0.14]
+            'pos_perc_deviation': [0.07, 0.14],
         }
 
     def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation):
@@ -30,6 +48,8 @@ class PortfolioConstructor2(PortfolioConstructor):
             The max absolute deviation from the initial position before
             a rebalancing of the pair happens.
         """
+        max_pos_count = int(n_pairs * max_pos_prop)
+
         # New portfolio created for each
         self._portfolio = PairPortfolio()
 
@@ -43,18 +63,15 @@ class PortfolioConstructor2(PortfolioConstructor):
             closes = self.close_dict[date]
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
-
-            exit_scores = self.exit_scores[date]
-            enter_scores = self.enter_scores[date]
+            scores = self.enter_scores[date]
 
             # 1. Update all the prices in portfolio. This calculates PL
             #    for individual positions
             self._portfolio.update_prices(closes, dividends, splits)
 
-            # 2. CLOSE PAIRS
-            #  Closed pairs are still in portfolio dictionary
-            #  and must be cleaned at end
-            self._close_signals(enter_scores, n_pairs)
+            # 2. GET UPDATED PORTFOLIO NAMES AND CLOSE POSITIONS
+            new_positions = self._get_and_close_positions(
+                scores, n_pairs, max_pos_count)
 
             # 3. ADJUST POSITIONS
             #  When the exposures move drastically (say when the markets)
@@ -62,10 +79,9 @@ class PortfolioConstructor2(PortfolioConstructor):
             #  quite significantly
             self._adjust_open_positions(n_pairs, pos_perc_deviation)
 
-            # 4. OPEN NEW PAIRS - Just not last day of periodn
+            # 4. OPEN NEW PAIRS - Just not last day of period
             if date != self.all_dates[-1]:
-                self._execute_open_signals(enter_scores, closes,
-                                           n_pairs, max_pos_prop, z_exit=0.5)
+                self._execute_open_signals(new_positions, closes)
 
             # Report PL and Exposure
             daily_df.loc[date, 'PL'] = self._portfolio.get_portfolio_daily_pl()
@@ -87,18 +103,77 @@ class PortfolioConstructor2(PortfolioConstructor):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _close_signals(self, scores, n_pairs):
-
+    def _get_and_close_positions(self, scores, n_pairs, max_pos_count):
+        new_positions = self._get_top_x_positions(scores,
+                                                  n_pairs,
+                                                  max_pos_count)
         close_pairs = []
-
-        # ~~ ADD LOGIC HERE FOR CLOSING WILD MOVERS ~~ #
-        top_pairs = [x[1] for x in scores[:100]]
-
-        # Get current position z-scores, and decide if they need to be closed
         for pair in self._portfolio.pairs.keys():
-            if pair not in top_pairs:
+            if pair not in [x[1] for x in new_positions]:
                 close_pairs.append(pair)
+                self._portfolio.pairs[pair].close_position()
+        return new_positions
 
-        # Close positions
-        self._portfolio.close_pairs(list(set(close_pairs)))
+    def _adjust_open_positions(self, n_pairs, pos_perc_deviation=0.03):
+        base_exposure = self.booksize / n_pairs
+        self._portfolio.update_position_exposures(base_exposure,
+                                                  pos_perc_deviation)
+
+    def _execute_open_signals(self, positions, trade_prices):
+        """
+        Function that adds new positions.
+        """
+        open_pairs = self._portfolio.get_open_positions()
+        gross_bet_size = self.booksize / len(positions)
+        for sc, pair, side in positions:
+            if pair in open_pairs:
+                continue
+            self._portfolio.add_pair(pair, trade_prices,
+                                     gross_bet_size, side)
         return
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _get_top_x_positions(self, scores, n_pairs, max_pos_count):
+        port_counts = {}
+        new_positions = []
+        for pos in scores:
+            counts = self._split_position_and_count(pos)
+            # See if any positions exceed exposure numbers
+            if self._can_add(counts, port_counts, max_pos_count):
+                port_counts = self._add_to_port(counts, port_counts)
+                new_positions.append(pos)
+            if len(new_positions) == n_pairs:
+                break
+        return new_positions
+
+    @staticmethod
+    def _can_add(counts, port_counts, max_pos_count):
+        for key, val in counts.iteritems():
+            if key in port_counts:
+                if abs(port_counts[key] + val) > max_pos_count:
+                    return False
+        return True
+
+    @staticmethod
+    def _add_to_port(counts, port_counts):
+        for key, val in counts.iteritems():
+            if key in port_counts:
+                port_counts[key] += val
+            else:
+                port_counts[key] = val
+        return port_counts
+
+    @staticmethod
+    def _split_position_and_count(entry):
+        pair = entry[1]
+        side = entry[2]
+        side1, side2 = re.split('[\~]', pair)
+        legs1 = re.split('[\_]', side1)
+        legs2 = re.split('[\_]', side2)
+        # Safety measure
+        assert len(set(re.split('[\_\~]', pair))) == len(legs1) + len(legs2), \
+            'Duplicate SecCodes in position'
+        out = {leg: side for leg in legs1}
+        out.update({leg: -side for leg in legs2})
+        return out
