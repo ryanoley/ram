@@ -40,7 +40,7 @@ class PairsStrategy3(BasePairSelector):
             pairs, data, max_pairs, same_sector, vol_ratio_filter)
 
         # Create daily z-scores
-        zscores = self._get_zscores(close_data, fpairs, z_window)
+        zscores = self._get_zscores(close_data, fpairs)
 
         reg_train_data = merge_pairs(data[data.Date < cut_date],
                                      fpairs, self.features)
@@ -63,7 +63,7 @@ class PairsStrategy3(BasePairSelector):
         # FLIP TO GET SCORES CORRET
         return -1 * scores, fpairs
 
-    def _get_zscores(self, Close, fpairs, window):
+    def _get_zscores(self, Close, fpairs):
         for window in [10, 20, 30]:
             # Create two data frames that represent Leg1 and Leg2
             df_leg1 = Close.loc[:, fpairs.Leg1]
