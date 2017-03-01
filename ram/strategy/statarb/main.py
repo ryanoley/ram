@@ -8,16 +8,17 @@ from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
 from ram.strategy.statarb.pairselector.pairs2 import PairsStrategy2
+from ram.strategy.statarb.pairselector.pairs3 import PairsStrategy3
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 from ram.strategy.statarb.constructor.constructor2 import PortfolioConstructor2
 
 
 class StatArbStrategy(Strategy):
 
-    def __init__(self, pairs2=False, constructor2=False, write_flag=False):
+    def __init__(self, pairs3=False, constructor2=False, write_flag=False):
         super(StatArbStrategy, self).__init__(write_flag)
-        if pairs2:
-            self.pairselector = PairsStrategy2()
+        if pairs3:
+            self.pairselector = PairsStrategy3()
         else:
             self.pairselector = PairsStrategy1()
         if constructor2:
@@ -30,7 +31,8 @@ class StatArbStrategy(Strategy):
         return range(len(self._get_date_iterator()))
 
     def run_index(self, index):
-
+        if index < 20:
+            return None
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         data = self._get_data(t_start, cut_date, t_end,
@@ -44,6 +46,8 @@ class StatArbStrategy(Strategy):
         output_results = pd.DataFrame()
         output_params = {}
         output_stats = {}
+
+        import pdb; pdb.set_trace()
 
         for a1 in args1:
             scores, pair_info = self.pairselector.get_best_pairs(
@@ -114,6 +118,7 @@ class StatArbStrategy(Strategy):
 
         data = data.drop_duplicates()
         data.SecCode = data.SecCode.astype(str)
+        data = data.sort_values(['SecCode', 'Date'])
 
         return data
 
@@ -125,5 +130,5 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(False, True, False)
+    strategy = StatArbStrategy(True, True, True)
     strategy.start()
