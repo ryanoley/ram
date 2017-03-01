@@ -64,7 +64,10 @@ def get_combo_directories(search_dir):
 
 def analyze_combo(combo_path, start_year=1993):
     df = read_csv(os.path.join(combo_path, 'best_returns.csv')).dropna()
-    df.index = pd.DatetimeIndex(convert_date_array(df.index))
+    df.index = convert_date_array(df.index)
+    inds = np.array([x.year for x in df.index]) >= start_year
+    df.index = pd.DatetimeIndex(df.index)
+    df = df.iloc[inds]
     print get_stats(df)
     plt.figure()
     plt.plot(df.cumsum())
