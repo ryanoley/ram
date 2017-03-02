@@ -47,8 +47,6 @@ class StatArbStrategy(Strategy):
         output_params = {}
         output_stats = {}
 
-        import pdb; pdb.set_trace()
-
         for a1 in args1:
             scores, pair_info = self.pairselector.get_best_pairs(
                 data, cut_date, **a1)
@@ -130,5 +128,5 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(True, True, True)
+    strategy = StatArbStrategy(False, True, True)
     strategy.start()
