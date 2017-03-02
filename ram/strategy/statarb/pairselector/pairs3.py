@@ -49,7 +49,7 @@ class PairsStrategy3(BasePairSelector):
         # TODO: NEED TO TRIM TWO DAYS OFF TRAIN DATA
         # Separate training from test data
         train_data = feature_data[feature_data.Date < cut_date]
-        test_data = feature_data[feature_data.Date >= cut_date]
+        test_data = feature_data[feature_data.Date >= cut_date].copy()
 
         features = _extract_features(feature_data)
 
@@ -58,7 +58,7 @@ class PairsStrategy3(BasePairSelector):
         cl.fit(X=train_data[features],
                y=train_data[['Response1', 'Response2']])
         ests = cl.predict_proba(test_data[features])
-        test_data['score'] = ests[0][:, 1] - ests[1][:, 1]
+        test_data.loc[:, 'score'] = ests[0][:, 1] - ests[1][:, 1]
         scores = test_data.pivot(index='Date', columns='Pair', values='score')
         return -1 * scores, scored_pairs
 
@@ -104,6 +104,7 @@ def _extract_features(feature_data):
     features.remove('Response2')
     return features
 
+
 ###############################################################################
 
 def _make_simulation_data(data, scored_pairs, features):
@@ -146,9 +147,11 @@ def _match_pair_feature_data(data, scored_pairs, features):
     counts = data.SecCode.value_counts()
     data = data.set_index('SecCode')
     side1 = data.loc[scored_pairs.Leg1].reset_index()
-    side1.loc[:, 'pair_num'] = np.repeat(range(len(scored_pairs)), counts[scored_pairs.Leg1])
+    side1.loc[:, 'pair_num'] = np.repeat(range(len(scored_pairs)),
+                                         counts[scored_pairs.Leg1])
     side2 = data.loc[scored_pairs.Leg2].reset_index()
-    side2.loc[:, 'pair_num'] = np.repeat(range(len(scored_pairs)), counts[scored_pairs.Leg2])
+    side2.loc[:, 'pair_num'] = np.repeat(range(len(scored_pairs)),
+                                         counts[scored_pairs.Leg2])
     feature_data = side1.merge(side2, on=['Date', 'pair_num'])
     # Format output
     feature_data['Pair'] = ['{0}~{1}'.format(x, y) for x, y
