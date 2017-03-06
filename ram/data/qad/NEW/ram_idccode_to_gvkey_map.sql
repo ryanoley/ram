@@ -184,19 +184,5 @@ from			idc_gvkey_map_temp
 )
 
 
-
 insert into ram.dbo.ram_idccode_to_gvkey_map
 select * from idc_gvkey_map
-
-
-
-/*
-
-select * from qai.prc.PrcScChg
-where Code = 2175
-
-select * from qai.dbo.CSPITCmp
-where GVKey in (1338, 20063)
-
-*/
-

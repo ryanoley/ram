@@ -10,6 +10,7 @@ if object_id('ram.dbo.ram_equity_pricing', 'U') is not null
 
 create table	ram.dbo.ram_equity_pricing (
 		SecCode int,
+		IdcCode int,
 		Date_ smalldatetime,
 
 		-- Raw values
@@ -33,7 +34,7 @@ create table	ram.dbo.ram_equity_pricing (
 		DividendFactor real,
 		SplitFactor real,
 		NormalTradingFlag smallint
-		primary key (SecCode, Date_)
+		primary key (IdcCode, Date_)
 )
 
 
@@ -68,6 +69,7 @@ create table #idc_data
 
 create table #pricing_data (
 	SecCode int,
+	IdcCode int,
 	Date_ smalldatetime,
 	-- Raw values
 	Open_ real,
@@ -226,6 +228,7 @@ go;
 ; with data_merge as (
 
 select				IDC.SecCode,
+					IDC.IdcCode,
 					IDC.Date_,
 					coalesce(IDC.Open_, P.Open_) as Open_,
 					coalesce(IDC.High, P.High) as High,
@@ -294,6 +297,7 @@ from		(select distinct T0 as Date_ from ram.dbo.trading_dates) a
 
 , final_table as (
 select 			D.SecCode,
+				D.IdcCode,
 				D.Date_,
 
 				D.Open_,
