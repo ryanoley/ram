@@ -99,6 +99,7 @@ select distinct Code, Date_ from qai.prc.PrcVol where Date_ >= '1993-12-01'
 
 
 , idc_dates2 as (
+-- Filter on ram_master_ids table, and provide SecCode and DsInfoCode
 select			P.*,
 				M.SecCode,
 				M.DsInfoCode,
@@ -108,6 +109,7 @@ from			idc_dates P
 join			ram.dbo.ram_master_ids M
 		on		P.Code = M.IdcCode
 		and		P.Date_ between M.StartDate and M.EndDate
+		and		M.ExchangeFlag = 1
 
 left join		qai.prc.PrcShr S
 on 
@@ -206,6 +208,10 @@ from			idc_dates2 D
 		on		DV.Code = D.Code
 		and		DV.ExDate = D.Date_
 
+-- Remove a lot of junk stocks
+-- Could mess up CumRate calculation downstream IF a stock is resurrected from
+-- the dead and paid some dividend that was meaningful.
+where	coalesce(P1.Close_, P2.Close_) > 1
 
 )
 
