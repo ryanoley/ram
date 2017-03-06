@@ -98,7 +98,7 @@ def make_id_date_filter(ids, start_date, end_date):
 def parse_input_var(vstring, table, filter_commands):
 
     FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI',
-             'GSECTOR', 'GGROUP', 'SI', 'PRMAH']
+             'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG']
 
     # Return object that is used downstream per requested feature
     out = {
@@ -383,8 +383,16 @@ def GSECTOR(arg0, arg1, arg2, table):
                     A.Date_,
                     B.GSECTOR
         from        {0} A
-        left join   ram.dbo.ram_sector B
-            on      A.SecCode = B.SecCode
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_sector B
+            on      G.GVKey = B.GVKey
             and     A.Date_ between B.StartDate and B.EndDate
         """.format(table)
     return clean_sql_cmd(sqlcmd)
@@ -397,10 +405,41 @@ def GGROUP(arg0, arg1, arg2, table):
                     A.Date_,
                     B.GGROUP
         from        {0} A
-        left join   ram.dbo.ram_sector B
-            on      A.SecCode = B.SecCode
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_sector B
+            on      G.GVKey = B.GVKey
             and     A.Date_ between B.StartDate and B.EndDate
         """.format(table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def EARNINGSFLAG(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    isnull(B.EarningsFlag, 0) as {1}
+        from        {0} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   (select GVKey, ReportDate, 1 as EarningsFlag
+                     from ram.dbo.ram_equity_report_dates) B
+            on      G.GVKey = B.GVKey
+            and     A.Date_ = B.ReportDate
+        """.format(table, feature_name)
     return clean_sql_cmd(sqlcmd)
 
 
