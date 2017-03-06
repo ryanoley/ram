@@ -36,6 +36,7 @@ class Strategy(object):
             returns = pd.DataFrame()
             column_params = {}
             statistics = {}
+            index_dates = {}
 
             for i in ProgBar(self.get_iter_index()):
                 output = self.run_index(i)
@@ -49,6 +50,13 @@ class Strategy(object):
                 # Enforce that the index is DateTime
                 assert isinstance(rets.index, pd.DatetimeIndex)
                 returns = returns.add(rets, fill_value=0)
+                # Get min/max dates from index for reference
+                index_dates[i] = {
+                    'start_date': rets.index.min().
+                    to_pydatetime().strftime('%Y-%m-%d'),
+                    'end_date': rets.index.max().
+                    to_pydatetime().strftime('%Y-%m-%d')
+                }
                 if 'statistics' in output:
                     statistics[i] = output['statistics']
 
@@ -67,6 +75,7 @@ class Strategy(object):
                 'run_start_time': start_time,
                 'run_end_time': str(dt.datetime.utcnow())
             }
+            self.index_dates = index_dates
             self._write_results()
 
         except KeyboardInterrupt:
@@ -86,7 +95,8 @@ class Strategy(object):
         # Enforce that the index is DateTime
         assert isinstance(results.index, pd.DatetimeIndex)
         if self.write_flag:
-            results.to_csv(self.strategy_output_dir+'/result_{0:05d}.csv'.format(index))
+            results.to_csv(self.strategy_output_dir +
+                           '/result_{0:05d}.csv'.format(index))
 
     def _prompt_for_description(self):
         desc = raw_input("\nEnter a description of this run:\n")
@@ -131,9 +141,8 @@ class Strategy(object):
                                        'statistics.json'), 'w') as outfile:
                     json.dump(self.statistics, outfile)
                 outfile.close()
-            if self._description:
-                pass
             self.run_meta['description'] = self._description
+            self.run_meta['index_dates_map'] = self.index_dates
             with open(os.path.join(self.strategy_output_dir,
                                    'meta.json'), 'w') as outfile:
                 json.dump(self.run_meta, outfile)
