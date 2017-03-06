@@ -31,8 +31,7 @@ class StatArbStrategy(Strategy):
         return range(len(self._get_date_iterator()))
 
     def run_index(self, index):
-        if index < 20:
-            return None
+
         t_start, cut_date, t_end = self._get_date_iterator()[index]
 
         data = self._get_data(t_start, cut_date, t_end,
@@ -78,7 +77,7 @@ class StatArbStrategy(Strategy):
         and end test sets.
         """
         all_dates = self.datahandler.get_all_dates()
-        all_dates = all_dates[all_dates >= dt.datetime(2002, 12, 1)]
+        all_dates = all_dates[all_dates >= dt.datetime(2007, 12, 1)]
         # Generate first dates of quarter
         qtrs = np.array([(d.month-1)/3 + 1 for d in all_dates])
         inds = np.append([True], np.diff(qtrs) != 0)
