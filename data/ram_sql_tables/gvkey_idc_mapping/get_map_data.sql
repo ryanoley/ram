@@ -95,6 +95,6 @@ if $(tablenum) = 2
 	select A.*, D.MinReportDate, D.MaxReportDate from (select * from qai.dbo.CSPITId union select * from qai.dbo.CSPITIdC) A join (select distinct GVKey, MinReportDate, MaxReportDate from #all_data where Count_ > 1) D on A.GvKey = D.GVKey
 
 if $(tablenum) = 3
-    select Code, GVKey from #all_data where Count_ = 1
+    select distinct Code, GVKey from #all_data where Count_ = 1
 
 drop table #all_data
