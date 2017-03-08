@@ -22,10 +22,15 @@ It has not been verified whether a GVKey-first mapping works properly.
 IDC Codes).
 
 
-Initialization
+Daily Routine
 --------------
-1. Run `init_map_data.bat`
-2. Run `init_filter_bad_mappings.py` from the Command Line
+1. Run `get_map_data.bat`
+
+If there are values that have to be manually adjusted
+1. Run `mapping_verification.py -m` if there are maappings
+2. Run `mapping_verification.py -a` after to add those new mappings and clean
+the directory
+3. Run `make_mapping_table.py` to re-write to SQL Server Database
 
 
 How to use init_filter_bad_mappings.py
