@@ -11,7 +11,6 @@ ENDDATE = dt.date(2079, 1, 1)
 NUMADJ = ['First', 'Second', 'Third', 'Fourth', 'Fifth']
 
 DDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'gvkey_mapping')
-DDIR = '/Users/mitchellsuter/Desktop/gvkey_mapping'
 
 
 def start_manual_filter():

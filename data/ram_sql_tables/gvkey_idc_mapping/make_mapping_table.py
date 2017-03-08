@@ -7,7 +7,6 @@ import datetime as dt
 from gearbox import convert_date_array
 
 DDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'gvkey_mapping')
-DDIR = '/Users/mitchellsuter/Desktop/gvkey_mapping'
 
 
 def create_sql_table():
@@ -55,6 +54,7 @@ class TableCreationClass(object):
             GVKey INT,
             StartDate SMALLDATETIME,
             EndDate SMALLDATETIME
+            PRIMARY KEY (IdcCode, GVKey, StartDate)
             )
             """
         self.cursor.execute(sql)
