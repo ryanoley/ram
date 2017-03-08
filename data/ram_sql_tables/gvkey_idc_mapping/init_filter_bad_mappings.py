@@ -7,103 +7,148 @@ from gearbox import convert_date_array
 
 STARTDATE = dt.date(1980, 1, 1)
 ENDDATE = dt.date(2079, 1, 1)
-NUMADJ = ['first', 'second', 'third', 'fourth', 'fifth']
+NUMADJ = ['First', 'Second', 'Third', 'Fourth', 'Fifth']
 
 DDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'gvkey_mapping')
 
 
 def main():
 
-    df1, df2, output = import_data()
+    df_gvkeys, df_idc, output = import_data()
 
-    uniq_idc_codes = df2.Code.unique()
+    uniq_idc_codes = df_idc.Code.unique()
     if len(output):
         uniq_idc_codes = uniq_idc_codes[~pd.Series(uniq_idc_codes).isin(
             output.IdcCode.unique()).values]
 
-    try:
-        for i, idc in enumerate(uniq_idc_codes):
-            print '{0} of {1}'.format(i, len(uniq_idc_codes))
-            gvkey_data = df1[df1.ShortCusip.isin(idc_data.Cusip.unique())]
-            idc_data = df2[df2.Code == idc]
+    for i, idc in enumerate(uniq_idc_codes):
+        if i < 4:
+            continue
 
-            # Suggestions
-            gvkey_data = gvkey_data.sort_values(['GvKey', 'Changedate'])
-            gvkey_suggestions = gvkey_data.GvKey.unique()
-
-            # Date suggestions are on rows where GvKey changes
-            dates_suggestions_start = gvkey_data.Changedate[
-                gvkey_data.GvKey.diff().abs() > 0].values
-            dates_suggestions_end = [
-                z - dt.timedelta(days=1) for z in dates_suggestions_start]
-            dates_suggestions_start = np.append(STARTDATE,
-                                                dates_suggestions_start)
-
-            while True:
-                print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-                print idc_data
-                print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-                print gvkey_data
-                print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-                n_gvkeys = raw_input('Number of GVKeys: ')
-
-                try:
-                    n_gvkeys = int(n_gvkeys)
-                except:
-                    print 'Enter integer for the number of GVKeys'
-                    continue
-
-                idc_obs = pd.DataFrame([])
-                for i in range(n_gvkeys):
-                    # GVKEY
-                    response = raw_input('{0} GVKey {1}? [y, n]: '.format(
-                        NUMADJ[i], gvkey_suggestions[i]))
-                    if response == 'n':
-                        gv = raw_input('Enter {0} GVKey: '.format(NUMADJ[i]))
-                        if int(gv) not in gvkey_suggestions:
-                            print 'GVKey not in data'
-                            break
-                    else:
-                        gv = gvkey_suggestions[i]
-
-                    # START DATE
-                    if i == 0:
-                        sd = STARTDATE
-                    else:
-                        response = raw_input('{0} StartDate {1}? [y, n]: '.format(
-                            NUMADJ[i], dates_suggestions_start[i]))
-                        if response == 'n':
-                            sd = raw_input('Enter {0} StartDate: '.format(NUMADJ[i]))
-                        else:
-                            sd = dates_suggestions_start[i]
-
-                    # END DATE
-                    if i == (n_gvkeys-1):
-                        ed = ENDDATE
-                    else:
-                        response = raw_input('{0} EndDate {1}? [y, n]: '.format(
-                            NUMADJ[i], dates_suggestions_end[i]))
-                        if response == 'n':
-                            ed = raw_input('Enter {0} EndDate: '.format(NUMADJ[i]))
-                        else:
-                            ed = dates_suggestions_end[i]
-                    new_row = create_row(idc, gv, sd, ed)
-                    idc_obs = idc_obs.append(new_row)
-
-                print idc_obs
-                response = raw_input('Commit? [y]')
-
-                if response == 'y':
-                    break
-            output = output.append(idc_obs)
-            output.to_csv(os.path.join(DDIR, 'filtered_ids.csv'), index=False)
-
-    except KeyboardInterrupt:
+        print '{0} of {1}'.format(i, len(uniq_idc_codes))
+        idc_data = df_idc[df_idc.Code == idc]
+        gvkey_data = df_gvkeys[df_gvkeys.ShortCusip.isin(
+            idc_data.Cusip.unique())]
+        idc_obs = match_id_prompt(gvkey_data, idc_data)
+        output = output.append(idc_obs)
         output.to_csv(os.path.join(DDIR, 'filtered_ids.csv'), index=False)
 
 
-def create_row(idccode, gvkey, start_date, end_date):
+def match_id_prompt(gvkey_data, idc_data):
+    idc = idc_data.Code.unique()[0]
+    # Suggestions
+    gvkey_suggestion, dates_suggestion = \
+        _create_suggestions(gvkey_data, idc_data)
+
+    while True:
+        print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+        print idc_data
+        print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+        print gvkey_data.sort_values(['GvKey', 'Changedate'])
+        print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+        n_gvkeys = raw_input('Number of GVKeys: ')
+
+        try:
+            n_gvkeys = int(n_gvkeys)
+        except:
+            print 'Enter integer for the number of GVKeys'
+            continue
+
+        if n_gvkeys == 1:
+            response = _prompt_gvkey_selection(gvkey_suggestion)
+            idc_obs = _create_row(idc, response, STARTDATE, ENDDATE)
+
+        else:
+            idc_obs = pd.DataFrame([])
+            for i in range(n_gvkeys):
+                # GVKey
+                print '\n{0} GVKey'.format(NUMADJ[i])
+                gv = _prompt_gvkey_selection(gvkey_suggestion)
+                gvkey_suggestion = gvkey_suggestion[gvkey_suggestion != gv]
+
+                # END DATE
+                print '\n{0} EndDate'.format(NUMADJ[i])
+                if i == (n_gvkeys-1):
+                    ed = ENDDATE
+                else:
+                    ed = _prompt_date_selection(dates_suggestion)
+                    dates_suggestion = dates_suggestion[dates_suggestion > ed]
+
+                # START DATE
+                if i == 0:
+                    sd = STARTDATE
+                else:
+                    sd = next_stard_date
+                next_stard_date = ed + dt.timedelta(days=1)
+                idc_obs = idc_obs.append(_create_row(idc, gv, sd, ed))
+
+        print idc_obs
+        response = raw_input('Commit? [y]')
+        if response == 'y':
+            break
+
+
+def _prompt_gvkey_selection(input_vals):
+    print 'Options:'
+    for i, x in enumerate(input_vals):
+        print '[{0}]: {1}'.format(i+1, x)
+    response = raw_input('Selection: ')
+    try:
+        response = int(response) - 1
+        if response < 0 or response >= len(input_vals):
+            print '\nERROR: Selection not available'
+            return _prompt_gvkey_selection(input_vals)
+        return input_vals[response]
+    except:
+        print '\nERROR: Input integer'
+        return _prompt_gvkey_selection(input_vals)
+
+
+def _prompt_date_selection(input_vals):
+    if len(input_vals) > 0:
+        print 'Date Options:'
+        for i, x in enumerate(input_vals):
+            print '[{0}]: {1}'.format(i+1, x)
+        response = raw_input('Selection, press `x` to enter custom date: ')
+    else:
+        response = 'x'
+
+    if response == 'x':
+        date = raw_input('Custom Date YYYYmmdd: ')
+        try:
+            return dt.date(int(date[:4]), int(date[4:6]), int(date[6:8]))
+        except:
+            print '\nERROR: Improperly formatted'
+            return _prompt_date_selection(input_vals)
+    else:
+        try:
+            response = int(response) - 1
+            if response < 0 or response >= len(input_vals):
+                print '\nERROR: Selection not available'
+                return _prompt_date_selection(input_vals)
+            return input_vals[response]
+        except:
+            print '\nERROR: Input integer'
+            return _prompt_date_selection(input_vals)
+
+
+def _create_suggestions(gvkey_data, idc_data):
+    gvkey_data = gvkey_data.sort_values(['Changedate'])
+    gvkey_suggestions = gvkey_data.GvKey.unique()
+
+    # Date suggestions are on rows where GvKey changes
+    # Offset these by one day since we are prompting for end dates
+    dates_suggestions = gvkey_data.Changedate[
+        gvkey_data.GvKey.diff().abs() > 0].values
+    dates_suggestions = [d - dt.timedelta(days=1) for d in dates_suggestions]
+    # Append end dates from idc_data
+    dates_suggestions = np.unique(np.append(dates_suggestions,
+                                            idc_data.EndDate))
+    return gvkey_suggestions, dates_suggestions
+
+
+def _create_row(idccode, gvkey, start_date, end_date):
     tempdf = pd.DataFrame([])
     tempdf['IdcCode'] = [idccode]
     tempdf['GVKey'] = [gvkey]
