@@ -1,22 +1,20 @@
 SET NOCOUNT ON
 
--- First run to separate IdcCodes that have one or more than one GVKey
--- Then manually construct MinMax dates for troubled names
+if object_id('tempdb..#all_data', 'U') is not null 
+	drop table #all_data
 
-if object_id('tempdb..#bad_data', 'U') is not null 
-	drop table #bad_data
-
-create table #bad_data
+create table #all_data
 (
     Code int,
 	GVKey int,
 	Cusip varchar(10),
 	MinReportDate smalldatetime,
-	MaxReportDate smalldatetime
+	MaxReportDate smalldatetime,
+    Count_ int
 )
 
-
--- ############################################################################################
+-----------------------------------------------------
+-----------------------------------------------------
 
 ; with idccodes as (
 select distinct		Code,
@@ -79,20 +77,24 @@ group by	Code
 
 , gvkeys_to_match as (
 -- Get data needed to determine dates
-select		G.Code, G.GVKey, G.Cusip, G.MinReportDate, G.MaxReportDate
+select		G.Code, G.GVKey, G.Cusip, G.MinReportDate, G.MaxReportDate, C.Count_
 from		gvkeys_idccodes1 G
 join		gvkey_idccode_counts C
 	on		G.Code = C.Code
-	and		C.Count_ > 1
 )
 
-insert into #bad_data
+
+insert into #all_data
 select * from gvkeys_to_match
 
 
 if $(tablenum) = 1
-	select * from qai.prc.PrcScChg where Code in (select distinct Code from #bad_data) order by Code, StartDate
-else 
-	select A.*, D.MinReportDate, D.MaxReportDate from (select * from qai.dbo.CSPITId union select * from qai.dbo.CSPITIdC) A join (select distinct GVKey, MinReportDate, MaxReportDate from #bad_data) D on A.GvKey = D.GVKey
+	select * from qai.prc.PrcScChg where Code in (select distinct Code from #all_data where Count_ > 1) order by Code, StartDate
 
-drop table #bad_data
+if $(tablenum) = 2
+	select A.*, D.MinReportDate, D.MaxReportDate from (select * from qai.dbo.CSPITId union select * from qai.dbo.CSPITIdC) A join (select distinct GVKey, MinReportDate, MaxReportDate from #all_data where Count_ > 1) D on A.GvKey = D.GVKey
+
+if $(tablenum) = 3
+    select Code, GVKey from #all_data where Count_ = 1
+
+drop table #all_data
