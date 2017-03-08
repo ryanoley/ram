@@ -313,7 +313,6 @@ def import_filtered_ids_master():
 def import_filtered_ids_ignored():
     # Read master table
     df_master = pd.read_csv(os.path.join(DDIR, 'filtered_ids_ignored.csv'))
-    archive_file(df_master, 'filtered_ids_ignored')
     return df_master
 
 
