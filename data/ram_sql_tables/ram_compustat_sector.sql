@@ -1,4 +1,4 @@
-use qai;
+use ram;
 
 -- Compustat historical Sector data
 if object_id('ram.dbo.ram_compustat_sector', 'U') is not null 

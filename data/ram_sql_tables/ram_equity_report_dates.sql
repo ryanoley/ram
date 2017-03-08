@@ -37,5 +37,3 @@ where RDQ is not null
 insert into ram.dbo.ram_equity_report_dates
 select		* 
 from		all_report_dates
--- US GVKeys and non-old ones
-where		GVKey not in (select distinct GVKEY from qai.dbo.CSPITCmp where right(CoNm, 3) = 'OLD')
