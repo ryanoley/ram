@@ -15,6 +15,7 @@ if object_id('ram.dbo.ram_master_ids', 'U') is not null
 create table	ram.dbo.ram_master_ids (
 				SecCode int,
 				IdcCode int,
+				HistoricalIssuer varchar(45),
 				DsInfoCode int,
 				Cusip varchar(15),
 				Issuer varchar(45),
@@ -36,7 +37,8 @@ select			Code,
 					when Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
 					then 1
 					else 0
-				end as ExchangeFlag
+				end as ExchangeFlag,
+				Issuer
 from			qai.prc.PrcScChg 
 where			concat(BaseTicker, 'WI') != Ticker		-- When Issued
 		and		Ticker is not null
@@ -50,9 +52,7 @@ where			concat(BaseTicker, 'WI') != Ticker		-- When Issued
 
 , idc_code_history_filtered as (
 
-select			H.*,
-				I.Issuer
-
+select			H.*
 from			idc_code_history H
 join			qai.prc.PrcInfo I
 	on			H.Code = I.Code
@@ -124,6 +124,7 @@ where				S.Type_ = 1
 , sec_map as (
 select				M.SecCode,
 					I.Code as IdcCode,
+					I.Issuer as HistoricalIssuer,
 					N.VenCode as DsInfoCode,
 					I.Cusip,
 					I.Issuer,

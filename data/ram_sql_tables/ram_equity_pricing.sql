@@ -45,7 +45,7 @@ if object_id('tempdb..#idc_data', 'U') is not null
 	drop table #idc_data
 
 if object_id('tempdb..#pricing_data', 'U') is not null 
-	drop table ram.dbo.ram_equity_raw_pricing
+	drop table #pricing_data
 
 
 create table #idc_data
@@ -336,3 +336,6 @@ where			D.Date_ >= '1995-01-01'
 insert into ram.dbo.ram_equity_pricing
 select * from final_table
 
+
+drop table #idc_data
+drop table #pricing_data

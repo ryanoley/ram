@@ -18,4 +18,4 @@ if __name__ == '__main__':
     if args.restart:
         comb.restart('combo_0001')
     else:
-        comb.start('run_0001')
+        comb.start('run_0006')
