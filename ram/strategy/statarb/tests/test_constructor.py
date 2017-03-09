@@ -26,7 +26,8 @@ class TestConstructor(unittest.TestCase):
             'AdjClose': [10, 9, 5, 5] + [10, 20, 18, 15] + [9, 10, 11, 12],
             'RClose': [10, 9, 5, 5] + [10, 20, 18, 15] + [9, 10, 11, 12],
             'RCashDividend': [0] * 12,
-            'SplitFactor': [1] * 12
+            'SplitFactor': [1] * 12,
+            'EARNINGSFLAG': [0, 0, 0, 1] + [1, 0, 0, 0] + [0, 1, 0, 0]
         })
         self.pair_info = pd.DataFrame({})
 
@@ -50,7 +51,8 @@ class TestConstructor(unittest.TestCase):
         cons = PortfolioConstructor(booksize=200)
         cons.set_and_prep_data(self.scores, self.pair_info, self.data)
         result, stats = cons.get_daily_pl(
-            n_pairs=1, max_pos_prop=1, pos_perc_deviation=1, z_exit=1)
+            n_pairs=1, max_pos_prop=1, pos_perc_deviation=1, z_exit=1,
+            remove_earnings=False)
         benchmark = pd.DataFrame({}, index=self.scores.index)
         benchmark['Ret'] = [-0.000500, 0.549125, -0.100000, -0.125375]
         assert_frame_equal(result, benchmark)
@@ -68,6 +70,12 @@ class TestConstructor(unittest.TestCase):
         result = port._exposures
         benchmark = {'IBM': 2, 'VMW': -1, 'GOOGL': -1}
         self.assertDictEqual(result, benchmark)
+
+    def test_extract_earnings_signals(self):
+        cons = PortfolioConstructor(booksize=200)
+        cons.set_and_prep_data(self.scores, self.pair_info, self.data)
+        cons._make_earnings_binaries()
+        results = cons.earnings_flags
 
     def tearDown(self):
         pass
