@@ -73,3 +73,20 @@ def analyze_combo(combo_path, start_year=1993):
     plt.plot(df.cumsum())
     plt.grid()
     plt.show()
+
+
+def compare_combos(combo_path1, combo_path2, start_year=1993):
+    def _import_data(combo_path):
+        df = read_csv(os.path.join(combo_path, 'best_returns.csv')).dropna()
+        df.index = convert_date_array(df.index)
+        inds = np.array([x.year for x in df.index]) >= start_year
+        df.index = pd.DatetimeIndex(df.index)
+        df = df.iloc[inds]
+    df1 = _import_data(combo_path1)
+    df2 = _import_data(combo_path2)
+    plt.figure()
+    plt.plot(df1.cumsum(), label='combo1', color='b')
+    plt.plot(df2.cumsum(), label='combo2', color='g')
+    plt.legend(loc=2)
+    plt.grid()
+    plt.show()
