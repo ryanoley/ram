@@ -9,6 +9,7 @@ call %SQLDIR%\gvkey_idc_mapping\get_map_data.bat
 
 :: RAM Tables
 %SQLCMD% -i %SQLDIR%\ram_master_ids.sql
+%SQLCMD% -i %SQLDIR%\ram_master_ids_etf.sql
 %SQLCMD% -i %SQLDIR%\ram_compustat_sector.sql
 %SQLCMD% -i %SQLDIR%\ram_equity_report_dates.sql
 %SQLCMD% -i %SQLDIR%\ram_equity_pricing.sql
