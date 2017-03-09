@@ -7,48 +7,26 @@ for internal monitoring purposes.
 declare @MonitorDate smalldatetime = getdate();
 
 
--- ram_master_equities
+-- ram_equity_pricing
 with mstr_eq as (
 select 
     @MonitorDate as MonitorDate,
-    'ram_master_equities' as TableName,
+    'ram_equity_pricing' as TableName,
     min(Date_) as MinTableDate,
     max(Date_) as MaxTableDate,
     count(*) as Count_
-from ram.dbo.ram_master_equities
+from ram.dbo.ram_equity_pricing
 )
 
-,-- ram_master_equities_research
-mstr_eq_res as (
-select 
-    @MonitorDate as MonitorDate,
-    'ram_master_equities_research' as TableName,
-    min(Date_) as MinTableDate,
-    max(Date_) as MaxTableDate,
-    count(*) as Count_
-from ram.dbo.ram_master_equities_research
-)
-
--- ram_master_etf
-, mstr_etf as (
-select 
-    @MonitorDate as MonitorDate,
-    'ram_master_etf' as TableName,
-    min(Date_) as MinTableDate,
-    max(Date_) as MaxTableDate,
-    count(*) as Count_
-from ram.dbo.ram_master_etf
-)
-
--- ram_sector
+-- ram_compustat_sector
 , ram_sector as (
 select 
     @MonitorDate as MonitorDate,
-    'ram_sector' as TableName,
+    'ram_compustat_sector' as TableName,
     min(StartDate) as MinTableDate,
     max(EndDate) as MaxTableDate,
     count(*) as Count_
-from ram.dbo.ram_sector
+from ram.dbo.ram_compustat_sector
 )
 
 -- univ_filter_data
@@ -157,10 +135,6 @@ insert into ram.dbo.table_monitor
 
 select * from mstr_eq
 union
-select * from mstr_eq_res
-union
-select * from mstr_etf
-union
 select * from ram_sector
 union
 select * from univ_filter
@@ -180,4 +154,3 @@ union
 select * from sm_si
 union
 select * from sm_se_eps
-
