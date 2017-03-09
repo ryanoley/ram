@@ -14,12 +14,10 @@ GVKeys (essentially a company ID) are mapped to a single IDC Code
 It is also worth noting that we are functioning from a Security-first
 perspective, meaning the correct question is:
 ```
-"Given this Security and this Date, which GVKey/Company is it associated with"
+Given this Security and this Date, which GVKey/Company is it associated with?
 ```
 
 It has not been verified whether a GVKey-first mapping works properly.
-(I suspect it doesn't work properly because a GVKey will map to multiple
-IDC Codes).
 
 
 Daily Routine
