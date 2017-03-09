@@ -11,7 +11,7 @@ from ram.data.sql_features import sqlcmd_from_feature_list
 
 class DataHandlerSQL(DataHandler):
 
-    def __init__(self, table='ram.dbo.ram_master_equities_research'):
+    def __init__(self, table='ram.dbo.ram_equity_pricing'):
 
         try:
             connection = pypyodbc.connect('Driver={SQL Server};'
@@ -172,16 +172,22 @@ class DataHandlerSQL(DataHandler):
         ids = np.array(self.sql_execute(
             """
             ; with tempdata as (
-            select  M.HistoricalIssuer, M.SecCode, M.{3},
-                    ROW_NUMBER() over (
-                        PARTITION BY M.HistoricalIssuer
-                        ORDER BY M.{3} DESC, M.SecCode) AS rank_val
-            from {4} M
-            left join ram.dbo.ram_sector S
-                on M.SecCode = S.SecCode
-                and M.Date_ between S.StartDate and S.EndDate
-            where M.Date_ = '{1}'
-            and M.NormalTradingFlag = 1
+            select      ID.HistoricalIssuer, M.SecCode, M.{3},
+                        ROW_NUMBER() over (
+                            PARTITION BY ID.HistoricalIssuer
+                            ORDER BY M.{3} DESC, M.SecCode) AS rank_val
+            from        {4} M
+            join        ram.dbo.ram_master_ids ID
+                on      M.SecCode = ID.SecCode
+                and     M.Date_ between ID.StartDate and ID.EndDate
+            left join   ram.dbo.ram_idccode_to_gvkey_map G
+                on      M.IdcCode = G.IdcCode
+                and     M.Date_ between G.StartDate and G.EndDate
+            left join   ram.dbo.ram_compustat_sector S
+                on      S.GVKey = G.GVKey
+                and     M.Date_ between S.StartDate and S.EndDate
+            where       M.Date_ = '{1}'
+            and         M.NormalTradingFlag = 1
             {2}
             )
             select top {0} SecCode from tempdata

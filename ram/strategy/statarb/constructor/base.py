@@ -22,6 +22,7 @@ class BaseConstructor(object):
     def set_and_prep_data(self, scores, pair_info, data):
         # Trim data
         data = data[data.Date.isin(scores.index)].copy()
+        self.data = data
 
         self.close_dict = data.pivot(
             index='Date', columns='SecCode', values='RClose').T.to_dict()
