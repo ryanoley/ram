@@ -2,13 +2,33 @@
 use ram;
 
 -------------------------------------------------------------
+-- Select table to run
+if object_id('tempdb..#id_table', 'U') is not null 
+	drop table #id_table
+
+create table #id_table
+(
+    SecCode int,
+	DsInfoCode int,
+	IdcCode int,
+    StartDate datetime,
+	EndDate datetime
+)
+
+if $(tabletype) = 1
+	insert into #id_table select SecCode, DsInfoCode, IdcCode, StartDate, EndDate from ram.dbo.ram_master_ids_etf where ExchangeFlag = 1
+
+if $(tabletype) = 2
+	insert into #id_table select SecCode, DsInfoCode, IdcCode, StartDate, EndDate from ram.dbo.ram_master_ids where ExchangeFlag = 1
+
+-------------------------------------------------------------
 -- Create tables
 
-if object_id('ram.dbo.ram_equity_pricing', 'U') is not null 
-	drop table ram.dbo.ram_equity_pricing
+if object_id('ram.dbo.temp_pricing', 'U') is not null 
+	drop table ram.dbo.temp_pricing
 
 
-create table	ram.dbo.ram_equity_pricing (
+create table	ram.dbo.temp_pricing (
 		SecCode int,
 		IdcCode int,
 		Date_ smalldatetime,
@@ -108,10 +128,9 @@ select			P.*,
 				S.Shares
 from			idc_dates P
 
-join			ram.dbo.ram_master_ids M
+join			#id_table M
 		on		P.Code = M.IdcCode
 		and		P.Date_ between M.StartDate and M.EndDate
-		and		M.ExchangeFlag = 1
 
 left join		qai.prc.PrcShr S
 on 
@@ -333,9 +352,24 @@ where			D.Date_ >= '1995-01-01'
 
 )
 
-insert into ram.dbo.ram_equity_pricing
+insert into ram.dbo.temp_pricing
 select * from final_table
-
 
 drop table #idc_data
 drop table #pricing_data
+drop table #id_table
+
+
+if $(tabletype) = 1
+begin
+	if object_id('ram.dbo.ram_etf_pricing', 'U') is not null 
+		drop table ram.dbo.ram_etf_pricing
+	exec sp_rename 'ram.dbo.temp_pricing', 'ram_etf_pricing'
+end
+
+if $(tabletype) = 2
+begin
+	if object_id('ram.dbo.ram_equity_pricing', 'U') is not null 
+		drop table ram.dbo.ram_equity_pricing
+	exec sp_rename 'ram.dbo.temp_pricing', 'ram_equity_pricing'
+end

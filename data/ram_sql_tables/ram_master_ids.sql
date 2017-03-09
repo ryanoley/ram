@@ -15,7 +15,6 @@ if object_id('ram.dbo.ram_master_ids', 'U') is not null
 create table	ram.dbo.ram_master_ids (
 				SecCode int,
 				IdcCode int,
-				HistoricalIssuer varchar(45),
 				DsInfoCode int,
 				Cusip varchar(15),
 				Issuer varchar(45),
@@ -124,7 +123,6 @@ where				S.Type_ = 1
 , sec_map as (
 select				M.SecCode,
 					I.Code as IdcCode,
-					I.Issuer as HistoricalIssuer,
 					N.VenCode as DsInfoCode,
 					I.Cusip,
 					I.Issuer,

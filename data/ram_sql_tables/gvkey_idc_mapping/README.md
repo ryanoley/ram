@@ -14,12 +14,10 @@ GVKeys (essentially a company ID) are mapped to a single IDC Code
 It is also worth noting that we are functioning from a Security-first
 perspective, meaning the correct question is:
 ```
-"Given this Security and this Date, which GVKey/Company is it associated with"
+Given this Security and this Date, which GVKey/Company is it associated with?
 ```
 
 It has not been verified whether a GVKey-first mapping works properly.
-(I suspect it doesn't work properly because a GVKey will map to multiple
-IDC Codes).
 
 
 Daily Routine
@@ -27,25 +25,24 @@ Daily Routine
 1. Run `get_map_data.bat`
 
 If there are values that have to be manually adjusted
+
 1. Run `mapping_verification.py -m` if there are maappings
 2. Run `mapping_verification.py -a` after to add those new mappings and clean
 the directory
 3. Run `make_mapping_table.py` to re-write to SQL Server Database
 
 
-How to use init_filter_bad_mappings.py
---------------------------------------
+How to use mapping_verification.py
+----------------------------------
 This script iterates through each IDC Code that has duplicate GVKeys,
 and the purpose is to correctly specify which GVKeys belong to the
 IDC Code, and when they changed from one to the next.
 
 The User will be prompted to specify the number of GVKeys that are
 appropriate, then sequentially how the GVKeys should be ordered and what
-their min and max applicable dates should be.
+their applicable dates should be.
 
 There are a few things to note:
 * The GVKey data frame is sorted by GVKey, but this may not represent
 the correct order. Be sure to reference the Report Dates and the Change
 dates. Sometimes the larger GVKeys may come first.
-* An improvement on the routine could be to infer start dates for GVKeys
-after the first.
