@@ -34,19 +34,17 @@ the directory
 3. Run `make_mapping_table.py` to re-write to SQL Server Database
 
 
-How to use init_filter_bad_mappings.py
---------------------------------------
+How to use mapping_verification.py
+----------------------------------
 This script iterates through each IDC Code that has duplicate GVKeys,
 and the purpose is to correctly specify which GVKeys belong to the
 IDC Code, and when they changed from one to the next.
 
 The User will be prompted to specify the number of GVKeys that are
 appropriate, then sequentially how the GVKeys should be ordered and what
-their min and max applicable dates should be.
+their applicable dates should be.
 
 There are a few things to note:
 * The GVKey data frame is sorted by GVKey, but this may not represent
 the correct order. Be sure to reference the Report Dates and the Change
 dates. Sometimes the larger GVKeys may come first.
-* An improvement on the routine could be to infer start dates for GVKeys
-after the first.
