@@ -27,6 +27,7 @@ Daily Routine
 1. Run `get_map_data.bat`
 
 If there are values that have to be manually adjusted
+
 1. Run `mapping_verification.py -m` if there are maappings
 2. Run `mapping_verification.py -a` after to add those new mappings and clean
 the directory
