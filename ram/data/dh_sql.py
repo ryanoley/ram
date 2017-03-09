@@ -168,13 +168,13 @@ class DataHandlerSQL(DataHandler):
         fdate = self._dates[self._dates <= filter_date][-1]
 
         # Get IDs using next business date(filter_date). First CTE
-        # filters top ID for unique Company (HistoricalIssuer).
+        # filters top ID for unique Company (Issuer).
         ids = np.array(self.sql_execute(
             """
             ; with tempdata as (
-            select      ID.HistoricalIssuer, M.SecCode, M.{3},
+            select      ID.Issuer, M.SecCode, M.{3},
                         ROW_NUMBER() over (
-                            PARTITION BY ID.HistoricalIssuer
+                            PARTITION BY ID.Issuer
                             ORDER BY M.{3} DESC, M.SecCode) AS rank_val
             from        {4} M
             join        ram.dbo.ram_master_ids ID
