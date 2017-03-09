@@ -12,8 +12,8 @@ def update_qad_monitor(cursor):
     Run sql script to retrieve most recent QAD update values and write
     them to qad_monitor.
     '''
-    db_update_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'data',
-                                  'qad', 'qad_monitor.sql')
+    db_update_path = os.path.join(os.getenv('GITHUB'), 'ram', 'data',
+                                  'qad_monitor.sql')
     with open(db_update_path, 'r') as sqlfile:
         sqlscript = sqlfile.read()
     cursor.execute(sqlscript)
@@ -26,8 +26,8 @@ def update_ram_monitor(cursor):
     Run sql script to retrieve most recent RAM table values and write
     them to table_monitor.
     '''
-    db_update_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'data',
-                                  'qad', 'table_monitor.sql')
+    db_update_path = os.path.join(os.getenv('GITHUB'), 'ram', 'data',
+                                  'table_monitor.sql')
     with open(db_update_path, 'r') as sqlfile:
         sqlscript = sqlfile.read()
     cursor.execute(sqlscript)
