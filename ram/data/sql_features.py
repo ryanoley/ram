@@ -5,7 +5,7 @@ import datetime as dt
 ###############################################################################
 
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
-                             table='ram.dbo.ram_master_equities_research'):
+                             table='ram.dbo.ram_equity_pricing'):
     feature_data = []
     for f in features:
         feature_data.append(
