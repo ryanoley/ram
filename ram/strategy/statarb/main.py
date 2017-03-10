@@ -127,5 +127,5 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(False, True, True)
+    strategy = StatArbStrategy(False, False, True)
     strategy.start()
