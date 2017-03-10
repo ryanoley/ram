@@ -23,8 +23,9 @@ class PortfolioConstructor(BaseConstructor):
             'n_pairs': [50, 100, 200],
             'max_pos_prop': [0.07],
             'pos_perc_deviation': [0.07, 0.14],
-            'z_exit': [0.6, 1, 1.2],
-            'remove_earnings': [True]
+            'z_exit': [1, 1.2],
+            'remove_earnings': [True],
+            'max_holding_days': [2, 5, 10]
         }
 
     def get_feature_names(self):
@@ -35,7 +36,7 @@ class PortfolioConstructor(BaseConstructor):
                 'GSECTOR', 'SplitFactor', 'EARNINGSFLAG']
 
     def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation, z_exit,
-                     remove_earnings):
+                     remove_earnings, max_holding_days):
         """
         Parameters
         ----------
@@ -80,7 +81,8 @@ class PortfolioConstructor(BaseConstructor):
             #  Closed pairs are still in portfolio dictionary
             #  and must be cleaned at end
             self._close_signals(exit_scores, z_exit,
-                                ern_flags, remove_earnings)
+                                ern_flags, remove_earnings,
+                                max_holding_days)
 
             # 3. ADJUST POSITIONS
             #  When the exposures move drastically (say when the markets)
@@ -114,7 +116,8 @@ class PortfolioConstructor(BaseConstructor):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _close_signals(self, scores, z_exit, ern_flags, remove_earnings):
+    def _close_signals(self, scores, z_exit, ern_flags, remove_earnings,
+                       max_holding_days):
         close_pairs = []
         # ~~ ADD LOGIC HERE FOR CLOSING WILD MOVERS ~~ #
         # Get current position z-scores, and decide if they need to be closed
@@ -124,6 +127,9 @@ class PortfolioConstructor(BaseConstructor):
             # EARNINGS
             p1, p2 = pair.split('~')
             if (ern_flags[p1] or ern_flags[p2]) and remove_earnings:
+                close_pairs.append(pair)
+            if self._portfolio.pairs[pair].stat_holding_days > \
+                    max_holding_days:
                 close_pairs.append(pair)
         # Close positions
         self._portfolio.close_pairs(list(set(close_pairs)))

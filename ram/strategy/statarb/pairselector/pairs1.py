@@ -8,7 +8,7 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 class PairsStrategy1(BasePairSelector):
 
     def get_iterable_args(self):
-        return {'z_window': [10, 20, 30],
+        return {'z_window': [20, 30],
                 'max_pairs': [3000, 6000],
                 'same_sector': [True, False],
                 'vol_ratio_filter': [0.5]}
