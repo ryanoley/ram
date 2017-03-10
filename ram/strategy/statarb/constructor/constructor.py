@@ -128,7 +128,7 @@ class PortfolioConstructor(BaseConstructor):
             p1, p2 = pair.split('~')
             if (ern_flags[p1] or ern_flags[p2]) and remove_earnings:
                 close_pairs.append(pair)
-            if self._portfolio.pairs[pair].stat_holding_days > \
+            if self._portfolio.pairs[pair].stat_holding_days >= \
                     max_holding_days:
                 close_pairs.append(pair)
         # Close positions
