@@ -11,7 +11,7 @@ from ram.data.sql_features import sqlcmd_from_feature_list
 
 class DataHandlerSQL(DataHandler):
 
-    def __init__(self, table='ram.dbo.ram_equity_pricing'):
+    def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
 
         try:
             connection = pypyodbc.connect('Driver={SQL Server};'
