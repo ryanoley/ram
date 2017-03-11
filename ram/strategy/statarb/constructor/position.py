@@ -94,7 +94,6 @@ class MultiLegPosition(object):
             self.daily_pl += np.sum(self.shares[inds] * new_dividends[inds])
             self.net_exposure = 0
             self.gross_exposure = 0
-            self.shares[~inds] = 0
             self.to_close_position = True
 
             # Stats
