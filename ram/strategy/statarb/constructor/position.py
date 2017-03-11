@@ -23,7 +23,6 @@ class MultiLegPosition(object):
         self.legs = legs
         # Flags to aid accounting
         self.open_position = True
-        self.to_close_position = False
         # Commission per share
         self.COMM = comm
         # Never open position if no data
@@ -32,7 +31,7 @@ class MultiLegPosition(object):
             self.shares = (sizes / prices).astype(int)
         else:
             self.shares = np.array([0] * len(sizes))
-            self.to_close_position = True
+            self.open_position = False
         # Entry prices
         self.prices_entry = prices
         # Current prices
@@ -92,14 +91,13 @@ class MultiLegPosition(object):
                                    self.shares[inds])
             # Dividend income
             self.daily_pl += np.sum(self.shares[inds] * new_dividends[inds])
-            self.net_exposure = 0
-            self.gross_exposure = 0
-            self.to_close_position = True
 
             # Stats
             self.stat_perc_gain = self.stat_perc_gain + (
                 self.daily_pl / np.sum(np.abs(self.shares) *
                                        self.prices_entry))
+            # Close position
+            self.close_position()
 
         else:
             self.daily_pl = \
@@ -123,22 +121,24 @@ class MultiLegPosition(object):
         """
         Returns net exposure to zero.
         """
-        long_inds = self.shares > 0
-        short_inds = self.shares < 0
-        new_long_size = new_gross_exposure / np.sum(long_inds) / 2.
-        new_short_size = new_gross_exposure / np.sum(short_inds) / 2.
-        new_shares = self.shares.copy()
-        new_shares[long_inds] = new_long_size / \
-            self.prices_current[long_inds]
-        new_shares[short_inds] = new_short_size / \
-            self.prices_current[short_inds] * -1
-        trans_cost = np.sum(np.abs(self.shares - new_shares)) * self.COMM
-        self.daily_pl -= trans_cost
-        self.shares = new_shares
-        self.net_exposure = np.sum(self.prices_current * self.shares)
-        self.gross_exposure = np.sum(self.prices_current * np.abs(self.shares))
-        self.stat_rebalance_count += 1
-        return
+        if self.open_position:
+            new_gross_exposure = float(new_gross_exposure)
+            long_inds = self.shares > 0
+            short_inds = self.shares < 0
+            new_long_size = new_gross_exposure / np.sum(long_inds) / 2.
+            new_short_size = new_gross_exposure / np.sum(short_inds) / 2.
+            new_shares = self.shares.copy()
+            new_shares[long_inds] = new_long_size / \
+                self.prices_current[long_inds]
+            new_shares[short_inds] = new_short_size / \
+                self.prices_current[short_inds] * -1
+            trans_cost = np.sum(np.abs(self.shares - new_shares)) * self.COMM
+            self.daily_pl -= trans_cost
+            self.shares = new_shares
+            self.net_exposure = np.sum(self.prices_current * self.shares)
+            self.gross_exposure = np.sum(
+                self.prices_current * np.abs(self.shares))
+            self.stat_rebalance_count += 1
 
     def close_position(self):
         if self.open_position:

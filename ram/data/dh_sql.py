@@ -86,6 +86,7 @@ class DataHandlerSQL(DataHandler):
 
         univ_df = pd.DataFrame(univ)
         univ_df.columns = ['SecCode', 'Date'] + features
+        univ_df = univ_df.sort_values(['SecCode', 'Date'])
         return univ_df
 
     def get_id_data(self,

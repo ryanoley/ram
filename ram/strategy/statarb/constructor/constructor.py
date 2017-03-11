@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -21,11 +22,11 @@ class PortfolioConstructor(BaseConstructor):
     def get_iterable_args(self):
         return {
             'n_pairs': [50, 100, 200],
-            'max_pos_prop': [0.07],
+            'max_pos_prop': [0.03, 0.06],
             'pos_perc_deviation': [0.07, 0.14],
             'z_exit': [1, 1.2],
             'remove_earnings': [True],
-            'max_holding_days': [2, 5, 10]
+            'max_holding_days': [1, 2, 3, 4]
         }
 
     def get_feature_names(self):
@@ -102,7 +103,7 @@ class PortfolioConstructor(BaseConstructor):
                 self._portfolio.get_gross_exposure()
 
         # Clear all pairs in portfolio and adjust PL
-        self._portfolio.close_pairs(all_pairs=True)
+        self._portfolio.close_all_pairs()
         daily_df.loc[date, 'PL'] += self._portfolio.get_portfolio_daily_pl()
         daily_df.loc[date, 'Exposure'] = 0
 
@@ -111,6 +112,9 @@ class PortfolioConstructor(BaseConstructor):
         daily_df['Ret'] = daily_df.PL / daily_df.Exposure.shift(1)
         daily_df.Ret.iloc[0] = daily_df.PL.iloc[0] / \
             daily_df.Exposure.iloc[0]
+
+        if np.any(daily_df.Exposure > (self.booksize * 1.1)):
+            logging.warn('Exposure exceeded 10% limit')
 
         return daily_df.loc[:, ['Ret']], self._portfolio.get_period_stats()
 
@@ -147,18 +151,17 @@ class PortfolioConstructor(BaseConstructor):
         Function that adds new positions.
         """
         open_pairs = self._portfolio.get_open_positions()
+        closed_pairs = self._portfolio.get_closed_positions()
+        no_go_pairs = sum([open_pairs, closed_pairs], [])
         new_pairs = max(n_pairs - len(open_pairs), 0)
         if new_pairs == 0:
             return
-
         gross_bet_size = self.booksize / n_pairs
-
-        assert max_pos_prop > 0 and max_pos_prop <= 1
+        # Filter
         max_pos_count = int(n_pairs * max_pos_prop)
         self._get_pos_exposures()
-
         for sc, pair, side in scores:
-            if pair in open_pairs:
+            if pair in no_go_pairs:
                 continue
             if sc < (z_exit * 1.2):
                 break

@@ -39,7 +39,7 @@ class TestPairPortfolio(unittest.TestCase):
         self.assertEqual(port.pairs['IBM~VMW'].gross_exposure, 0)
         self.assertNotEqual(port.pairs['GOOGL~AAPL'].gross_exposure, 0)
         self.assertEqual(port.count_open_positions(), 1)
-        port.close_pairs(all_pairs=True)
+        port.close_all_pairs()
         self.assertEqual(port.count_open_positions(), 0)
         self.assertEqual(port.pairs['IBM~VMW'].gross_exposure, 0)
 
@@ -52,7 +52,7 @@ class TestPairPortfolio(unittest.TestCase):
         port.close_pairs(['IBM~VMW'])
         port.get_portfolio_daily_pl()
         port.update_prices(closes, dividends, splits)
-        port.close_pairs(all_pairs=True)
+        port.close_all_pairs()
         port.get_portfolio_daily_pl()
         result = port.get_period_stats()
         benchmark = {

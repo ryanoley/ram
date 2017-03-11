@@ -23,7 +23,6 @@ class TestMultiLegPosition(unittest.TestCase):
         assert_array_equal(pos.shares, np.array([10, 10, -5, -20]))
         self.assertEqual(pos.gross_exposure, 4000)
         self.assertTrue(pos.open_position)
-        self.assertFalse(pos.to_close_position)
 
     def test_update_position_prices(self):
         pos = MultiLegPosition(
@@ -44,9 +43,9 @@ class TestMultiLegPosition(unittest.TestCase):
         pos.update_position_prices(prices)
         assert_array_equal(pos.prices_current, np.array([np.nan, 95,
                                                          202, 202]))
-        assert_array_equal(pos.shares, np.array([0, 10, -5, -5.]))
-        self.assertEqual(pos.daily_pl, 20)
-        self.assertTrue(pos.to_close_position)
+        assert_array_equal(pos.shares, np.array([0, 0, 0, 0]))
+        self.assertEqual(pos.daily_pl, 19.85)
+        self.assertFalse(pos.open_position)
 
     def test_update_position_prices_splits_divs(self):
         pos = MultiLegPosition(

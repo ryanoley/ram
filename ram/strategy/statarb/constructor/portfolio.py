@@ -37,7 +37,6 @@ class PairPortfolio(object):
             Percent deviation from the base exposure that is allowed
             before the position is corrected.
         """
-        base_exposure = float(base_exposure)
         for pair, pos in self.pairs.iteritems():
             flag1 = abs(pos.gross_exposure / base_exposure - 1) > perc_dev
             flag2 = abs(pos.net_exposure / base_exposure) > perc_dev
@@ -60,8 +59,8 @@ class PairPortfolio(object):
         """
         # Split securities
         side1, side2 = pair.split('~')
-        legs1 = np.array(side1.split('_'))
-        legs2 = np.array(side2.split('_'))
+        legs1 = side1.split('_')
+        legs2 = side2.split('_')
         legs = np.append(legs1, legs2)
         # Get prices
         prices = np.array([trade_prices[l] for l in legs])
@@ -74,22 +73,23 @@ class PairPortfolio(object):
         self.pairs[pair] = MultiLegPosition(legs, prices, sizes)
         return
 
-    def close_pairs(self, close_pairs=None, all_pairs=False):
-        if all_pairs:
-            for pos in self.pairs.itervalues():
-                pos.close_position()
-            return
+    def close_pairs(self, close_pairs):
         for pair in close_pairs:
             self.pairs[pair].close_position()
-        # Check if additional pairs to close due to bad data
+        return
+
+    def close_all_pairs(self):
         for pos in self.pairs.itervalues():
-            if pos.to_close_position:
-                pos.close_position()
+            pos.close_position()
         return
 
     def get_open_positions(self):
         return [pair for pair, pos in self.pairs.iteritems()
                 if pos.open_position]
+
+    def get_closed_positions(self):
+        return [pair for pair, pos in self.pairs.iteritems()
+                if ~pos.open_position]
 
     def count_open_positions(self):
         return sum([pos.open_position for pos in self.pairs.itervalues()])
@@ -107,7 +107,6 @@ class PairPortfolio(object):
         # Get PL and Clean out positions
         for pair in self.pairs.keys():
             port_daily_pl += self.pairs[pair].daily_pl
-            self.pairs[pair].daily_pl = 0
             if not self.pairs[pair].open_position:
                 rpair = self.pairs.pop(pair)
                 # Record some stats
@@ -117,7 +116,6 @@ class PairPortfolio(object):
                     rpair.stat_rebalance_count)
                 self.stats_container['perc_gains'].append(
                     rpair.stat_perc_gain)
-
         return port_daily_pl
 
     def get_period_stats(self):
