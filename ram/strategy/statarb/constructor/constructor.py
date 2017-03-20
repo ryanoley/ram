@@ -26,7 +26,7 @@ class PortfolioConstructor(BaseConstructor):
             'pos_perc_deviation': [0.07, 0.14],
             'z_exit': [1, 1.2],
             'remove_earnings': [True],
-            'max_holding_days': [1, 2, 3, 4]
+            'max_holding_days': [3, 10]
         }
 
     def get_feature_names(self):
