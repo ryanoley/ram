@@ -9,15 +9,17 @@ class PairsStrategy1(BasePairSelector):
 
     def get_iterable_args(self):
         return {'z_window': [20, 30],
-                'max_pairs': [3000, 6000],
+                'max_pairs': [3000],
                 'same_sector': [True, False],
-                'vol_ratio_filter': [0.5]}
+                'vol_ratio_filter': [0.5],
+                'account_max_diff': [True, False]}
 
     def get_feature_names(self):
-        return ['AdjClose', 'AvgDolVol', 'GSECTOR']
+        return ['AdjClose', 'AvgDolVol', 'RANK_ACCTSALESGROWTH',
+                'RANK_ACCTEPSGROWTH', 'RANK_ACCTPRICESALES', 'GSECTOR']
 
     def get_best_pairs(self, data, cut_date, z_window, max_pairs,
-                       same_sector, vol_ratio_filter):
+                       same_sector, vol_ratio_filter, account_max_diff):
 
         # Reshape Close data
         close_data = data.pivot(index='Date',
@@ -26,12 +28,18 @@ class PairsStrategy1(BasePairSelector):
 
         train_close = close_data.loc[close_data.index < cut_date]
 
+        # Filtering data
+        filter_date = np.max(data.Date[data.Date < cut_date])
+        filter_data = data.loc[data.Date == filter_date].copy()
+
         # Clean data for training
         train_close = train_close.T.dropna().T
 
         pairs = self._get_stats_all_pairs(train_close)
-        fpairs = self._filter_pairs(pairs, data, max_pairs, same_sector,
-                                    vol_ratio_filter)
+
+        fpairs = self._filter_pairs(pairs, filter_data, max_pairs,
+                                    same_sector, vol_ratio_filter,
+                                    account_max_diff)
 
         # Create daily z-scores
         test_pairs = self._get_test_zscores(close_data, cut_date,
@@ -39,25 +47,44 @@ class PairsStrategy1(BasePairSelector):
         return test_pairs, fpairs
 
     def _filter_pairs(self, pairs, data, max_pairs, same_sector,
-                      vol_ratio_filter):
+                      vol_ratio_filter, account_max_diff):
         """
         Function is to score based on incoming stats
         """
+        # Merge accounting data
+        fvars = ['SecCode', 'RANK_ACCTSALESGROWTH', 'RANK_ACCTEPSGROWTH',
+                 'RANK_ACCTPRICESALES', 'GSECTOR']
+        pairs = pairs.merge(data[fvars], left_on='Leg1', right_on='SecCode')
+        pairs = pairs.merge(data[fvars], left_on='Leg2', right_on='SecCode')
+
+        pairs['account_sum'] = \
+            abs(pairs.RANK_ACCTSALESGROWTH_x - pairs.RANK_ACCTSALESGROWTH_y) +\
+            abs(pairs.RANK_ACCTEPSGROWTH_x - pairs.RANK_ACCTEPSGROWTH_y) +\
+            abs(pairs.RANK_ACCTPRICESALES_x - pairs.RANK_ACCTPRICESALES_y)
+
         if same_sector:
-            # Merge GSECTOR
-            gsectors = data.groupby('SecCode')['GSECTOR'].min().reset_index()
-            pairs = pairs.merge(gsectors, left_on='Leg1', right_on='SecCode')
-            pairs = pairs.merge(gsectors, left_on='Leg2', right_on='SecCode')
             pairs = pairs[pairs.GSECTOR_x == pairs.GSECTOR_y]
             pairs['Sector'] = pairs.GSECTOR_x
-            pairs = pairs.drop(['GSECTOR_x', 'GSECTOR_y',
-                                'SecCode_x', 'SecCode_y'], axis=1)
+
+        # Remove all columns
+        pairs = pairs.drop(['GSECTOR_x', 'GSECTOR_y',
+                            'RANK_ACCTSALESGROWTH_x', 'RANK_ACCTSALESGROWTH_y',
+                            'RANK_ACCTEPSGROWTH_x', 'RANK_ACCTEPSGROWTH_y',
+                            'RANK_ACCTPRICESALES_x', 'RANK_ACCTPRICESALES_y',
+                            'SecCode_x', 'SecCode_y'], axis=1)
+
         # Vol ratio filter
         pairs = pairs.loc[np.abs(pairs.volratio - 1) < vol_ratio_filter].copy()
         # Rank values
         rank1 = np.argsort(np.argsort(-pairs.corrcoef))
         rank2 = np.argsort(np.argsort(pairs.distances))
-        pairs.loc[:, 'score'] = rank1 + rank2
+        rank3 = np.argsort(np.argsort(pairs.account_sum))
+
+        if account_max_diff:
+            pairs.loc[:, 'score'] = rank1 + rank2 + rank3
+        else:
+            pairs.loc[:, 'score'] = rank1 + rank2
+
         # Sort
         pairs = pairs.sort_values('score', ascending=True)
         pairs = pairs.iloc[:max_pairs].reset_index(drop=True)
