@@ -24,13 +24,13 @@ select distinct GVKey, DATADATE, RDQ, FQTR from qai.dbo.CSCoIDesInd
 where RDQ is not null
 	and DATACQTR is not null
 	and DateDiff(day, DATADATE, RDQ) < 92
-	and RDQ >= '1990-01-01'
+	and RDQ >= '1985-01-01'
 union
 select distinct GVKey, DATADATE, RDQ, FQTR from qai.dbo.CSICoIDesInd
 where RDQ is not null
 	and DATACQTR is not null
 	and DateDiff(day, DATADATE, RDQ) < 92
-	and RDQ >= '1990-01-01'
+	and RDQ >= '1985-01-01'
 )
 
 
