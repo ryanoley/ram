@@ -567,7 +567,7 @@ def ACCTPRICESALES(arg0, feature_name, arg2, table):
         """
         select      A.SecCode,
                     A.Date_,
-                    A.MarketCap / B.Value_ as {1}
+                    A.MarketCap / nullif(B.Value_, 0) as {1}
         from        {0} A
         join        ram.dbo.ram_master_ids M
             on      A.SecCode = M.SecCode
