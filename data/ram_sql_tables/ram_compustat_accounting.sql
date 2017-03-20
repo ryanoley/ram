@@ -16,7 +16,7 @@ use ram;
 
 -- Put item numbers in here
 declare @ITEMTABLE table (ItemNum int)
-insert into @ITEMTABLE (ItemNum) values (2), (9), (69), (44), (54)
+insert into @ITEMTABLE (ItemNum) values (2), (9), (69)
 
 
 -------------------------------------------------------------
