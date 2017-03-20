@@ -98,7 +98,9 @@ def make_id_date_filter(ids, start_date, end_date):
 def parse_input_var(vstring, table, filter_commands):
 
     FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI',
-             'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG']
+             'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG',
+             'ACCTSALES', 'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
+             'ACCTEPSGROWTH', 'ACCTPRICESALES']
 
     # Return object that is used downstream per requested feature
     out = {
@@ -457,6 +459,131 @@ def SI(arg0, arg1, arg2, table):
                 where b.Date_ <= B.Date_ and b.IdcCode = B.IdcCode
             )
         """.format(table)
+    return clean_sql_cmd(sqlcmd)
+
+
+def ACCTSALES(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.Value_ as {1}
+        from        {0} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting B
+            on      G.GVKey = B.GVKey
+            and     B.Item = 'SALEQ'
+            and     B.ReportDate = (select max(ReportDate)
+                        from ram.dbo.ram_compustat_accounting
+                        where GVKey = G.GVKey and ReportDate < A.Date_)
+        """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
+def ACCTSALESGROWTH(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.ValueGrowth as {1}
+        from        {0} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting B
+            on      G.GVKey = B.GVKey
+            and     B.Item = 'SALEQ'
+            and     B.ReportDate = (select max(ReportDate)
+                        from ram.dbo.ram_compustat_accounting
+                        where GVKey = G.GVKey and ReportDate < A.Date_)
+        """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
+def ACCTSALESGROWTHTTM(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.ValueGrowthTTM as {1}
+        from        {0} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting B
+            on      G.GVKey = B.GVKey
+            and     B.Item = 'SALEQ'
+            and     B.ReportDate = (select max(ReportDate)
+                        from ram.dbo.ram_compustat_accounting
+                        where GVKey = G.GVKey and ReportDate < A.Date_)
+        """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
+def ACCTEPSGROWTH(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.ValueGrowth as {1}
+        from        {0} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting B
+            on      G.GVKey = B.GVKey
+            and     B.Item = 'EPSFXQ'
+            and     B.ReportDate = (select max(ReportDate)
+                        from ram.dbo.ram_compustat_accounting
+                        where GVKey = G.GVKey and ReportDate < A.Date_)
+        """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
+def ACCTPRICESALES(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    A.MarketCap / B.Value_ as {1}
+        from        {0} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting B
+            on      G.GVKey = B.GVKey
+            and     B.Item = 'SALEQ'
+            and     B.ReportDate = (select max(ReportDate)
+                        from ram.dbo.ram_compustat_accounting
+                        where GVKey = G.GVKey and ReportDate < A.Date_)
+        """.format(table, feature_name)
     return clean_sql_cmd(sqlcmd)
 
 
