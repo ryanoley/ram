@@ -6,14 +6,17 @@ select * from qai.dbo.CSPITItem
 
 ITEMS
 -----
-SALEQ :			2
+SALEQ								:	2
+EPSFXQ (EPS excl extra (Diluted)	:	9
+NIQ (Net Income (Loss))				:	69
+
 */
 
 use ram;
 
 -- Put item numbers in here
 declare @ITEMTABLE table (ItemNum int)
-insert into @ITEMTABLE (ItemNum) select (2)
+insert into @ITEMTABLE (ItemNum) values (2), (9), (69), (44), (54)
 
 
 -------------------------------------------------------------
@@ -40,7 +43,10 @@ create table	ram.dbo.ram_compustat_accounting (
 select				C.GVKey,
 					R.QuarterDate,
 					R.ReportDate,
-
+					R.FiscalQuarter,
+					Lag(FiscalQuarter, 4) over (
+						partition by C.GVKey, Item
+						order by Datadate) as LagFiscalQuarter,
 					I.Mnemonic as Item,
 					Value_,
 					Sum(Value_) over (
@@ -59,10 +65,7 @@ from				qai.dbo.CSPITDFnd C
 		and			R.QuarterDate = C.Datadate
 where				Valuetype = 0
 	and				Item in (select * from @ITEMTABLE)
-	and				R.FiscalQuarter = Lag(FiscalQuarter, 4)
-										  over (
-											partition by C.GVKey, Item
-											order by Datadate)
+
 )
 
 
@@ -72,15 +75,21 @@ select				GVKey,
 					ReportDate,
 					Item,
 					Value_,
-					Value_ / nullif(Lag(Value_, 4) over (
-						partition by GVKey, Item
-						order by QuarterDate), 0) - 1 as ValueGrowth,
 
-					Case
-						when row_count < 8 then null
-						else ValueSumFourQuarters / nullif(Lag(ValueSumFourQuarters, 4) over (
+					case
+						when FiscalQuarter = LagFiscalQuarter
+						then Value_ / nullif(Lag(Value_, 4) over (
+								partition by GVKey, Item
+								order by QuarterDate), 0) - 1
+						else Null
+					end as ValueGrowth,
+
+					case
+						when row_count >= 8 and FiscalQuarter = LagFiscalQuarter 
+						then ValueSumFourQuarters / nullif(Lag(ValueSumFourQuarters, 4) over (
 							partition by GVKey, Item
 							order by QuarterDate), 0) - 1
+						else Null
 					end as ValueGrowthTTM
 
 from				prepped_data
