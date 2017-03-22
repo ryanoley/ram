@@ -32,6 +32,8 @@ class DataTableCoverage(object):
             data2 = data2.groupby('SecCode').mean().unstack().reset_index()
             data2.columns = ['Column', 'SecCode', 'MissingCoverage']
             bad_seccodes = data2[data2.MissingCoverage > .05]
+            bad_seccodes['StartDate'] = t1
+            bad_seccodes['EndDate'] = t2
             # Create means coverage for whole universe
             data = pd.DataFrame(data.isnull().mean()).T
             data['StartDate'] = t1
@@ -49,7 +51,7 @@ class DataTableCoverage(object):
         At this point it only grabs quarterly data
         """
         all_dates = self.datahandler.get_all_dates()
-        all_dates = all_dates[all_dates >= dt.datetime(2016, 1, 1)]
+        all_dates = all_dates[all_dates >= dt.datetime(2000, 1, 1)]
         # Generate first dates of quarter
         qtrs = np.array([(d.month-1)/3 + 1 for d in all_dates])
         inds = np.append([True], np.diff(qtrs) != 0)
