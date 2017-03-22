@@ -38,6 +38,7 @@ class DataTableCoverage(object):
             data = pd.DataFrame(data.isnull().mean()).T
             data['StartDate'] = t1
             data['EndDate'] = t2
+            data = data.drop(['Date', 'SecCode'], axis=1)
             if t1 == date_iterator[0][0]:
                 output = data
                 output_bad_seccodes = bad_seccodes
