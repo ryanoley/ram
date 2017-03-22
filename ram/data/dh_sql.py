@@ -238,7 +238,8 @@ if __name__ == '__main__':
     import pdb; pdb.set_trace()
 
     univ = dh.get_filtered_univ_data(
-        features=['EARNINGSFLAG', 'LEAD1_EARNINGSFLAG', 'DISCOUNT126_Close'],
+        features=['ACCTSALESGROWTH', 'ACCTEPSGROWTH', 'ACCTPRICESALES',
+                  'EARNINGSFLAG', 'LEAD1_EARNINGSFLAG', 'DISCOUNT126_Close'],
         start_date='2016-06-01',
         end_date='2016-06-20',
         filter_date='2016-06-01',
