@@ -168,6 +168,9 @@ class DataHandlerSQL(DataHandler):
         # Get exact filter date
         fdate = self._dates[self._dates <= filter_date][-1]
 
+        all_dates = self.get_all_dates()
+        filter_date = all_dates[all_dates <= filter_date][-1]
+
         # Get IDs using next business date(filter_date). First CTE
         # filters top ID for unique Company (Issuer).
         ids = np.array(self.sql_execute(
