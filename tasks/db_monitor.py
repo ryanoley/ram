@@ -200,7 +200,8 @@ def main():
     if args.check_qad:
         qad_chk1 = qad_status['SysUpdDt'] >= prior_bdate
         # QAD processing updates
-        prior_upd_lim = 90
+        weekday = dt.datetime.today().weekday()
+        prior_upd_lim = 90 if weekday < 5 else 240;
         last_upd_diff = int((dt.datetime.now() - qad_status['LogUpdEnd']
                              ).total_seconds() / 60)
         qad_chk2 = last_upd_diff <= prior_upd_lim
