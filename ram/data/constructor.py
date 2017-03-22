@@ -101,3 +101,21 @@ class DataConstructor(object):
         assert hasattr(self, 'train_period_length')
         assert hasattr(self, 'start_year')
         assert hasattr(self, 'features')
+
+
+def clean_directory():
+    pass
+
+
+if __name__ == '__main__':
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--clean', action='store_true',
+        help='Clean all empty version directories')
+    args = parser.parse_args()
+
+    if args.clean:
+        clean_directory()
