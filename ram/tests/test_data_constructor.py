@@ -1,0 +1,40 @@
+import os
+import shutil
+import unittest
+import datetime as dt
+
+from ram.data.constructor import DataConstructor
+
+
+class TestDataConstructor(unittest.TestCase):
+
+    def setUp(self):
+        self.ddir = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'tests')
+
+    def test_make_output_directory(self):
+        dc = DataConstructor('TestStrategy')
+        # Manually override write directory
+        if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):
+            shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
+        dc._prepped_data_dir = os.path.join(self.ddir, 'TestStrategy')
+        dc._make_output_directory()
+        dc._make_output_directory()
+        results = os.listdir(os.path.join(self.ddir, 'TestStrategy'))
+        self.assertListEqual(results, ['version_001', 'version_002'])
+        shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
+
+    def test_make_date_iterator(self):
+        dc = DataConstructor('TestStrategy')
+        dc.register_dates_parameters('Q', 4, 2017)
+        dc._make_date_iterator()
+        result = dc._date_iterator[0]
+        self.assertEqual(result[0], dt.datetime(2016, 1, 1))
+        self.assertEqual(result[1], dt.datetime(2017, 1, 1))
+        self.assertEqual(result[2], dt.datetime(2017, 4, 1))
+
+    def tearDown(self):
+        pass
+
+
+if __name__ == '__main__':
+    unittest.main()
