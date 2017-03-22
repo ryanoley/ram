@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -6,6 +7,8 @@ import datetime as dt
 from gearbox import ProgBar
 
 from ram.data.dh_sql import DataHandlerSQL
+
+OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'coverage_audit')
 
 FEATURES = ['DISCOUNT126_Close', 'PRMA20_Close', 'PRMAH20_Open', 'AdjClose',
             'BOLL20_High', 'RSI10_Close', 'MFI10_Low', 'VOL20_Close',
@@ -18,11 +21,20 @@ UNIVSIZE = 1000
 
 class DataTableCoverage(object):
 
-    def __init__(self):
+    def __init__(self, history_flag):
         self.datahandler = DataHandlerSQL()
+        if history_flag:
+            # Delete directory and recreate
+            print 'Deleting directory: {}'.format(OUTDIR)
+            shutil.rmtree(OUTDIR)
+            os.mkdir(OUTDIR)
+            all_dates = self._get_iterable_dates()
+            self.run(all_dates)
+        else:
+            # Get files in directory to see if they need to be calculated
+            pass
 
-    def run(self):
-        date_iterator = self._get_iterable_dates()
+    def run(self, date_iterator):
         for t1, t2 in ProgBar(date_iterator):
             data = self._get_data(t1, t2)
             # Get troublesome SecCodes
@@ -32,20 +44,15 @@ class DataTableCoverage(object):
             data2 = data2.groupby('SecCode').mean().unstack().reset_index()
             data2.columns = ['Column', 'SecCode', 'MissingCoverage']
             bad_seccodes = data2[data2.MissingCoverage > .05]
-            bad_seccodes['StartDate'] = t1
-            bad_seccodes['EndDate'] = t2
+            bad_seccodes.to_csv(
+                os.path.join(OUTDIR, '{}_seccodes.csv'.format(
+                             t1.strftime('%Y%m%d')), index=False))
             # Create means coverage for whole universe
             data = pd.DataFrame(data.isnull().mean()).T
-            data['StartDate'] = t1
-            data['EndDate'] = t2
             data = data.drop(['Date', 'SecCode'], axis=1)
-            if t1 == date_iterator[0][0]:
-                output = data
-                output_bad_seccodes = bad_seccodes
-            else:
-                output = output.append(data)
-                output_bad_seccodes = output_bad_seccodes.append(bad_seccodes)
-        return output, output_bad_seccodes
+            bad_seccodes.to_csv(
+                os.path.join(OUTDIR, '{}_variables.csv'.format(
+                             t1.strftime('%Y%m%d')), index=False))
 
     def _get_iterable_dates(self):
         """
@@ -81,13 +88,12 @@ class DataTableCoverage(object):
 
 if __name__ == '__main__':
 
-    dtc = DataTableCoverage()
-    variables, seccodes = dtc.run()
+    import argparse
 
-    output_path = os.path.join(
-        os.getenv('DATA'), 'ram', 'data', 'data_coverage_audit_vars.csv')
-    variables.to_csv(output_path, index=False)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-h', '--history', action='store_true',
+        help='Flag to rebuild full history')
+    args = parser.parse_args()
 
-    output_path = os.path.join(
-        os.getenv('DATA'), 'ram', 'data', 'data_coverage_audit_seccodes.csv')
-    seccodes.to_csv(output_path, index=False)
+    DataTableCoverage(args.history)
