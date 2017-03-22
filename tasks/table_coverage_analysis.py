@@ -26,7 +26,8 @@ class DataTableCoverage(object):
         if history_flag:
             # Delete directory and recreate
             print 'Deleting directory: {}'.format(OUTDIR)
-            shutil.rmtree(OUTDIR)
+            if os.path.isdir(OUTDIR):
+                shutil.rmtree(OUTDIR)
             os.mkdir(OUTDIR)
             all_dates = self._get_iterable_dates()
             self.run(all_dates)
@@ -46,13 +47,13 @@ class DataTableCoverage(object):
             bad_seccodes = data2[data2.MissingCoverage > .05]
             bad_seccodes.to_csv(
                 os.path.join(OUTDIR, '{}_seccodes.csv'.format(
-                             t1.strftime('%Y%m%d')), index=False))
+                             t1.strftime('%Y%m%d'))), index=False)
             # Create means coverage for whole universe
             data = pd.DataFrame(data.isnull().mean()).T
             data = data.drop(['Date', 'SecCode'], axis=1)
-            bad_seccodes.to_csv(
+            data.to_csv(
                 os.path.join(OUTDIR, '{}_variables.csv'.format(
-                             t1.strftime('%Y%m%d')), index=False))
+                             t1.strftime('%Y%m%d'))), index=False)
 
     def _get_iterable_dates(self):
         """
@@ -92,7 +93,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-h', '--history', action='store_true',
+        '--history', action='store_true',
         help='Flag to rebuild full history')
     args = parser.parse_args()
 
