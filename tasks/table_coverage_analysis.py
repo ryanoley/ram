@@ -84,9 +84,9 @@ if __name__ == '__main__':
     variables, seccodes = dtc.run()
 
     output_path = os.path.join(
-        os.getenv('DATA'), 'ram', 'data_audit_vars.csv')
+        os.getenv('DATA'), 'ram', 'data', 'data_coverage_audit_vars.csv')
     variables.to_csv(output_path, index=False)
 
     output_path = os.path.join(
-        os.getenv('DATA'), 'ram', 'data_audit_seccodes.csv')
+        os.getenv('DATA'), 'ram', 'data', 'data_coverage_audit_seccodes.csv')
     seccodes.to_csv(output_path, index=False)
