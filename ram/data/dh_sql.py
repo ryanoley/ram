@@ -149,7 +149,7 @@ class DataHandlerSQL(DataHandler):
 
         # Get features, and strings for cte and regular query
         sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids.SecCode.tolist(), d1, d3, 'ram.dbo.ram_master_etf')
+            features, ids.SecCode.tolist(), d1, d3, 'ram.dbo.ram_etf_pricing')
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
@@ -207,7 +207,7 @@ class DataHandlerSQL(DataHandler):
         # Get Ticker, IdcCode mapping
         ids = pd.DataFrame(self.sql_execute(
             "select distinct SecCode, Ticker "
-            "from ram.dbo.ram_master_etf;"), columns=['SecCode', 'Ticker'])
+            "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
         return ids[ids.Ticker.isin(tickers)]
 
     def sql_execute(self, sqlcmd):

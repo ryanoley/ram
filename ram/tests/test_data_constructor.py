@@ -30,7 +30,7 @@ class TestDataConstructor(unittest.TestCase):
         result = dc._date_iterator[0]
         self.assertEqual(result[0], dt.datetime(2016, 1, 1))
         self.assertEqual(result[1], dt.datetime(2017, 1, 1))
-        self.assertEqual(result[2], dt.datetime(2017, 4, 1))
+        self.assertEqual(result[2], dt.datetime(2017, 3, 31))
 
     def test_register_universe_size(self):
         dc = DataConstructor('TestStrategy')

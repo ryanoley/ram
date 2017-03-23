@@ -89,10 +89,11 @@ class DataConstructor(object):
         # Filter
         ind = np.where(np.array(all_periods) > dt.datetime.utcnow())[0][0] + 1
         all_periods = all_periods[:ind]
+        end_periods = [x - dt.timedelta(days=1) for x in all_periods]
 
         iterator = zip(all_periods[:-(self.train_period_length+1)],
                        all_periods[self.train_period_length:-1],
-                       all_periods[self.train_period_length+1:])
+                       end_periods[self.train_period_length+1:])
 
         self._date_iterator = iterator
 
