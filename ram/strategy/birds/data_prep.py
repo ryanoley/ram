@@ -1,7 +1,8 @@
 
 from ram.data.constructor import DataConstructor
 
-features = ['AvgDolVol', 'MarketCap', 'AdjClose', 'RClose', 'LEAD1_RClose', 'LEAD2_RClose', 'LEAD3_RClose']
+features = ['AvgDolVol', 'MarketCap']
+features += ['AdjClose', 'LEAD1_AdjClose', 'LEAD2_AdjClose', 'LEAD3_AdjClose']
 features += ['PRMA5_AvgDolVol', 'PRMA10_AvgDolVol', 'PRMA20_AvgDolVol']
 features += ['PRMA5_AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose']
 features += ['VOL5_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose']
