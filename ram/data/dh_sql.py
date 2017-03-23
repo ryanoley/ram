@@ -78,14 +78,20 @@ class DataHandlerSQL(DataHandler):
         else:
             ids = []
 
-        # Get features, and strings for cte and regular query
-        sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids, d1, d3, self._table)
+        # With large numbers of IDs and Features, there is not enough
+        # memory to perform a query
+        batches = range(0, 3001, 500)
+        univ_df = pd.DataFrame(columns=['SecCode', 'Date'] + features)
+        for i1, i2 in zip(batches[:-1], batches[1:]):
+            batch_ids = ids[i1:i2]
+            if len(batch_ids) == 0:
+                break
+            # Get features, and strings for cte and regular query
+            sqlcmd, features = sqlcmd_from_feature_list(
+                features, batch_ids, d1, d3, self._table)
+            univ = self.sql_execute(sqlcmd)
+            univ_df = univ_df.append(pd.DataFrame(univ))
 
-        univ = self.sql_execute(sqlcmd)
-
-        univ_df = pd.DataFrame(univ)
-        univ_df.columns = ['SecCode', 'Date'] + features
         univ_df = univ_df.sort_values(['SecCode', 'Date'])
         return univ_df
 
@@ -236,16 +242,16 @@ if __name__ == '__main__':
 
     filter_args = {'filter': 'AvgDolVol',
                    'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
-                   'univ_size': 500}
+                   'univ_size': 1000}
 
     import pdb; pdb.set_trace()
 
     univ = dh.get_filtered_univ_data(
-        features=['ACCTSALESGROWTH', 'ACCTEPSGROWTH', 'ACCTPRICESALES',
-                  'EARNINGSFLAG', 'LEAD1_EARNINGSFLAG', 'DISCOUNT126_Close'],
-        start_date='2016-06-01',
-        end_date='2016-06-20',
-        filter_date='2016-06-01',
+        features=['MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
+                  'RSI5_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose'],
+        start_date='2000-01-01',
+        end_date='2001-04-01',
+        filter_date='2001-01-01',
         filter_args=filter_args)
 
     univ = dh.get_id_data(
