@@ -24,5 +24,5 @@ create table ram.dbo.ram_index_pricing (
 
 
 insert into ram.dbo.ram_index_pricing
-select * from prc.PrcIdx
+select * from qai.prc.PrcIdx
 where Code in (27002, 101506, 238623, 143557)
