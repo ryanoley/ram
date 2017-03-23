@@ -60,7 +60,7 @@ select				C.GVKey,
 from				qai.dbo.CSPITDFnd C
 	join			qai.dbo.Cspititem I
 		on			C.Item = I.Number
-	join			ram.dbo.ram_equity_report_dates R
+	join			(select distinct GVKey, QuarterDate, ReportDate, FiscalQuarter from ram.dbo.ram_equity_report_dates) R
 		on			R.GVKey = C.GvKey
 		and			R.QuarterDate = C.Datadate
 where				Valuetype = 0
