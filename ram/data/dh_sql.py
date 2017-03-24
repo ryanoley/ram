@@ -81,7 +81,7 @@ class DataHandlerSQL(DataHandler):
         # With large numbers of IDs and Features, there is not enough
         # memory to perform a query
         batches = range(0, 3001, 500)
-        univ_df = pd.DataFrame(columns=['SecCode', 'Date'] + features)
+        univ_df_out = pd.DataFrame(columns=['SecCode', 'Date'] + features)
         for i1, i2 in zip(batches[:-1], batches[1:]):
             batch_ids = ids[i1:i2]
             if len(batch_ids) == 0:
@@ -90,10 +90,12 @@ class DataHandlerSQL(DataHandler):
             sqlcmd, features = sqlcmd_from_feature_list(
                 features, batch_ids, d1, d3, self._table)
             univ = self.sql_execute(sqlcmd)
-            univ_df = univ_df.append(pd.DataFrame(univ))
+            univ_df = pd.DataFrame(univ,
+                                   columns=['SecCode', 'Date'] + features)
+            univ_df_out = univ_df_out.append(univ_df)
 
-        univ_df = univ_df.sort_values(['SecCode', 'Date'])
-        return univ_df
+        univ_df_out = univ_df_out.sort_values(['SecCode', 'Date'])
+        return univ_df_out
 
     def get_id_data(self,
                     ids,
@@ -244,8 +246,6 @@ if __name__ == '__main__':
                    'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
                    'univ_size': 1000}
 
-    import pdb; pdb.set_trace()
-
     univ = dh.get_filtered_univ_data(
         features=['MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
                   'RSI5_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose'],
@@ -260,10 +260,8 @@ if __name__ == '__main__':
         start_date='1996-04-17',
         end_date='1997-03-31')
 
-
     univ = dh.get_etf_data(
         tickers=['SPY', 'VXX'],
         features=['Close', 'RClose', 'AvgDolVol', 'LAG1_AvgDolVol'],
         start_date='2016-06-01',
         end_date='2016-10-20')
-
