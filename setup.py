@@ -18,6 +18,8 @@ PACKAGES = ['ram',
             'ram/strategy/statarb/constructor',
             'ram/strategy/statarb/pairselector',
             'ram/strategy/yearend',
+            'ram/strategy_repo',
+            'ram/strategy_repo/basics',
             'ram/utils']
 
 setup(
