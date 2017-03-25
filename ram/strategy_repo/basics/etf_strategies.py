@@ -1,5 +1,7 @@
 import os
 import itertools
+import numpy as np
+import pandas as pd
 import datetime as dt
 
 import pandas_datareader.data as web
@@ -7,30 +9,37 @@ import pandas_datareader.data as web
 from ram.strategy_repo.base import CommittedStrategy
 
 
-class SpyBasics(CommittedStrategy):
+class ETFBasics(CommittedStrategy):
 
     def get_meta_data(self):
         return {
-            'description': 'Basic SPY strategies'
+            'description': 'Basic ETF strategies'
         }
 
     def get_daily_returns(self):
+        ETFS = ['SPY', 'IWM', 'GLD', 'TLT', 'IBB',
+                'QQQ', 'OIH', 'XLE', 'UNG', 'SLV', 'DIA']
         start = dt.datetime(2000, 1, 1)
         end = dt.datetime.utcnow()
-        df = web.DataReader("SPY", "yahoo", start, end)
+        output = pd.DataFrame()
+        for etf in ETFS:
+            df = web.DataReader(etf, "yahoo", start, end)
+            output = output.join(self._run_strategies(df, etf), how='outer')
+        return output
 
+    def _run_strategies(self, df, etf):
         output = pd.DataFrame([])
         for fast, slow in itertools.product(
                 [10, 20, 40, 80], [100, 200, 500]):
-            output['MA_{}_{}'.format(fast, slow)] = make_ewma_return(
+            output['{}_MA_{}_{}'.format(etf, fast, slow)] = make_ewma_return(
                 df, fast, slow)
 
         for offset in [0, 4, 8, 15, 20]:
-            output['QT_{}'.format(offset)] = make_period_start_return(
+            output['{}_QT_{}'.format(etf, offset)] = make_period_start_return(
                 df, offset, per='q')
 
         for offset in [0, 4, 8, 15, 20]:
-            output['MT_{}'.format(offset)] = make_period_start_return(
+            output['{}_MT_{}'.format(etf, offset)] = make_period_start_return(
                 df, offset, per='m')
 
         return output
@@ -48,6 +57,7 @@ def make_ewma_return(data, fast, slow):
 
 def make_period_start_return(data, day_offset=0, per='m'):
     data = data.copy()
+    data['ret'] = data.Close.pct_change()
     data['month'] = [x.month for x in data.index]
     data['qtr'] = [x.quarter for x in data.index]
     if per == 'm':
@@ -63,4 +73,5 @@ def make_period_start_return(data, day_offset=0, per='m'):
 
 
 if __name__ == '__main__':
-    SpyBasics().get_daily_returns()
+
+    results = ETFBasics().get_daily_returns()
