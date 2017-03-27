@@ -45,6 +45,7 @@ class TestStrategyBase2(unittest.TestCase):
         self.strategy.register_output_dir(self.prepped_data_dir)
 
     def test_data_files(self):
+        self.strategy._import_data_files()
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(self.strategy._data_files, benchmark)
 
@@ -53,15 +54,8 @@ class TestStrategyBase2(unittest.TestCase):
         self.assertEquals(len(result), 2)
 
     def test_read_data_from_index(self):
-        import pdb; pdb.set_trace()
+        self.strategy._import_data_files()
         result = self.strategy.read_data_from_index(1)
-
-    def Xtest_run_index_writer(self):
-        self.strategy.run_index_writer(0)
-        self.strategy.run_index_writer(1)
-        #result = os.listdir(self.strategy.strategy_output_dir)
-        #benchmark = ['result_00000.csv', 'result_00001.csv']
-        #self.assertListEqual(result, benchmark)
 
     def tearDown(self):
         shutil.rmtree(self.prepped_data_dir)

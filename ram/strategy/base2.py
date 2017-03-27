@@ -25,16 +25,9 @@ class Strategy2(object):
         self.register_output_dir(SIMULATION_OUTPUT_DIR)
 
     def register_prepped_data_dir(self, version, data_dir):
-        try:
-            self._prepped_data_version = version
-            path = os.path.join(data_dir, self.__class__.__name__, version)
-            all_files = os.listdir(path)
-            self._data_files = [x for x in all_files if x[-8:] == 'data.csv']
-            self._prepped_data_dir = path
-        except:
-            logging.warn('No prepped data connected to instance::'
-                         'Check directory path and version name')
-            sys.exit()
+        self._prepped_data_version = version
+        path = os.path.join(data_dir, self.__class__.__name__, version)
+        self._prepped_data_dir = path
 
     def register_output_dir(self, data_dir):
         self._output_dir = data_dir
@@ -42,6 +35,7 @@ class Strategy2(object):
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def start(self):
+        self._import_data_files()
         self._create_output_dir()
         for i in ProgBar(range(len(self._data_files))):
             self.run_index(i)
@@ -100,6 +94,10 @@ class Strategy2(object):
             with open(os.path.join(run_dir, 'meta.json'), 'w') as outfile:
                 json.dump(run_meta, outfile)
             outfile.close()
+
+    def _import_data_files(self):
+        all_files = os.listdir(self._prepped_data_dir)
+        self._data_files = [x for x in all_files if x[-8:] == 'data.csv']
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

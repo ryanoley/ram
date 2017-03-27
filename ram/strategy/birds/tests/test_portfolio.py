@@ -34,9 +34,9 @@ class TestPortfolio(unittest.TestCase):
         self.assertEqual(port.positions.keys(), ['IBM', 'GOOGL'])
         self.assertEqual(port.positions['IBM'].exposure, 0)
         self.assertNotEqual(port.positions['GOOGL'].exposure, 0)
-        self.assertEqual(port.count_open_positions(), 1)
         port.close_all_positions()
-        self.assertEqual(port.count_open_positions(), 0)
+        result = sum([x.open_position for x in port.positions.values()])
+        self.assertEqual(result, 0)
 
     def tearDown(self):
         pass
