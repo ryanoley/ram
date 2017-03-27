@@ -76,12 +76,12 @@ class Position(object):
 
     def update_position_exposure(self, new_exposure):
         """
-        Will buy or sell shares to get back to this exposure
+        Will buy or sell shares to get back to this exposure. Also can
+        be used to go from long to short/short to long
         """
         if self.open_position:
-            new_shares = int(
-                new_exposure / self.price_current) * np.sign(self.shares)
-            trans_cost = abs(self.shares - new_shares) * self.COMM
+            new_shares = int(new_exposure / self.price_current)
+            trans_cost = abs(new_shares - self.shares) * self.COMM
             self.daily_pl -= trans_cost
             self.shares = new_shares
             self.exposure = self.price_current * self.shares

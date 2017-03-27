@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import logging
 import pandas as pd
@@ -31,8 +32,9 @@ class Strategy2(object):
             self._data_files = [x for x in all_files if x[-8:] == 'data.csv']
             self._prepped_data_dir = path
         except:
-            logging.warn('Strategy: No prepped data connected to instance.')
-            self._data_files = []
+            logging.warn('No prepped data connected to instance::'
+                         'Check directory path and version name')
+            sys.exit()
 
     def register_output_dir(self, data_dir):
         self._output_dir = data_dir
@@ -41,7 +43,6 @@ class Strategy2(object):
 
     def start(self):
         self._create_output_dir()
-
         for i in ProgBar(range(len(self._data_files))):
             self.run_index(i)
 
@@ -70,14 +71,6 @@ class Strategy2(object):
             # Collect some meta data
             description = self._prompt_for_description()
             git_branch, git_commit = self._get_git_branch_commit()
-            # Create meta object
-            self._run_meta = {
-                'prepped_data_version': self._prepped_data_version,
-                'latest_git_commit': git_commit,
-                'git_branch': git_branch,
-                'run_start_time': str(dt.datetime.utcnow()),
-                'description': description
-            }
             # Make directory for simulations
             if not os.path.exists(self._output_dir):
                 os.makedirs(self._output_dir)
@@ -92,10 +85,21 @@ class Strategy2(object):
                 new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
             else:
                 new_ind = 1
+            run_dir = os.path.join(strategy_dir, 'run_{0:04d}'.format(new_ind))
+            os.mkdir(run_dir)
             # Output directory setup
-            self.strategy_output_dir = os.path.join(
-                strategy_dir, 'run_{0:04d}'.format(new_ind))
+            self.strategy_output_dir = os.path.join(run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
+            # Create meta object
+            run_meta = {
+                'prepped_data_version': self._prepped_data_version,
+                'latest_git_commit': git_commit,
+                'git_branch': git_branch,
+                'description': description
+            }
+            with open(os.path.join(run_dir, 'meta.json'), 'w') as outfile:
+                json.dump(run_meta, outfile)
+            outfile.close()
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -120,8 +124,12 @@ class Strategy2(object):
                              self._data_files[index])
         return pd.read_csv(dpath)
 
-    def write_index_output(self, index):
+    def write_index_results(self, returns_df, index):
         """
         This is a wrapper function for cloud implementation.
         """
-        pass
+        output_name = self._data_files[index]
+        output_name = output_name.replace('data', 'returns')
+        if self._write_flag:
+            returns_df.to_csv(os.path.join(self.strategy_output_dir,
+                                           output_name))

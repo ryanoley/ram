@@ -26,6 +26,12 @@ class BaseConstructor(object):
             index='Date', columns='SecCode',
             values='SplitMultiplier').fillna(1).T.to_dict()
         # REFORMAT
-        self.signals = signals
+        features = [x for x in signals.columns
+                    if x not in ['SecCode', 'Date']]
+        self.signals = {}
+        for feature in features:
+            self.signals[feature] = signals.pivot(
+                index='Date', columns='SecCode',
+                values=feature).fillna(0).T.to_dict()
         #
         self.all_dates = np.unique(data.Date)

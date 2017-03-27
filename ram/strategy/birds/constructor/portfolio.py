@@ -32,7 +32,7 @@ class Portfolio(object):
             before the position is corrected.
         """
         for symbol, pos in self.positions.iteritems():
-            flag1 = abs(pos.exposure / base_exposure - 1) > perc_dev
+            flag1 = abs(pos.exposure) / base_exposure - 1 > perc_dev
             flag2 = pos.open_position
             if flag1 and flag2:
                 pos.update_position_exposure(base_exposure)
@@ -65,8 +65,10 @@ class Portfolio(object):
             pos.close_position()
         return
 
-    def count_open_positions(self):
-        return sum([pos.open_position for pos in self.positions.itervalues()])
+    # ~~~~~~ EOD Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_gross_exposure(self):
+        return sum([abs(pos.exposure) for pos in self.positions.itervalues()])
 
     def get_portfolio_daily_pl(self):
         port_daily_pl = 0
