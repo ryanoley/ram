@@ -6,7 +6,7 @@ features =['AdjClose', 'AvgDolVol',
            'GSECTOR', 'EARNINGSFLAG']
 
 dc = DataConstructor('StatArbStrategy')
-dc.register_dates_parameters('M', 0, 2003)
+dc.register_dates_parameters('M', 13, 2003)
 dc.register_features(features)
 dc.register_universe_size(500)
 
