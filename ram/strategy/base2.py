@@ -41,34 +41,18 @@ class Strategy2(object):
 
     def start(self):
         self._create_output_dir()
-        # Collect some meta data
-        description = self._prompt_for_description()
-        git_branch, git_commit = self._get_git_branch_commit()
-        start_time = str(dt.datetime.utcnow())
 
         for i in ProgBar(range(len(self._data_files))):
             self.run_index(i)
 
-        run_meta = {
-            'prepped_data_version': self._prepped_data_version,
-            'latest_git_commit': git_commit,
-            'git_branch': git_branch,
-            'run_start_time': start_time,
-            'run_end_time': str(dt.datetime.utcnow()),
-            'description': self._description
-        }
-
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _prompt_for_description(self):
-        if self._write_flag:
-            desc = raw_input("\nEnter a description of this run:\n")
-            if len(desc) == 0:
-                print '\nMust enter description!!\n'
-                desc = self._prompt_for_description()
-            return desc
-        else:
-            return None
+        desc = raw_input("\nEnter a description of this run:\n")
+        if len(desc) == 0:
+            print '\nMust enter description!!\n'
+            desc = self._prompt_for_description()
+        return desc
 
     def _get_git_branch_commit(self):
         """
@@ -83,6 +67,17 @@ class Strategy2(object):
 
     def _create_output_dir(self):
         if self._write_flag:
+            # Collect some meta data
+            description = self._prompt_for_description()
+            git_branch, git_commit = self._get_git_branch_commit()
+            # Create meta object
+            self._run_meta = {
+                'prepped_data_version': self._prepped_data_version,
+                'latest_git_commit': git_commit,
+                'git_branch': git_branch,
+                'run_start_time': str(dt.datetime.utcnow()),
+                'description': description
+            }
             # Make directory for simulations
             if not os.path.exists(self._output_dir):
                 os.makedirs(self._output_dir)
