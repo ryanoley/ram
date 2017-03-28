@@ -4,6 +4,7 @@ import json
 import logging
 import pandas as pd
 import datetime as dt
+from pathos.multiprocessing import ProcessingPool as Pool
 
 from gearbox import ProgBar, convert_date_array
 
@@ -18,7 +19,7 @@ class Strategy(object):
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, prepped_data_version, write_flag=False):
+    def __init__(self, prepped_data_version, write_flag=False, n_jobs=1):
         self._write_flag = write_flag
         self.register_prepped_data_dir(prepped_data_version,
                                        config.PREPPED_DATA_DIR)

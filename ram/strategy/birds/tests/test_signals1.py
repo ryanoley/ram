@@ -27,12 +27,12 @@ class TestSignals1(unittest.TestCase):
 
     def test_generate_portfolio_signals(self):
         signals = Signals1()
-        signals.register_index_variables(['V1', 'V2'])
-        result = signals.generate_portfolio_signals(self.data)
+        result1 = signals.generate_portfolio_signals(self.data, .25, 'V1')
+        result2 = signals.generate_portfolio_signals(self.data, .25, 'V2')
         benchmark = self.data.copy()
         benchmark.V1 = [1, 1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 1]
         benchmark.V2 = [0, 0, -1, -1, -1, 0, 1, 0, 0, 0, 1, 1]
-        assert_frame_equal(result, benchmark)
+        assert_frame_equal(result1.merge(result2), benchmark)
 
     def tearDown(self):
         pass

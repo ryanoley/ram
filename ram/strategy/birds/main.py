@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.base2 import Strategy2
+from ram.strategy.base import Strategy
 
 from ram.strategy.birds.signals.signals1 import Signals1
 from ram.strategy.birds.constructor.constructor import PortfolioConstructor
@@ -21,25 +21,61 @@ FEATURES = ['PRMA5_AvgDolVol', 'PRMA10_AvgDolVol','PRMA20_AvgDolVol',
             'ACCTPRICESALES', 'ACCTEPSGROWTH', 'EARNINGSRETURN']
 
 
-class BirdsStrategy(Strategy2):
+class BirdsStrategy(Strategy):
+
+    signal_args = {
+        'quantile': [0.15, 0.20, 0.25, 0.30],
+        'feature': FEATURES
+    }
+
+    constructor_args = {
+    }
 
     def get_column_parameters(self):
-        return []
+        args1 = make_arg_iter(self.signal_args)
+        #args2 = make_arg_iter(self.constructor_args)
+        output = {}
+        for i, (x, y) in enumerate(list(itertools.product(args1, args2))):
+            z = {}
+            z.update(x)
+            #z.update(y)
+            output[i] = z
+        return output
 
     def run_index(self, index):
+
         data = self.read_data_from_index(index)
-        # Signal Generator
-        signals = Signals1(.25)
-        signals.register_index_variables(FEATURES)
-        data_signals = signals.generate_portfolio_signals(data)
-        # Portfolio Constructor
+
+        signals = Signals1()
         constructor = PortfolioConstructor()
-        constructor.set_and_prep_data(data, data_signals)
-        results = constructor.get_daily_pl()
-        self.write_index_results(results, index)
+
+        # Iterable arguments
+        args1 = make_arg_iter(self.signal_args)
+        #args2 = make_arg_iter(self.constructor_args)
+        ind = 0
+        output_results = pd.DataFrame()
+        output_stats = {}
+
+        for a1 in args1:
+            data_signals = signals.generate_portfolio_signals(data, **a1)
+            # Portfolio Constructor
+            constructor.set_and_prep_data(data, data_signals)
+            results, stats = constructor.get_daily_pl()
+            results.columns = [ind]
+            output_results = output_results.join(results, how='outer')
+            output_stats[ind] = stats
+            ind += 1
+
+        self.write_index_results(output_results, index)
+        self.write_index_stats(output_stats, index)
+
+
+def make_arg_iter(variants):
+    return [{x: y for x, y in zip(variants.keys(), vals)}
+            for vals in itertools.product(*variants.values())]
 
 
 if __name__ == '__main__':
 
-    strategy = BirdsStrategy('version_025', True)
+    strategy = BirdsStrategy('version_025', False)
     strategy.start()

@@ -4,34 +4,23 @@ import pandas as pd
 
 class Signals1(object):
 
-    def __init__(self, quantile=0.25):
-        self._quantile = quantile
-
-    def register_index_variables(self, features):
-        self._features = features
-
-    def generate_portfolio_signals(self, data):
-        assert hasattr(self, '_features')
-        # Get tops and bottoms for variables
-        features = ['Date'] + self._features
-        bottoms = data[features].groupby('Date').quantile(
-            self._quantile).reset_index()
-        tops = data[features].groupby('Date').quantile(
-            1-self._quantile).reset_index()
-        # Create output object
-        features = ['SecCode', 'Date'] + self._features
-        output = data[features].copy().sort_values(['SecCode', 'Date'])
-        output.iloc[:, 2:] = 0.0
-        for feature in self._features:
-            temp = data[['SecCode', 'Date', feature]].merge(
-                tops[['Date', feature]], on='Date',
-                suffixes=('', '_top')).merge(
-                    bottoms[['Date', feature]],
-                    on='Date', suffixes=('', '_bottom'))
-            temp = temp.sort_values(['SecCode', 'Date'])
-            temp.columns = ['SecCode', 'Date', 'feature',
-                            'feature_top', 'feature_bottom']
-            output.loc[:, feature] = np.where(
-                temp.feature >= temp.feature_top, 1,
-                np.where(temp.feature <= temp.feature_bottom, -1, 0))
+    def generate_portfolio_signals(self, data, quantile, feature):
+        data = data[['SecCode', 'Date', feature]].copy()
+        data = data.sort_values(['SecCode', 'Date'])
+        # Get tops and bottoms
+        tops = data[['Date', feature]].groupby('Date').quantile(
+            1-quantile).reset_index()
+        bottoms = data[['Date', feature]].groupby('Date').quantile(
+            quantile).reset_index()
+        # Merge and rename
+        data = data.merge(tops, on='Date', suffixes=('', '_top'))
+        data = data.merge(bottoms, on='Date', suffixes=('', '_bottom'))
+        data.columns = ['SecCode', 'Date', 'feature',
+                        'feature_top', 'feature_bottom']
+        # Create column for output
+        data.loc[:, feature] = np.where(
+            data.feature >= data.feature_top, 1,
+            np.where(data.feature <= data.feature_bottom, -1, 0))
+        output = data[['SecCode', 'Date', feature]].sort_values(
+            ['SecCode', 'Date']).reset_index(drop=True)
         return output

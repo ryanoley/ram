@@ -15,60 +15,50 @@ class PortfolioConstructor(BaseConstructor):
         Parameters
         ----------
         """
-        features = self.signals.keys()
-        # Output object
-        output_df = pd.DataFrame(index=self.all_dates,
-                                 columns=features,
-                                 dtype=float)
-        # Iterate features here
-        for feature in features:
+        daily_df = pd.DataFrame(index=self.all_dates,
+                                columns=['PL', 'Exposure'],
+                                dtype=float)
+        # New portfolio created for each feature
+        self._portfolio = Portfolio()
 
-            daily_df = pd.DataFrame(index=self.all_dates,
-                                    columns=['PL', 'Exposure'],
-                                    dtype=float)
+        for date in self.all_dates:
 
-            # New portfolio created for each feature
-            self._portfolio = Portfolio()
+            closes = self.close_dict[date]
+            dividends = self.dividend_dict[date]
+            splits = self.split_mult_dict[date]
 
-            for date in self.all_dates:
+            signals = self.signals[date]
 
-                closes = self.close_dict[date]
-                dividends = self.dividend_dict[date]
-                splits = self.split_mult_dict[date]
+            # 1. Update all the prices in portfolio. This calculates PL
+            #    for individual positions
+            self._portfolio.update_prices(closes, dividends, splits)
 
-                signals = self.signals[feature][date]
+            # 2. Open/Close positions based on signals
+            self._open_close_positions(closes, signals)
 
-                # 1. Update all the prices in portfolio. This calculates PL
-                #    for individual positions
-                self._portfolio.update_prices(closes, dividends, splits)
+            # Rebalance anything that is open and has deviated
+            self._portfolio.update_position_exposures(self.bet_size, 0.05)
 
-                # 2. Open/Close positions based on signals
-                self._open_close_positions(closes, signals)
-
-                # Rebalance anything that is open and has deviated
-                self._portfolio.update_position_exposures(self.bet_size, 0.05)
-
-                # Report PL and Exposure
-                daily_df.loc[date, 'PL'] = \
-                    self._portfolio.get_portfolio_daily_pl()
-                daily_df.loc[date, 'Exposure'] = \
-                    self._portfolio.get_gross_exposure()
-
-            # Clear all pairs in portfolio and adjust PL
-            self._portfolio.close_all_positions()
-            daily_df.loc[date, 'PL'] += \
+            # Report PL and Exposure
+            daily_df.loc[date, 'PL'] = \
                 self._portfolio.get_portfolio_daily_pl()
-            daily_df.loc[date, 'Exposure'] = 0
+            daily_df.loc[date, 'Exposure'] = \
+                self._portfolio.get_gross_exposure()
 
-            # Shift because with executing on Close prices should consider
-            # yesterday's EOD exposure to get return
-            daily_df['Ret'] = daily_df.PL / daily_df.Exposure.shift(1)
-            daily_df.Ret.iloc[0] = daily_df.PL.iloc[0] / \
-                daily_df.Exposure.iloc[0]
+        # Clear all pairs in portfolio and adjust PL
+        self._portfolio.close_all_positions()
+        daily_df.loc[date, 'PL'] += \
+            self._portfolio.get_portfolio_daily_pl()
+        daily_df.loc[date, 'Exposure'] = 0
+        # Shift because with executing on Close prices should consider
+        # yesterday's EOD exposure to get return
+        daily_df['Ret'] = daily_df.PL / daily_df.Exposure.shift(1)
+        daily_df.Ret.iloc[0] = daily_df.PL.iloc[0] / \
+            daily_df.Exposure.iloc[0]
 
-            output_df.loc[:, feature] = daily_df.Ret
+        stats = {}
 
-        return output_df
+        return daily_df.loc[:, ['Ret']], stats
 
     def _open_close_positions(self, closes, signals):
         for symbol, side in signals.iteritems():
