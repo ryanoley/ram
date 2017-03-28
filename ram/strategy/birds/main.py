@@ -35,10 +35,9 @@ class BirdsStrategy(Strategy):
         args1 = make_arg_iter(self.signal_args)
         #args2 = make_arg_iter(self.constructor_args)
         output = {}
-        for i, (x, y) in enumerate(list(itertools.product(args1, args2))):
+        for i, x in enumerate(args1):
             z = {}
             z.update(x)
-            #z.update(y)
             output[i] = z
         return output
 
