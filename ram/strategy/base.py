@@ -4,7 +4,6 @@ import json
 import logging
 import pandas as pd
 import datetime as dt
-from pathos.multiprocessing import ProcessingPool as Pool
 
 from gearbox import ProgBar, convert_date_array
 
