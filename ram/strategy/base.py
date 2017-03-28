@@ -125,7 +125,7 @@ class Strategy(object):
 
     def write_index_stats(self, stats, index):
         output_name = self._data_files[index]
-        output_name = output_name.replace('data', 'stats')
+        output_name = output_name.replace('data.csv', 'stats.json')
         if self._write_flag:
             with open(os.path.join(self.strategy_output_dir,
                                    output_name), 'w') as outfile:
