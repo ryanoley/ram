@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.base2 import Strategy2
+from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs1 import PairsStrategy1
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 
-class StatArbStrategy(Strategy2):
+class StatArbStrategy(Strategy):
 
     def get_column_parameters(self):
         return []
@@ -55,5 +55,6 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy(False)
+    import pdb; pdb.set_trace()
+    strategy = StatArbStrategy('version_0001', False)
     strategy.start()
