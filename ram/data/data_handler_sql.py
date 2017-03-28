@@ -3,13 +3,11 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.data.base import DataHandler
-
 from ram.utils.time_funcs import check_input_date
 from ram.data.sql_features import sqlcmd_from_feature_list
 
 
-class DataHandlerSQL(DataHandler):
+class DataHandlerSQL(object):
 
     def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
 
