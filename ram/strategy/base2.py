@@ -131,3 +131,12 @@ class Strategy2(object):
         if self._write_flag:
             returns_df.to_csv(os.path.join(self.strategy_output_dir,
                                            output_name))
+
+    def write_index_stats(self, stats, index):
+        output_name = self._data_files[index]
+        output_name = output_name.replace('data', 'stats')
+        if self._write_flag:
+            with open(os.path.join(self.strategy_output_dir,
+                                   output_name), 'w') as outfile:
+                json.dump(stats, outfile)
+            outfile.close()
