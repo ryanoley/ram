@@ -8,7 +8,7 @@ from gearbox import ProgBar
 
 from ram import config
 
-from ram.data.dh_sql import DataHandlerSQL
+from ram.data.data_handler_sql import DataHandlerSQL
 
 
 class DataConstructor(object):
@@ -82,6 +82,7 @@ class DataConstructor(object):
             os.mkdir(os.path.join(self._prepped_data_dir, 'archive'))
         # Create new versioned directory
         versions = os.listdir(self._prepped_data_dir)
+        versions = [x for x in versions if x[:3] == 'ver']
         if len(versions) == 0:
             self._output_dir = os.path.join(self._prepped_data_dir,
                                             'version_0001')

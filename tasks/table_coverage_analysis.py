@@ -6,7 +6,7 @@ import datetime as dt
 
 from gearbox import ProgBar
 
-from ram.data.dh_sql import DataHandlerSQL
+from ram.data.data_handler_sql import DataHandlerSQL
 
 OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'coverage_audit')
 

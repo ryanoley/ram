@@ -3,7 +3,7 @@ import shutil
 import unittest
 import datetime as dt
 
-from ram.data.constructor import DataConstructor
+from ram.data.data_constructor import DataConstructor
 
 
 class TestDataConstructor(unittest.TestCase):
@@ -20,7 +20,8 @@ class TestDataConstructor(unittest.TestCase):
         dc._make_output_directory()
         dc._make_output_directory()
         results = os.listdir(os.path.join(self.ddir, 'TestStrategy'))
-        self.assertListEqual(results, ['version_001', 'version_002'])
+        self.assertListEqual(results, ['archive', 'version_0001',
+                                       'version_0002'])
         shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
 
     def test_make_date_iterator(self):
@@ -48,7 +49,7 @@ class TestDataConstructor(unittest.TestCase):
         dc.register_universe_size(10)
         dc.run()
         result = os.listdir(os.path.join(self.ddir, 'TestStrategy',
-                                         'version_001'))
+                                         'version_0001'))
         self.assertEquals(result[0], '20170101_data.csv')
         shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
 
