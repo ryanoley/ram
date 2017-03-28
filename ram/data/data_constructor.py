@@ -9,6 +9,7 @@ from gearbox import ProgBar
 from ram import config
 
 from ram.data.data_handler_sql import DataHandlerSQL
+from ram.utils.documentation import get_git_branch_commit
 
 
 class DataConstructor(object):
@@ -121,6 +122,7 @@ class DataConstructor(object):
         assert hasattr(self, 'features')
 
     def _write_archive_meta_parameters(self):
+        git_branch, git_commit = get_git_branch_commit()
         meta = {
             'frequency': self.frequency,
             'train_period_len': self.train_period_length,
@@ -128,7 +130,9 @@ class DataConstructor(object):
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),
             'strategy_name': self.strategy_name,
-            'version': self.version
+            'version': self.version,
+            'git_branch': git_branch,
+            'git_commit': git_commit
         }
         # Write meta to output directory
         path = os.path.join(self._output_dir, 'meta.json')

@@ -40,6 +40,7 @@ class TestDataConstructor(unittest.TestCase):
         self.assertEqual(dc.filter_args['univ_size'], 10)
 
     def test_run(self):
+        # Continue with test
         dc = DataConstructor('TestStrategy')
         dc._prepped_data_dir = os.path.join(self.ddir, 'TestStrategy')
         if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):

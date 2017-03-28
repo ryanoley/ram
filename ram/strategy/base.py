@@ -10,9 +10,8 @@ from gearbox import ProgBar
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram import config
-
-PREPPED_DATA_DIR = config.PREPPED_DATA_DIR
-SIMULATION_OUTPUT_DIR = config.SIMULATION_OUTPUT_DIR
+from ram.utils.documentation import get_git_branch_commit
+from ram.utils.documentation import prompt_for_description
 
 
 class Strategy(object):
@@ -21,8 +20,9 @@ class Strategy(object):
 
     def __init__(self, prepped_data_version, write_flag=False):
         self._write_flag = write_flag
-        self.register_prepped_data_dir(prepped_data_version, PREPPED_DATA_DIR)
-        self.register_output_dir(SIMULATION_OUTPUT_DIR)
+        self.register_prepped_data_dir(prepped_data_version,
+                                       config.PREPPED_DATA_DIR)
+        self.register_output_dir(config.SIMULATION_OUTPUT_DIR)
 
     def register_prepped_data_dir(self, version, data_dir):
         self._prepped_data_version = version
@@ -35,36 +35,18 @@ class Strategy(object):
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def start(self):
-        self._import_data_files()
+        self._get_data_file_names()
         self._create_output_dir()
         for i in ProgBar(range(len(self._data_files))):
             self.run_index(i)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _prompt_for_description(self):
-        desc = raw_input("\nEnter a description of this run:\n")
-        if len(desc) == 0:
-            print '\nMust enter description!!\n'
-            desc = self._prompt_for_description()
-        return desc
-
-    def _get_git_branch_commit(self):
-        """
-        This is used for documenting where the simulation came from.
-        """
-        repo_dir = os.path.join(os.getenv('GITHUB'), 'ram')
-        git_branch = open(os.path.join(repo_dir, '.git/HEAD'), 'r').read()
-        git_branch = git_branch.split('/')[-1].replace('\n', '')
-        git_commit = os.path.join(repo_dir, '.git/refs/heads', git_branch)
-        git_commit = open(git_commit).read().replace('\n', '')
-        return git_branch, git_commit
-
     def _create_output_dir(self):
         if self._write_flag:
             # Collect some meta data
-            description = self._prompt_for_description()
-            git_branch, git_commit = self._get_git_branch_commit()
+            description = prompt_for_description()
+            git_branch, git_commit = get_git_branch_commit()
             # Make directory for simulations
             if not os.path.exists(self._output_dir):
                 os.makedirs(self._output_dir)
@@ -95,7 +77,7 @@ class Strategy(object):
                 json.dump(run_meta, outfile)
             outfile.close()
 
-    def _import_data_files(self):
+    def _get_data_file_names(self):
         all_files = os.listdir(self._prepped_data_dir)
         self._data_files = [x for x in all_files if x[-8:] == 'data.csv']
 
