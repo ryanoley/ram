@@ -19,7 +19,7 @@ class StatArbStrategy(Strategy):
         args1 = make_arg_iter(self.pairselector.get_iterable_args())
         args2 = make_arg_iter(self.constructor.get_iterable_args())
         output = {}
-        for i, x, y in enumerate(list(itertools.product(args1, args2))):
+        for i, (x, y) in enumerate(list(itertools.product(args1, args2))):
             z = {}
             z.update(x)
             z.update(y)
@@ -61,5 +61,5 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy('version_0001', False)
+    strategy = StatArbStrategy('version_0001', True)
     strategy.start()
