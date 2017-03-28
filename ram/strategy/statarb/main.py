@@ -12,30 +12,36 @@ from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 class StatArbStrategy(Strategy):
 
+    pairselector = PairsStrategy1()
+    constructor = PortfolioConstructor()
+
     def get_column_parameters(self):
-        return []
+        args1 = make_arg_iter(self.pairselector.get_iterable_args())
+        args2 = make_arg_iter(self.constructor.get_iterable_args())
+        output = {}
+        for i, x, y in enumerate(list(itertools.product(args1, args2))):
+            z = {}
+            z.update(x)
+            z.update(y)
+            output[i] = z
+        return output
 
     def run_index(self, index):
 
         data = self.read_data_from_index(index)
 
-        pairselector = PairsStrategy1()
-        constructor = PortfolioConstructor()
-
-        args1 = make_arg_iter(pairselector.get_iterable_args())
-        args2 = make_arg_iter(constructor.get_iterable_args())
+        args1 = make_arg_iter(self.pairselector.get_iterable_args())
+        args2 = make_arg_iter(self.constructor.get_iterable_args())
 
         ind = 0
         output_results = pd.DataFrame()
-        output_params = {}
         output_stats = {}
 
         for a1 in args1:
-            scores, pair_info = pairselector.get_best_pairs(
-                data, cut_date, **a1)
+            scores, pair_info = self.pairselector.get_best_pairs(data, **a1)
 
             # Optimization
-            constructor.set_and_prep_data(scores, pair_info, data)
+            self.constructor.set_and_prep_data(scores, pair_info, data)
 
             for a2 in args2:
                 results, stats = self.constructor.get_daily_pl(**a2)
@@ -55,6 +61,5 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    import pdb; pdb.set_trace()
     strategy = StatArbStrategy('version_0001', False)
     strategy.start()

@@ -36,7 +36,9 @@ class TestStrategyBase(unittest.TestCase):
         os.mkdir(self.prepped_data_dir)
         os.mkdir(strategy_dir)
         os.mkdir(version_dir)
-        data = pd.DataFrame({'Date': [1, 2, 3], 'V1': [3, 4, 5]})
+        data = pd.DataFrame({
+            'Date': ['2010-01-01', '2010-01-02', '2010-01-03'],
+            'SecCode': [10, 20, 30], 'V1': [3, 4, 5]})
         data.to_csv(os.path.join(version_dir, '20100101_data.csv'))
         data.to_csv(os.path.join(version_dir, '20100201_data.csv'))
         self.strategy = TestStrategy('version_001', False)

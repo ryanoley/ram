@@ -14,11 +14,7 @@ class PairsStrategy1(BasePairSelector):
                 'vol_ratio_filter': [0.5],
                 'account_max_diff': [True, False]}
 
-    def get_feature_names(self):
-        return ['AdjClose', 'AvgDolVol', 'RANK_ACCTSALESGROWTH',
-                'RANK_ACCTEPSGROWTH', 'RANK_ACCTPRICESALES', 'GSECTOR']
-
-    def get_best_pairs(self, data, cut_date, z_window, max_pairs,
+    def get_best_pairs(self, data, z_window, max_pairs,
                        same_sector, vol_ratio_filter, account_max_diff):
 
         # Reshape Close data
@@ -26,10 +22,12 @@ class PairsStrategy1(BasePairSelector):
                                 columns='SecCode',
                                 values='AdjClose')
 
-        train_close = close_data.loc[close_data.index < cut_date]
+        cut_date = data.Date[~data.TestFlag].max()
+
+        train_close = close_data.loc[close_data.index <= cut_date]
 
         # Filtering data
-        filter_date = np.max(data.Date[data.Date < cut_date])
+        filter_date = np.max(data.Date[data.Date <= cut_date])
         filter_data = data.loc[data.Date == filter_date].copy()
 
         # Clean data for training
@@ -51,40 +49,23 @@ class PairsStrategy1(BasePairSelector):
         """
         Function is to score based on incoming stats
         """
-        # Merge accounting data
-        fvars = ['SecCode', 'RANK_ACCTSALESGROWTH', 'RANK_ACCTEPSGROWTH',
-                 'RANK_ACCTPRICESALES', 'GSECTOR']
+        # Merge Sector
+        fvars = ['SecCode', 'GSECTOR']
         pairs = pairs.merge(data[fvars], left_on='Leg1', right_on='SecCode')
         pairs = pairs.merge(data[fvars], left_on='Leg2', right_on='SecCode')
-
-        pairs['account_sum'] = \
-            abs(pairs.RANK_ACCTSALESGROWTH_x - pairs.RANK_ACCTSALESGROWTH_y) +\
-            abs(pairs.RANK_ACCTEPSGROWTH_x - pairs.RANK_ACCTEPSGROWTH_y) +\
-            abs(pairs.RANK_ACCTPRICESALES_x - pairs.RANK_ACCTPRICESALES_y)
 
         if same_sector:
             pairs = pairs[pairs.GSECTOR_x == pairs.GSECTOR_y]
             pairs['Sector'] = pairs.GSECTOR_x
-
         # Remove all columns
         pairs = pairs.drop(['GSECTOR_x', 'GSECTOR_y',
-                            'RANK_ACCTSALESGROWTH_x', 'RANK_ACCTSALESGROWTH_y',
-                            'RANK_ACCTEPSGROWTH_x', 'RANK_ACCTEPSGROWTH_y',
-                            'RANK_ACCTPRICESALES_x', 'RANK_ACCTPRICESALES_y',
                             'SecCode_x', 'SecCode_y'], axis=1)
-
         # Vol ratio filter
         pairs = pairs.loc[np.abs(pairs.volratio - 1) < vol_ratio_filter].copy()
         # Rank values
         rank1 = np.argsort(np.argsort(-pairs.corrcoef))
         rank2 = np.argsort(np.argsort(pairs.distances))
-        rank3 = np.argsort(np.argsort(pairs.account_sum))
-
-        if account_max_diff:
-            pairs.loc[:, 'score'] = rank1 + rank2 + rank3
-        else:
-            pairs.loc[:, 'score'] = rank1 + rank2
-
+        pairs.loc[:, 'score'] = rank1 + rank2
         # Sort
         pairs = pairs.sort_values('score', ascending=True)
         pairs = pairs.iloc[:max_pairs].reset_index(drop=True)
@@ -156,7 +137,7 @@ class PairsStrategy1(BasePairSelector):
         # Add correct column names
         outdf.columns = ['{0}~{1}'.format(x, y) for x, y in
                          zip(fpairs.Leg1, fpairs.Leg2)]
-        return outdf.loc[outdf.index >= cut_date]
+        return outdf.loc[outdf.index > cut_date]
 
     def _get_spread_zscores(self, close1, close2, window):
         """

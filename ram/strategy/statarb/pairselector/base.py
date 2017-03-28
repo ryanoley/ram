@@ -24,7 +24,3 @@ class BasePairSelector(object):
             like Sector.
         """
         raise NotImplementedError('BasePairSelector.get_best_pairs')
-
-    @abstractmethod
-    def get_feature_names(self):
-        raise NotImplementedError('BasePairSelector.get_feature_names')

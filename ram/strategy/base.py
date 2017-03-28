@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 import datetime as dt
 
-from gearbox import ProgBar
+from gearbox import ProgBar, convert_date_array
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
@@ -76,6 +76,12 @@ class Strategy(object):
             with open(os.path.join(run_dir, 'meta.json'), 'w') as outfile:
                 json.dump(run_meta, outfile)
             outfile.close()
+            # Column parameters
+            column_params = self.get_column_parameters()
+            with open(os.path.join(run_dir, 'column_params.json'),
+                      'w') as outfile:
+                json.dump(column_params, outfile)
+            outfile.close()
 
     def _get_data_file_names(self):
         all_files = os.listdir(self._prepped_data_dir)
@@ -102,7 +108,10 @@ class Strategy(object):
     def read_data_from_index(self, index):
         dpath = os.path.join(self._prepped_data_dir,
                              self._data_files[index])
-        return pd.read_csv(dpath)
+        data = pd.read_csv(dpath)
+        data.Date = convert_date_array(data.Date)
+        data.SecCode = data.SecCode.astype(int).astype(str)
+        return data
 
     def write_index_results(self, returns_df, index):
         """
