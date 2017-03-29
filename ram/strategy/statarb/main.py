@@ -61,9 +61,9 @@ class StatArbStrategy(Strategy):
 
     def get_date_parameters(self):
         return {
-            'frequency': 'M',
-            'train_period_length': 13,
-            'start_year': 2003
+            'frequency': 'Q',
+            'train_period_length': 4,
+            'start_year': 2009
         }
 
 
@@ -82,17 +82,17 @@ if __name__ == '__main__':
         help='Run DataConstructor')
     parser.add_argument(
         '-w', '--write_simulation', action='store_true',
-        help='Run simulatoin')
+        help='Run simulation')
     parser.add_argument(
         '-s', '--simulation', action='store_true',
-        help='Run simulatoin')
+        help='Run simulation')
     args = parser.parse_args()
 
     if args.data:
         StatArbStrategy().make_data()
     elif args.write_simulation:
-        strategy = StatArbStrategy('version_0001', True)
+        strategy = StatArbStrategy('version_0002', True)
         strategy.start()
     elif args.simulation:
-        strategy = StatArbStrategy('version_0001', False)
+        strategy = StatArbStrategy('version_0002', False)
         strategy.start()
