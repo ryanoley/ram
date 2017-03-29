@@ -68,6 +68,25 @@ class BirdsStrategy(Strategy):
         self.write_index_results(output_results, index)
         self.write_index_stats(output_stats, index)
 
+    # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_features(self):
+        return FEATURES
+
+    def get_date_parameters(self):
+        return {
+            'frequency': 'M',
+            'train_period_length': 0,
+            'start_year': 2006
+        }
+
+    def get_filter_args(self):
+        return {
+            'filter': 'AvgDolVol',
+            'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
+            'and Close_ between 15 and 1000',
+            'univ_size': 200}
+
 
 def make_arg_iter(variants):
     return [{x: y for x, y in zip(variants.keys(), vals)}
@@ -76,5 +95,25 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = BirdsStrategy('version_025', False)
-    strategy.start()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--data', action='store_true',
+        help='Run DataConstructor')
+    parser.add_argument(
+        '-w', '--write_simulation', action='store_true',
+        help='Run simulatoin')
+    parser.add_argument(
+        '-s', '--simulation', action='store_true',
+        help='Run simulatoin')
+    args = parser.parse_args()
+
+    if args.data:
+        BirdsStrategy().make_data()
+    elif args.write_simulation:
+        strategy = BirdsStrategy('version_025', True)
+        strategy.start()
+    elif args.simulation:
+        strategy = BirdsStrategy('version_025', False)
+        strategy.start()
