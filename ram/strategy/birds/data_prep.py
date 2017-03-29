@@ -1,5 +1,5 @@
 
-from ram.data.constructor import DataConstructor
+from ram.data.data_constructor import DataConstructor
 
 features = ['AvgDolVol', 'MarketCap', 'GSECTOR']
 features += ['AdjClose', 'RClose', 'ROpen', 'RCashDividend', 'SplitFactor']
