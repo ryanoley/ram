@@ -15,9 +15,7 @@ from ram.analysis.run_manager import *
 
 
 class TestRunManager(unittest.TestCase):
-    """
-    Tests the implementation class DataClass
-    """
+
     def setUp(self):
         self.base_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
                                       'tests', 'test_simulations')
@@ -89,6 +87,14 @@ class TestRunManager(unittest.TestCase):
         rm1 = RunManager('TestStrategy', 'run_0001')
         rm1.import_column_params(self.base_path)
 
+    def test_analyze_parameters(self):
+        rm1 = RunManager('TestStrategy', 'run_0001')
+        rm1.import_return_frame(self.base_path)
+        rm1.import_column_params(self.base_path)
+        rm1.import_meta(self.base_path)
+        rm1.import_stats(self.base_path)
+        results = rm1.analyze_parameters()
+
     def test_classify_params(self):
         result = classify_params({
             '0': {'V1': 1, 'V2': 44, 'V3': 888},
@@ -113,7 +119,7 @@ class TestRunManager(unittest.TestCase):
 
     def test_aggregate_statistics(self):
         stats = {
-            'time1': {
+            '20100101_stats.json': {
                 'col1': {
                     'stat1': 0.01,
                     'stat2': 0.02
@@ -123,7 +129,7 @@ class TestRunManager(unittest.TestCase):
                     'stat2': 0.04
                 }
             },
-            'time2': {
+            '20100108_stats.json': {
                 'col1': {
                     'stat1': 0.03,
                     'stat2': 0.04
@@ -134,7 +140,7 @@ class TestRunManager(unittest.TestCase):
                 }
             }
         }
-        result = aggregate_statistics(stats)
+        result = aggregate_statistics(stats, 1900)
         # Round results due to float imprecision
         for key in result.keys():
             for stat in result[key].keys():
@@ -188,7 +194,7 @@ class TestRunManager(unittest.TestCase):
                     'stat2': (0.22, 0.01)
                 },
             }
-        result = format_param_results(data, cparams, astats)
+        result = format_param_results(data, cparams, astats, 2000)
         benchmark = pd.DataFrame(index=range(4))
         benchmark['Param'] = ['V1', 'V1', 'V2', 'V2']
         benchmark['Val'] = [1, 2, 1, 2]

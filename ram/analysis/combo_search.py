@@ -1,20 +1,10 @@
-import os
-import json
 import numpy as np
 import pandas as pd
-
-from gearbox import convert_date_array
-
-
-OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'simulations')
 
 
 class CombinationSearch(object):
 
-    def __init__(self, strategy_class, write_flag=False):
-        self.strategy_class = strategy_class
-        self.write_flag = write_flag
-        self.simulation_dir = OUTDIR
+    def __init__(self):
         # Default parameters
         self.params = {
             'freq': 'm',
@@ -22,22 +12,15 @@ class CombinationSearch(object):
             'n_ports_per_combo': 5,
             'n_best_combos': 5,
             'seed_ind': 0,
-            'runs': []
         }
 
-    def _add_data(self, new_data, frame_label):
-        assert isinstance(new_data, pd.DataFrame)
-        assert isinstance(new_data.index, pd.DatetimeIndex)
-        if not hasattr(self, 'data'):
-            # Global objects
-            self.data = pd.DataFrame({}, index=pd.DatetimeIndex([]))
-            self.data_labels = {}
-        # Map inputted data column names
-        self.data_labels[frame_label] = new_data.columns
-        self.data = self.data.join(new_data, how='outer', rsuffix='R')
-        self.data.columns = range(self.data.shape[1])
-        self.params['runs'].append(frame_label)
-        return
+    def attach_data(self, data):
+        assert isinstance(data, pd.DataFrame)
+        assert isinstance(data.index, pd.DatetimeIndex)
+        self.column_labels = data.columns.tolist()
+        data.columns = range(data.shape[1])
+        self.data = data
+
 
     def set_training_params(self, **kwargs):
         for key, value in kwargs.iteritems():

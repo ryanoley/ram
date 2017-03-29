@@ -53,6 +53,19 @@ class StatArbStrategy(Strategy):
         self.write_index_results(output_results, index)
         self.write_index_stats(output_stats, index)
 
+    # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_features(self):
+        return ['AdjClose', 'AvgDolVol', 'RClose', 'RCashDividend',
+                'SplitFactor', 'GSECTOR', 'EARNINGSFLAG']
+
+    def get_date_parameters(self):
+        return {
+            'frequency': 'M',
+            'train_period_length': 13,
+            'start_year': 2003
+        }
+
 
 def make_arg_iter(variants):
     return [{x: y for x, y in zip(variants.keys(), vals)}
@@ -61,5 +74,25 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
-    strategy = StatArbStrategy('version_0001', True)
-    strategy.start()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--data', action='store_true',
+        help='Run DataConstructor')
+    parser.add_argument(
+        '-w', '--write_simulation', action='store_true',
+        help='Run simulatoin')
+    parser.add_argument(
+        '-s', '--simulation', action='store_true',
+        help='Run simulatoin')
+    args = parser.parse_args()
+
+    if args.data:
+        StatArbStrategy().make_data()
+    elif args.write_simulation:
+        strategy = StatArbStrategy('version_0001', True)
+        strategy.start()
+    elif args.simulation:
+        strategy = StatArbStrategy('version_0001', False)
+        strategy.start()

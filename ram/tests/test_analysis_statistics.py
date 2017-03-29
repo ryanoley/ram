@@ -10,9 +10,7 @@ import ram.analysis.statistics as stats
 
 
 class TestPairs(unittest.TestCase):
-    """
-    Tests the implementation class DataClass
-    """
+
     def setUp(self):
         self.returns = pd.DataFrame({
             'V1': [0.1, -0.2, 0.3, -0.1, -0.04, -0.01],

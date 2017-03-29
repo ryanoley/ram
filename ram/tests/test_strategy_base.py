@@ -14,13 +14,27 @@ from ram.strategy.base import Strategy
 class TestStrategy(Strategy):
 
     def run_index(self, index):
-        df = pd.DataFrame({
-            'V1': [1, 2, 3]},
-            index=pd.date_range(start='2016-01-01', periods=3))
-        return df
+        pass
 
     def get_column_parameters(self):
         return []
+
+    def get_features(self):
+        return ['AvgDolVol', 'PRMA10_Close']
+
+    def get_date_parameters(self):
+        return {
+            'frequency': 'Q',
+            'train_period_length': 4,
+            'start_year': 2017
+        }
+
+    def get_filter_args(self):
+        return {
+            'filter': 'AvgDolVol',
+            'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
+            'and Close_ between 15 and 1000',
+            'univ_size': 10}
 
 
 class TestStrategyBase(unittest.TestCase):
@@ -42,9 +56,8 @@ class TestStrategyBase(unittest.TestCase):
         data.to_csv(os.path.join(version_dir, '20100101_data.csv'))
         data.to_csv(os.path.join(version_dir, '20100201_data.csv'))
         self.strategy = TestStrategy('version_001', False)
-        self.strategy.register_prepped_data_dir('version_001',
-                                                self.prepped_data_dir)
-        self.strategy.register_output_dir(self.prepped_data_dir)
+        self.strategy._prepped_data_dir = version_dir
+        self.strategy._output_dir = self.prepped_data_dir
 
     def test_data_files(self):
         self.strategy._get_data_file_names()

@@ -10,6 +10,7 @@ from gearbox import ProgBar, convert_date_array
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram import config
+from ram.data.data_constructor import DataConstructor
 from ram.utils.documentation import get_git_branch_commit
 from ram.utils.documentation import prompt_for_description
 
@@ -18,19 +19,15 @@ class Strategy(object):
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, prepped_data_version, write_flag=False, n_jobs=1):
-        self._write_flag = write_flag
-        self.register_prepped_data_dir(prepped_data_version,
-                                       config.PREPPED_DATA_DIR)
-        self.register_output_dir(config.SIMULATION_OUTPUT_DIR)
-
-    def register_prepped_data_dir(self, version, data_dir):
-        self._prepped_data_version = version
-        path = os.path.join(data_dir, self.__class__.__name__, version)
-        self._prepped_data_dir = path
-
-    def register_output_dir(self, data_dir):
-        self._output_dir = data_dir
+    def __init__(self, prepped_data_version=None, write_flag=False):
+        if write_flag:
+            self._write_flag = True
+            self._output_dir = config.SIMULATION_OUTPUT_DIR
+        if prepped_data_version:
+            self._data_version = prepped_data_version
+            self._prepped_data_dir = os.path.join(
+                config.PREPPED_DATA_DIR, self.__class__.__name__,
+                prepped_data_version)
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -68,7 +65,7 @@ class Strategy(object):
             os.makedirs(self.strategy_output_dir)
             # Create meta object
             run_meta = {
-                'prepped_data_version': self._prepped_data_version,
+                'prepped_data_version': self._data_version,
                 'latest_git_commit': git_commit,
                 'git_branch': git_branch,
                 'description': description
@@ -102,6 +99,41 @@ class Strategy(object):
         Takes in integer
         """
         raise NotImplementedError('Strategy.get_column_parameters')
+
+    # ~~~~~~ DataConstructor Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def make_data(self):
+        DataConstructor(self).run()
+
+    @abstractmethod
+    def get_features(self):
+        raise NotImplementedError('Strategy.get_features')
+
+    def get_filter_args(self):
+        return {
+            'filter': 'AvgDolVol',
+            'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
+            'and Close_ between 15 and 1000',
+            'univ_size': 500}
+
+    def get_date_parameters(self):
+        """
+        Parameters
+        ----------
+        frequency : str
+            'Q' for quarter and 'M' for monthly
+        train_period_length : int
+            Number of periods (quarters or months) to provide
+            training data for. Training and test data are flagged as a
+            column in the data
+        start_year : int
+            Year
+        """
+        return {
+            'frequency': 'Q',
+            'train_period_length': 4,
+            'start_year': 2007
+        }
 
     # ~~~~~~ To Be Used by Derived Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

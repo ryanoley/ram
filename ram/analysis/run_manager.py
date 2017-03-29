@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 import pandas as pd
 
 from gearbox import convert_date_array
@@ -17,13 +18,13 @@ class RunManager(object):
 
     @staticmethod
     def get_strategies(path=config.SIMULATION_OUTPUT_DIR):
-        dirs = [x for x in os.listdir(path) if x.find('Strat') > 0]
+        dirs = [x for x in os.listdir(path) if x.find('Strat') >= 0]
         return dirs
 
     @staticmethod
     def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):
         ddir = os.path.join(path, strategy_class)
-        dirs = [x for x in os.listdir(ddir) if x.find('run') > 0]
+        dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
         return dirs
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,7 +61,7 @@ class RunManager(object):
 
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def analyze_parameters(self):
+    def analyze_parameters(self, start_year=1950):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         if not hasattr(self, 'column_params'):
@@ -68,18 +69,20 @@ class RunManager(object):
         if not hasattr(self, 'stats'):
             self.import_stats()
         cparams = classify_params(self.column_params)
-        astats = aggregate_statistics(self.stats)
-        return format_param_results(self.returns, cparams, astats)
+        astats = aggregate_statistics(self.stats, start_year)
+        return format_param_results(self.returns, cparams, astats, start_year)
 
 ###############################################################################
 
-def aggregate_statistics(stats):
+def aggregate_statistics(stats, start_year):
     # Stats are organized by dates first so need to flip to aggregate
     # for each column
     agg_stats = {k: {k: [] for k in stats.values()[0].values()[0].keys()}
                  for k in stats.values()[0].keys()}
 
     for t_index in stats.keys():
+        if int(t_index[:4]) < start_year:
+            continue
         for col, col_stats in stats[t_index].iteritems():
             for key, val in col_stats.iteritems():
                 agg_stats[col][key].append(val)
@@ -107,7 +110,7 @@ def classify_params(params):
     return out
 
 
-def format_param_results(data, cparams, astats):
+def format_param_results(data, cparams, astats, start_year):
     out = []
     stat_names = astats.values()[0].keys()
     stat_names.sort()
