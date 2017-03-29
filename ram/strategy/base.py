@@ -20,8 +20,8 @@ class Strategy(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, prepped_data_version=None, write_flag=False):
+        self._write_flag = write_flag
         if write_flag:
-            self._write_flag = True
             self._output_dir = config.SIMULATION_OUTPUT_DIR
         if prepped_data_version:
             self._data_version = prepped_data_version
