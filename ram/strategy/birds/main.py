@@ -54,7 +54,6 @@ class BirdsStrategy(Strategy):
 
         data = self.read_data_from_index(index)
 
-        import pdb; pdb.set_trace()
         signals = Signals1()
         constructor = PortfolioConstructor()
 
