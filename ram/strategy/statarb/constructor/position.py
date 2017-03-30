@@ -1,9 +1,9 @@
 import numpy as np
 
 
-class MultiLegPosition(object):
+class PairPosition(object):
 
-    def __init__(self, legs, prices, sizes, comm=0.005):
+    def __init__(self, leg1, leg2, price1, price2, size1, size2, comm=0.005):
         """
         Parameters
         ----------
@@ -17,36 +17,36 @@ class MultiLegPosition(object):
             Cost on both sides of transaction. Comm is the number of dollars
             per share rate
         """
-        assert isinstance(legs, np.ndarray)
-        assert isinstance(prices, np.ndarray)
-        assert isinstance(sizes, np.ndarray)
-        self.legs = legs
+        self.leg1 = leg1
+        self.leg2 = leg2
         # Flags to aid accounting
         self.open_position = True
         # Commission per share
         self.COMM = comm
         # Never open position if no data
-        if np.any(~np.isnan(prices)):
+        if price1 and price2:
             # Number of shares
-            self.shares = (sizes / prices).astype(int)
+            self.shares1 = int(size1 / price1)
+            self.shares2 = int(size2 / price2)
         else:
-            self.shares = np.array([0] * len(sizes))
+            self.shares1 = 0
+            self.shares2 = 0
             self.open_position = False
-        # Entry prices
-        self.prices_entry = prices
         # Current prices
-        self.prices_current = prices
+        self.prices_current1 = price1
+        self.prices_current2 = price2
         # Cost of entering the position calculated here
-        self.daily_pl = -1 * np.sum(np.abs(self.shares) * comm)
+        self.daily_pl = -1 * (abs(self.shares1) + abs(self.shares2)) * comm
+        self.total_pl = float(self.daily_pl)
         # Exposure numbers
-        self.net_exposure = np.sum(self.shares * prices)
-        self.gross_exposure = np.sum(np.abs(self.shares) * prices)
+        self._calculate_exposures()
+        # Entry exposure
+        self.entry_exposure = self.gross_exposure
         # Stats
         self.stat_holding_days = 0
-        self.stat_perc_gain = 0
         self.stat_rebalance_count = 0
 
-    def update_position_prices(self, prices, dividends=None, splits=None):
+    def update_position_prices(self, prices, dividends, splits):
         """
         Parameters
         ----------
@@ -62,59 +62,38 @@ class MultiLegPosition(object):
         or a 700% change. So sp1 will be 7, and the shares should be
         multiplied by 7 and the entry price divided by 7.
         """
-        # Pull prices and things from dicts
-        new_prices = np.array([])
-        new_dividends = np.array([])
-        new_splits = np.array([])
-        for leg in self.legs:
-            new_prices = np.append(new_prices, prices[leg])
-            if dividends:
-                new_dividends = np.append(new_dividends, dividends[leg])
-            else:
-                new_dividends = np.append(new_dividends, 0)
-            if splits:
-                new_splits = np.append(new_splits, splits[leg])
-            else:
-                new_splits = np.append(new_splits, 1)
-
+        self.daily_pl = 0
+        p1 = prices[self.leg1]
+        p2 = prices[self.leg2]
         # Handle Splits
-        if np.any(new_splits != 1):
-            self.shares = self.shares * new_splits
-            self.prices_entry = self.prices_entry / new_splits
-            self.prices_current = self.prices_current / new_splits
-
-        # Handle NAN prices
-        if np.any(np.isnan(new_prices)):
-            inds = ~np.isnan(new_prices)
-            self.daily_pl = np.sum((new_prices[inds] -
-                                   self.prices_current[inds]) *
-                                   self.shares[inds])
-            # Dividend income
-            self.daily_pl += np.sum(self.shares[inds] * new_dividends[inds])
-
-            # Stats
-            self.stat_perc_gain = self.stat_perc_gain + (
-                self.daily_pl / np.sum(np.abs(self.shares) *
-                                       self.prices_entry))
-            # Close position
-            self.close_position()
-
+        if splits[self.leg1] != 1:
+            self.shares1 = self.shares1 * splits[self.leg1]
+            self.prices_current1 = self.prices_current1 / splits[self.leg1]
+        if splits[self.leg2] != 1:
+            self.shares2 = self.shares2 * splits[self.leg2]
+            self.prices_current2 = self.prices_current2 / splits[self.leg2]
+        if np.isnan(p1):
+            self.open_position = False
+            self.daily_pl += -1 * abs(self.shares1) * self.COMM
         else:
-            self.daily_pl = \
-                np.sum((new_prices - self.prices_current) * self.shares)
-            # Dividend income
-            self.daily_pl += np.sum(self.shares * new_dividends)
-            self.net_exposure = np.sum(new_prices * self.shares)
-            self.gross_exposure = np.sum(new_prices * np.abs(self.shares))
-
-            # Stats
-            self.stat_perc_gain = \
-                np.sum((new_prices - self.prices_entry) * self.shares) / \
-                np.sum(np.abs(self.shares) * self.prices_entry)
-
+            # Prices
+            self.daily_pl += (p1 - self.prices_current1) * self.shares1
+            if dividends[self.leg1]:
+                self.daily_pl += dividends[self.leg1] * self.shares1
+            self.prices_current1 = p1
+        if np.isnan(p2):
+            self.open_position = False
+            self.daily_pl += -1 * abs(self.shares2) * self.COMM
+        else:
+            # Prices
+            self.daily_pl += (p2 - self.prices_current2) * self.shares2
+            if dividends[self.leg2]:
+                self.daily_pl += dividends[self.leg2] * self.shares2
+            self.prices_current2 = p2
+        self._calculate_exposures()
         # Stats
+        self.total_pl += self.daily_pl
         self.stat_holding_days += 1
-        self.prices_current = new_prices
         return
 
     def update_position_exposure(self, new_gross_exposure):
@@ -122,28 +101,31 @@ class MultiLegPosition(object):
         Returns net exposure to zero.
         """
         if self.open_position:
-            new_gross_exposure = float(new_gross_exposure)
-            long_inds = self.shares > 0
-            short_inds = self.shares < 0
-            new_long_size = new_gross_exposure / np.sum(long_inds) / 2.
-            new_short_size = new_gross_exposure / np.sum(short_inds) / 2.
-            new_shares = self.shares.copy()
-            new_shares[long_inds] = new_long_size / \
-                self.prices_current[long_inds]
-            new_shares[short_inds] = new_short_size / \
-                self.prices_current[short_inds] * -1
-            trans_cost = np.sum(np.abs(self.shares - new_shares)) * self.COMM
+            side_exp = new_gross_exposure / 2.
+            side_mult = 1 if self.shares1 > 0 else -1
+            new_shares1 = int(side_exp / self.prices_current1) * side_mult
+            new_shares2 = int(side_exp / self.prices_current2) * side_mult * -1
+            trans_cost = (abs(self.shares1 - new_shares1) + \
+                abs(self.shares2 - new_shares2)) * self.COMM
             self.daily_pl -= trans_cost
-            self.shares = new_shares
-            self.net_exposure = np.sum(self.prices_current * self.shares)
-            self.gross_exposure = np.sum(
-                self.prices_current * np.abs(self.shares))
+            self.shares1 = new_shares1
+            self.shares2 = new_shares2
+            self._calculate_exposures()
             self.stat_rebalance_count += 1
+
+    def _calculate_exposures(self):
+        self.net_exposure = \
+            (self.shares1 * self.prices_current1) + \
+            (self.shares2 * self.prices_current2)
+        self.gross_exposure = \
+            (abs(self.shares1) * self.prices_current1) + \
+            (abs(self.shares2) * self.prices_current2)
 
     def close_position(self):
         if self.open_position:
-            self.daily_pl -= np.sum(np.abs(self.shares) * self.COMM)
-            self.shares[:] = 0
+            self.daily_pl -= (abs(self.shares1) + abs(self.shares2))* self.COMM
+            self.shares1 = 0
+            self.shares2 = 0
             self.net_exposure = 0
             self.gross_exposure = 0
             self.open_position = False

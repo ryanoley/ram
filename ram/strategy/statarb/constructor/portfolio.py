@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from ram.strategy.statarb.constructor.position import MultiLegPosition
+from ram.strategy.statarb.constructor.position import PairPosition
 
 
 class PairPortfolio(object):
@@ -58,19 +58,11 @@ class PairPortfolio(object):
             Going long the pair means going LONG Leg1 and SHORT Leg2
         """
         # Split securities
-        side1, side2 = pair.split('~')
-        legs1 = side1.split('_')
-        legs2 = side2.split('_')
-        legs = np.append(legs1, legs2)
-        # Get prices
-        prices = np.array([trade_prices[l] for l in legs])
-        # Get sizes
-        sizes1 = np.repeat(gross_bet_size / 2 / len(legs1),
-                           len(legs1)) * side
-        sizes2 = np.repeat(gross_bet_size / 2 / len(legs2),
-                           len(legs2)) * side * -1
-        sizes = np.append(sizes1, sizes2)
-        self.pairs[pair] = MultiLegPosition(legs, prices, sizes)
+        leg1, leg2 = pair.split('~')
+        size = gross_bet_size / 2.
+        self.pairs[pair] = PairPosition(leg1, leg2,
+                                        trade_prices[leg1], trade_prices[leg2],
+                                        size * side, size * side * -1)
         return
 
     def close_pairs(self, close_pairs):
@@ -115,34 +107,37 @@ class PairPortfolio(object):
                 self.stats_container['rebalance_count'].append(
                     rpair.stat_rebalance_count)
                 self.stats_container['perc_gains'].append(
-                    rpair.stat_perc_gain)
+                    rpair.total_pl / rpair.entry_exposure)
         return port_daily_pl
 
     def get_period_stats(self):
         # Clean-up and return container
         stats = self.stats_container
         out = {}
-        out['total_trades'] = len(stats['holding_days'])
-
-        out['avg_holding_days'] = sum(stats['holding_days']) / float(
-            len(stats['holding_days']))
-        out['max_holding_days'] = max(stats['holding_days'])
-
-        out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
-            len(stats['rebalance_count']))
-        out['max_rebalance_count'] = max(stats['rebalance_count'])
-
-        out['avg_perc_gain'] = sum(stats['perc_gains']) / float(
-            len(stats['perc_gains']))
-        out['max_perc_gain'] = max(stats['perc_gains'])
-        out['min_perc_gain'] = min(stats['perc_gains'])
-
-        # Flush stats
-        self.stats_container = {
-            # Position level statistics
-            'holding_days': [],
-            'rebalance_count': [],
-            'perc_gains': []
-        }
+        try:
+            out['total_trades'] = len(stats['holding_days'])
+    
+            out['avg_holding_days'] = sum(stats['holding_days']) / float(
+                len(stats['holding_days']))
+            out['max_holding_days'] = max(stats['holding_days'])
+    
+            out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
+                len(stats['rebalance_count']))
+            out['max_rebalance_count'] = max(stats['rebalance_count'])
+    
+            out['avg_perc_gain'] = sum(stats['perc_gains']) / float(
+                len(stats['perc_gains']))
+            out['max_perc_gain'] = max(stats['perc_gains'])
+            out['min_perc_gain'] = min(stats['perc_gains'])
+    
+            # Flush stats
+            self.stats_container = {
+                # Position level statistics
+                'holding_days': [],
+                'rebalance_count': [],
+                'perc_gains': []
+            }
+        except:
+            import pdb; pdb.set_trace()
 
         return out

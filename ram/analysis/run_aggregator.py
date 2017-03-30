@@ -23,4 +23,6 @@ class RunAggregator(object):
             tmp = run.returns.copy()
             tmp.columns = ['{}_{}'.format(prefix, x) for x in tmp.columns]
             agg_returns = agg_returns.join(tmp, how='outer')
+        if agg_returns.index.value_counts().max() > 1:
+            raise 'Merged return series have duplicated dates'
         return agg_returns
