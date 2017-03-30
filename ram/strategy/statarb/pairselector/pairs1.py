@@ -8,14 +8,13 @@ from ram.strategy.statarb.pairselector.base import BasePairSelector
 class PairsStrategy1(BasePairSelector):
 
     def get_iterable_args(self):
-        return {'z_window': [20, 30],
+        return {'z_window': [20, 30, 40, 50],
                 'max_pairs': [3000],
                 'same_sector': [True, False],
-                'vol_ratio_filter': [0.5],
-                'account_max_diff': [True, False]}
+                'vol_ratio_filter': [0.5]}
 
     def get_best_pairs(self, data, z_window, max_pairs,
-                       same_sector, vol_ratio_filter, account_max_diff):
+                       same_sector, vol_ratio_filter):
 
         # Reshape Close data
         close_data = data.pivot(index='Date',
@@ -36,8 +35,7 @@ class PairsStrategy1(BasePairSelector):
         pairs = self._get_stats_all_pairs(train_close)
 
         fpairs = self._filter_pairs(pairs, filter_data, max_pairs,
-                                    same_sector, vol_ratio_filter,
-                                    account_max_diff)
+                                    same_sector, vol_ratio_filter)
 
         # Create daily z-scores
         test_pairs = self._get_test_zscores(close_data, cut_date,
@@ -45,7 +43,7 @@ class PairsStrategy1(BasePairSelector):
         return test_pairs, fpairs
 
     def _filter_pairs(self, pairs, data, max_pairs, same_sector,
-                      vol_ratio_filter, account_max_diff):
+                      vol_ratio_filter):
         """
         Function is to score based on incoming stats
         """

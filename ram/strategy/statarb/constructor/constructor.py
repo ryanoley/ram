@@ -25,10 +25,9 @@ class PortfolioConstructor(BaseConstructor):
             'max_pos_prop': [0.04, 0.08],
             'pos_perc_deviation': [0.14],
             'z_exit': [1],
-            'remove_earnings': [True, False],
+            'remove_earnings': [True],      # Definitely helpful
             'max_holding_days': [10, 30],
-            'stop_perc': [-0.03, -0.10],
-            'take_perc': [0.03, 0.10]
+            'stop_perc': [-0.03, -0.10]
         }
 
     def get_feature_names(self):
@@ -39,7 +38,7 @@ class PortfolioConstructor(BaseConstructor):
                 'GSECTOR', 'SplitFactor', 'EARNINGSFLAG']
 
     def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation, z_exit,
-                     remove_earnings, max_holding_days, stop_perc, take_perc):
+                     remove_earnings, max_holding_days, stop_perc):
         """
         Parameters
         ----------
@@ -85,7 +84,7 @@ class PortfolioConstructor(BaseConstructor):
             #  and must be cleaned at end
             self._close_signals(exit_scores, z_exit,
                                 ern_flags, remove_earnings,
-                                max_holding_days, stop_perc, take_perc)
+                                max_holding_days, stop_perc)
 
             # 3. ADJUST POSITIONS
             #  When the exposures move drastically (say when the markets)
@@ -123,7 +122,7 @@ class PortfolioConstructor(BaseConstructor):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _close_signals(self, scores, z_exit, ern_flags, remove_earnings,
-                       max_holding_days, stop_perc, take_perc):
+                       max_holding_days, stop_perc):
 
         close_pairs = []
         # Get current position z-scores, and decide if they need to be closed
@@ -137,10 +136,10 @@ class PortfolioConstructor(BaseConstructor):
             if self._portfolio.pairs[pair].stat_holding_days >= \
                     max_holding_days:
                 close_pairs.append(pair)
-            # STOPS AND TAKES
+            # STOPS 
             ret = (self._portfolio.pairs[pair].total_pl /
                    self._portfolio.pairs[pair].entry_exposure)
-            if ret < stop_perc or ret > take_perc:
+            if ret < stop_perc:
                 close_pairs.append(pair)
         # Close positions
         self._portfolio.close_pairs(list(set(close_pairs)))
