@@ -20,12 +20,21 @@ FEATURES = ['PRMA5_AvgDolVol', 'PRMA10_AvgDolVol','PRMA20_AvgDolVol',
             'MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
             'ACCTPRICESALES', 'ACCTEPSGROWTH', 'EARNINGSRETURN']
 
+FEATURE_DIRECTION = [
+    ('PRMA5_AvgDolVol', 1),
+    ('PRMA5_AvgDolVol', -1),
+    ('PRMA10_AdjClose', 1),
+    ('PRMA10_AdjClose', -1),
+    ('VOL10_AdjClose', 1),
+    ('VOL10_AdjClose', -1)
+]
+
 
 class BirdsStrategy(Strategy):
 
     signal_args = {
         'quantile': [0.15, 0.20, 0.25, 0.30],
-        'feature': FEATURES
+        'feature': FEATURE_DIRECTION
     }
 
     constructor_args = {
@@ -45,6 +54,7 @@ class BirdsStrategy(Strategy):
 
         data = self.read_data_from_index(index)
 
+        import pdb; pdb.set_trace()
         signals = Signals1()
         constructor = PortfolioConstructor()
 

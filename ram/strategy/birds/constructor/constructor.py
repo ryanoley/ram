@@ -33,11 +33,14 @@ class PortfolioConstructor(BaseConstructor):
             #    for individual positions
             self._portfolio.update_prices(closes, dividends, splits)
 
-            # 2. Open/Close positions based on signals
-            self._open_close_positions(closes, signals)
+            if date != self.all_dates[-1]:
+                # 2. Open/Close positions based on signals
+                self._open_close_positions(closes, signals)
 
-            # Rebalance anything that is open and has deviated
-            self._portfolio.update_position_exposures(self.bet_size, 0.05)
+                # Rebalance anything that is open and has deviated
+                self._portfolio.update_position_exposures(self.bet_size, 0.05)
+            else:
+                self._portfolio.close_all_positions()
 
             # Report PL and Exposure
             daily_df.loc[date, 'PL'] = \
@@ -45,11 +48,6 @@ class PortfolioConstructor(BaseConstructor):
             daily_df.loc[date, 'Exposure'] = \
                 self._portfolio.get_gross_exposure()
 
-        # Clear all pairs in portfolio and adjust PL
-        self._portfolio.close_all_positions()
-        daily_df.loc[date, 'PL'] += \
-            self._portfolio.get_portfolio_daily_pl()
-        daily_df.loc[date, 'Exposure'] = 0
         # Shift because with executing on Close prices should consider
         # yesterday's EOD exposure to get return
         daily_df['Ret'] = daily_df.PL / daily_df.Exposure.shift(1)
