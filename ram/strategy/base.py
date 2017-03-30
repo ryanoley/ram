@@ -138,6 +138,10 @@ class Strategy(object):
     # ~~~~~~ To Be Used by Derived Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def read_data_from_index(self, index):
+        if not hasattr(self, '_data_files'):
+            # This is used for interactive development so get data files
+            # doesn't need to be manually called
+            self._get_data_file_names()
         dpath = os.path.join(self._prepped_data_dir,
                              self._data_files[index])
         data = pd.read_csv(dpath)
