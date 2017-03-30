@@ -10,9 +10,10 @@ from ram import config
 
 class RunManager(object):
 
-    def __init__(self, strategy_class, run_name):
+    def __init__(self, strategy_class, run_name, start_year=1950):
         self.strategy_class = strategy_class
         self.run_name = run_name
+        self.start_year = start_year
 
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -35,6 +36,8 @@ class RunManager(object):
         files = [x for x in os.listdir(ddir) if x.find('returns') > 0]
         returns = pd.DataFrame()
         for f in files:
+            if int(f[:4]) < self.start_year:
+                continue
             returns = returns.add(
                 pd.read_csv(os.path.join(ddir, f), index_col=0),
                 fill_value=0)
@@ -61,7 +64,7 @@ class RunManager(object):
 
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def analyze_parameters(self, start_year=1950):
+    def analyze_parameters(self):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         if not hasattr(self, 'column_params'):
@@ -69,8 +72,9 @@ class RunManager(object):
         if not hasattr(self, 'stats'):
             self.import_stats()
         cparams = classify_params(self.column_params)
-        astats = aggregate_statistics(self.stats, start_year)
-        return format_param_results(self.returns, cparams, astats, start_year)
+        astats = aggregate_statistics(self.stats, self.start_year)
+        return format_param_results(self.returns, cparams,
+                                    astats, self.start_year)
 
 ###############################################################################
 

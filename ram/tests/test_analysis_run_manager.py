@@ -65,7 +65,7 @@ class TestRunManager(unittest.TestCase):
 
     def test_import_return_frame(self):
         rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_return_frame(self.base_path)
+        rm1.import_return_frame(path=self.base_path)
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.] * 2
         data['1'] = [6, 7, 8, 9, 10.] * 2
@@ -89,7 +89,7 @@ class TestRunManager(unittest.TestCase):
 
     def test_analyze_parameters(self):
         rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_return_frame(self.base_path)
+        rm1.import_return_frame(path=self.base_path)
         rm1.import_column_params(self.base_path)
         rm1.import_meta(self.base_path)
         rm1.import_stats(self.base_path)

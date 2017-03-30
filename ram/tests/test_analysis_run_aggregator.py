@@ -66,7 +66,7 @@ class TestRunAggregator(unittest.TestCase):
 
     def test_add_run(self):
         rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_return_frame(self.base_path)
+        rm1.import_return_frame(path=self.base_path)
         ra1 = RunAggregator()
         self.assertEqual(len(ra1.runs), 0)
         ra1.add_run(rm1)
@@ -74,10 +74,10 @@ class TestRunAggregator(unittest.TestCase):
 
     def test_aggregate_returns(self):
         rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_return_frame(self.base_path)
+        rm1.import_return_frame(path=self.base_path)
         # Fake a new strategy by just changing the class name
         rm2 = RunManager('TestStrategy', 'run_0001')
-        rm2.import_return_frame(self.base_path)
+        rm2.import_return_frame(path=self.base_path)
         rm2.strategy_class = 'TestStrategy2'
         ra1 = RunAggregator()
         ra1.add_run(rm1)
