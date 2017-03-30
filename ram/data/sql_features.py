@@ -99,7 +99,7 @@ def parse_input_var(vstring, table, filter_commands):
 
     FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI',
              'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG',
-             'EARNINGSRETURN',
+             'EARNINGSRETURN', 'MKT',
              'ACCTSALES', 'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
              'ACCTEPSGROWTH', 'ACCTPRICESALES']
 
@@ -593,6 +593,24 @@ def ACCTPRICESALES(arg0, feature_name, arg2, table):
                         from ram.dbo.ram_compustat_accounting
                         where GVKey = G.GVKey and ReportDate < A.Date_)
         """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
+def MKT(data_column, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select  A.SecCode,
+                A.Date_,
+                B.{0} as {1}
+        from    {2} A
+        left join (
+            select  b.Date_,
+                    b.{0}
+            from ram.dbo.ram_etf_pricing b
+            where b.SecCode = 61494
+            ) B
+        on  A.Date_ = B.Date_
+        """.format(data_column, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
 
