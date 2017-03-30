@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import datetime as dt
 
 
 class CombinationSearch(object):
@@ -7,79 +8,60 @@ class CombinationSearch(object):
     def __init__(self):
         # Default parameters
         self.params = {
-            'freq': 'm',
+            'train_freq': 'm',
             'n_periods': 12,
-            'n_ports_per_combo': 5,
-            'n_best_combos': 5,
+            'strats_per_port': 10,
+            'n_best_ports': 5,
             'seed_ind': 0,
         }
 
     def attach_data(self, data):
         assert isinstance(data, pd.DataFrame)
-        assert isinstance(data.index, pd.DatetimeIndex)
+        assert isinstance(data.index, pd.DatetimeIndex) or \
+            isinstance(data.index[0], dt.date)
         self.column_labels = data.columns.tolist()
         data.columns = range(data.shape[1])
         self.data = data
 
-
-    def set_training_params(self, **kwargs):
-        for key, value in kwargs.iteritems():
-            self.params[key] = value
-
-    def restart(self, combo_name=None):
-        self._load_comb_search_session(combo_name)
-        print 'Restarting Search'
-        self._loop()
-
-    def start(self, runs):
-        if not isinstance(runs, list):
-            runs = [runs]
-        self._import_data(runs)
-        self._clean_input_data()
+    def start(self):
         self._create_results_objects()
-        self._write_init_output()
-        print 'Starting New Combination Search'
-        self._loop()
-
-    def _loop(self):
         self._create_training_indexes()
         while True:
             for t1, t2, t3 in self._time_indexes:
-
-                train_data = self.data.iloc[t1:t2]
-                test_data = self.data.iloc[t2:t3]
+                train_data = self.data.iloc[t1:t2].copy()
+                # Drop any column that has an na
+                train_data = train_data.T.dropna().T
+                test_data = self.data.iloc[t2:t3].copy()
+                # Same columns
+                test_data = test_data[train_data.columns]
+                # Flip signs on trade
+                train_data = train_data.join(-1*train_data, rsuffix='_flip')
+                test_data = test_data.join(-1*test_data, rsuffix='_flip')
 
                 test_results, train_scores, combs = \
                     self._fit_top_combinations(
                         t2, train_data, test_data)
-
                 self._process_results(
                     t2, test_results, train_scores, combs)
-
-            self._write_results_output()
+            print 'Single pass complete'
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #  This is where the innovation happens
 
     def _fit_top_combinations(self, time_index, train_data, test_data):
 
         combs = self._generate_random_combs(
             train_data.shape[1], time_index)
-
         # Calculate sharpes
         scores = self._get_sharpes(train_data, combs)
-
-        best_inds = np.argsort(-scores)[:self.params['n_best_combos']]
-
+        best_inds = np.argsort(-scores)[:self.params['n_best_ports']]
         test_results = pd.DataFrame(
             self._get_ports(test_data, combs[best_inds]).T,
             index=test_data.index)
-
         return test_results, scores[best_inds], combs[best_inds]
 
     def _get_sharpes(self, data, combs):
         ports = self._get_ports(data, combs)
-        return np.mean(ports, axis=1) / np.std(ports, axis=1)
+        return np.mean(ports, axis=1) # / np.std(ports, axis=1)
 
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
@@ -90,7 +72,7 @@ class CombinationSearch(object):
         self.params['seed_ind'] += 1
 
         combs = np.random.randint(
-            0, high=n_choices, size=(10000, self.params['n_ports_per_combo']))
+            0, high=n_choices, size=(10000, self.params['strats_per_port']))
 
         # Sort items in each row, then sort rows
         combs = np.sort(combs, axis=1)
@@ -114,24 +96,12 @@ class CombinationSearch(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _import_data(self, runs):
-        # Read in return data
-        ddir = os.path.join(self.simulation_dir, self.strategy_class)
-        for run in runs:
-            self._add_data(self._read_csv(os.path.join(ddir, run,
-                                                       'results.csv')), run)
-
-    def _clean_input_data(self):
-        ind = self.data.isnull() & self.data.fillna(method='pad').notnull()
-        self.data.where(~ind, other=0, inplace=True)
-        return
-
     def _create_training_indexes(self):
-        if self.params['freq'] == 'm':
+        if self.params['train_freq'] == 'm':
             # Get changes in months
             transition_indexes = np.where(np.diff(
                 [d.month for d in self.data.index]))[0] + 1
-        elif self.params['freq'] == 'w':
+        elif self.params['train_freq'] == 'w':
             # 0s are mondays so get the day it goes from 4 to 0
             transition_indexes = np.where(np.diff(
                 [d.weekday() for d in self.data.index]) < 0)[0] + 1
@@ -142,6 +112,7 @@ class CombinationSearch(object):
         transition_indexes = np.append([0], transition_indexes)
         transition_indexes = np.append(transition_indexes,
                                        [self.data.shape[0]])
+
         if self.params['n_periods'] < 1:
             # Grow infinitely
             self._time_indexes = zip(
@@ -158,12 +129,13 @@ class CombinationSearch(object):
         return
 
     def _create_results_objects(self):
-        self.best_results_rets = pd.DataFrame(
-            columns=range(self.params['n_best_combos']),
-            index=self.data.index,
-            dtype=np.float_)
-        self.best_results_scores = {}
-        self.best_results_combs = {}
+        if not hasattr(self, 'best_results_rets'):
+            self.best_results_rets = pd.DataFrame(
+                columns=range(self.params['n_best_ports']),
+                index=self.data.index,
+                dtype=np.float_)
+            self.best_results_scores = {}
+            self.best_results_combs = {}
         return
 
     def _process_results(self, time_index, test_rets, scores, combs):
@@ -173,9 +145,9 @@ class CombinationSearch(object):
             m_rets = m_rets.join(test_rets, rsuffix='N')
             m_scores = np.append(self.best_results_scores[time_index], scores)
             m_combs = np.vstack((self.best_results_combs[time_index], combs))
-            best_inds = np.argsort(-m_scores)[:self.params['n_best_combos']]
+            best_inds = np.argsort(-m_scores)[:self.params['n_best_ports']]
             m_rets = m_rets.iloc[:, best_inds]
-            m_rets.columns = range(self.params['n_best_combos'])
+            m_rets.columns = range(self.params['n_best_ports'])
             self.best_results_rets.loc[m_rets.index] = m_rets
             self.best_results_scores[time_index] = m_scores[best_inds]
             self.best_results_combs[time_index] = m_combs[best_inds]
@@ -185,97 +157,3 @@ class CombinationSearch(object):
             self.best_results_rets.loc[test_rets.index] = test_rets
             self.best_results_scores[time_index] = scores
             self.best_results_combs[time_index] = combs
-
-    def _write_init_output(self):
-        if self.write_flag:
-            # Create combo output folder
-            strat_dir = os.path.join(self.simulation_dir, self.strategy_class)
-            # Get all combo versions
-            all_dirs = [x for x in os.listdir(strat_dir) if x[:5] == 'combo']
-            if all_dirs:
-                new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
-            else:
-                new_ind = 1
-            # Output directory setup
-            self.output_dir = os.path.join(
-                strat_dir, 'combo_{0:04d}'.format(new_ind))
-            os.makedirs(self.output_dir)
-            # Write data
-            self.data.to_csv(os.path.join(self.output_dir, 'master_data.csv'))
-            self._write_results_output()
-        return
-
-    def _write_results_output(self):
-
-        try:
-            print 'Population mean score: {0}'.format(
-                np.concatenate(self.best_results_scores.values()).mean())
-        except:
-            pass
-
-        if self.write_flag:
-            self.best_results_rets.to_csv(os.path.join(self.output_dir,
-                                                       'best_returns.csv'))
-
-            outpath = os.path.join(self.output_dir, 'best_scores.json')
-            self._write_params(self.best_results_scores, outpath)
-
-            outpath = os.path.join(self.output_dir, 'best_combs.json')
-            self._write_params(self.best_results_combs, outpath)
-
-            outpath = os.path.join(self.output_dir, 'params.json')
-            with open(outpath, 'w') as outfile:
-                json.dump(self.params, outfile)
-            outfile.close()
-        return
-
-    def _load_comb_search_session(self, combo_name):
-        if combo_name:
-            combo_dir = os.path.join(self.simulation_dir,
-                                     self.strategy_class, combo_name)
-        else:
-            strat_dir = os.path.join(self.simulation_dir, self.strategy_class)
-            # Locate most recent
-            combo_name = max([x for x in os.listdir(strat_dir)
-                              if x[:5] == 'combo'])
-            combo_dir = os.path.join(strat_dir, combo_name)
-        self.output_dir = combo_dir
-        assert os.path.isdir(combo_dir)
-        self.data = self._read_csv(os.path.join(combo_dir,
-                                                'master_data.csv'))
-        # Load parameters
-        outpath = os.path.join(combo_dir, 'params.json')
-        params = json.load(open(outpath, 'r'))
-        self.set_training_params(**params)
-        # Best results data
-        self.best_results_rets = self._read_csv(
-            os.path.join(combo_dir, 'best_returns.csv'))
-        outpath = os.path.join(combo_dir, 'best_scores.json')
-        self.best_results_scores = json.load(open(outpath, 'r'))
-        self.best_results_scores = {
-            int(key): np.array(vals) for key, vals in
-            self.best_results_scores.iteritems()}
-        outpath = os.path.join(combo_dir, 'best_combs.json')
-        self.best_results_combs = json.load(open(outpath, 'r'))
-        self.best_results_combs = {
-            int(key): np.array(vals) for key, vals in
-            self.best_results_combs.iteritems()}
-        return
-
-    @staticmethod
-    def _read_csv(path):
-        data = pd.read_csv(path, index_col=None)
-        data.columns = range(-1, data.shape[1]-1)
-        data.loc[:, -1] = convert_date_array(data.loc[:, -1])
-        data = data.set_index(-1)
-        data.index = pd.to_datetime(data.index)
-        data.index.name = None
-        return data
-
-    @staticmethod
-    def _write_params(params, path):
-        outparams = {str(key): vals.tolist() for key, vals
-                     in params.iteritems()}
-        with open(path, 'w') as outfile:
-            json.dump(outparams, outfile)
-        outfile.close()

@@ -21,12 +21,14 @@ class PortfolioConstructor(BaseConstructor):
 
     def get_iterable_args(self):
         return {
-            'n_pairs': [50, 100, 200],
-            'max_pos_prop': [0.03, 0.06],
-            'pos_perc_deviation': [0.07, 0.14],
-            'z_exit': [1, 1.2],
-            'remove_earnings': [True],
-            'max_holding_days': [3, 10]
+            'n_pairs': [100, 300],
+            'max_pos_prop': [0.04, 0.08],
+            'pos_perc_deviation': [0.14],
+            'z_exit': [1],
+            'remove_earnings': [True, False],
+            'max_holding_days': [10, 30],
+            'stop_perc': [-0.03, -0.10],
+            'take_perc': [0.03, 0.10]
         }
 
     def get_feature_names(self):
@@ -37,7 +39,7 @@ class PortfolioConstructor(BaseConstructor):
                 'GSECTOR', 'SplitFactor', 'EARNINGSFLAG']
 
     def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation, z_exit,
-                     remove_earnings, max_holding_days):
+                     remove_earnings, max_holding_days, stop_perc, take_perc):
         """
         Parameters
         ----------
@@ -83,7 +85,7 @@ class PortfolioConstructor(BaseConstructor):
             #  and must be cleaned at end
             self._close_signals(exit_scores, z_exit,
                                 ern_flags, remove_earnings,
-                                max_holding_days)
+                                max_holding_days, stop_perc, take_perc)
 
             # 3. ADJUST POSITIONS
             #  When the exposures move drastically (say when the markets)
@@ -121,9 +123,9 @@ class PortfolioConstructor(BaseConstructor):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _close_signals(self, scores, z_exit, ern_flags, remove_earnings,
-                       max_holding_days):
+                       max_holding_days, stop_perc, take_perc):
+
         close_pairs = []
-        # ~~ ADD LOGIC HERE FOR CLOSING WILD MOVERS ~~ #
         # Get current position z-scores, and decide if they need to be closed
         for pair in self._portfolio.pairs.keys():
             if np.abs(scores[pair]) < z_exit or np.isnan(scores[pair]):
@@ -134,6 +136,11 @@ class PortfolioConstructor(BaseConstructor):
                 close_pairs.append(pair)
             if self._portfolio.pairs[pair].stat_holding_days >= \
                     max_holding_days:
+                close_pairs.append(pair)
+            # STOPS AND TAKES
+            ret = (self._portfolio.pairs[pair].total_pl /
+                   self._portfolio.pairs[pair].entry_exposure)
+            if ret < stop_perc or ret > take_perc:
                 close_pairs.append(pair)
         # Close positions
         self._portfolio.close_pairs(list(set(close_pairs)))
@@ -152,7 +159,9 @@ class PortfolioConstructor(BaseConstructor):
         """
         open_pairs = self._portfolio.get_open_positions()
         closed_pairs = self._portfolio.get_closed_positions()
+        # Drop open and closing pairs from scores
         no_go_pairs = sum([open_pairs, closed_pairs], [])
+        # Get new pairs needed
         new_pairs = max(n_pairs - len(open_pairs), 0)
         if new_pairs == 0:
             return
@@ -160,18 +169,20 @@ class PortfolioConstructor(BaseConstructor):
         # Filter
         max_pos_count = int(n_pairs * max_pos_prop)
         self._get_pos_exposures()
+
         for sc, pair, side in scores:
             if pair in no_go_pairs:
                 continue
             if sc < (z_exit * 1.2):
                 break
-            p1, p2 = pair.split('~')
-            if (ern_flags[p1] or ern_flags[p2]) and remove_earnings:
+            leg1, leg2 = pair.split('~')
+            if (ern_flags[leg1] or ern_flags[leg2]) and remove_earnings:
                 continue
-            if self._check_pos_exposures(pair, side, max_pos_count):
+            if self._check_pos_exposures(leg1, leg2, side, max_pos_count):
                 self._portfolio.add_pair(pair, trade_prices,
                                          gross_bet_size, side)
-            if self._portfolio.count_open_positions() == n_pairs:
+                new_pairs -= 1
+            if new_pairs == 0:
                 break
         return
 
@@ -180,30 +191,33 @@ class PortfolioConstructor(BaseConstructor):
         Get exposures each iteration.
         """
         self._exposures = {}
-        for _, pos in self._portfolio.pairs.iteritems():
+        for pos in self._portfolio.pairs.values():
+            self._exposures[pos.leg1] = 0
+            self._exposures[pos.leg2] = 0
+        for pos in self._portfolio.pairs.values():
             if pos.open_position:
-                for leg, shares in zip(pos.legs, pos.shares):
-                    if leg not in self._exposures:
-                        self._exposures[leg] = 0
-                    self._exposures[leg] += np.sign(shares)
+                self._exposures[pos.leg1] += 1 if pos.shares1 > 0 else -1
+                self._exposures[pos.leg2] += 1 if pos.shares2 > 0 else -1
 
-    def _check_pos_exposures(self, pair, side, max_pos_count):
-        side1, side2 = pair.split('~')
-        legs1 = side1.split('_')
-        legs2 = side2.split('_')
-        legs = np.append(legs1, legs2)
-        sides = np.append(np.repeat(side, len(legs1)),
-                          np.repeat(-side, len(legs2)))
-        for leg in legs:
-            if leg not in self._exposures:
-                self._exposures[leg] = 0
-        exps = np.array([self._exposures[l] for l in legs])
-        if np.any(np.abs(exps + sides) > max_pos_count):
+    def _check_pos_exposures(self, leg1, leg2, side, max_pos_count):
+        """
+        Returns true or false if the max position count has been hit.
+        Side = 1 referse to going long the first pair, and short the second
+        """
+        if leg1 not in self._exposures:
+            self._exposures[leg1] = 0
+        if leg2 not in self._exposures:
+            self._exposures[leg2] = 0
+        exp1 = self._exposures[leg1] + side
+        exp2 = self._exposures[leg2] - side
+        if abs(exp1) <= max_pos_count:
+            if abs(exp2) <= max_pos_count:
+                self._exposures[leg1] += side
+                self._exposures[leg2] -= side
+                return True
+            else:
+                return False
             return False
-        else:
-            for leg, side in zip(legs, sides):
-                self._exposures[leg] += side
-            return True
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

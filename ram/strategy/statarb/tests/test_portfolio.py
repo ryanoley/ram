@@ -29,7 +29,8 @@ class TestPairPortfolio(unittest.TestCase):
     def test_add_pair(self):
         port = self.port
         self.assertListEqual(port.pairs.keys(), ['IBM~VMW', 'GOOGL~AAPL'])
-        assert_array_equal(port.pairs['IBM~VMW'].shares, np.array([50, -25]))
+        self.assertEqual(port.pairs['IBM~VMW'].shares1, 50)
+        self.assertEqual(port.pairs['IBM~VMW'].shares2, -25)
         self.assertEqual(port.pairs['IBM~VMW'].gross_exposure, 10000)
 
     def test_close_pairs(self):
@@ -56,9 +57,9 @@ class TestPairPortfolio(unittest.TestCase):
         port.get_portfolio_daily_pl()
         result = port.get_period_stats()
         benchmark = {
-            'avg_perc_gain': 0.0325,
-            'max_perc_gain': 0.055,
-            'min_perc_gain': 0.01,
+            'avg_perc_gain': 0.0324625,
+            'max_perc_gain': 0.0549625,
+            'min_perc_gain': 0.0099625,
             'total_trades': 2,
             'avg_rebalance_count': 0.0,
             'max_holding_days': 2,
