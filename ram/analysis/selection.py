@@ -124,7 +124,7 @@ for d1, d2 in zip(dates[12:-1], dates[13:]):
     if len(test) == 0:
         break
 
-    cl = RandomForestClassifier(min_samples_split=100, n_jobs=3)
+    cl = RandomForestClassifier(min_samples_split=400, n_jobs=3)
     cl.fit(X=train[features], y=train[responses].astype(int))
 
     fit_date = train.Date.max()
