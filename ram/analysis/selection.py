@@ -83,6 +83,9 @@ if __name__ == '__main__':
     ret_features = make_features_from_rets(rm1.returns)
     features = ret_features.columns[2:].tolist()
 
+    for sf in spy_features:
+        features.append(sf)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     dates = []
@@ -105,9 +108,6 @@ if __name__ == '__main__':
 
         train = ret_responses.merge(ret_features).dropna()
         train = train.merge(spy_data)
-
-        for sf in spy_features:
-            features.append(sf)
 
         if d1 > rm1.returns.index.max():
             break
