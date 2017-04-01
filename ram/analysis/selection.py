@@ -21,12 +21,26 @@ def _get_ranks(return_data, n_days=20, thresh=10):
     return ret_responses
 
 
-def make_responses(return_data, n_days):
+def Xmake_responses(return_data, n_days):
     out = _unpivot(_get_ranks(return_data, n_days, 5), 'Response_5')
     out = out.merge(_unpivot(_get_ranks(return_data, n_days, 10), 'Response_10'))
     out = out.merge(_unpivot(_get_ranks(return_data, n_days, 20), 'Response_20'))
     out = out.merge(_unpivot(_get_ranks(return_data, n_days, 30), 'Response_30'))
     return out
+
+
+def make_responses(return_data, n_days):
+    out = _unpivot(_get_returns(return_data, n_days), 'Response1')
+    return out
+
+
+def _get_returns(return_data, n_days):
+    ret_sums = return_data.rolling(n_days).sum()
+    ret_responses = (ret_sums > 0).shift(-n_days)
+    return ret_responses
+
+
+
 
 
 
