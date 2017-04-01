@@ -76,7 +76,7 @@ if __name__ == '__main__':
     rm1 = RunManager('StatArbStrategy', 'run_0022', 2009)
     rm1.import_return_frame()
 
-    #spy_data = _get_some_spy_data()
+    spy_data = _get_some_spy_data()
     spy_features = spy_data.columns[1:].tolist()
 
     # Make features
