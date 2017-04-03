@@ -96,7 +96,7 @@ class DataConstructor(object):
         meta = {
             'frequency': self.date_parameters['frequency'],
             'train_period_len': self.date_parameters['train_period_length'],
-            'test_period_len': self.date_parameters['test_period_len'],
+            'test_period_len': self.date_parameters['test_period_length'],
             'start_year': self.date_parameters['start_year'],
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),
