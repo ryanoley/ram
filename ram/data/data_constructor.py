@@ -69,6 +69,7 @@ class DataConstructor(object):
         # Extract parameters
         frequency = self.date_parameters['frequency']
         train_period_length = self.date_parameters['train_period_length']
+        test_period_length = self.date_parameters['test_period_length']
         start_year = self.date_parameters['start_year']
         # Create
         if frequency == 'Q':
@@ -81,9 +82,9 @@ class DataConstructor(object):
         ind = np.where(np.array(all_periods) > dt.datetime.utcnow())[0][0] + 1
         all_periods = all_periods[:ind]
         end_periods = [x - dt.timedelta(days=1) for x in all_periods]
-        iterator = zip(all_periods[:-(train_period_length+1)],
-                       all_periods[train_period_length:-1],
-                       end_periods[train_period_length+1:])
+        iterator = zip(all_periods[:-(train_period_length+test_period_length)],
+                       all_periods[train_period_length:-test_period_length],
+                       end_periods[train_period_length+test_period_length:])
         self._date_iterator = iterator
 
     def _check_parameters(self):
@@ -95,6 +96,7 @@ class DataConstructor(object):
         meta = {
             'frequency': self.date_parameters['frequency'],
             'train_period_len': self.date_parameters['train_period_length'],
+            'test_period_len': self.date_parameters['test_period_len'],
             'start_year': self.date_parameters['start_year'],
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),

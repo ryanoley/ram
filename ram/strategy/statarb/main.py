@@ -63,6 +63,7 @@ class StatArbStrategy(Strategy):
         return {
             'frequency': 'Q',
             'train_period_length': 4,
+            'test_period_length': 2,
             'start_year': 2009
         }
 

@@ -22,7 +22,8 @@ class TestStrategy(Strategy):
         return {
             'frequency': 'Q',
             'train_period_length': 4,
-            'start_year': 2017
+            'test_period_length': 2,
+            'start_year': 2016
         }
 
     def get_filter_args(self):
@@ -55,9 +56,9 @@ class TestDataConstructor(unittest.TestCase):
         dc = DataConstructor(TestStrategy())
         dc._make_date_iterator()
         result = dc._date_iterator[0]
-        self.assertEqual(result[0], dt.datetime(2016, 1, 1))
-        self.assertEqual(result[1], dt.datetime(2017, 1, 1))
-        self.assertEqual(result[2], dt.datetime(2017, 3, 31))
+        self.assertEqual(result[0], dt.datetime(2015, 1, 1))
+        self.assertEqual(result[1], dt.datetime(2016, 1, 1))
+        self.assertEqual(result[2], dt.datetime(2016, 6, 30))
 
     def test_run(self):
         # Continue with test

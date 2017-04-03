@@ -126,12 +126,18 @@ class Strategy(object):
             Number of periods (quarters or months) to provide
             training data for. Training and test data are flagged as a
             column in the data
+        test_period_length : int
+            Number of periods to provide test data for going forward.
+            The frequency indicates how often one gets new universe
+            data, but this could extend into the future if the data
+            was necessary.
         start_year : int
             Year
         """
         return {
             'frequency': 'Q',
             'train_period_length': 4,
+            'test_period_length': 1,
             'start_year': 2007
         }
 
