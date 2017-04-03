@@ -91,7 +91,7 @@ class YearEnd(Strategy):
         test.sort_index(inplace=True)
         self.iterate_meta_params(signals, test)
 
-        print str(index[2])
+        print(str(index[2]))
         return port_rets
 
     def get_univ_iter(self, dt_iter):

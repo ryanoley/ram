@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
         out = out.append(temp)
 
-        print d1
+        print(d1)
 
 
     #path = os.path.join(os.getenv('DATA'), 'ram', 'bigsimulation.csv')

@@ -229,7 +229,7 @@ def main():
         send_email(log_str, subject)
 
     if args.log_to_console:
-        print log_str
+        print(log_str)
     else:
         # Write log_str to log file
         with open(args.log_path, 'a') as file:

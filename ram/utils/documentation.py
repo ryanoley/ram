@@ -4,7 +4,7 @@ import os
 def prompt_for_description():
     desc = raw_input("\nEnter a description of this run:\n")
     if len(desc) == 0:
-        print '\nMust enter description!!\n'
+        print('\nMust enter description!!\n')
         desc = prompt_for_description()
     return desc
 

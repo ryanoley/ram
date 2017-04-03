@@ -59,7 +59,6 @@ for f in files:
     else:
         master_out = master_out.append(var_out)
 
-    print f
 
 master_out = master_out.set_index('Date')
 

@@ -78,12 +78,12 @@ class ClusterController(object):
         avail = list(set(self.configured_regions) - set(inuse))
 
         if len(avail) == 0:
-            print 'All available regions are in use'
+            print('All available regions are in use')
             return
 
         region = region if region is not None else avail[0]
         if region not in avail:
-            print 'Unable to provision region {0}'.format(region)
+            print('Unable to provision region {0}'.format(region))
             return
 
         spot_info = self.get_spot_history(inst_type, region)
@@ -103,9 +103,9 @@ class ClusterController(object):
         assert os.path.exists(self._config)
         cmd = 'starcluster -c {0} -r {1} start -c {2} {2}'.format(
             self._config, self._region[:-1], self._region)
-        print 'Launching Cluster'
+        print('Launching Cluster')
         stdout = self._star_cmd(cmd)
-        print 'Cluster Launched Successfully'
+        print('Cluster Launched Successfully')
         self.islive = True
 
         # Setup parallel client
@@ -191,8 +191,8 @@ class ClusterController(object):
         while not results.ready():
             ix = float(results.progress)
             if ix > p_ix:
-                print '{0}% Complete'.format(
-                    str(np.round(ix/len(iterable), 2) *100))
+                print('{0}% Complete'.format(
+                    str(np.round(ix/len(iterable), 2) *100)))
             time.sleep(60)
             p_ix = ix
         return results
@@ -226,7 +226,7 @@ class ClusterController(object):
         Shutdown cluster and cleanup instance variables
         '''
         if self.islive is False:
-            print 'No live cluster recognized. Please shutdown explicitly'
+            print('No live cluster recognized. Please shutdown explicitly')
             return
         if hasattr(self, 'client'):
             self.client.close()
@@ -261,7 +261,7 @@ class ClusterController(object):
                                    'config_{0}'.format(cluster_name))
         if os.path.exists(config_path):
             os.remove(config_path)
-        print 'Cluster shutdown complete'
+        print('Cluster shutdown complete')
         return
 
     def _star_cmd(self, cmd, stdin_txt=None):
@@ -272,7 +272,7 @@ class ClusterController(object):
         proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
         stdout, stderr = proc.communicate(stdin_txt)
         if proc.poll() != 0:
-            print stderr
+            print(stderr)
             raise
         return stdout
 
@@ -314,8 +314,8 @@ class ClusterController(object):
             # Exit ssh session
             proc.stdin.write('exit \n')
             nbsr.readuntil()
-            print '/{1}/{2} updated on node: {0}'.format(nodei, repo, branch)
-        print 'Rebooting Cluster'
+            print('/{1}/{2} updated on node: {0}'.format(nodei, repo, branch))
+        print('Rebooting Cluster')
         self.restart_cluster()
 
 

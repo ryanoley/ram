@@ -57,7 +57,7 @@ class NonBlockingStreamReader:
             if re_error is not None:
                 match_e = re.search(re_error, nextline)
                 if match_e:
-                    print 'Error string found {}'.format(nextline)
+                    print('Error string found {}'.format(nextline))
                     raise
         return
 

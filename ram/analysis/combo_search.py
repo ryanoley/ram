@@ -43,7 +43,7 @@ class CombinationSearch(object):
                         t2, train_data, test_data)
                 self._process_results(
                     t2, test_results, train_scores, combs)
-            print 'Single pass complete'
+            print('Single pass complete')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

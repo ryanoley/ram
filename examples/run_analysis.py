@@ -9,8 +9,8 @@ from ram.analysis.run_manager import RunManager
 from ram.analysis.run_aggregator import RunAggregator
 
 # View all available strategies
-print RunManager.get_strategies()
-print RunManager.get_run_names('StatArbStrategy')
+print(RunManager.get_strategies())
+print(RunManager.get_run_names('StatArbStrategy'))
 
 rm1 = RunManager('StatArbStrategy', 'run_0021', 2009)
 rm2 = RunManager('StatArbStrategy', 'run_0022', 2009)

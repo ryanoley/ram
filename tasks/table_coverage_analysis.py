@@ -25,7 +25,7 @@ class DataTableCoverage(object):
         self.datahandler = DataHandlerSQL()
         if history_flag:
             # Delete directory and recreate
-            print 'Deleting directory: {}'.format(OUTDIR)
+            print('Deleting directory: {}'.format(OUTDIR))
             if os.path.isdir(OUTDIR):
                 shutil.rmtree(OUTDIR)
             os.mkdir(OUTDIR)

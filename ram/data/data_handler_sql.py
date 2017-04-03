@@ -220,8 +220,8 @@ class DataHandlerSQL(object):
         try:
             self._cursor.execute(sqlcmd)
             return self._cursor.fetchall()
-        except Exception, e:
-            print 'error running sqlcmd: ' + str(e)
+        except Exception as e:
+            print('error running sqlcmd: ' + str(e))
             return []
 
     def close_connections(self):

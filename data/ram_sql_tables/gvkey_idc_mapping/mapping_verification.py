@@ -23,9 +23,9 @@ def start_manual_filter():
     uniq_idc_codes = df_idc[
         ~df_idc.Code.isin(output.IdcCode.unique())].Code.unique()
     for i, idc in enumerate(uniq_idc_codes):
-        print '!!! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-        print '!!! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-        print '{0} of {1}'.format(i, len(uniq_idc_codes))
+        print('!!! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print('!!! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print('{0} of {1}'.format(i, len(uniq_idc_codes)))
         idc_data = df_idc[df_idc.Code == idc]
         gvkey_data = df_gvkeys[df_gvkeys.ShortCusip.isin(
             idc_data.Cusip.unique())]
@@ -109,18 +109,18 @@ def match_id_prompt(gvkey_data, idc_data):
         _create_suggestions(gvkey_data, idc_data)
 
     while True:
-        print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-        print idc_data
-        print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-        print gvkey_data.sort_values(['GvKey', 'Changedate'])
-        print '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+        print('\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print(idc_data)
+        print('\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print(gvkey_data.sort_values(['GvKey', 'Changedate']))
+        print('\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
         n_gvkeys = raw_input('Number of GVKeys: ')
 
         try:
             n_gvkeys = int(n_gvkeys)
         except:
-            print 'Enter integer for the number of GVKeys'
+            print('Enter integer for the number of GVKeys')
             continue
 
         if n_gvkeys == 1:
@@ -131,12 +131,12 @@ def match_id_prompt(gvkey_data, idc_data):
             idc_obs = pd.DataFrame([])
             for i in range(n_gvkeys):
                 # GVKey
-                print '\n{0} GVKey'.format(NUMADJ[i])
+                print('\n{0} GVKey'.format(NUMADJ[i]))
                 gv = _prompt_gvkey_selection(gvkey_suggestion)
                 gvkey_suggestion = gvkey_suggestion[gvkey_suggestion != gv]
 
                 # END DATE
-                print '\n{0} EndDate'.format(NUMADJ[i])
+                print('\n{0} EndDate'.format(NUMADJ[i]))
                 if i == (n_gvkeys-1):
                     ed = ENDDATE
                 else:
@@ -151,7 +151,7 @@ def match_id_prompt(gvkey_data, idc_data):
                 next_stard_date = ed + dt.timedelta(days=1)
                 idc_obs = idc_obs.append(_create_row(idc, gv, sd, ed))
 
-        print idc_obs
+        print(idc_obs)
         response = raw_input('Commit? [y]')
         if response == 'y':
             break
@@ -164,26 +164,26 @@ def match_id_prompt(gvkey_data, idc_data):
 
 
 def _prompt_gvkey_selection(input_vals):
-    print 'Options:'
+    print('Options:')
     for i, x in enumerate(input_vals):
-        print '[{0}]: {1}'.format(i+1, x)
+        print('[{0}]: {1}'.format(i+1, x))
     response = raw_input('Selection: ')
     try:
         response = int(response) - 1
         if response < 0 or response >= len(input_vals):
-            print '\nERROR: Selection not available'
+            print('\nERROR: Selection not available')
             return _prompt_gvkey_selection(input_vals)
         return input_vals[response]
     except:
-        print '\nERROR: Input integer'
+        print('\nERROR: Input integer')
         return _prompt_gvkey_selection(input_vals)
 
 
 def _prompt_date_selection(input_vals):
     if len(input_vals) > 0:
-        print 'Date Options:'
+        print('Date Options:')
         for i, x in enumerate(input_vals):
-            print '[{0}]: {1}'.format(i+1, x)
+            print('[{0}]: {1}'.format(i+1, x))
         response = raw_input('Selection, press `x` to enter custom date: ')
     else:
         response = 'x'
@@ -193,17 +193,17 @@ def _prompt_date_selection(input_vals):
         try:
             return dt.date(int(date[:4]), int(date[4:6]), int(date[6:8]))
         except:
-            print '\nERROR: Improperly formatted'
+            print('\nERROR: Improperly formatted')
             return _prompt_date_selection(input_vals)
     else:
         try:
             response = int(response) - 1
             if response < 0 or response >= len(input_vals):
-                print '\nERROR: Selection not available'
+                print('\nERROR: Selection not available')
                 return _prompt_date_selection(input_vals)
             return input_vals[response]
         except:
-            print '\nERROR: Input integer'
+            print('\nERROR: Input integer')
             return _prompt_date_selection(input_vals)
 
 
@@ -297,7 +297,7 @@ def import_idccodes_to_handle():
     try:
         df = pd.read_csv(os.path.join(DDIR, 'idccodes_to_handle.csv'))
     except:
-        print 'Nothing to handle'
+        print('Nothing to handle')
         sys.exit()
     df.StartDate = convert_date_array(df.StartDate)
     df.EndDate = convert_date_array(df.EndDate)
