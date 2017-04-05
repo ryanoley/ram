@@ -4,10 +4,9 @@ import pandas as pd
 import datetime as dt
 
 from ram.strategy.statarb.constructor.portfolio import PairPortfolio
-from ram.strategy.statarb.constructor.base import BaseConstructor
 
 
-class PortfolioConstructor(BaseConstructor):
+class PortfolioConstructor(object):
 
     def __init__(self, booksize=10e6):
         """
@@ -17,7 +16,7 @@ class PortfolioConstructor(BaseConstructor):
             Size of gross position
         """
         self.booksize = booksize
-        self._portfolio = PairPortfolio()
+        self._portfolios = {}
 
     def get_iterable_args(self):
         return {
@@ -25,20 +24,19 @@ class PortfolioConstructor(BaseConstructor):
             'max_pos_prop': [0.04, 0.08],
             'pos_perc_deviation': [0.14],
             'z_exit': [1],
-            'remove_earnings': [True],      # Definitely helpful
+            'remove_earnings': [True],
             'max_holding_days': [10, 30],
             'stop_perc': [-0.03, -0.10]
         }
 
-    def get_feature_names(self):
-        """
-        The columns from the database that are required.
-        """
-        return ['AdjClose', 'RClose', 'RCashDividend',
-                'GSECTOR', 'SplitFactor', 'EARNINGSFLAG']
-
-    def get_daily_pl(self, n_pairs, max_pos_prop, pos_perc_deviation, z_exit,
-                     remove_earnings, max_holding_days, stop_perc):
+    def get_daily_pl(self,
+                     n_pairs,
+                     max_pos_prop,
+                     pos_perc_deviation,
+                     z_exit,
+                     remove_earnings,
+                     max_holding_days,
+                     stop_perc):
         """
         Parameters
         ----------
@@ -232,3 +230,72 @@ class PortfolioConstructor(BaseConstructor):
             index='Date', columns='SecCode',
             values='ERNFLAG').fillna(0).T.astype(int).to_dict()
         self.data = self.data.drop(['ERNFLAG'], axis=1)
+
+    # ~~~~~~ DATA FRAME ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def set_and_prep_data(self, data, pair_info, pair_index):
+        # Infer start and end dates for the quarter
+        import pdb; pdb.set_trace()
+
+        # Trim data
+        data = data[data.Date.isin(scores.index)].copy()
+        self.data = data
+
+        self.close_dict = data.pivot(
+            index='Date', columns='SecCode', values='RClose').T.to_dict()
+
+        self.dividend_dict = data.pivot(
+            index='Date', columns='SecCode',
+            values='RCashDividend').fillna(0).T.to_dict()
+
+        # Instead of using the levels, use the change in levels.
+        # This is necessary for the updating of positions and prices
+        data.loc[:, 'SplitMultiplier'] = \
+            data.SplitFactor.pct_change().fillna(0) + 1
+        self.split_mult_dict = data.pivot(
+            index='Date', columns='SecCode',
+            values='SplitMultiplier').fillna(1).T.to_dict()
+
+        # Need all scores for exit
+        self.exit_scores = scores.T.to_dict()
+
+        scores = scores.unstack().reset_index()
+        scores.columns = ['Pair', 'Date', 'score']
+        scores['abs_score'] = scores.score.abs()
+        scores['side'] = np.where(scores.score <= 0, 1, -1)
+        scores = scores.sort_values(['Date', 'abs_score'], ascending=False)
+        scores['deliverable'] = zip(scores.abs_score, scores.Pair, scores.side)
+        self.enter_scores = {}
+        for d in np.unique(self.exit_scores.keys()):
+            self.enter_scores[d] = scores.deliverable[scores.Date == d].values
+
+        self.all_dates = np.unique(self.exit_scores.keys())
+        self.pair_info = pair_info
+
+
+    def _get_test_zscores(self, Close, cut_date, fpairs, window):
+        # Create two data frames that represent Leg1 and Leg2
+        df_leg1 = Close.loc[:, fpairs.Leg1]
+        df_leg2 = Close.loc[:, fpairs.Leg2]
+        outdf = self._get_spread_zscores(df_leg1, df_leg2, window)
+        # Add correct column names
+        outdf.columns = ['{0}~{1}'.format(x, y) for x, y in
+                         zip(fpairs.Leg1, fpairs.Leg2)]
+        return outdf.loc[outdf.index > cut_date]
+
+    def _get_spread_zscores(self, close1, close2, window):
+        """
+        Simple normalization
+        """
+        spreads = np.subtract(np.log(close1), np.log(close2))
+        ma, std = self._get_moving_avg_std(spreads, window)
+        return (spreads - ma) / std
+
+    @staticmethod
+    def _get_moving_avg_std(X, window):
+        """
+        Optimized calculation of rolling mean and standard deviation.
+        """
+        ma_df = X.rolling(window=window).mean()
+        std_df = X.rolling(window=window).std()
+        return ma_df, std_df
