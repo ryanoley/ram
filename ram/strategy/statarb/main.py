@@ -64,7 +64,13 @@ class StatArbStrategy(Strategy):
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_features(self):
-        return ['AdjClose', 'AvgDolVol', 'RClose', 'RCashDividend',
+        return ['AdjClose', 'AdjVolume',
+                'PRMA5_AdjClose', 'PRMA10_AdjClose',
+                'BOLL10_AdjClose', 'BOLL20_AdjClose',
+                'MFI10_AdjClose', 'MFI20_AdjClose',
+                'VOL5_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
+                'AvgDolVol', 'PRMA10_AvgDolVol',
+                'RClose', 'RCashDividend',
                 'SplitFactor', 'GSECTOR', 'EARNINGSFLAG']
 
     def get_date_parameters(self):
