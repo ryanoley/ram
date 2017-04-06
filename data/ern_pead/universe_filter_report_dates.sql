@@ -15,16 +15,8 @@ create table	ram.dbo.temp_univ_report_dates (
 		FilterDate smalldatetime,
 		PreviousReportDate smalldatetime,
 		FiscalQuarter int,
-		EntryDolVol real,
-		EntryVwap real,
-		ExitVwapTwoDay real,
-		ExitVwapThreeDay real,
-		EntryVwapMkt real,
-		ExitVwapMktTwoDay real,
-		ExitVwapMktThreeDay real,
 		ResearchFlag int,
 		LiveFlag int
-
 		primary key (SecCode, ReportDate)
 )
 
@@ -117,56 +109,16 @@ where			NormalFlag1SumLive = 4
 )
 
 
-, pricing_data as (
-select			*,
-				Lead(Volume * Vwap, 1) over (
-					partition by SecCode
-					order by Date_) as EntryDolVol,
-				Lead(Vwap, 1) over (
-					partition by SecCode
-					order by Date_) as EntryVwap,
-				Lead(Vwap, 3) over (
-					partition by SecCode
-					order by Date_) as ExitVwapTwoDay,
-				Lead(Vwap, 4) over (
-					partition by SecCode
-					order by Date_) as ExitVwapThreeDay
-
-from			ram.dbo.ram_equity_pricing
-
-)
-
-
-, pricing_data_mkt as (
-select			*,
-				Lead(Vwap, 1) over (
-					partition by SecCode
-					order by Date_) as EntryVwapMkt,
-				Lead(Vwap, 3) over (
-					partition by SecCode
-					order by Date_) as ExitVwapMktTwoDay,
-				Lead(Vwap, 4) over (
-					partition by SecCode
-					order by Date_) as ExitVwapMktThreeDay
-
-from			ram.dbo.ram_etf_pricing
-where			SecCode = 61494
-)
-
-
 , report_dates5 as (
 select			D.*,
 				P.*,
 				X.Ticker,
-				MKT.EntryVwapMkt,
-				MKT.ExitVwapMktTwoDay,
-				MKT.ExitVwapMktThreeDay,
 				-- For some duplicates that make it through GVKey map
 				ROW_NUMBER() over (
 					partition by X.Issuer, D.ReportDate
 					order by P.AvgDolVol desc, P.SecCode) as rank_val
 
-from			pricing_data P
+from			ram.dbo.ram_equity_pricing P
 
 	join		ram.dbo.ram_gvkey_map M
 		on		P.IdcCode = M.IdcCode
@@ -179,9 +131,6 @@ from			pricing_data P
 	join		ram.dbo.ram_master_ids X
 		on		P.SecCode = X.SecCode
 		and		P.Date_ between X.StartDate and X.EndDate
-
-	join		pricing_data_mkt MKT
-		on		P.Date_ = MKT.Date_
 
 where			P.Close_ >= 15
 	and			P.AvgDolVol >= 3
@@ -198,13 +147,6 @@ select			SecCode,
 				FilterDate,
 				PreviousReportDate,
 				FiscalQuarter,
-				EntryDolVol,
-				EntryVwap,
-				ExitVwapTwoDay,
-				ExitVwapThreeDay,
-				EntryVwapMkt,
-				ExitVwapMktTwoDay,
-				ExitVwapMktThreeDay,
 				ResearchFlag,
 				LiveFlag
 from			report_dates5

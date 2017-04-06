@@ -359,6 +359,8 @@ drop table #idc_data
 drop table #pricing_data
 drop table #id_table
 
+create nonclustered index seccode_date on ram.dbo.temp_pricing (SecCode, Date_)
+
 
 if $(tabletype) = 1
 begin
