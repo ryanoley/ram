@@ -111,11 +111,11 @@ create table #pricing_data (
 
 ; with idc_dates as (
 -- All dates from IDC tables
-select distinct Code, Date_ from qai.prc.PrcExc where Date_ >= '1993-12-01'
+select distinct Code, Date_ from qai.prc.PrcExc where Date_ >= '1990-12-01'
 union
-select distinct Code, Date_ from qai.prc.PrcDly where Date_ >= '1993-12-01'
+select distinct Code, Date_ from qai.prc.PrcDly where Date_ >= '1990-12-01'
 union
-select distinct Code, Date_ from qai.prc.PrcVol where Date_ >= '1993-12-01'
+select distinct Code, Date_ from qai.prc.PrcVol where Date_ >= '1990-12-01'
 
 )
 
@@ -348,7 +348,7 @@ from			agg_data D
 	join		trading_dates_filter DF
 		on		D.Date_ = DF.Date_
 
-where			D.Date_ >= '1995-01-01'
+where			D.Date_ >= '1992-01-01'
 
 )
 
