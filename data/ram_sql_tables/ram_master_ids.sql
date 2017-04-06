@@ -40,7 +40,6 @@ select			Code,
 				Issuer
 from			qai.prc.PrcScChg 
 where			concat(BaseTicker, 'WI') != Ticker		-- When Issued
-		and		Ticker is not null
 		and		Ticker != 'ZZZZ'
 		and		Cusip is not null
 		and		Cusip != ''
