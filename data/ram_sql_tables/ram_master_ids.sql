@@ -39,8 +39,8 @@ select			Code,
 				end as ExchangeFlag,
 				Issuer
 from			qai.prc.PrcScChg 
-where			concat(BaseTicker, 'WI') != Ticker		-- When Issued
-		and		Ticker != 'ZZZZ'
+where			concat(isnull(BaseTicker, ''), 'WI') != isnull(Ticker, '')		-- When Issued
+		and		isnull(Ticker, '') != 'ZZZZ'
 		and		Cusip is not null
 		and		Cusip != ''
 		and		right(Cusip, 2) != 'XX'
