@@ -54,7 +54,7 @@ create table	ram.dbo.temp_pricing (
 		DividendFactor real,
 		SplitFactor real,
 		NormalTradingFlag smallint
-		primary key (IdcCode, Date_)
+		primary key (SecCode, Date_)
 )
 
 
@@ -281,7 +281,6 @@ from			aggregated_data D
 where			D.Date_ >= '1992-01-01'
 
 )
-
 
 insert into ram.dbo.temp_pricing
 select * from final_table
