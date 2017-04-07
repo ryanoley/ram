@@ -289,7 +289,7 @@ select		*,
 				partition by SecCode 
 				order by Date_) as CumRate,
 			-- Average Dollar Volume
-			avg(Vwap * Volume) over (
+			avg(isnull(Vwap, Close_) * Volume) over (
 				partition by SecCode 
 				order by Date_
 				rows between 29 preceding and current row) / 1e6 as AvgDolVol,
