@@ -285,6 +285,9 @@ where			D.Date_ >= '1992-01-01'
 insert into ram.dbo.temp_pricing
 select * from final_table
 
+drop table #id_table
+
+
 create nonclustered index idccode_date on ram.dbo.temp_pricing (IdcCode, Date_)
 
 
