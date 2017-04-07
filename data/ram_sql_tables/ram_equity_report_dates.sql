@@ -1,4 +1,3 @@
-
 use ram;
 
 -------------------------------------------------------------
@@ -39,6 +38,17 @@ where RDQ is not null
 )
 
 
+, all_report_dates2 as (
+select		R.GVKEY,
+			R.DATADATE,
+			D.T0 as RDQ,
+			R.FQTR
+from		all_report_dates R
+	join	ram.dbo.ram_trading_dates D
+	on		D.CalendarDate = R.RDQ
+)
+
+
 , pricing_returns as (
 select		P.IdcCode,
 			G.GVKey,
@@ -60,8 +70,8 @@ from		ram.dbo.ram_equity_pricing P
 	join	ram.dbo.ram_idccode_to_gvkey_map G
 	on		P.IdcCode = G.IdcCode
 	and		P.Date_ between G.StartDate and G.EndDate
-
 )
+
 
 , hedge_returns as (
 select		Date_,
@@ -98,7 +108,7 @@ select			P.IdcCode,
 				H.PriceT4 / H.PriceT1 - 1 as PeadReturnLongHedge,
 				H.PriceT3 / H.PriceT1 - 1 as PeadReturnShortHedge
 
-from			all_report_dates D
+from			all_report_dates2 D
 join			pricing_returns P
 	on			D.RDQ = P.Date_
 	and			D.GVKEY = P.GVKey	

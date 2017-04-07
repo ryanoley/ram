@@ -43,10 +43,10 @@ if $(trade) = 2
 ; with report_dates1 as (
 select			*,
 				Lag(ReportDate, 1) over (
-					partition by GVKey
+					partition by GVKey, IdcCode
 					order by ReportDate) as ReportDateLag,
 				Lag(QuarterDate, 1) over (
-					partition by GVKey
+					partition by GVKey, IdcCode
 					order by QuarterDate) as QuarterDateLag 
 from			ram.dbo.ram_equity_report_dates
 )
@@ -69,19 +69,19 @@ select			*,
 				-- Five total announcements for research,
 				-- four required at time of trading
 				sum(NormalFlag1) over (
-					partition by GVKey
+					partition by GVKey, IdcCode
 					order by QuarterDate
 					rows between 4 preceding and current row) as NormalFlag1Sum,
 				sum(NormalFlag2) over (
-					partition by GVKey
+					partition by GVKey, IdcCode
 					order by QuarterDate
 					rows between 4 preceding and current row) as NormalFlag2Sum,
 				sum(NormalFlag1) over (
-					partition by GVKey
+					partition by GVKey, IdcCode
 					order by QuarterDate
 					rows between 3 preceding and current row) as NormalFlag1SumLive,
 				sum(NormalFlag2) over (
-					partition by GVKey
+					partition by GVKey, IdcCode
 					order by QuarterDate
 					rows between 3 preceding and current row) as NormalFlag2SumLive
 from			report_dates2

@@ -26,7 +26,7 @@ Daily Routine
 
 If there are values that have to be manually adjusted
 
-1. Run `mapping_verification.py -m` if there are maappings
+1. Run `mapping_verification.py -m` if there are mappings
 2. Run `mapping_verification.py -a` after to add those new mappings and clean
 the directory
 3. Run `make_mapping_table.py` to re-write to SQL Server Database

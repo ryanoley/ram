@@ -7,3 +7,5 @@ set SQLCMDAUTH="%SQLCMDPATH%\sqlcmd" -S 192.168.2.8 -d ram -U ramuser -P 183madi
 
 python %SCRIPTDIR%\mapping_verification.py --check_mappings
 python %SCRIPTDIR%\make_mapping_table.py
+
+pause
