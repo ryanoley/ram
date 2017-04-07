@@ -126,7 +126,7 @@ select			D.*,
 
 from			pricing_data P
 
-	join		ram.dbo.ram_gvkey_map M
+	join		ram.dbo.ram_idccode_to_gvkey_map M
 		on		P.IdcCode = M.IdcCode
 		and		P.Date_ between M.StartDate and M.EndDate
 

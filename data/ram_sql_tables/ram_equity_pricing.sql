@@ -173,7 +173,9 @@ from			qai.prc.PrcDly
 , idc_clean_prices3 as (
 select			Code,
 				Date_,
-				case when Vwap > 0 then Vwap else Null end as Vwap
+				case when Vwap > 0 then Vwap else Null end as Vwap,
+				case when AvgTrade > 0 then AvgTrade else Null end as AvgTrade,
+				case when NumTrades > 0 then NumTrades else Null end as NumTrades
 from			qai.prc.PrcVol
 
 )
@@ -184,12 +186,12 @@ select			D.SecCode,
 				D.DsInfoCode,
 				D.Code as IdcCode,
 				D.Date_,
-				coalesce(P1.Open_, P2.Open_) as Open_,
-				coalesce(P1.High, P2.High) as High,
-				coalesce(P1.Low, P2.Low) as Low,
-				coalesce(P1.Close_, P2.Close_) as Close_,
+				coalesce(P1.Open_, P2.Open_, P3.Vwap) as Open_,
+				coalesce(P1.High, P2.High, P3.Vwap) as High,
+				coalesce(P1.Low, P2.Low, P3.Vwap) as Low,
+				coalesce(P1.Close_, P2.Close_, P3.Vwap) as Close_,
 				P3.Vwap,
-				coalesce(P2.Volume, P1.Volume) as Volume,
+				coalesce(P2.Volume, P1.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades) as Volume,
 				A.Factor as SplitFactor,
 				Isnull(DV.CashDividend, 0) as CashDividend,
 				D.Shares as tempShares
@@ -232,7 +234,7 @@ from			idc_dates2 D
 -- Remove a lot of junk stocks
 -- Could mess up CumRate calculation downstream IF a stock is resurrected from
 -- the dead and paid some dividend that was meaningful.
-where	coalesce(P1.Close_, P2.Close_) > 1
+where	coalesce(P1.Close_, P2.Close_, 2) > 1
 
 )
 
