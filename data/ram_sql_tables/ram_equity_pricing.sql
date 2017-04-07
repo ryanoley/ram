@@ -58,93 +58,22 @@ create table	ram.dbo.temp_pricing (
 )
 
 
--- ############################################################################################
---  TEMP TABLES
 
-if object_id('tempdb..#idc_data', 'U') is not null 
-	drop table #idc_data
-
-if object_id('tempdb..#pricing_data', 'U') is not null 
-	drop table #pricing_data
-
-
-create table #idc_data
-(
-    SecCode int,
-	DsInfoCode int,
-	IdcCode int,
-    Date_ datetime,
-	Open_ real,
-	High real,
-	Low real,
-	Close_ real,
-	Vwap real,
-	Volume real,
-	SplitFactor real,
-	CashDividend real,
-	tempShares real
-	primary key (SecCode, Date_)
-)
-
-
-create table #pricing_data (
-	SecCode int,
-	IdcCode int,
-	Date_ smalldatetime,
-	-- Raw values
-	Open_ real,
-	High real,
-	Low real,
-	Close_ real,
-	Vwap real,
-	Volume real,
-	CashDividend real,
-	MarketCap real,
-	SplitFactor real,
-	primary key (SecCode, Date_)
-)
-
-
-
--- ############################################################################################
---  IDC Pricing
+-- ### IDC DATA ########################################################################
 
 ; with idc_dates as (
--- All dates from IDC tables
 select distinct Code, Date_ from qai.prc.PrcExc where Date_ >= '1990-12-01'
+	and Code in (select distinct IdcCode from #id_table)
 union
 select distinct Code, Date_ from qai.prc.PrcDly where Date_ >= '1990-12-01'
+	and Code in (select distinct IdcCode from #id_table)
 union
 select distinct Code, Date_ from qai.prc.PrcVol where Date_ >= '1990-12-01'
-
+	and Code in (select distinct IdcCode from #id_table)
 )
 
 
-, idc_dates2 as (
--- Filter on ram_master_ids table, and provide SecCode and DsInfoCode
-select			P.*,
-				M.SecCode,
-				M.DsInfoCode,
-				S.Shares
-from			idc_dates P
-
-join			#id_table M
-		on		P.Code = M.IdcCode
-		and		P.Date_ between M.StartDate and M.EndDate
-
-left join		qai.prc.PrcShr S
-on 
-	S.Code = P.Code and
-	-- Merges on max available date from Share table
-	-- that is before or on current daily date
-	S.Date_ = (select max(S2.Date_) 
-			   from qai.prc.PrcShr S2
-			   where S2.Code = P.Code
-			   and S2.Date_ <= P.Date_)
-)
-
-
-, idc_clean_prices1 as (
+, idc_data1 as (
 select			Code,
 				Date_,
 				case when Open_ > 0 then Open_ else Null end as Open_,
@@ -153,11 +82,11 @@ select			Code,
 				case when Close_ > 0 then Close_ else Null end as Close_,
 				case when Volume > 0 then Volume else Null end as Volume
 from			qai.prc.PrcExc
-
+where			Code in (select distinct IdcCode from #id_table)
 )
 
 
-, idc_clean_prices2 as (
+, idc_data2 as (
 select			Code,
 				Date_,
 				case when Open_ > 0 then Open_ else Null end as Open_,
@@ -166,52 +95,59 @@ select			Code,
 				case when Close_ > 0 then Close_ else Null end as Close_,
 				case when Volume > 0 then Volume else Null end as Volume
 from			qai.prc.PrcDly
-
+where			Code in (select distinct IdcCode from #id_table)
 )
 
 
-, idc_clean_prices3 as (
+, idc_data3 as (
 select			Code,
 				Date_,
 				case when Vwap > 0 then Vwap else Null end as Vwap,
 				case when AvgTrade > 0 then AvgTrade else Null end as AvgTrade,
 				case when NumTrades > 0 then NumTrades else Null end as NumTrades
 from			qai.prc.PrcVol
-
+where			Code in (select distinct IdcCode from #id_table)
 )
 
 
-, idc_data_all as (
-select			D.SecCode,
-				D.DsInfoCode,
-				D.Code as IdcCode,
-				D.Date_,
-				coalesce(P1.Open_, P2.Open_, P3.Vwap) as Open_,
-				coalesce(P1.High, P2.High, P3.Vwap) as High,
-				coalesce(P1.Low, P2.Low, P3.Vwap) as Low,
-				coalesce(P1.Close_, P2.Close_, P3.Vwap) as Close_,
-				P3.Vwap,
-				coalesce(P2.Volume, P1.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades) as Volume,
-				A.Factor as SplitFactor,
-				Isnull(DV.CashDividend, 0) as CashDividend,
-				D.Shares as tempShares
+, clean_idc_data1 as (
+select				D.Code,
+					D.Date_,
+					coalesce(P1.Open_, P2.Open_, P3.Vwap) as Open_,
+					coalesce(P1.High, P2.High, P3.Vwap) as High,
+					coalesce(P1.Low, P2.Low, P3.Vwap) as Low,
+					coalesce(P1.Close_, P2.Close_, P3.Vwap) as Close_,
+					P3.Vwap,
+					coalesce(P2.Volume, P1.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades) as Volume,
+					S.Shares as tempShares,
+					A.Factor as SplitFactor,
+					Isnull(DV.CashDividend, 0) as CashDividend
 
-from			idc_dates2 D
+from				idc_dates D
 
-	left join	idc_clean_prices1 P1
-		on		D.Code = P1.Code
-		and		D.Date_ = P1.Date_
+	left join		idc_data1 P1
+		on			D.Code = P1.Code
+		and			D.Date_ = P1.Date_
 
-	left join	idc_clean_prices2 P2
-		on		D.Code = P2.Code
-		and		D.Date_ = P2.Date_
+	left join		idc_data2 P2
+		on			D.Code = P2.Code
+		and			D.Date_ = P2.Date_
 
-	left join	idc_clean_prices3 P3
-		on		D.Code = P3.Code
-		and		D.Date_ = P3.Date_
+	left join		idc_data3 P3
+		on			D.Code = P3.Code
+		and			D.Date_ = P3.Date_
 
+	-- Shares outstanding for market cap calculation
+	left join		qai.prc.PrcShr S
+		on			D.Code = S.Code and
+					S.Date_ = (select max(s.Date_) 
+						from qai.prc.PrcShr s
+						where s.Code = D.Code
+						and s.Date_ <= D.Date_)
+
+	-- Adjustment Factor
 	left join	qai.prc.PrcAdj	A
-		on		A.Code = D.Code
+		on		D.Code = A.Code
 		and		A.AdjType = 1
 		and		D.Date_ >= A.StartDate
 		and		D.Date_ <= A.EndDate
@@ -228,63 +164,58 @@ from			idc_dates2 D
 					and SuppType = 0		-- Normal Cash Dividend
 				group by Code, ExDate
 				) DV
-		on		DV.Code = D.Code
-		and		DV.ExDate = D.Date_
-
--- Remove a lot of junk stocks
--- Could mess up CumRate calculation downstream IF a stock is resurrected from
--- the dead and paid some dividend that was meaningful.
-where	coalesce(P1.Close_, P2.Close_, 2) > 1
-
+		on		D.Code = DV.Code
+		and		D.Date_ = DV.ExDate
 )
 
-insert into #idc_data
-select * from idc_data_all
 
-go;
+, clean_idc_data2 as (
+-- Join SecCode and DsInfoCode AND filter with Start and End Dates
+select				P.*,
+					M.SecCode,
+					M.DsInfoCode
+from				clean_idc_data1 P
+	join			#id_table M
+		on			P.Code = M.IdcCode
+		and			P.Date_ between M.StartDate and M.EndDate
+)
 
--- ############################################################################################
---  Data Stream data
 
-; with data_merge as (
 
-select				IDC.SecCode,
-					IDC.IdcCode,
-					IDC.Date_,
-					coalesce(IDC.Open_, P.Open_) as Open_,
-					coalesce(IDC.High, P.High) as High,
-					coalesce(IDC.Low, P.Low) as Low,
-					coalesce(IDC.Close_, P.Close_) as Close_,
-					coalesce(IDC.Vwap, P.Vwap) as Vwap,
+-- ### DATASTREAM DATA ########################################################################
 
-					IDC.Volume,
-					IDC.CashDividend,
+, data_merge as (
+select				I.SecCode,
+					I.Code as IdcCode,
+					I.Date_,
+					coalesce(I.Open_, P.Open_) as Open_,
+					coalesce(I.High, P.High) as High,
+					coalesce(I.Low, P.Low) as Low,
+					coalesce(I.Close_, P.Close_) as Close_,
+					coalesce(I.Vwap, P.Vwap) as Vwap,
+
+					I.Volume,
+					I.CashDividend,
 
 					-- Market Cap calculated here to use coalesced Close_
-					coalesce(MC.ConsolMktVal, IDC.tempShares * coalesce(IDC.Close_, P.Close_) / 1e6) as MarketCap,
-					IDC.SplitFactor
+					coalesce(MC.ConsolMktVal, I.tempShares * coalesce(I.Close_, P.Close_) / 1e6) as MarketCap,
+					I.SplitFactor
 
-from				#idc_data IDC
+from				clean_idc_data2 I
 
 	left join		qai.dbo.DS2PrimQtPrc P
-		on			IDC.DsInfoCode = P.InfoCode
-		and			IDC.Date_ = P.MarketDate
+		on			I.DsInfoCode = P.InfoCode
+		and			I.Date_ = P.MarketDate
 
 	left join		qai.dbo.Ds2MktVal MC
-		on			IDC.DsInfoCode = MC.InfoCode
-		and			IDC.Date_ = MC.ValDate
-
+		on			I.DsInfoCode = MC.InfoCode
+		and			I.Date_ = MC.ValDate
 )
 
-insert into #pricing_data
-select * from data_merge
 
-go
+-- ### AGGREGATED FIELDS ########################################################################
 
--- ############################################################################################
---  Aggregated Fields
-
-; with agg_data as (
+, aggregated_data as (
 select		*,
 			-- Calculation for DividendFactor
 			sum(log((1 + isnull(CashDividend, 0) / Close_))) over (
@@ -299,8 +230,7 @@ select		*,
 			Lag(Date_, 252) over (
 				partition by SecCode 
 				order by Date_) as DateLag
-from		#pricing_data
-
+from		data_merge
 )
 
 
@@ -309,9 +239,7 @@ select		Date_,
 			Lag(Date_, 252) over (
 				order by Date_) as DateLagC
 from		(select distinct T0 as Date_ from ram.dbo.trading_dates) a
-
 )
-
 
 -- ############################################################################################
 --  Final Formatting
@@ -346,7 +274,7 @@ select 			D.SecCode,
 				-- Filter that is used in universe selection
 				case when DateLag = DF.DateLagC then 1 else 0 end as NormalTradingFlag
 
-from			agg_data D
+from			aggregated_data D
 	join		trading_dates_filter DF
 		on		D.Date_ = DF.Date_
 
@@ -354,14 +282,11 @@ where			D.Date_ >= '1992-01-01'
 
 )
 
+
 insert into ram.dbo.temp_pricing
 select * from final_table
 
-drop table #idc_data
-drop table #pricing_data
-drop table #id_table
-
-create nonclustered index seccode_date on ram.dbo.temp_pricing (SecCode, Date_)
+create nonclustered index idccode_date on ram.dbo.temp_pricing (IdcCode, Date_)
 
 
 if $(tabletype) = 1
