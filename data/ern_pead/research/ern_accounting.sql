@@ -40,6 +40,7 @@ select distinct GVKey, DATADATE as FiscalYearDate from qai.dbo.CSICoADesInd
 , report_dates as (
 select				D.SecCode,
 					D.QuarterDate,
+					D.FilterDate,
 					D.ReportDate,
 					G.GVKey
 from				ram.dbo.ram_earnings_report_dates D
@@ -198,7 +199,9 @@ from		( select GVKEY, DATADATE, Value_, ItemCode
 , aggregated_data as (
 select			Q.GVKEY,
 				Q.DATADATE,
-				coalesce(Q.ATQ, A.[AT], 0) - coalesce(Q.LTQ, A.[LT], 0) - A.INTAN as BOOKVALUE,
+				A.[AT],
+
+				coalesce(Q.ATQ, A.[AT], 0) - coalesce(Q.LTQ, A.[LT], 0) - isnull(A.INTAN, 0) as BOOKVALUE,
 			    A.OANCF / nullif(A.NI, 0) as CashFlowNetIncome,
 
 				isnull(Q.CHEQ, A.CHE) as CASH,
@@ -250,7 +253,6 @@ select			Q.GVKEY,
 
 				A.OIADP + A.DP as EbitdaComp
 
-
 from			pivot_quarterly_data Q
 
 	left join	pivot_annual_data A
@@ -260,12 +262,45 @@ from			pivot_quarterly_data Q
 )
 
 
-select top 1000 * from aggregated_data
-where GVKey = 1004
+, aggregated_data2 as (
+select				A.GVKEY,
+					lead(A.DATADATE, 1) over (
+						partition by GVKey
+						order by DATADATE) as MergeQuarterDate,
+					(A.SALES - A.COGS) / nullif(A.[AT], 0) as ProfAsset,
+				    A.BOOKVALUE,
+					A.DEBT,
+					A.CASH,
+					coalesce(A.EbitdaPrimary, 
+							 A.EbitdaComp, 
+							 A.EbitdaComp2, 
+							 lag(coalesce(A.EbitdaPrimary, A.EbitdaComp, A.EbitdaComp2), 1) over (
+								partition by A.GVKey 
+						        order by A.DATADATE)) as Ebitda,
+					A.CashFlowNetIncome
+
+from				aggregated_data A
+
+)
 
 
-select * from qai.dbo.CSCoIFndQ
-where GVKey = 1004
-and Item = 288
+select				D.SecCode,
+					D.ReportDate,
+					A.ProfAsset,
+					A.Ebitda,
+					A.CashFlowNetIncome,
+					P.MarketCap / A.BOOKVALUE as PriceBook,
+					P.MarketCap + A.DEBT - A.CASH as EnterpriseValue
 
+from				aggregated_data2 A
+
+	join			report_dates D
+		on			A.GVKEY = D.GVKey
+		and			A.MergeQuarterDate = D.QuarterDate
+
+	join			ram.dbo.ram_equity_pricing P
+		on			D.SecCode = P.SecCode
+		and			D.FilterDate = P.Date_
+
+where				A.GVKey = 1004
 
