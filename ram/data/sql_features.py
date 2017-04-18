@@ -219,7 +219,7 @@ def PRMAH(data_column, feature_name, length_arg, table):
                     b.{0} / avg(b.{0}) over (
                         order by b.Date_
                         rows between {1} preceding and current row) as PRMASPY
-            from    ram.dbo.ram_master_etf b
+            from    ram.dbo.ram_etf_pricing b
             where   B.SecCode = 61494
             ) B
             on  A.Date_ = B.Date_

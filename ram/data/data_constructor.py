@@ -95,6 +95,7 @@ class DataConstructor(object):
         git_branch, git_commit = get_git_branch_commit()
         meta = {
             'frequency': self.date_parameters['frequency'],
+            'filter_args': self.filter_args,
             'train_period_len': self.date_parameters['train_period_length'],
             'test_period_len': self.date_parameters['test_period_length'],
             'start_year': self.date_parameters['start_year'],
