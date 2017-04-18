@@ -7,7 +7,9 @@ insert @items(Item, ItemCode) values (288, 'SALEQ'),
 	(65, 'COGSQ'), (37, 'ATQ'), 
 	(176, 'LTQ'), (54, 'CHEQ'), 
 	(81, 'DLTTQ'), (80, 'DLCQ'), 
-	(196, 'OIBDPQ'), (403, 'XSGAQ');
+	(196, 'OIBDPQ'), (403, 'XSGAQ'),
+	(184, 'NIQ')
+
 
 
 declare @itemsA table (Item int, ItemCode varchar(10));
@@ -181,7 +183,7 @@ select		*
 from		( select GVKEY, DATADATE, Value_, ItemCode
 			  from quarterly_data ) d
 			pivot
-			( max(Value_) for ItemCode in (SALEQ, COGSQ, ATQ, LTQ, CHEQ, DLTTQ, DLCQ, OIBDPQ, XSGAQ) ) p
+			( max(Value_) for ItemCode in (SALEQ, COGSQ, ATQ, LTQ, CHEQ, DLTTQ, DLCQ, OIBDPQ, XSGAQ, NIQ, UOPIQ) ) p
 )
 
 
@@ -199,13 +201,26 @@ from		( select GVKEY, DATADATE, Value_, ItemCode
 , aggregated_data as (
 select			Q.GVKEY,
 				Q.DATADATE,
+
+				-- Balance sheet items that need no hamdling
 				A.[AT],
-
 				coalesce(Q.ATQ, A.[AT], 0) - coalesce(Q.LTQ, A.[LT], 0) - isnull(A.INTAN, 0) as BOOKVALUE,
-			    A.OANCF / nullif(A.NI, 0) as CashFlowNetIncome,
-
 				isnull(Q.CHEQ, A.CHE) as CASH,
 				coalesce(Q.DLTTQ + Q.DLCQ, A.DLTT + A.DLC, 0) as DEBT,
+
+				-- Income statement items that must be summed over four full periods
+				A.OANCF as OperatingActivities,
+
+				case
+					when count(Q.NIQ) over (
+						partition by Q.GVKey
+						order by Q.DATADATE
+						rows between 3 preceding and current row) = 4 -- Null Value Check
+					then sum(Q.NIQ) over (
+						partition by Q.GVKey
+						order by Q.DATADATE 
+						rows between 3 preceding and current row)
+					else A.NI end as NetIncome,
 
 				case
 					when count(Q.SALEQ) over (
@@ -267,17 +282,19 @@ select				A.GVKEY,
 					lead(A.DATADATE, 1) over (
 						partition by GVKey
 						order by DATADATE) as MergeQuarterDate,
-					(A.SALES - A.COGS) / nullif(A.[AT], 0) as ProfAsset,
-				    A.BOOKVALUE,
+					-- Values used with MarketCap downstream
+					A.BOOKVALUE,
 					A.DEBT,
 					A.CASH,
+					-- Calculated with available data
+					(A.SALES - A.COGS) / nullif(A.[AT], 0) as ProfAsset,
+				    A.OperatingActivities / nullif(A.NetIncome, 0) as CashFlowNetIncome,
 					coalesce(A.EbitdaPrimary, 
 							 A.EbitdaComp, 
 							 A.EbitdaComp2, 
 							 lag(coalesce(A.EbitdaPrimary, A.EbitdaComp, A.EbitdaComp2), 1) over (
 								partition by A.GVKey 
-						        order by A.DATADATE)) as Ebitda,
-					A.CashFlowNetIncome
+						        order by A.DATADATE)) as Ebitda
 
 from				aggregated_data A
 
@@ -286,8 +303,9 @@ from				aggregated_data A
 
 select				D.SecCode,
 					D.ReportDate,
-					A.ProfAsset,
+
 					A.Ebitda,
+					A.ProfAsset,
 					A.CashFlowNetIncome,
 					P.MarketCap / A.BOOKVALUE as PriceBook,
 					P.MarketCap + A.DEBT - A.CASH as EnterpriseValue
@@ -301,6 +319,3 @@ from				aggregated_data2 A
 	join			ram.dbo.ram_equity_pricing P
 		on			D.SecCode = P.SecCode
 		and			D.FilterDate = P.Date_
-
-where				A.GVKey = 1004
-
