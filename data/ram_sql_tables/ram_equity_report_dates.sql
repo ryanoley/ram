@@ -19,7 +19,7 @@ create table	ram.dbo.ram_equity_report_dates (
 		EarningsReturnHedge real,
 		PeadReturnLongHedge real,
 		PeadReturnShortHedge real
-		primary key (IdcCode, GVKey, QuarterDate)
+		primary key (IdcCode, GVKey, QuarterDate, ReportDate)
 )
 
 
