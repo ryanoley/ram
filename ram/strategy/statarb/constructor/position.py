@@ -24,7 +24,7 @@ class PairPosition(object):
         # Commission per share
         self.COMM = comm
         # Never open position if no data
-        if price1 and price2:
+        if ~np.isnan(price1) and ~np.isnan(price2):
             # Number of shares
             self.shares1 = int(size1 / price1)
             self.shares2 = int(size2 / price2)
@@ -105,8 +105,8 @@ class PairPosition(object):
             side_mult = 1 if self.shares1 > 0 else -1
             new_shares1 = int(side_exp / self.prices_current1) * side_mult
             new_shares2 = int(side_exp / self.prices_current2) * side_mult * -1
-            trans_cost = (abs(self.shares1 - new_shares1) + \
-                abs(self.shares2 - new_shares2)) * self.COMM
+            trans_cost = (abs(self.shares1 - new_shares1) +
+                          abs(self.shares2 - new_shares2)) * self.COMM
             self.daily_pl -= trans_cost
             self.shares1 = new_shares1
             self.shares2 = new_shares2
@@ -123,7 +123,8 @@ class PairPosition(object):
 
     def close_position(self):
         if self.open_position:
-            self.daily_pl -= (abs(self.shares1) + abs(self.shares2))* self.COMM
+            self.daily_pl -= (abs(self.shares1) +
+                              abs(self.shares2)) * self.COMM
             self.shares1 = 0
             self.shares2 = 0
             self.net_exposure = 0

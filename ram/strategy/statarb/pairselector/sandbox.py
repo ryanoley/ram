@@ -1,122 +1,151 @@
+import os
 import itertools
 import numpy as np
 import pandas as pd
-
-import matplotlib.pyplot as plt
 
 from ram.strategy.statarb.main import StatArbStrategy
 from ram.strategy.statarb.pairselector.pairs2 import PairSelector2
 from ram.strategy.statarb.pairselector.pairs2 import get_return_series
 from ram.strategy.statarb.pairselector.pairs2 import get_trade_signal_series
 
+from gearbox import find_quantiles
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
-strategy = StatArbStrategy('version_0004', False)
+
+strategy = StatArbStrategy('version_0005', False)
+
+strategy._prepped_data_dir = '/Users/mitchellsuter/Desktop/version_0005'
+strategy._get_data_file_names()
 
 pairselector = PairSelector2()
 
-data = strategy.read_data_from_index(14)
 
-params = {
-    'pair_test_flag': True
-}
+def get_data(pairselector, index=3):
+    data = strategy.read_data_from_index(index)
 
+    # Formatting of data
+    data['PRMA30_AvgDolVol'] = (data.AdjClose * data.AdjVolume / 1e6) / \
+        data.AvgDolVol
 
+    data['VOLRatio'] = data.VOL5_AdjClose / data.VOL20_AdjClose
 
-# ~~~ PREDICTIVE DATA SET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#  Big flaw is that responses can bleed into test data
+    features = ['PRMA30_AvgDolVol', 'VOLRatio', 'PRMA10_AdjClose']
 
-pairselector.rank_pairs(data, **params)
+    # Normalize features by day
+    means_ = data.groupby('Date')[features].mean()
+    means_.columns = [f + '_mean' for f in features]
+    means_ = means_.reset_index()
+    stds_ = data.groupby('Date')[features].std()
+    stds_.columns = [f + '_std' for f in features]
+    stds_ = stds_.reset_index()
 
-responses = pairselector.get_responses(z_window=20, enter_z=2, exit_z=0)
-zscores = pairselector.get_zscores(20)
+    data = data.merge(means_).merge(stds_)
 
-# Unstack zscores and responses
+    for f in features:
+        data[f] = (data[f] - data[f+'_mean']) / data[f+'_std']
+        data = data.drop([f+'_mean', f+'_std'], axis=1)
 
-responses2 = responses.unstack().reset_index()
-responses2.columns = ['Pair', 'Date', 'Response']
-
-zscores2 = zscores.unstack().reset_index()
-zscores2.columns = ['Pair', 'Date', 'ZScore']
-
-
-
-
-
-
+    return data[['SecCode', 'Date', 'AdjClose', 'TestFlag']+features], features
 
 
 
+for i in range(len(strategy._data_files)):
+
+    data, features = get_data(pairselector, i)
+
+    train_dates = data.Date[~data.TestFlag].drop_duplicates().values
+    test_dates = data.Date[data.TestFlag].drop_duplicates().values
+    # Test dates for only one quarter forward
+    qtrs = np.array([(x.month-1)/3 + 1 for x in test_dates])
+    test_dates = test_dates[qtrs == qtrs[0]]
+
+    # ~~~ PREDICTIVE DATA SET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #  Big flaw is that responses can bleed into test data
+    pairselector.rank_pairs(data)
+
+    responsesL, responsesS = pairselector.get_responses2(0.06, 30)
+    zscores = pairselector.get_zscores(20)
+    break
 
 
 
+import matplotlib.pyplot as plt
 
 
-
-
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-z_windows = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65]
-enter_zs = [1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.1, 2.2, 2.3, 2.5, 2.6]
-exit_zs = [-0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5]
-
-close1 = close_data[pair_info.Leg1].values
-close2 = close_data[pair_info.Leg2].values
-
-best_z_window = np.zeros(close1.shape[1])
-best_entry = np.zeros(close1.shape[1])
-best_exit = np.zeros(close1.shape[1])
-best_returns_train = np.zeros(close1.shape[1])
-best_returns_test = np.zeros(close1.shape[1])
-best_z_scores = np.zeros(close1.shape)
-
-train_dates = data.Date[~data.TestFlag].unique()
-train_inds = close_data.index.isin(train_dates)
-test_inds = ~train_inds
-
-for z_window in z_windows:
-
-    zscores = _get_zscores(close_data, pair_info,
-                           z_window=z_window).fillna(0).values
-
-    for enter_z, exit_z in itertools.product(enter_zs, exit_zs):
-
-        returns = np.zeros(close1.shape)
-        counts = np.zeros(close1.shape[1])
-        get_return_series(enter_z, exit_z, zscores, close1,
-                          close2, returns, counts)
-
-        returns_train = returns[train_inds].sum(axis=0)
-        returns_test = returns[test_inds].sum(axis=0)
-
-        eval_inds = returns_train > best_returns_train
-        best_z_scores = np.where(eval_inds, zscores, best_z_scores)
-        best_z_window = np.where(eval_inds, z_window, best_z_window)
-        best_entry = np.where(eval_inds, enter_z, best_entry)
-        best_exit = np.where(eval_inds, exit_z, best_exit)
-        best_returns_test = np.where(eval_inds, returns_test, best_returns_test)
-        best_returns_train = np.where(eval_inds, returns_train, best_returns_train)
-
-    print z_window, np.mean(returns_train), pd.Series(returns_test).dropna().mean()
+plt.figure()
+plt.plot(responsesL.mean(axis=1))
+plt.plot(responsesS.mean(axis=1))
+plt.show()
 
 
 
 
 
+if True:
+    # Unstack zscores and responses
+    responses2 = responsesL.unstack().reset_index()
+    responses2.columns = ['Pair', 'Date', 'Response']
+
+    zscores2 = zscores.unstack().reset_index()
+    zscores2.columns = ['Pair', 'Date', 'ZScore']
+    zscores2['ZScoreLag1'] = zscores2.ZScore.shift(1)
+    zscores2['ZScoreLag2'] = zscores2.ZScore.shift(2)
+    zscores2['ZScoreLag3'] = zscores2.ZScore.shift(3)
+
+    df = responses2.merge(zscores2).dropna()
+
+    # Merge data
+    df['SecCode'] = df.Pair.apply(lambda x: x.split('~')[0])
+    df = df.merge(data[['SecCode', 'Date']+features])
+
+    df['SecCode'] = df.Pair.apply(lambda x: x.split('~')[1])
+    df = df.merge(data[['SecCode', 'Date']+features],
+                  left_on=['SecCode', 'Date'],
+                  right_on=['SecCode', 'Date'], suffixes=('_leg1', '_leg2'))
+
+    train_features = [f + '_leg1' for f in features] + \
+        [f + '_leg2' for f in features]
+    train_features += ['ZScore', 'ZScoreLag1', 'ZScoreLag2', 'ZScoreLag3']
+
+    train_df = df[df.Date.isin(train_dates)].copy()
+    test_df = df[df.Date.isin(test_dates)].copy()
+
+    #rfc = RandomForestClassifier(n_estimators=8,
+    #                             min_samples_leaf=100,
+    #                             n_jobs=-1,
+    #                             verbose=2)
+
+    rfc = LogisticRegression()
+    rfc.fit(X=train_df[train_features], y=train_df.Response)
+
+    test_df['preds'] = rfc.predict_proba(test_df[train_features])[:, 1]
+
+    testout = pd.DataFrame(columns=['Top', 'Bottom'], index=test_dates)
+
+    for d in test_dates:
+        zz = test_df[test_df.Date == d].copy()
+        zz = zz.sort_values('preds')
+        cc = len(zz) / 4
+        testout.loc[d, 'Bottom'] = zz.Response.iloc[:cc].mean()
+        testout.loc[d, 'Top'] = zz.Response.iloc[-cc:].mean()
+
+    if i == 0:
+        out = pd.DataFrame(columns=['Top', 'Bottom'])
+    out.loc[i] = testout.mean()
+    print i
 
 
-"""
+import matplotlib.pyplot as plt
+
+z = test_df[['Date', 'preds']].set_index('Date')
+
+
+plt.figure()
+plt.plot(testout)
+plt.show()
+
+
+
+
+

@@ -74,6 +74,11 @@ class TestPairsSelector2(unittest.TestCase):
         benchmark = [4.0, 10.0, 6.0]
         self.assertListEqual(result, benchmark)
 
+    def Xtest_get_response_series(self):
+        close1 = np.array([[100, 100], [100, 100], [95, 95], [90, 85.]])
+        close2 = np.array([[100, 100], [100, 104], [105, 110], [200, 200.]])
+        results = get_response_series(close1, close2, take=0.04, max_days=4)
+
     def tearDown(self):
         pass
 

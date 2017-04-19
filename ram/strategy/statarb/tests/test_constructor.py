@@ -31,7 +31,7 @@ class TestConstructor(unittest.TestCase):
         })
         self.pair_info = pd.DataFrame({})
 
-    def test_set_and_prep_data(self):
+    def Xtest_set_and_prep_data(self):
         cons = PortfolioConstructor(booksize=200)
         cons.set_and_prep_data(self.scores, self.pair_info, self.data)
         result = cons.close_dict[pd.Timestamp('2015-01-01')]
@@ -47,15 +47,21 @@ class TestConstructor(unittest.TestCase):
         benchmark = {'AAPL~GOOGL': 0, 'GOOGL~IBM': -2, 'AAPL~IBM': 1}
         self.assertDictEqual(result, benchmark)
 
-    def Xtest_get_test_zscores(self):
-        pairs = PairSelector()
-        dates = [dt.datetime(2015, 1, i) for i in range(1, 11)]
-        df = pd.DataFrame({'V1': range(1, 11), 'V2': range(1, 11)[::-1],
-                           'V3': [2, 4, 3, 1, 5, 4, 3, 2, 5, 2]},
-                          index=dates)
-        cut_date = dt.datetime(2015, 1, 4)
-        fpairs = pd.DataFrame({'Leg1': ['V2', 'V1'], 'Leg2': ['V1', 'V3']})
-        result = pairs._get_test_zscores(df, cut_date, fpairs, window=2)
+    def test_get_zscores(self):
+        cons = PortfolioConstructor(booksize=200)
+        close_data = pd.DataFrame({
+            'AdjClose': [10, 12, 15, 14, 21, 24, 25, 22],
+            'SecCode': ['V1'] * 4 + ['V2'] * 4,
+            'Date': [dt.datetime(2015, 1, i) for i in [1, 2, 3, 4]] * 2
+        })
+        pair_info = pd.DataFrame({'Leg1': ['V1', 'V2'], 'Leg2': ['V2', 'V1']})
+        results = cons._get_zscores(close_data, pair_info, window=3)
+        benchmark = pd.DataFrame(
+            index=[dt.datetime(2015, 1, i) for i in [1, 2, 3, 4]])
+        benchmark.index.name = 'Date'
+        benchmark['V1~V2'] = [np.nan, np.nan, 1.131308968, 0.795301976]
+        benchmark['V2~V1'] = [np.nan, np.nan, -1.131308968, -0.795301976]
+        assert_frame_equal(results, benchmark)
 
     def Xtest_get_spread_zscores(self):
         prices = pd.DataFrame({'V1': [10, 12, 15, 14],
@@ -88,21 +94,7 @@ class TestConstructor(unittest.TestCase):
         benchmark['Ret'] = [-0.000500, 0.549125, -0.100000, -0.125375]
         assert_frame_equal(result, benchmark)
 
-    def test_get_pos_exposures(self):
-        port = PortfolioConstructor(booksize=200)
-        trade_prices = {'IBM': 100, 'VMW': 200, 'GOOGL': 100, 'AAPL': 200}
-        port._portfolio.add_pair(
-            pair='IBM~VMW', trade_prices=trade_prices,
-            gross_bet_size=10000, side=1)
-        port._portfolio.add_pair(
-            pair='IBM~GOOGL', trade_prices=trade_prices,
-            gross_bet_size=10000, side=1)
-        port._get_pos_exposures()
-        result = port._exposures
-        benchmark = {'IBM': 2, 'VMW': -1, 'GOOGL': -1}
-        self.assertDictEqual(result, benchmark)
-
-    def test_extract_earnings_signals(self):
+    def Xtest_set_and_prep_data(self):
         cons = PortfolioConstructor(booksize=200)
         cons.set_and_prep_data(self.scores, self.pair_info, self.data)
         cons._make_earnings_binaries()

@@ -9,7 +9,7 @@ class PairSelector2(object):
     def get_iterable_args(self):
         return {'pair_test_flag': [True]}
 
-    def rank_pairs(self, data, pair_test_flag):
+    def rank_pairs(self, data, pair_test_flag=None):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
@@ -29,6 +29,19 @@ class PairSelector2(object):
             index=self.close_data.index,
             columns = ['{}~{}'.format(x, y) for x, y in
                        self.pair_info[['Leg1', 'Leg2']].values])
+
+    def get_responses2(self, take=0.05, maxdays=20):
+        close1 = self.close_data[self.pair_info.Leg1].values
+        close2 = self.close_data[self.pair_info.Leg2].values
+        resp1, resp2 = get_response_series(close1, close2, take, maxdays)
+        output1 = pd.DataFrame(
+            resp1,
+            index=self.close_data.index,
+            columns = ['{}~{}'.format(x, y) for x, y in
+                       self.pair_info[['Leg1', 'Leg2']].values])
+        output2 = output1.copy()
+        output2[:] = resp2
+        return output1, output2
 
     def _filter_pairs(self, close_data, n_pairs=15000):
         pairs = self._prep_output(close_data)
@@ -81,7 +94,7 @@ class PairSelector2(object):
 
 # ~~~~~~ Optimized Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#@numba.jit(nopython=True)
+@numba.jit(nopython=True)
 def get_return_series(enter_z, exit_z,
                       zscores, close1, close2,
                       returns):
@@ -112,6 +125,45 @@ def get_return_series(enter_z, exit_z,
 
 
 # ~~~~~~ Response Variables ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def get_response_series(close1, close2, stop, max_days):
+    responses1 = np.zeros(close1.shape)
+    responses2 = np.zeros(close1.shape)
+    # Ensure this is a negative number
+    stop = -1 * abs(stop)
+    return _get_response_series(close1, close2,
+                                responses1, responses2,
+                                stop, max_days)
+
+# This is more a stop
+@numba.jit(nopython=True)
+def _get_response_series(close1, close2,
+                         responses1, responses2,
+                         stop, max_days):
+    n_days, n_pairs = close1.shape
+    for c in range(n_pairs):
+        for i in range(n_days-1):
+            # Days forward
+            days_forward = (i+max_days+1) if (i+max_days+1) < (n_days-1) \
+                else (n_days-1)
+            # Long Close2, Short Close1
+            for j in range(i+1, days_forward):
+                if close2[j, c] / close2[i, c] - \
+                        close1[j, c] / close1[i, c] < stop:
+                    break
+            responses1[i, c] = close2[j, c] / close2[i, c] - \
+                close1[j, c] / close1[i, c]
+
+            # Long Close1, Short Close2
+            for j in range(i+1, days_forward):
+                if close1[j, c] / close1[i, c] - \
+                        close2[j, c] / close2[i, c] < stop:
+                    break
+            responses2[i, c] = close1[j, c] / close1[i, c] - \
+                close2[j, c] / close2[i, c]
+    return responses1, responses2
+
+# ~~~~~~ Trade Signals ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def get_trade_signal_series(zscores, close1, close2, enter_z, exit_z):
     signals = np.zeros(zscores.shape)
