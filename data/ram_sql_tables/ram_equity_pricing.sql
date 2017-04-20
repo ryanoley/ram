@@ -53,7 +53,8 @@ create table	ram.dbo.temp_pricing (
 		MarketCap real,
 		DividendFactor real,
 		SplitFactor real,
-		NormalTradingFlag smallint
+		NormalTradingFlag smallint,
+		OneYearTradingFlag smallint
 		primary key (SecCode, Date_)
 )
 
@@ -118,7 +119,7 @@ select				D.Code,
 					coalesce(P1.Low, P2.Low, P3.Vwap) as Low,
 					coalesce(P1.Close_, P2.Close_, P3.Vwap) as Close_,
 					P3.Vwap,
-					coalesce(P2.Volume, P1.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades) as Volume,
+					coalesce(P2.Volume, P1.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades, 0) as Volume,
 					S.Shares as tempShares,
 					A.Factor as SplitFactor,
 					Isnull(DV.CashDividend, 0) as CashDividend
@@ -226,10 +227,10 @@ select		*,
 				partition by SecCode 
 				order by Date_
 				rows between 29 preceding and current row) / 1e6 as AvgDolVol,
-			-- Date Lag for NormalTradingFlag
+			-- Date Lag for OneYearTradingFlag
 			Lag(Date_, 252) over (
 				partition by SecCode 
-				order by Date_) as DateLag
+				order by Date_) as DateLag252
 from		data_merge
 )
 
@@ -237,9 +238,10 @@ from		data_merge
 , trading_dates_filter as (
 select		Date_,
 			Lag(Date_, 252) over (
-				order by Date_) as DateLagC
+				order by Date_) as DateLag252
 from		(select distinct T0 as Date_ from ram.dbo.trading_dates) a
 )
+
 
 -- ############################################################################################
 --  Final Formatting
@@ -271,8 +273,14 @@ select 			D.SecCode,
 				exp(D.CumRate) as DividendFactor,
 				D.SplitFactor,			
 
-				-- Filter that is used in universe selection
-				case when DateLag = DF.DateLagC then 1 else 0 end as NormalTradingFlag
+				-- NormalTrading over the past 126 days.
+				case 
+					when 
+						avg(case when D.Volume > 0 then 1.0 else 0.0 end) over (
+							partition by D.SecCode order by D.Date_ rows between 125 preceding and current row) = 1
+					then 1 else 0 end as NormalTradingFlag,
+
+				case when D.DateLag252 = DF.DateLag252 then 1 else 0 end as OneYearTradingFlag
 
 from			aggregated_data D
 	join		trading_dates_filter DF

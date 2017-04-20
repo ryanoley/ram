@@ -39,6 +39,7 @@ where RDQ is not null
 
 
 , all_report_dates2 as (
+-- Move RDQs that fall on a weekend/holiday to next trading date
 select		R.GVKEY,
 			R.DATADATE,
 			D.T0 as RDQ,
