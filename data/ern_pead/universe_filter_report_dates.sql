@@ -62,7 +62,8 @@ select			R.IdcCode,
 				P.AvgDolVol,
 				P.Close_,
 				P.MarketCap,
-				P.NormalTradingFlag
+				P.NormalTradingFlag,
+				P.OneYearTradingFlag
 
 from			ram.dbo.ram_equity_report_dates R
 
@@ -156,6 +157,7 @@ where			P.Close_ >= 15
 	and			P.AvgDolVol >= 3
 	and			P.MarketCap >= 200
 	and			P.NormalTradingFlag = 1
+	and			P.OneYearTradingFlag = 1
 )
 
 

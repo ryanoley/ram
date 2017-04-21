@@ -198,6 +198,7 @@ class DataHandlerSQL(object):
                 and     M.Date_ between S.StartDate and S.EndDate
             where       M.Date_ = '{1}'
             and         M.NormalTradingFlag = 1
+            and         M.OneYearTradingFlag = 1
             {2}
             )
             select top {0} SecCode from tempdata
