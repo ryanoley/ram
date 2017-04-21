@@ -21,13 +21,13 @@ class PortfolioConstructor(object):
 
     def get_iterable_args(self):
         return {
-            'n_pairs': [100, 300],
-            'max_pos_prop': [0.04, 0.08],
-            'pos_perc_deviation': [0.14],
-            'z_exit': [1],
-            'remove_earnings': [True],
+            'n_pairs': [100, 200, 300],
+            'max_pos_prop': [0.03, 0.06],
+            'pos_perc_deviation': [0.10],
+            'z_exit': [1.4, 1.7],
+            'remove_earnings': [False, True],
             'max_holding_days': [10, 30],
-            'stop_perc': [-0.03, -0.10]
+            'stop_perc': [-0.10, -0.20]
         }
 
     def get_daily_pl(self,
