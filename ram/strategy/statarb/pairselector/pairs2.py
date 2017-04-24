@@ -3,22 +3,31 @@ import numpy as np
 import pandas as pd
 import itertools as it
 
+from sklearn.model_selection import KFold
+
 
 class PairSelector2(object):
 
     def get_iterable_args(self):
-        return {'pair_test_flag': [True]}
+        return {'pairs2': [True],
+                'n_pairs': [500, 5000]}
 
-    def rank_pairs(self, data, pair_test_flag=None):
+    def rank_pairs(self, data, n_pairs=10, pairs2=False):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
                                 values='AdjClose')
+        volume_data = data.pivot(index='Date',
+                                 columns='SecCode',
+                                 values='AdjVolume')
         cut_date = data.Date[~data.TestFlag].max()
         train_close = close_data.loc[close_data.index <= cut_date]
         train_close = train_close.T.dropna().T
-        self.pair_info = self._filter_pairs(train_close)
-        self.close_data = close_data.fillna(method='pad')
+        if pairs2:
+            pair_info = self._filter_pairs2(train_close)
+        else:
+            pair_info = self._filter_pairs(train_close)
+        return pair_info.iloc[:n_pairs]
 
     def get_responses(self, z_window=20, enter_z=2, exit_z=1):
         zscores = self.get_zscores(z_window).fillna(0).values
@@ -49,6 +58,12 @@ class PairSelector2(object):
         pairs = pairs.sort_values('distances').reset_index(drop=True)
         return pairs.iloc[:n_pairs]
 
+    def _filter_pairs2(self, close_data, n_pairs=15000):
+        pairs = self._prep_output(close_data)
+        pairs['distances'] = self._get_distances2(close_data)
+        pairs = pairs.sort_values('distances').reset_index(drop=True)
+        return pairs.iloc[:n_pairs]
+
     # ~~~~~~ Z-Scores ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_zscores(self, z_window=20):
@@ -71,6 +86,31 @@ class PairSelector2(object):
         std = spreads.rolling(window=window).std()
         return (spreads - ma) / std
 
+    def get_spread_index(self):
+        # Create two data frames that represent Leg1 and Leg2
+        close1 = self.close_data.loc[:, self.pair_info.Leg1]
+        close2 = self.close_data.loc[:, self.pair_info.Leg2]
+        spreads = np.subtract(np.log(close1), np.log(close2))
+        # Add correct column names
+        spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
+                           zip(self.pair_info.Leg1, self.pair_info.Leg2)]
+        return spreads
+
+    # ~~~~~~ Volume Spread ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_volume_spread(self, z_window=20):
+        # Create two data frames that represent Leg1 and Leg2
+        volume1 = self.volume_data.loc[:, self.pair_info.Leg1]
+        volume2 = self.volume_data.loc[:, self.pair_info.Leg2]
+        # MAs
+        volume1 = volume1 / volume1.rolling(z_window).mean()
+        volume2 = volume2 / volume2.rolling(z_window).mean()
+        spreads = np.subtract(volume1, volume2)
+        # Add correct column names
+        spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
+                           zip(self.pair_info.Leg1, self.pair_info.Leg2)]
+        return spreads
+
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @staticmethod
@@ -83,6 +123,16 @@ class PairSelector2(object):
     def _get_distances(close_data):
         p_index = np.array(close_data / close_data.iloc[0])
         return np.apply_along_axis(get_abs_distance, 0, p_index, p_index)
+
+    def _get_distances2(self, close_data):
+        rets_data = close_data.pct_change().iloc[1:].values
+        # Ten folds
+        kf = KFold(10, False, 123)
+        out = []
+        for train, test in kf.split(rets_data):
+            out.append(self._flatten(np.apply_along_axis(
+                get_abs_distance, 0, rets_data[test], rets_data[test])))
+        return np.argsort(np.argsort(np.array(out))).mean(axis=0)
 
     @staticmethod
     def _prep_output(close_data):

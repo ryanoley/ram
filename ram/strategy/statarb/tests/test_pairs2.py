@@ -56,9 +56,18 @@ class TestPairsSelector2(unittest.TestCase):
     def test_get_distances(self):
         close_data = pd.DataFrame({
             'V1': [1, 1, 1], 'V2': [2, 4, 8], 'V3': [3, 9, 27.]})
-        result = PairSelector2._get_distances(close_data)
+        result = PairSelector2._get_distances2(close_data, 10)
         benchmark = np.array([[0, 4, 10], [4, 0, 6], [10, 6, 0.]])
         assert_array_equal(result, benchmark)
+
+    def test_get_distances_folds(self):
+        close_data = pd.DataFrame({
+            'V1': range(100, 111),
+            'V2': [101, 103, 103, 102, 101, 100, 99, 100, 120, 114, 100],
+            'V3': [101, 100, 98, 95, 92, 95, 90, 94, 101, 109, 140]
+        })
+        import pdb; pdb.set_trace()
+        result = PairSelector2()._get_distances2(close_data)
 
     def test_prep_output(self):
         close_data = pd.DataFrame({
