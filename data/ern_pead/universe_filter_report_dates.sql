@@ -157,7 +157,6 @@ where			P.Close_ >= 15
 	and			P.AvgDolVol >= 3
 	and			P.MarketCap >= 200
 	and			P.NormalTradingFlag = 1
-	and			P.OneYearTradingFlag = 1
 )
 
 
