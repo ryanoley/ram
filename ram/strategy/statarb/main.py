@@ -7,15 +7,14 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs import PairSelector
-from ram.strategy.statarb.pairselector.pairs2 import PairSelector2
-from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
+from ram.strategy.statarb.constructor.constructor2 import PortfolioConstructor2
 
 
 class StatArbStrategy(Strategy):
 
     # Creates on init
-    pairselector = PairSelector2()
-    constructor = PortfolioConstructor()
+    pairselector = PairSelector()
+    constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):
         args1 = make_arg_iter(self.pairselector.get_iterable_args())
@@ -109,4 +108,5 @@ if __name__ == '__main__':
         strategy.start()
     elif args.simulation:
         strategy = StatArbStrategy('version_0005', False)
+        import pdb; pdb.set_trace()
         strategy.start()
