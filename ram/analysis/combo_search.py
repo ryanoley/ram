@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import datetime as dt
+from tqdm import tqdm
+
+from ram.analysis.run_aggregator import RunAggregator
 
 
 class CombinationSearch(object):
@@ -10,45 +13,38 @@ class CombinationSearch(object):
         self.params = {
             'train_freq': 'm',
             'n_periods': 12,
-            'strats_per_port': 10,
+            'strats_per_port': 5,
             'n_best_ports': 5,
-            'seed_ind': 0,
+            'seed_ind': 1234
         }
+        self.runs = RunAggregator()
 
-    def attach_data(self, data):
-        assert isinstance(data, pd.DataFrame)
-        assert isinstance(data.index, pd.DatetimeIndex) or \
-            isinstance(data.index[0], dt.date)
-        self.column_labels = data.columns.tolist()
-        data.columns = range(data.shape[1])
-        self.data = data
+    def add_run(self, run):
+        self.runs.add_run(run)
 
-    def start(self):
-        self._create_results_objects()
-        self._create_training_indexes()
-        while True:
+    def start(self, epochs=50):
+        # Merge
+        returns = self.runs.aggregate_returns()
+        self._create_results_objects(returns)
+        self._create_training_indexes(returns)
+        for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
-                train_data = self.data.iloc[t1:t2].copy()
+                train_data = returns.iloc[t1:t2].copy()
                 # Drop any column that has an na
                 train_data = train_data.T.dropna().T
-                test_data = self.data.iloc[t2:t3].copy()
+                test_data = returns.iloc[t2:t3].copy()
                 # Same columns
                 test_data = test_data[train_data.columns]
-                # Flip signs on trade
-                train_data = train_data.join(-1*train_data, rsuffix='_flip')
-                test_data = test_data.join(-1*test_data, rsuffix='_flip')
-
+                # Search
                 test_results, train_scores, combs = \
                     self._fit_top_combinations(
                         t2, train_data, test_data)
                 self._process_results(
                     t2, test_results, train_scores, combs)
-            print('Single pass complete')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _fit_top_combinations(self, time_index, train_data, test_data):
-
         combs = self._generate_random_combs(
             train_data.shape[1], time_index)
         # Calculate sharpes
@@ -61,7 +57,7 @@ class CombinationSearch(object):
 
     def _get_sharpes(self, data, combs):
         ports = self._get_ports(data, combs)
-        return np.mean(ports, axis=1) # / np.std(ports, axis=1)
+        return np.mean(ports, axis=1) / np.std(ports, axis=1)
 
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
@@ -94,24 +90,24 @@ class CombinationSearch(object):
                 combs = combs[inds]
         return combs
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~ Time Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _create_training_indexes(self):
+    def _create_training_indexes(self, data):
         if self.params['train_freq'] == 'm':
             # Get changes in months
             transition_indexes = np.where(np.diff(
-                [d.month for d in self.data.index]))[0] + 1
+                [d.month for d in data.index]))[0] + 1
         elif self.params['train_freq'] == 'w':
             # 0s are mondays so get the day it goes from 4 to 0
             transition_indexes = np.where(np.diff(
-                [d.weekday() for d in self.data.index]) < 0)[0] + 1
+                [d.weekday() for d in data.index]) < 0)[0] + 1
         else:
             # Get changes in months
             transition_indexes = np.where(np.diff(
-                [d.quarter for d in self.data.index]))[0] + 1
+                [d.quarter for d in data.index]))[0] + 1
         transition_indexes = np.append([0], transition_indexes)
         transition_indexes = np.append(transition_indexes,
-                                       [self.data.shape[0]])
+                                       [data.shape[0]])
 
         if self.params['n_periods'] < 1:
             # Grow infinitely
@@ -128,11 +124,13 @@ class CombinationSearch(object):
                 transition_indexes[n1+1:])
         return
 
-    def _create_results_objects(self):
+    # ~~~~~~ Output Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _create_results_objects(self, data):
         if not hasattr(self, 'best_results_rets'):
             self.best_results_rets = pd.DataFrame(
                 columns=range(self.params['n_best_ports']),
-                index=self.data.index,
+                index=data.index,
                 dtype=np.float_)
             self.best_results_scores = {}
             self.best_results_combs = {}
