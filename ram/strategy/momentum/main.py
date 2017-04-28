@@ -1,18 +1,21 @@
 import pandas as pd
 
 from ram.strategy.base import Strategy
+from ram.strategy.momentum.constructor import MomentumConstructor
 
 
 class MomentumStrategy(Strategy):
+
+    cons = MomentumConstructor()
 
     def get_column_parameters(self):
         return {'V1': 0}
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
-        returns = pd.DataFrame({1: [1, 2, 3]}, index=range(3))
+        returns, stats = cons.get_daily_returns(data)
         self.write_index_results(returns, time_index)
-        self.write_index_stats({'stat1': 10}, time_index)
+        self.write_index_stats(stats, time_index)
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -53,8 +56,9 @@ if __name__ == '__main__':
     if args.data:
         MomentumStrategy().make_data()
     elif args.write_simulation:
-        strategy = MomentumStrategy('version_0001', True)
+        strategy = MomentumStrategy('version_0002', True)
         strategy.start()
     elif args.simulation:
-        strategy = MomentumStrategy('version_0001', False)
+        import pdb; pdb.set_trace()
+        strategy = MomentumStrategy('version_0002', False)
         strategy.start()
