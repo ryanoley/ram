@@ -25,7 +25,7 @@ class TestETFData(unittest.TestCase):
         data.index.name = 'Date'
         self.data = data
 
-    def test_init(self):
+    def Xtest_init(self):
         import pdb; pdb.set_trace()
         etf_data = ETFData('SPY')
         etf_data.data = self.data

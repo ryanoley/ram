@@ -13,7 +13,7 @@ class MomentumStrategy(Strategy):
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
-        returns, stats = cons.get_daily_returns(data)
+        returns, stats = self.cons.get_daily_returns(data)
         self.write_index_results(returns, time_index)
         self.write_index_stats(stats, time_index)
 
@@ -59,6 +59,5 @@ if __name__ == '__main__':
         strategy = MomentumStrategy('version_0002', True)
         strategy.start()
     elif args.simulation:
-        import pdb; pdb.set_trace()
         strategy = MomentumStrategy('version_0002', False)
         strategy.start()

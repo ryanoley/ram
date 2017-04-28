@@ -37,7 +37,7 @@ class TestPairsSelector2(unittest.TestCase):
         assert_array_equal(returns.round(5), benchmark.round(5))
         self.assertEqual(count, 1)
 
-    def test_get_trade_signal_series(self):
+    def Xtest_get_trade_signal_series(self):
         zscores = np.array([[0, -3], [2, -2], [3, 1], [0, 3]])
         close1 = np.array([[100, 100], [100, 100], [95, 95], [90, 85.]])
         close2 = np.array([[100, 100], [100, 104], [105, 110], [200, 200.]])
@@ -53,20 +53,19 @@ class TestPairsSelector2(unittest.TestCase):
         benchmark = np.array([3, 6.])
         assert_array_equal(result, benchmark)
 
-    def test_get_distances(self):
+    def Xtest_get_distances(self):
         close_data = pd.DataFrame({
             'V1': [1, 1, 1], 'V2': [2, 4, 8], 'V3': [3, 9, 27.]})
         result = PairSelector2._get_distances2(close_data, 10)
         benchmark = np.array([[0, 4, 10], [4, 0, 6], [10, 6, 0.]])
         assert_array_equal(result, benchmark)
 
-    def test_get_distances_folds(self):
+    def Xtest_get_distances_folds(self):
         close_data = pd.DataFrame({
             'V1': range(100, 111),
             'V2': [101, 103, 103, 102, 101, 100, 99, 100, 120, 114, 100],
             'V3': [101, 100, 98, 95, 92, 95, 90, 94, 101, 109, 140]
         })
-        import pdb; pdb.set_trace()
         result = PairSelector2()._get_distances2(close_data)
 
     def test_prep_output(self):
