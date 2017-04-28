@@ -18,8 +18,7 @@ create table	ram.dbo.ram_equity_report_dates (
 		PeadReturnShort real,
 		EarningsReturnHedge real,
 		PeadReturnLongHedge real,
-		PeadReturnShortHedge real,
-		TEMPLoadTime datetime,
+		PeadReturnShortHedge real
 		primary key (IdcCode, GVKey, QuarterDate, ReportDate)
 )
 
@@ -108,8 +107,7 @@ select			P.IdcCode,
 
 				H.PriceT1 / H.PriceTm1 - 1 as EarningsReturnHedge,
 				H.PriceT4 / H.PriceT1 - 1 as PeadReturnLongHedge,
-				H.PriceT3 / H.PriceT1 - 1 as PeadReturnShortHedge,
-				getdate() as TEMPLoadTime
+				H.PriceT3 / H.PriceT1 - 1 as PeadReturnShortHedge
 
 from			all_report_dates2 D
 join			pricing_returns P
