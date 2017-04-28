@@ -2,26 +2,26 @@ import os
 import itertools
 import numpy as np
 import pandas as pd
+import datetime as dt
+import matplotlib.pyplot as plt
 
 from ram.strategy.statarb.main import StatArbStrategy
 from ram.strategy.statarb.pairselector.pairs2 import PairSelector2
-from ram.strategy.statarb.pairselector.pairs2 import get_return_series
-from ram.strategy.statarb.pairselector.pairs2 import get_trade_signal_series
 
-from gearbox import find_quantiles
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 
 strategy = StatArbStrategy('version_0005', False)
-
-strategy._prepped_data_dir = '/Users/mitchellsuter/Desktop/version_0005'
 strategy._get_data_file_names()
-
 pairselector = PairSelector2()
 
 
+
+# ~~~~~~ MAKE FEATURES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def get_data(pairselector, index=3):
+
     data = strategy.read_data_from_index(index)
 
     # Formatting of data
@@ -50,100 +50,72 @@ def get_data(pairselector, index=3):
 
 
 
-for i in range(len(strategy._data_files)):
+# ~~~~~~ Import some data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    data, features = get_data(pairselector, i)
+i = 14
 
-    train_dates = data.Date[~data.TestFlag].drop_duplicates().values
-    test_dates = data.Date[data.TestFlag].drop_duplicates().values
-    # Test dates for only one quarter forward
-    qtrs = np.array([(x.month-1)/3 + 1 for x in test_dates])
-    test_dates = test_dates[qtrs == qtrs[0]]
+data, features = get_data(pairselector, i)
 
-    # ~~~ PREDICTIVE DATA SET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #  Big flaw is that responses can bleed into test data
-    pairselector.rank_pairs(data)
+train_dates = data.Date[~data.TestFlag].drop_duplicates().values
+test_dates = data.Date[data.TestFlag].drop_duplicates().values
 
-    responsesL, responsesS = pairselector.get_responses2(0.06, 30)
-    zscores = pairselector.get_zscores(20)
-    break
+# Test dates for only one quarter forward
+qtrs = np.array([(x.month-1)/3 + 1 for x in test_dates])
+test_dates = test_dates[qtrs == qtrs[0]]
 
 
 
-import matplotlib.pyplot as plt
+# ~~~~~~ Responses ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+from ram.strategy.statarb.responses.response1 import response_strategy_1
 
 
-plt.figure()
-plt.plot(responsesL.mean(axis=1))
-plt.plot(responsesS.mean(axis=1))
-plt.show()
+pairselector.rank_pairs(data, 50)
+
+# Get train close prices for response creation
+close1 = pairselector.close_data.loc[train_dates][pairselector.pair_info.Leg1]
+close2 = pairselector.close_data.loc[train_dates][pairselector.pair_info.Leg2]
+resp1 = close1.copy()
+resp2 = close2.copy()
+
+resp1[:], resp2[:] = response_strategy_1(close1.values, close2.values, 0.02, 6)
+# Rename columns
+resp1.columns = range(resp1.shape[1])
+resp2.columns = range(resp1.shape[1], resp1.shape[1]+resp2.shape[1])
+
+zscores = pairselector.get_zscores(40)
+
+X = zscores.loc[train_dates].iloc[40:]
+y = resp1.join(resp2).iloc[:-6]
+
+dates = list(set(X.index).intersection(y.index))
 
 
+clf = RandomForestClassifier()
+
+clf.fit(X=X.loc[dates], y=(y.loc[dates] > 0))
 
 
+## Out of sample
 
-if True:
-    # Unstack zscores and responses
-    responses2 = responsesL.unstack().reset_index()
-    responses2.columns = ['Pair', 'Date', 'Response']
+preds = clf.predict(zscores.loc[test_dates])
 
-    zscores2 = zscores.unstack().reset_index()
-    zscores2.columns = ['Pair', 'Date', 'ZScore']
-    zscores2['ZScoreLag1'] = zscores2.ZScore.shift(1)
-    zscores2['ZScoreLag2'] = zscores2.ZScore.shift(2)
-    zscores2['ZScoreLag3'] = zscores2.ZScore.shift(3)
+y.loc[dates].values[~preds.astype(bool)].mean()
 
-    df = responses2.merge(zscores2).dropna()
+close1_test = pairselector.close_data.loc[test_dates][pairselector.pair_info.Leg1]
+close2_test = pairselector.close_data.loc[test_dates][pairselector.pair_info.Leg2]
+resp1_test = close1_test.copy()
+resp2_test = close2_test.copy()
 
-    # Merge data
-    df['SecCode'] = df.Pair.apply(lambda x: x.split('~')[0])
-    df = df.merge(data[['SecCode', 'Date']+features])
-
-    df['SecCode'] = df.Pair.apply(lambda x: x.split('~')[1])
-    df = df.merge(data[['SecCode', 'Date']+features],
-                  left_on=['SecCode', 'Date'],
-                  right_on=['SecCode', 'Date'], suffixes=('_leg1', '_leg2'))
-
-    train_features = [f + '_leg1' for f in features] + \
-        [f + '_leg2' for f in features]
-    train_features += ['ZScore', 'ZScoreLag1', 'ZScoreLag2', 'ZScoreLag3']
-
-    train_df = df[df.Date.isin(train_dates)].copy()
-    test_df = df[df.Date.isin(test_dates)].copy()
-
-    #rfc = RandomForestClassifier(n_estimators=8,
-    #                             min_samples_leaf=100,
-    #                             n_jobs=-1,
-    #                             verbose=2)
-
-    rfc = LogisticRegression()
-    rfc.fit(X=train_df[train_features], y=train_df.Response)
-
-    test_df['preds'] = rfc.predict_proba(test_df[train_features])[:, 1]
-
-    testout = pd.DataFrame(columns=['Top', 'Bottom'], index=test_dates)
-
-    for d in test_dates:
-        zz = test_df[test_df.Date == d].copy()
-        zz = zz.sort_values('preds')
-        cc = len(zz) / 4
-        testout.loc[d, 'Bottom'] = zz.Response.iloc[:cc].mean()
-        testout.loc[d, 'Top'] = zz.Response.iloc[-cc:].mean()
-
-    if i == 0:
-        out = pd.DataFrame(columns=['Top', 'Bottom'])
-    out.loc[i] = testout.mean()
-    print i
+resp1_test[:], resp2_test[:] = response_strategy_1(close1_test.values, close2_test.values, 0.02, 6)
 
 
-import matplotlib.pyplot as plt
+resp1_test.columns = range(resp1_test.shape[1])
+resp2_test.columns = range(resp1_test.shape[1], resp1_test.shape[1]+resp2_test.shape[1])
 
-z = test_df[['Date', 'preds']].set_index('Date')
+resp1_test.join(resp2_test).values[preds == 1]
 
 
-plt.figure()
-plt.plot(testout)
-plt.show()
 
 
 

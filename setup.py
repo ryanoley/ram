@@ -5,22 +5,27 @@ DISTNAME = 'ram'
 MAINTAINER = 'RAM'
 DESCRIPTION = 'Master System'
 
-PACKAGES = ['ram',
-            'ram/analysis',
-            'ram/aws',
-            'ram/data',
-            'ram/strategy',
-            'ram/strategy/birds',
-            'ram/strategy/birds/constructor',
-            'ram/strategy/birds/signals',
-            'ram/strategy/gap',
-            'ram/strategy/statarb',
-            'ram/strategy/statarb/constructor',
-            'ram/strategy/statarb/pairselector',
-            'ram/strategy/yearend',
-            'ram/strategy_repo',
-            'ram/strategy_repo/basics',
-            'ram/utils']
+PACKAGES = [
+    'ram',
+    'ram/analysis',
+    'ram/aws',
+    'ram/data',
+    'ram/strategy',
+    'ram/strategy/birds',
+    'ram/strategy/birds/constructor',
+    'ram/strategy/birds/signals',
+    'ram/strategy/etfs',
+    'ram/strategy/gap',
+    'ram/strategy/momentum',
+    'ram/strategy/statarb',
+    'ram/strategy/statarb/constructor',
+    'ram/strategy/statarb/pairselector',
+    'ram/strategy/statarb/responses',
+    'ram/strategy/yearend',
+    'ram/strategy_repo',
+    'ram/strategy_repo/basics',
+    'ram/utils'
+]
 
 setup(
     name=DISTNAME,
