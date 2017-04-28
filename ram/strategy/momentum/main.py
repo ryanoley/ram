@@ -19,10 +19,9 @@ class MomentumStrategy(Strategy):
     def get_features(self):
         return ['AdjClose', 'AdjVolume',
                 'PRMA5_AdjClose', 'PRMA10_AdjClose',
-                'BOLL10_AdjClose', 'BOLL20_AdjClose',
-                'MFI10_AdjClose', 'MFI20_AdjClose',
-                'VOL5_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
-                'AvgDolVol', 'PRMA10_AvgDolVol',
+                'MA5_AdjClose', 'MA30_AdjClose',
+                'MA50_AdjClose', 'MA80_AdjClose',
+                'MA120_AdjClose',
                 'RClose', 'RCashDividend',
                 'SplitFactor', 'GSECTOR', 'EARNINGSFLAG']
 
@@ -30,8 +29,8 @@ class MomentumStrategy(Strategy):
         return {
             'frequency': 'Q',
             'train_period_length': 4,
-            'test_period_length': 2,
-            'start_year': 2009
+            'test_period_length': 4,
+            'start_year': 2002
         }
 
 
