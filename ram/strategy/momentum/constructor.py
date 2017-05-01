@@ -10,6 +10,9 @@ class MomentumConstructor(object):
     def __init__(self):
         pass
 
+    def get_iterable_args(self):
+        pass
+
     def get_daily_returns(self, data):
         # Parse and format data
         m_factors, m_prices, uniq_dates = self._format_data(data)

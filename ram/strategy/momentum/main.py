@@ -1,19 +1,29 @@
+import itertools
 import pandas as pd
 
 from ram.strategy.base import Strategy
-from ram.strategy.momentum.constructor import MomentumConstructor
+from ram.strategy.momentum.constructor2 import MomentumConstructor2
 
 
 class MomentumStrategy(Strategy):
 
-    cons = MomentumConstructor()
+    cons = MomentumConstructor2()
 
     def get_column_parameters(self):
-        return {'V1': 0}
+        args1 = make_arg_iter(self.cons.get_iterable_args())
+        output_params = {}
+        for col_ind, x in enumerate(args1):
+            output_params[col_ind] = x
+        return output_params
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
-        returns, stats = self.cons.get_daily_returns(data)
+        args1 = make_arg_iter(self.cons.get_iterable_args())
+        for arg_index, a1 in enumerate(args1):
+            returns, stats = self.cons.get_daily_returns(
+                data, self.get_date_parameters()['frequency'],
+                arg_index, **a1)
+            self._capture_output(results, stats, arg_index)
         self.write_index_results(returns, time_index)
         self.write_index_stats(stats, time_index)
 
@@ -32,9 +42,14 @@ class MomentumStrategy(Strategy):
         return {
             'frequency': 'Q',
             'train_period_length': 4,
-            'test_period_length': 4,
+            'test_period_length': 2,
             'start_year': 2002
         }
+
+
+def make_arg_iter(variants):
+    return [{x: y for x, y in zip(variants.keys(), vals)}
+            for vals in itertools.product(*variants.values())]
 
 
 if __name__ == '__main__':
@@ -59,5 +74,6 @@ if __name__ == '__main__':
         strategy = MomentumStrategy('version_0002', True)
         strategy.start()
     elif args.simulation:
+        import pdb; pdb.set_trace()
         strategy = MomentumStrategy('version_0002', False)
         strategy.start()
