@@ -7,14 +7,14 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs import PairSelector
-from ram.strategy.statarb.constructor.constructor2 import PortfolioConstructor2
+from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 
 
 class StatArbStrategy(Strategy):
 
     # Creates on init
     pairselector = PairSelector()
-    constructor = PortfolioConstructor2()
+    constructor = PortfolioConstructor()
 
     def get_column_parameters(self):
         args1 = make_arg_iter(self.pairselector.get_iterable_args())
@@ -40,9 +40,7 @@ class StatArbStrategy(Strategy):
                 self._capture_output(results, stats, arg_index)
                 arg_index += 1
         # Calculate returns
-        output_exposure = self.output_exposure.shift(1).fillna(
-            self.constructor.booksize)
-        returns = self.output_pl / output_exposure
+        returns = self.output_pl / self.constructor.booksize
         self.write_index_results(returns, time_index)
         self.write_index_stats(self.output_stats, time_index)
 
@@ -60,6 +58,13 @@ class StatArbStrategy(Strategy):
         self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_filter_args(self):
+        return {
+            'filter': 'AvgDolVol',
+            'where': 'MarketCap >= 200 and GSECTOR in (15) ' +
+            'and Close_ between 15 and 1000',
+            'univ_size': 200}
 
     def get_features(self):
         return ['AdjClose', 'AdjVolume',
@@ -99,14 +104,18 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--simulation', action='store_true',
         help='Run simulation')
+    parser.add_argument(
+        '--prepped_data', default='version_0005',
+        help='Run simulation')
     args = parser.parse_args()
 
     if args.data:
         StatArbStrategy().make_data()
     elif args.write_simulation:
-        strategy = StatArbStrategy('version_0005', True)
+        print('Running for data: {}'.format(args.prepped_data))
+        strategy = StatArbStrategy(args.prepped_data, True)
         strategy.start()
     elif args.simulation:
-        strategy = StatArbStrategy('version_0005', False)
+        strategy = StatArbStrategy(args.prepped_data, False)
         import pdb; pdb.set_trace()
         strategy.start()

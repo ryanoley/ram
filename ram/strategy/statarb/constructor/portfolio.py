@@ -81,7 +81,7 @@ class PairPortfolio(object):
 
     def get_closed_positions(self):
         return [pair for pair, pos in self.pairs.iteritems()
-                if ~pos.open_position]
+                if not pos.open_position]
 
     def count_open_positions(self):
         return sum([pos.open_position for pos in self.pairs.itervalues()])
