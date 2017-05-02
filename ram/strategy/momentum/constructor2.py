@@ -11,9 +11,9 @@ class MomentumConstructor2(object):
         self.portfolios = {}
 
     def get_iterable_args(self):
-        return {'holding_period': [20, 25, 30],
-                'positions_per_side': [10, 30, 50],
-                'n_ports': [2, 4, 6, 8],
+        return {'holding_period': [30, 50],
+                'positions_per_side': [30, 50],
+                'n_ports': [6, 8],
                 'train_period_len': [100, 240]}
 
     def get_daily_returns(self, data, frequency, arg_index,
@@ -33,7 +33,7 @@ class MomentumConstructor2(object):
         assert n_ports <= holding_period
         # Add portfolio if not in arg index
         if arg_index not in self.portfolios:
-            self.portfolios[arg_index] = Portfolio2(n_ports)
+            self.portfolios[arg_index] = Portfolio2(n_ports, positions_per_side)
         portfolio = self.portfolios[arg_index]
 
         date_iterable = self._get_date_iterable(
@@ -42,16 +42,18 @@ class MomentumConstructor2(object):
         m_signals, m_prices = self._get_signals(data, train_period_len,
                                                 positions_per_side)
 
-        output = pd.DataFrame({'Ret': 0}, index=date_iterable[0])
+        output = pd.DataFrame(columns=['Ret'], index=date_iterable[0])
 
-        for date, entry_flag, exit_flag in zip(*zip(*date_iterable)):
+        for date, entry_flag, exit_flag in zip(*date_iterable):
             portfolio.update_prices(m_prices[date])
             if exit_flag:
                 # Close first because this will then be replaced
-                portfolio.close_portfolio(entry_flag)
+                portfolio.close_portfolio(exit_flag)
             if entry_flag:
-                portfolio.add_positions(entry_flag, m_signals[date])
-            ret = portfolio.get_daily_return()
+                portfolio.add_positions(entry_flag,
+                                        m_signals[date],
+                                        m_prices[date])
+            output.loc[date, 'Ret'] = portfolio.get_daily_return()
 
         return output, {}
 
@@ -72,19 +74,19 @@ class MomentumConstructor2(object):
         volatility = returns.rolling(train_period_len).std()
         # Period return
         period_return = returns.rolling(train_period_len).sum()
+
         # Count per group for the first sort
-        bottom_rank = np.ceil(period_return.shape[1] * .25)
-        top_rank = period_return.shape[1] - bottom_rank + 1
-        sort_one_ranks = period_return.rank(axis=1)
-        # Top/Bottom 25%
-        inds = sort_one_ranks >= top_rank
-        sort_two_ranks_tops = volatility[inds].rank(axis=1)
-        inds = sort_one_ranks <= bottom_rank
-        sort_two_ranks_bottoms = volatility[inds].rank(axis=1)
-        # Flags
-        long_flags = sort_two_ranks_tops <= positions_per_side
-        short_flags = sort_two_ranks_bottoms >= \
-            (bottom_rank - positions_per_side + 1)
+        sort_count = np.ceil(period_return.shape[1] * .25)
+
+        sort_one_tops_indexes = (-1 * period_return).rank(axis=1) <= sort_count
+        sort_one_bottoms_indexes = period_return.rank(axis=1) <= sort_count
+
+        # Longs: HIGH RETURNS LOW VOLATILITY
+        long_flags = volatility[sort_one_tops_indexes].rank(axis=1) <= positions_per_side
+
+        # Shorts: LOW RETURNS HIGH VOLATILITY
+        short_flags = (-1 * volatility[sort_one_bottoms_indexes]).rank(axis=1) <= positions_per_side
+
         m_factor = long_flags.astype(int) - short_flags.astype(int)
         # Convert to dictionaries
         return m_factor.loc[test_period_dates].T.to_dict(), \
@@ -115,6 +117,5 @@ class MomentumConstructor2(object):
             entry_flags[base_index_entry + (offset * i)] = (i+1)
             exit_flags[base_index_exit + (offset * i)] = (i+1)
         cut_index = np.max(np.where(exit_flags != 0)[0])+1
-        return zip(all_dates[:cut_index],
-                   entry_flags[:cut_index],
-                   exit_flags[:cut_index])
+        return all_dates[:cut_index], entry_flags[:cut_index], \
+            exit_flags[:cut_index]

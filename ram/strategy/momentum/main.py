@@ -23,9 +23,20 @@ class MomentumStrategy(Strategy):
             returns, stats = self.cons.get_daily_returns(
                 data, self.get_date_parameters()['frequency'],
                 arg_index, **a1)
-            self._capture_output(results, stats, arg_index)
-        self.write_index_results(returns, time_index)
-        self.write_index_stats(stats, time_index)
+            self._capture_output(returns, {'V1': 0}, arg_index)
+        self.write_index_results(self.output_returns, time_index)
+        self.write_index_stats(self.output_stats, time_index)
+
+    # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _capture_output(self, returns, stats, arg_index):
+        if arg_index == 0:
+            self.output_returns = pd.DataFrame()
+            self.output_stats = {}
+        returns.columns = [arg_index]
+        self.output_returns = self.output_returns.join(
+            returns.iloc[:, 0], how='outer')
+        self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
