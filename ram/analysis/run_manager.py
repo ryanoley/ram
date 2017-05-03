@@ -26,7 +26,11 @@ class RunManager(object):
     def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):
         ddir = os.path.join(path, strategy_class)
         dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
-        return dirs
+        output = pd.DataFrame({'Run': dirs, 'Description': np.nan})
+        for i, d in enumerate(dirs):
+            desc = json.load(open(os.path.join(ddir, d, 'meta.json'), 'r'))
+            output.loc[i, 'Description'] = desc['description']
+        return output[['Run', 'Description']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -75,6 +79,7 @@ class RunManager(object):
         astats = aggregate_statistics(self.stats, self.start_year)
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
+
 
 ###############################################################################
 

@@ -205,6 +205,13 @@ class TestRunManager(unittest.TestCase):
         benchmark['stat2'] = [.12, .12, .07, .22]
         assert_frame_equal(result, benchmark)
 
+    def test_get_run_names(self):
+        result = RunManager.get_run_names('TestStrategy', self.base_path)
+        benchmark = pd.DataFrame(columns=['Run', 'Description'], index=[0])
+        benchmark['Run'] = ['run_0001']
+        benchmark['Description'] = ['Test data']
+        assert_frame_equal(result, benchmark)
+
     def tearDown(self):
         shutil.rmtree(self.base_path)
 
