@@ -12,7 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 
-strategy = StatArbStrategy('version_0005', False)
+strategy = StatArbStrategy('version_0017', False)
 strategy._get_data_file_names()
 pairselector = PairSelector2()
 
@@ -52,7 +52,7 @@ def get_data(pairselector, index=3):
 
 # ~~~~~~ Import some data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-i = 14
+i = 2
 
 data, features = get_data(pairselector, i)
 
@@ -70,50 +70,35 @@ test_dates = test_dates[qtrs == qtrs[0]]
 from ram.strategy.statarb.responses.response1 import response_strategy_1
 
 
-pairselector.rank_pairs(data, 50)
+pairselector.rank_pairs(data, 500)
 
 # Get train close prices for response creation
 close1 = pairselector.close_data.loc[train_dates][pairselector.pair_info.Leg1]
 close2 = pairselector.close_data.loc[train_dates][pairselector.pair_info.Leg2]
-resp1 = close1.copy()
-resp2 = close2.copy()
-
-resp1[:], resp2[:] = response_strategy_1(close1.values, close2.values, 0.02, 6)
-# Rename columns
-resp1.columns = range(resp1.shape[1])
-resp2.columns = range(resp1.shape[1], resp1.shape[1]+resp2.shape[1])
 
 zscores = pairselector.get_zscores(40)
 
-X = zscores.loc[train_dates].iloc[40:]
-y = resp1.join(resp2).iloc[:-6]
 
-dates = list(set(X.index).intersection(y.index))
+resp1, resp2 = response_strategy_1(close1, close2, 0.05, 6)
 
 
-clf = RandomForestClassifier()
 
-clf.fit(X=X.loc[dates], y=(y.loc[dates] > 0))
-
-
-## Out of sample
-
-preds = clf.predict(zscores.loc[test_dates])
-
-y.loc[dates].values[~preds.astype(bool)].mean()
-
-close1_test = pairselector.close_data.loc[test_dates][pairselector.pair_info.Leg1]
-close2_test = pairselector.close_data.loc[test_dates][pairselector.pair_info.Leg2]
-resp1_test = close1_test.copy()
-resp2_test = close2_test.copy()
-
-resp1_test[:], resp2_test[:] = response_strategy_1(close1_test.values, close2_test.values, 0.02, 6)
+# ~~~~~~ How do responses look when major move? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-resp1_test.columns = range(resp1_test.shape[1])
-resp2_test.columns = range(resp1_test.shape[1], resp1_test.shape[1]+resp2_test.shape[1])
+inds = close1.pct_change().fillna(0).values - close2.pct_change().fillna(0).values < -0.05
 
-resp1_test.join(resp2_test).values[preds == 1]
+out = pd.DataFrame(columns=['Mean1', 'Mean2', 'Count1', 'Count2'])
+
+for i in range(inds.shape[1]):
+    rets1 = resp1.iloc[:, i][inds[:, i]].dropna()
+    rets2 = resp2.iloc[:, i][inds[:, i]].dropna()
+    rets1 = rets1[dt.date(2009, 1, 1):]
+    rets2 = rets2[dt.date(2009, 1, 1):]
+    out.loc[i, 'Mean1'] = rets1.mean()
+    out.loc[i, 'Mean2'] = rets2.mean()
+    out.loc[i, 'Count1'] = len(rets1)
+    out.loc[i, 'Count2'] = len(rets2)
 
 
 

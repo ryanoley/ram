@@ -11,20 +11,30 @@ def response_strategy_1(close1, close2, take, max_days):
     Strategy is meant to enter on one side, and take the profit when realized
     otherwise close the position at the end of `max_days`.
 
+    The first data-frame represents Long Close2-Short Close1.
+
     Returns
     -------
     Two data frames that represent the long and the short side
     """
-    if isinstance(close1, pd.DataFrame):
-        close1 = close1.values.astype(float)
-    if isinstance(close2, pd.DataFrame):
-        close2 = close2.values.astype(float)
+    assert isinstance(close1, pd.DataFrame)
+    assert isinstance(close2, pd.DataFrame)
+    column_names = ['{}~{}'.format(x, y)
+                    for x, y in zip(close1.columns, close2.columns)]
+    output1 = close1.copy()
+    output1.columns = column_names
+    close1 = close1.values.astype(float)
+    output2 = close2.copy()
+    output2.columns = column_names
+    close2 = close2.values.astype(float)
     responses1 = np.ones(close1.shape) * np.nan
     responses2 = np.ones(close1.shape) * np.nan
     # Ensure this is a  number
-    return _response_strategy_1(close1, close2,
-                                responses1, responses2,
-                                abs(float(take)), abs(int(max_days)))
+    _response_strategy_1(close1, close2, responses1, responses2,
+                         abs(float(take)), abs(int(max_days)))
+    output1[:] = responses1
+    output2[:] = responses2
+    return output1, output2
 
 
 @numba.jit(nopython=True)
@@ -48,7 +58,6 @@ def _response_strategy_1(close1, close2,
                     break
             responses2[i, c] = close1[j, c] / close1[i, c] - \
                 close2[j, c] / close2[i, c]
-    return responses1, responses2
 
 
 # ~~~~~~ Response Prototype 1 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

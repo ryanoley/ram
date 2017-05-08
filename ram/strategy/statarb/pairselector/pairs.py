@@ -6,7 +6,7 @@ import itertools as it
 class PairSelector(object):
 
     def get_iterable_args(self):
-        return {'n_pairs': [5000]}
+        return {'n_pairs': [500]}
 
     def rank_pairs(self, data, n_pairs):
         """

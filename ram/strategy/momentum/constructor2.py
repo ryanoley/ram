@@ -66,6 +66,8 @@ class MomentumConstructor2(object):
                               columns='SecCode',
                               values='AdjClose')
         returns = m_prices.pct_change()
+        
+        
         # Get dates
         all_dates = data.Date.unique()
         test_period_dates = data[data.TestFlag].Date.unique()
@@ -75,17 +77,42 @@ class MomentumConstructor2(object):
         # Period return
         period_return = returns.rolling(train_period_len).sum()
 
+        #######################################################################
         # Count per group for the first sort
+        #sort_count = np.ceil(period_return.shape[1] * .25)
+
+        #sort_one_tops_indexes = (-1 * period_return).rank(axis=1) <= sort_count
+        #sort_one_bottoms_indexes = period_return.rank(axis=1) <= sort_count
+
+        # Longs: HIGH RETURNS LOW VOLATILITY
+        #long_flags = volatility[sort_one_tops_indexes].rank(axis=1) <= positions_per_side
+
+        # Shorts: LOW RETURNS HIGH VOLATILITY
+        #short_flags = (-1 * volatility[sort_one_bottoms_indexes]).rank(axis=1) <= positions_per_side
+
+        #######################################################################
+        # ALL LOW VOL, GO LONG WINNERS and SHORT LOSERS
+        #sort_count = np.ceil(period_return.shape[1] * .50)
+        #low_vol_flags = volatility.rank(axis=1) <= sort_count
+
+        #long_flags = (-1*period_return[low_vol_flags]).rank(axis=1) <= positions_per_side
+        #short_flags = period_return[low_vol_flags].rank(axis=1) <= positions_per_side
+
+        #######################################################################
+        perc_winners = (returns > 0).rolling(train_period_len).mean()
+        return_sign = (period_return > 0) * 2 - 1
+        id_factor = return_sign * (1 - 2 * perc_winners)
+
         sort_count = np.ceil(period_return.shape[1] * .25)
 
         sort_one_tops_indexes = (-1 * period_return).rank(axis=1) <= sort_count
         sort_one_bottoms_indexes = period_return.rank(axis=1) <= sort_count
 
-        # Longs: HIGH RETURNS LOW VOLATILITY
-        long_flags = volatility[sort_one_tops_indexes].rank(axis=1) <= positions_per_side
+        # Longs: HIGH RETURNS LOW ID_FACTOR
+        long_flags = id_factor[sort_one_tops_indexes].rank(axis=1) <= positions_per_side
 
-        # Shorts: LOW RETURNS HIGH VOLATILITY
-        short_flags = (-1 * volatility[sort_one_bottoms_indexes]).rank(axis=1) <= positions_per_side
+        # Shorts: LOW RETURNS HIGH ID_FACTOR
+        short_flags = (-1 * id_factor[sort_one_bottoms_indexes]).rank(axis=1) <= positions_per_side
 
         m_factor = long_flags.astype(int) - short_flags.astype(int)
         # Convert to dictionaries
