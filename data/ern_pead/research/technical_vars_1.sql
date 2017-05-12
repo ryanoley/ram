@@ -25,8 +25,7 @@ select			SecCode,
 					rows between 59 preceding and current row) as MA60
 
 from			ram.dbo.ram_equity_pricing_research
-where			Date_ >= '1993-01-01'
-	and			NormalTradingFlag = 1
+where			NormalTradingFlag = 1
 	and			OneYearTradingFlag = 1
 	and			AvgDolVol >= 3
 	and			Close_ >= 15

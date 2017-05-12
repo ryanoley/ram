@@ -4,6 +4,13 @@ SET NOCOUNT ON
 ; with all_technical_vars_univ as (
 select			SecCode,
 				Date_,
+
+				NormalTradingFlag,
+				OneYearTradingFlag,
+				Close_,
+				MarketCap,
+				AvgDolVol,
+
 				AdjClose,
 
 				Lag(AdjClose, 1) over (
@@ -11,18 +18,19 @@ select			SecCode,
 					order by Date_) as LagAdjClose
 
 from			ram.dbo.ram_equity_pricing_research
-where			Date_ >= '1993-01-01'
-	and			NormalTradingFlag = 1
-	and			OneYearTradingFlag = 1
-	and			AvgDolVol >= 3
-	and			Close_ >= 15
-	and			MarketCap >= 200
 )
 
 
 , all_technical_vars_univ2 as (
 select			SecCode,
 				Date_,
+
+				NormalTradingFlag,
+				OneYearTradingFlag,
+				Close_,
+				MarketCap,
+				AvgDolVol,
+
 				AdjClose,
 
 				stdev(log(AdjClose / LagAdjClose)) over (
@@ -95,6 +103,12 @@ select			SecCode,
 				Date_,
 				AdjClose,
 
+				NormalTradingFlag,
+				OneYearTradingFlag,
+				Close_,
+				MarketCap,
+				AvgDolVol,
+
 				Vol10,
 				Vol30,
 				Vol60,
@@ -155,6 +169,11 @@ select			SecCode,
 				100 * SumUp60 / nullif(SumUp60 - SumDown60, 0) as RSI60
 				
 from			all_technical_vars_univ3
+where			NormalTradingFlag = 1
+	and			OneYearTradingFlag = 1
+	and			AvgDolVol >= 3
+	and			Close_ >= 15
+	and			MarketCap >= 200
 
 )
 
