@@ -6,45 +6,38 @@ import datetime as dt
 from ram.strategy.statarb.constructor.portfolio import PairPortfolio
 
 
-class PortfolioConstructor2(object):
+class PortfolioConstructor3(object):
 
-    def __init__(self, position_size=0.005):
+    def __init__(self, betsize=100000, booksize=10e6):
         """
         Parameters
         ----------
-        position_size : float
-            As percentage of booksize. Each leg will get half
+        booksize : numeric
+            Size of gross position
         """
-        self.booksize = 10e6
-        assert position_size < 1
-        self.position_size = position_size * self.booksize
+        self.booksize = booksize
+        self.betsize = betsize
         self._portfolios = {}
         self._data = {}
 
     def get_iterable_args(self):
         return {
-            'max_pos_count': [6, 15, 30],
-            'pos_perc_deviation': [0.10],
-            'z_entry': [2.3, 2.5, 2.8],
-            'z_exit': [0, 0.25, 0.5],
-            'remove_earnings': [False, True],
-            'max_holding_days': [10, 30]
+            'max_holding_days': [4, 5, 6, 7, 8],
+            'take': [0.03, 0.04, 0.05, 0.06],
+            'entry_return': [0.05, 0.07, 0.09]
         }
 
     def get_daily_pl(self,
                      arg_index,
-                     max_pos_count,
-                     pos_perc_deviation,
-                     z_entry,
-                     z_exit,
-                     remove_earnings,
-                     max_holding_days):
-
+                     max_holding_days,
+                     take, entry_return):
+        """
+        Parameters
+        ----------
+        """
         if arg_index not in self._portfolios:
             self._portfolios[arg_index] = PairPortfolio()
-
         portfolio = self._portfolios[arg_index]
-
         # Output object
         daily_df = pd.DataFrame(index=self.iter_dates,
                                 columns=['PL', 'Exposure'],
@@ -56,8 +49,8 @@ class PortfolioConstructor2(object):
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
             ern_flags = self.earnings_flags[date]
-            z_scores = self.z_scores[date]
-            new_z_scores = self.new_z_scores[date]
+
+            signals = self.signals[date]
 
             # 1. Update all the prices in portfolio. This calculates PL
             #    for individual positions
@@ -66,62 +59,49 @@ class PortfolioConstructor2(object):
             # 2. CLOSE PAIRS
             #  Closed pairs are still in portfolio dictionary
             #  and must be cleaned at end
-            self._close_signals(portfolio, z_scores, z_exit,
-                                ern_flags, remove_earnings,
-                                max_holding_days)
+            self._close_signals(portfolio, max_holding_days, take)
 
-            # 3. ADJUST POSITIONS
-            #  When the exposures move drastically (say when the markets)
-            #  go up or down, it affects the size of the new positions
-            #  quite significantly
-            self._adjust_open_positions(portfolio, pos_perc_deviation)
-
-            # 4. OPEN NEW PAIRS
-            self._execute_open_signals(portfolio,
-                                       new_z_scores, z_scores, closes,
-                                       max_pos_count, z_entry,
-                                       ern_flags, remove_earnings)
+            # 3. OPEN NEW PAIRS
+            self._execute_open_signals(portfolio, signals,
+                                       closes, entry_return)
 
             # Report PL and Exposure
             daily_df.loc[date, 'PL'] = portfolio.get_portfolio_daily_pl()
-            daily_df.loc[date, 'Exposure'] = portfolio.get_gross_exposure()
+            daily_df.loc[date, 'Exposure'] = \
+                portfolio.get_gross_exposure()
+
+        if np.any(daily_df.Exposure > (self.booksize * 1.1)):
+            logging.warn('Exposure exceeded 10% limit')
 
         return daily_df, portfolio.get_period_stats()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _close_signals(self, portfolio, scores, z_exit, ern_flags,
-                       remove_earnings, max_holding_days):
+    def _close_signals(self, portfolio, max_holding_days, take):
+
         close_pairs = []
         # Get current position z-scores, and decide if they need to be closed
         for pair in portfolio.pairs.keys():
-            if np.abs(scores[pair]) < z_exit or np.isnan(scores[pair]):
-                close_pairs.append(pair)
-            # EARNINGS
-            p1, p2 = pair.split('~')
-            if (ern_flags[p1] or ern_flags[p2]) and remove_earnings:
-                close_pairs.append(pair)
             if portfolio.pairs[pair].stat_holding_days >= \
                     max_holding_days:
+                close_pairs.append(pair)
+            # Takes
+            ret = (portfolio.pairs[pair].total_pl /
+                   portfolio.pairs[pair].entry_exposure)
+            if ret >= take:
                 close_pairs.append(pair)
         # Close positions
         portfolio.close_pairs(list(set(close_pairs)))
         return
 
     def _adjust_open_positions(self, portfolio,
-                               pos_perc_deviation=0.03):
-        portfolio.update_position_exposures(self.position_size,
+                               n_pairs, pos_perc_deviation=0.03):
+        base_exposure = self.booksize / n_pairs
+        portfolio.update_position_exposures(base_exposure,
                                             pos_perc_deviation)
 
-    def _execute_open_signals(self,
-                              portfolio,
-                              new_z_scores,
-                              z_scores,
-                              trade_prices,
-                              max_pos_count,
-                              z_entry,
-                              ern_flags,
-                              remove_earnings):
+    def _execute_open_signals(self, portfolio, signals,
+                              closes, entry_return):
         """
         Function that adds new positions.
         """
@@ -130,21 +110,26 @@ class PortfolioConstructor2(object):
         # Drop open and closing pairs from scores
         no_go_pairs = sum([open_pairs, closed_pairs], [])
 
-        # Iterate to see if any new triggers
-        new_pos = []
-        for z, side, pair in new_z_scores:
-            if (z > z_entry) and (pair not in no_go_pairs):
-                new_pos.append((pair, side))
-
+        gross_bet_size = self.booksize / n_pairs
+        # Filter
+        max_pos_count = int(n_pairs * max_pos_prop)
         self._get_pos_exposures(portfolio)
-
-        for pair, side in new_pos:
+        for i, (sc, side, pair) in enumerate(scores):
+            if pair in no_go_pairs:
+                continue
+            if sc < (z_exit * 1.2):
+                break
+            if np.isnan(sc):
+                continue
             leg1, leg2 = pair.split('~')
             if (ern_flags[leg1] or ern_flags[leg2]) and remove_earnings:
                 continue
             if self._check_pos_exposures(leg1, leg2, side, max_pos_count):
                 portfolio.add_pair(pair, trade_prices,
-                                   self.position_size, side)
+                                   gross_bet_size, side)
+                new_pairs -= 1
+            if new_pairs == 0:
+                break
         return
 
     def _get_pos_exposures(self, portfolio):
@@ -183,44 +168,36 @@ class PortfolioConstructor2(object):
     # ~~~~~~ Data Format ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def set_and_prep_data(self, data, pair_info, time_index):
-        # Format new data and hold in this object
+        # Format new data
         self._data[time_index] = self._format_data(data, pair_info).copy()
-        # Set this newest period's dates that have to be iterated over
         self.iter_dates = self._data[time_index]['iter_dates']
-        # Pop old data that is older than one period ago
+        # Pop old data
         if (time_index-2) in self._data:
             self._data.pop(time_index-2)
         # Put all data into one dictionary
         self.close_dict = {}
         self.dividend_dict = {}
         self.split_mult_dict = {}
-        self.z_scores = {}
         self.earnings_flags = {}
 
-        # Current period's data
         for t in self._data[time_index]['closes'].keys():
             tmp = self._data[time_index]
             self.close_dict[t] = tmp['closes'][t].copy()
             self.dividend_dict[t] = tmp['dividends'][t].copy()
             self.split_mult_dict[t] = tmp['split_mult'][t].copy()
-            self.z_scores[t] = tmp['z_scores'][t].copy()
             self.earnings_flags[t] = tmp['earnings_flags'][t].copy()
 
-        # Last period's data that should be included if it is not
-        # in the current universe
         if (time_index-1) in self._data:
-            tmp = self._data[time_index-1]
             for t in self._data[time_index-1]['closes'].keys():
                 if t in self.close_dict.keys():
+                    tmp = self._data[time_index-1]
                     self.close_dict[t].update(tmp['closes'][t])
                     self.dividend_dict[t].update(tmp['dividends'][t])
                     self.split_mult_dict[t].update(tmp['split_mult'][t])
-                    self.z_scores[t].update(tmp['z_scores'][t])
                     self.earnings_flags[t].update(tmp['earnings_flags'][t])
 
-        # Have new ZScores in separate dict
-        self.new_z_scores = self._format_sort_new_z_scores(
-            self._data[time_index]['z_scores'],
+        self.signals = self._format_sort_new_signals(
+            self._data[time_index]['signals'],
             self._data[time_index]['iter_dates'])
 
     def _format_data(self, data, pair_info):
@@ -228,8 +205,16 @@ class PortfolioConstructor2(object):
         test_dates = data[data.TestFlag].Date.unique()
         qtrs = np.array([(x.month-1)/3+1 for x in test_dates])
         iter_dates = test_dates[qtrs == qtrs[0]]
-        # Calculate State Variables, including Z-Score
-        z_scores = self._get_zscores(data, pair_info, 100).loc[test_dates]
+        # Signals
+        returns = data.pivot(
+            index='Date', columns='SecCode', values='AdjClose').pct_change().loc[test_dates]
+        rets1 = returns[pair_info.Leg1]
+        rets2 = returns[pair_info.Leg2]
+        returns = rets1.copy()
+        returns.columns = ['{}~{}'.format(x, y) for x, y in zip(pair_info.Leg1,
+                                                                pair_info.Leg2)]
+        returns[:] = rets1.values - rets2.values
+        # Trading data
         closes = data.pivot(
             index='Date', columns='SecCode', values='RClose').loc[test_dates]
         dividends = data.pivot(
@@ -256,36 +241,18 @@ class PortfolioConstructor2(object):
         data = data.drop('ERNFLAG', axis=1)
         return {
             'iter_dates': iter_dates,
-            'z_scores': z_scores.T.to_dict(),
+            'signals': returns.T.to_dict(),
             'closes': closes.T.to_dict(),
             'dividends': dividends.T.to_dict(),
             'split_mult': split_mult.T.to_dict(),
             'earnings_flags': earnings_flags.T.to_dict()
         }
 
-    def _format_sort_new_z_scores(self, zscores, iter_dates):
+    def _format_sort_new_signals(self, signals, iter_dates):
         output = {}
         for d in iter_dates:
             tmp = [(abs(y), 1 if y < 0 else -1, x)
-                   for x, y in zscores[d].items()]
+                   for x, y in signals[d].items()]
             tmp.sort()
             output[d] = tmp[::-1]
         return output
-
-    # ~~~~~~ Z-Score calculation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def _get_zscores(self, data, pair_info, window):
-        close_data = data.pivot(
-            index='Date', columns='SecCode', values='AdjClose')
-        # Create two data frames that represent Leg1 and Leg2
-        close1 = close_data.loc[:, pair_info.Leg1]
-        close2 = close_data.loc[:, pair_info.Leg2]
-        spreads = pd.DataFrame(np.log(close1).values - np.log(close2).values)
-        ma_df = spreads.rolling(window=window).mean()
-        std_df = spreads.rolling(window=window).std()
-        outdf = (spreads - ma_df) / std_df
-        # Add correct column names
-        outdf.index = close_data.index
-        outdf.columns = ['{0}~{1}'.format(x, y) for x, y in
-                         zip(pair_info.Leg1, pair_info.Leg2)]
-        return outdf

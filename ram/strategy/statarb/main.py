@@ -8,13 +8,14 @@ from ram.strategy.base import Strategy
 
 from ram.strategy.statarb.pairselector.pairs import PairSelector
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
+from ram.strategy.statarb.constructor.constructor3 import PortfolioConstructor3
 
 
 class StatArbStrategy(Strategy):
 
     # Creates on init
     pairselector = PairSelector()
-    constructor = PortfolioConstructor()
+    constructor = PortfolioConstructor3()
 
     def get_column_parameters(self):
         args1 = make_arg_iter(self.pairselector.get_iterable_args())
@@ -62,19 +63,14 @@ class StatArbStrategy(Strategy):
     def get_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (15) ' +
+            'where': 'MarketCap >= 200 and GSECTOR in (25) and AvgDolVol >= 10 ' +
             'and Close_ between 15 and 1000',
             'univ_size': 200}
 
     def get_features(self):
-        return ['AdjClose', 'AdjVolume',
-                'PRMA5_AdjClose', 'PRMA10_AdjClose',
-                'BOLL10_AdjClose', 'BOLL20_AdjClose',
-                'MFI10_AdjClose', 'MFI20_AdjClose',
-                'VOL5_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
-                'AvgDolVol', 'PRMA10_AvgDolVol',
+        return ['AdjClose', 'AdjVolume', 'AvgDolVol',
                 'RClose', 'RCashDividend',
-                'SplitFactor', 'GSECTOR', 'EARNINGSFLAG']
+                'SplitFactor', 'GSECTOR', 'GGROUP', 'EARNINGSFLAG']
 
     def get_date_parameters(self):
         return {
@@ -105,7 +101,7 @@ if __name__ == '__main__':
         '-s', '--simulation', action='store_true',
         help='Run simulation')
     parser.add_argument(
-        '--prepped_data', default='version_0005',
+        '-p', '--prepped_data', default='version_0005',
         help='Run simulation')
     args = parser.parse_args()
 
