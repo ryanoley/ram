@@ -18,6 +18,7 @@ select			SecCode,
 					order by Date_) as LagAdjClose
 
 from			ram.dbo.ram_equity_pricing_research
+where			SecCode in (select distinct SecCode from ram.dbo.ram_master_ids)
 )
 
 

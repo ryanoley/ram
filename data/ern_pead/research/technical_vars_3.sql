@@ -43,7 +43,7 @@ where			NormalTradingFlag = 1
 	and			AvgDolVol >= 3
 	and			Close_ >= 15
 	and			MarketCap >= 200
-
+	and			SecCode in (select distinct SecCode from ram.dbo.ram_master_ids)
 )
 
 , all_technical_vars_univ_ranked as (
