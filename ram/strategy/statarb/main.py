@@ -6,7 +6,7 @@ import datetime as dt
 
 from ram.strategy.base import Strategy
 
-from ram.strategy.statarb.pairselector.pairs import PairSelector
+from ram.strategy.statarb.pairselector.pairs3 import PairSelector3
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
 from ram.strategy.statarb.constructor.constructor3 import PortfolioConstructor3
 
@@ -14,7 +14,7 @@ from ram.strategy.statarb.constructor.constructor3 import PortfolioConstructor3
 class StatArbStrategy(Strategy):
 
     # Creates on init
-    pairselector = PairSelector()
+    pairselector = PairSelector3()
     constructor = PortfolioConstructor3()
 
     def get_column_parameters(self):
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         '-s', '--simulation', action='store_true',
         help='Run simulation')
     parser.add_argument(
-        '-p', '--prepped_data', default='version_0005',
+        '-p', '--prepped_data', default='version_0017',
         help='Run simulation')
     args = parser.parse_args()
 

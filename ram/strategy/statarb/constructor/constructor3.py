@@ -63,7 +63,7 @@ class PortfolioConstructor3(object):
 
             # 3. OPEN NEW PAIRS
             self._execute_open_signals(portfolio, signals,
-                                       closes, entry_return)
+                                       closes, ern_flags, entry_return)
 
             # Report PL and Exposure
             daily_df.loc[date, 'PL'] = portfolio.get_portfolio_daily_pl()
@@ -94,14 +94,8 @@ class PortfolioConstructor3(object):
         portfolio.close_pairs(list(set(close_pairs)))
         return
 
-    def _adjust_open_positions(self, portfolio,
-                               n_pairs, pos_perc_deviation=0.03):
-        base_exposure = self.booksize / n_pairs
-        portfolio.update_position_exposures(base_exposure,
-                                            pos_perc_deviation)
-
-    def _execute_open_signals(self, portfolio, signals,
-                              closes, entry_return):
+    def _execute_open_signals(self, portfolio, signals, closes,
+                              ern_flags, entry_return, remove_earnings=True):
         """
         Function that adds new positions.
         """
@@ -109,27 +103,27 @@ class PortfolioConstructor3(object):
         closed_pairs = portfolio.get_closed_positions()
         # Drop open and closing pairs from scores
         no_go_pairs = sum([open_pairs, closed_pairs], [])
-
-        gross_bet_size = self.booksize / n_pairs
-        # Filter
-        max_pos_count = int(n_pairs * max_pos_prop)
         self._get_pos_exposures(portfolio)
-        for i, (sc, side, pair) in enumerate(scores):
+        current_days_legs = []
+        max_pos_count = int(self.booksize / self.betsize * 0.03)
+        for i, (sc, side, pair) in enumerate(signals):
             if pair in no_go_pairs:
                 continue
-            if sc < (z_exit * 1.2):
-                break
             if np.isnan(sc):
                 continue
+            if sc < entry_return:
+                break
             leg1, leg2 = pair.split('~')
+            if leg1 in current_days_legs:
+                continue
+            if leg2 in current_days_legs:
+                continue
+            current_days_legs.append(leg1)
+            current_days_legs.append(leg2)
             if (ern_flags[leg1] or ern_flags[leg2]) and remove_earnings:
                 continue
             if self._check_pos_exposures(leg1, leg2, side, max_pos_count):
-                portfolio.add_pair(pair, trade_prices,
-                                   gross_bet_size, side)
-                new_pairs -= 1
-            if new_pairs == 0:
-                break
+                portfolio.add_pair(pair, closes, self.betsize, side)
         return
 
     def _get_pos_exposures(self, portfolio):
