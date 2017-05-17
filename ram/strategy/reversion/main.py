@@ -22,6 +22,18 @@ class ReversionStrategy(Strategy):
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
+
+        # Format
+        close_data = data.pivot(index='Date',
+                                columns='SecCode',
+                                values='AdjClose')
+        vwap_data = data.pivot(index='Date',
+                               columns='SecCode',
+                               values='AdjVwap')
+        open_data = data.pivot(index='Date',
+                               columns='SecCode',
+                               values='AdjOpen')
+
         #args1 = make_arg_iter(self.pairselector.get_iterable_args())
         #args2 = make_arg_iter(self.constructor.get_iterable_args())
         #arg_index = 0
@@ -61,7 +73,7 @@ class ReversionStrategy(Strategy):
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjOpen', 'AdjClose', 'GGROUP', 'EARNINGSFLAG']
+        return ['AdjOpen', 'AdjClose', 'AdjVwap', 'GGROUP', 'EARNINGSFLAG']
 
     def get_date_parameters(self):
         return {
@@ -92,7 +104,7 @@ if __name__ == '__main__':
         '-s', '--simulation', action='store_true',
         help='Run simulation')
     parser.add_argument(
-        '-p', '--prepped_data', default='version_0017',
+        '-p', '--prepped_data', default='version_0002',
         help='Run simulation')
     args = parser.parse_args()
 
