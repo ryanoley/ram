@@ -97,8 +97,8 @@ def make_id_date_filter(ids, start_date, end_date):
 
 def parse_input_var(vstring, table, filter_commands):
 
-    FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'RSI', 'MFI',
-             'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG',
+    FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'MIN', 'MAX', 'RSI',
+             'MFI', 'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG',
              'EARNINGSRETURN', 'MKT',
              'ACCTSALES', 'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
              'ACCTEPSGROWTH', 'ACCTPRICESALES']
@@ -325,6 +325,34 @@ def DISCOUNT(data_column, feature_name, length_arg, table):
                 partition by SecCode
                 order by Date_
                 rows between {1} preceding and current row) - 1) as {2}
+        from {3} A
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def MIN(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "MIN requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            (min({0}) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row)) as {2}
+        from {3} A
+        """.format(data_column, length_arg-1, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def MAX(data_column, feature_name, length_arg, table):
+    if data_column is None:
+        assert "MAX requires data column"
+    sqlcmd = \
+        """
+        select SecCode, Date_,
+            (max({0}) over (
+                partition by SecCode
+                order by Date_
+                rows between {1} preceding and current row)) as {2}
         from {3} A
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
