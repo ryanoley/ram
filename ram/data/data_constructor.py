@@ -63,6 +63,7 @@ class DataConstructor(object):
             self._output_dir = os.path.join(self._prepped_data_dir,
                                             new_dir_name)
             self.version = new_dir_name
+            print('[DataConstructor] : Making {}'.format(new_dir_name))
         os.mkdir(self._output_dir)
 
     def _make_date_iterator(self):

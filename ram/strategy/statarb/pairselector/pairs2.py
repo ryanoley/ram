@@ -7,9 +7,9 @@ import itertools as it
 class PairSelector2(object):
 
     def get_iterable_args(self):
-        return {'pair_test_flag': [True]}
+        return {'n_pairs': [500, 5000]}
 
-    def rank_pairs(self, data, pair_test_flag):
+    def rank_pairs(self, data, n_pairs=10):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
@@ -17,18 +17,9 @@ class PairSelector2(object):
         cut_date = data.Date[~data.TestFlag].max()
         train_close = close_data.loc[close_data.index <= cut_date]
         train_close = train_close.T.dropna().T
-        self.pair_info = self._filter_pairs(train_close)
-        self.close_data = close_data.fillna(method='pad')
-
-    def get_responses(self, z_window=20, enter_z=2, exit_z=1):
-        zscores = self.get_zscores(z_window).fillna(0).values
-        close1 = self.close_data[self.pair_info.Leg1].values
-        close2 = self.close_data[self.pair_info.Leg2].values
-        return pd.DataFrame(
-            get_trade_signal_series(zscores, close1, close2, enter_z, exit_z),
-            index=self.close_data.index,
-            columns = ['{}~{}'.format(x, y) for x, y in
-                       self.pair_info[['Leg1', 'Leg2']].values])
+        pair_info = self._filter_pairs(train_close)
+        self.close_data = close_data
+        self.pair_info = pair_info.iloc[:n_pairs]
 
     def _filter_pairs(self, close_data, n_pairs=15000):
         pairs = self._prep_output(close_data)
@@ -58,6 +49,16 @@ class PairSelector2(object):
         std = spreads.rolling(window=window).std()
         return (spreads - ma) / std
 
+    def get_spread_index(self):
+        # Create two data frames that represent Leg1 and Leg2
+        close1 = self.close_data.loc[:, self.pair_info.Leg1]
+        close2 = self.close_data.loc[:, self.pair_info.Leg2]
+        spreads = np.subtract(np.log(close1), np.log(close2))
+        # Add correct column names
+        spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
+                           zip(self.pair_info.Leg1, self.pair_info.Leg2)]
+        return spreads
+
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @staticmethod
@@ -77,78 +78,6 @@ class PairSelector2(object):
         stat_df = pd.DataFrame({'Leg1': legs[0]})
         stat_df['Leg2'] = legs[1]
         return stat_df
-
-
-# ~~~~~~ Optimized Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#@numba.jit(nopython=True)
-def get_return_series(enter_z, exit_z,
-                      zscores, close1, close2,
-                      returns):
-    """
-    Takes in multidimensional zscores, closes1/closes2 etc
-    """
-    n_days, n_pairs = close1.shape
-    for j in xrange(n_pairs):
-        side = 0
-        for i in xrange(n_days-1):
-            # LONGS
-            if (side != 1) & (zscores[i, j] >= enter_z):
-                side = 1
-                returns[i+1, j] = close2[i+1, j] / close2[i, j] - close1[i+1, j] / close1[i, j]
-            elif (side == 1) & (zscores[i, j] <= exit_z):
-                side = 0
-            elif (side == 1):
-                returns[i+1, j] = close2[i+1, j] / close2[i, j] - close1[i+1, j] / close1[i, j]
-
-            # SHORTS
-            elif (side != -1) & (-zscores[i, j] >= enter_z):
-                side = -1
-                returns[i+1, j] = close1[i+1, j] / close1[i, j] - close2[i+1, j] / close2[i, j]
-            elif (side == -1) & (-zscores[i, j] <= exit_z):
-                side = 0
-            elif (side == -1):
-                returns[i+1, j] = close1[i+1, j] / close1[i, j] - close2[i+1, j] / close2[i, j]
-
-
-# ~~~~~~ Response Variables ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-def get_trade_signal_series(zscores, close1, close2, enter_z, exit_z):
-    signals = np.zeros(zscores.shape)
-    _get_trade_signal_series(zscores, close1, close2, enter_z, exit_z, signals)
-    return signals
-
-
-@numba.jit(nopython=True)
-def _get_trade_signal_series(zscores, close1, close2,
-                             enter_z, exit_z, signals):
-    n_days, n_pairs = zscores.shape
-    for col in xrange(n_pairs):
-        i = 0
-        j = 0
-        while i < (n_days - 1):
-            # LONGS
-            if zscores[i, col] >= enter_z:
-                j = i + 1
-                while True:
-                    if (zscores[j, col] <= exit_z) or (j == (n_days - 1)):
-                        signals[i, col] = close2[j, col] / close2[i, col] - \
-                            close1[j, col] / close1[i, col]
-                        break
-                    j += 1
-                i = j + 1
-            # SHORTS
-            elif -zscores[i, col] >= enter_z:
-                j = i + 1
-                while True:
-                    if (-zscores[j, col] <= exit_z) or (j == (n_days - 1)):
-                        signals[i, col] = close1[j, col] / close1[i, col] - \
-                            close2[j, col] / close2[i, col]
-                        break
-                    j += 1
-                i = j + 1
-            else:
-                i += 1
 
 
 # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

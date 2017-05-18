@@ -1,117 +1,94 @@
+import os
 import itertools
 import numpy as np
 import pandas as pd
-
+import datetime as dt
 import matplotlib.pyplot as plt
 
 from ram.strategy.statarb.main import StatArbStrategy
-from ram.strategy.statarb.pairselector.pairs2 import PairSelector2
-from ram.strategy.statarb.pairselector.pairs2 import get_return_series
-from ram.strategy.statarb.pairselector.pairs2 import get_trade_signal_series
+from ram.strategy.statarb.pairselector.pairs3 import PairSelector3
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
 
-strategy = StatArbStrategy('version_0004', False)
-
-pairselector = PairSelector2()
-
-data = strategy.read_data_from_index(14)
-
-params = {
-    'pair_test_flag': True
-}
+strategy = StatArbStrategy('version_0017', False)
+strategy._get_data_file_names()
+pairselector = PairSelector3()
 
 
 
-# ~~~ PREDICTIVE DATA SET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#  Big flaw is that responses can bleed into test data
+# ~~~~~~ Import some data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-pairselector.rank_pairs(data, **params)
+index = 3
 
-responses = pairselector.get_responses(z_window=20, enter_z=2, exit_z=0)
-zscores = pairselector.get_zscores(20)
-
-# Unstack zscores and responses
-
-responses2 = responses.unstack().reset_index()
-responses2.columns = ['Pair', 'Date', 'Response']
-
-zscores2 = zscores.unstack().reset_index()
-zscores2.columns = ['Pair', 'Date', 'ZScore']
+data = strategy.read_data_from_index(index)
 
 
+train_dates = data.Date[~data.TestFlag].drop_duplicates().values
+test_dates = data.Date[data.TestFlag].drop_duplicates().values
+
+# Test dates for only one quarter forward
+qtrs = np.array([(x.month-1)/3 + 1 for x in test_dates])
+test_dates = test_dates[qtrs == qtrs[0]]
+
+pairselector.rank_pairs(data, True)
 
 
+close1 = pairselector.close_data[pairselector.pair_info.Leg1]
+close2 = pairselector.close_data[pairselector.pair_info.Leg2]
+
+spreads = close1.copy()
+spreads[:] = (close1 / close1.iloc[0]).values - (close2 / close2.iloc[0]).values
 
 
-
-
-
-
+plt.figure()
+plt.plot(spreads.iloc[:, :50])
+plt.show()
 
 
 
 
+# ~~~~~~ Responses ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+from ram.strategy.statarb.responses.response1 import response_strategy_1
+from ram.strategy.statarb.responses.response2 import response_strategy_2
 
-"""
-
-
-
-
-
-
-
-
-
+# Get train close prices for response creation
+close1 = pairselector.close_data[pairselector.pair_info.Leg1]
+close2 = pairselector.close_data[pairselector.pair_info.Leg2]
+zscores = pairselector.get_zscores(40)
 
 
 
+#resp1, resp2 = response_strategy_1(close1, close2, 0.05, 6)
+if True:
+    import pdb; pdb.set_trace()
+    resp1, resp2 = response_strategy_2(close1, close2, 20, 2, 1)
 
 
+# ~~~~~~ How do responses look when major move? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-z_windows = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65]
-enter_zs = [1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.1, 2.2, 2.3, 2.5, 2.6]
-exit_zs = [-0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5]
+close1 = pairselector.close_data[pairselector.pair_info.Leg1]
+close2 = pairselector.close_data[pairselector.pair_info.Leg2]
 
-close1 = close_data[pair_info.Leg1].values
-close2 = close_data[pair_info.Leg2].values
+rets = close1.copy()
+rets[:] = close1.pct_change().fillna(0).values - close2.pct_change().fillna(0).values
+rets = rets.loc[test_dates]
 
-best_z_window = np.zeros(close1.shape[1])
-best_entry = np.zeros(close1.shape[1])
-best_exit = np.zeros(close1.shape[1])
-best_returns_train = np.zeros(close1.shape[1])
-best_returns_test = np.zeros(close1.shape[1])
-best_z_scores = np.zeros(close1.shape)
+inds = rets.values < -0.05
 
-train_dates = data.Date[~data.TestFlag].unique()
-train_inds = close_data.index.isin(train_dates)
-test_inds = ~train_inds
+out = pd.DataFrame(columns=['Date', 'Mean1', 'Mean2', 'Count1', 'Count2'])
 
-for z_window in z_windows:
-
-    zscores = _get_zscores(close_data, pair_info,
-                           z_window=z_window).fillna(0).values
-
-    for enter_z, exit_z in itertools.product(enter_zs, exit_zs):
-
-        returns = np.zeros(close1.shape)
-        counts = np.zeros(close1.shape[1])
-        get_return_series(enter_z, exit_z, zscores, close1,
-                          close2, returns, counts)
-
-        returns_train = returns[train_inds].sum(axis=0)
-        returns_test = returns[test_inds].sum(axis=0)
-
-        eval_inds = returns_train > best_returns_train
-        best_z_scores = np.where(eval_inds, zscores, best_z_scores)
-        best_z_window = np.where(eval_inds, z_window, best_z_window)
-        best_entry = np.where(eval_inds, enter_z, best_entry)
-        best_exit = np.where(eval_inds, exit_z, best_exit)
-        best_returns_test = np.where(eval_inds, returns_test, best_returns_test)
-        best_returns_train = np.where(eval_inds, returns_train, best_returns_train)
-
-    print z_window, np.mean(returns_train), pd.Series(returns_test).dropna().mean()
+for i in range(inds.shape[0]):
+    rets1 = resp1.loc[test_dates].iloc[i][inds[i]].dropna()
+    rets2 = resp2.loc[test_dates].iloc[i][inds[i]].dropna()
+    out.loc[i, 'Date'] = resp1.index[i]
+    out.loc[i, 'Mean1'] = rets1.mean()
+    out.loc[i, 'Mean2'] = rets2.mean()
+    out.loc[i, 'Count1'] = len(rets1)
+    out.loc[i, 'Count2'] = len(rets2)
 
 
 
@@ -119,4 +96,21 @@ for z_window in z_windows:
 
 
 
-"""
+
+
+
+# ~~~~~~ Plotting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+close1 = pairselector.close_data[pairselector.pair_info.Leg1]
+close2 = pairselector.close_data[pairselector.pair_info.Leg2]
+
+close1a = close1 / close1.iloc[0]
+close2a = close2 / close2.iloc[0]
+
+index = 206
+
+plt.figure()
+plt.plot(close1a.iloc[:, index])
+plt.plot(close2a.iloc[:, index])
+plt.show()
+

@@ -69,7 +69,7 @@ class TestDataConstructor(unittest.TestCase):
         dc.run()
         result = os.listdir(os.path.join(self.ddir, 'TestStrategy',
                                          'version_0001'))
-        self.assertEquals(result[0], '20170101_data.csv')
+        self.assertEquals(result[0], '20160101_data.csv')
         shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
 
     def tearDown(self):

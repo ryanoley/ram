@@ -27,8 +27,8 @@ class TestSignals1(unittest.TestCase):
 
     def test_generate_portfolio_signals(self):
         signals = Signals1()
-        result1 = signals.generate_portfolio_signals(self.data, .25, 'V1')
-        result2 = signals.generate_portfolio_signals(self.data, .25, 'V2')
+        result1 = signals.generate_portfolio_signals(self.data, .25, ('V1', 1))
+        result2 = signals.generate_portfolio_signals(self.data, .25, ('V2', 1))
         benchmark = self.data.copy()
         benchmark.V1 = [1, 1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 1]
         benchmark.V2 = [0, 0, -1, -1, -1, 0, 1, 0, 0, 0, 1, 1]

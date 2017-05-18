@@ -6,15 +6,16 @@ import datetime as dt
 
 from ram.strategy.base import Strategy
 
-from ram.strategy.statarb.pairselector.pairs import PairSelector
+from ram.strategy.statarb.pairselector.pairs3 import PairSelector3
 from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
+from ram.strategy.statarb.constructor.constructor3 import PortfolioConstructor3
 
 
 class StatArbStrategy(Strategy):
 
     # Creates on init
-    pairselector = PairSelector()
-    constructor = PortfolioConstructor()
+    pairselector = PairSelector3()
+    constructor = PortfolioConstructor3()
 
     def get_column_parameters(self):
         args1 = make_arg_iter(self.pairselector.get_iterable_args())
@@ -26,52 +27,50 @@ class StatArbStrategy(Strategy):
             output_params[col_ind] = params
         return output_params
 
-    def run_index(self, index):
-
-        data = self.read_data_from_index(index)
-
+    def run_index(self, time_index):
+        data = self.read_data_from_index(time_index)
         args1 = make_arg_iter(self.pairselector.get_iterable_args())
         args2 = make_arg_iter(self.constructor.get_iterable_args())
-
-        pair_index = 0
-        port_index = 0
+        arg_index = 0
         for a1 in args1:
-
             pair_info = self.pairselector.rank_pairs(data, **a1)
-
-            self.constructor.set_and_prep_data(data, pair_info)
-            pair_index += 1
+            self.constructor.set_and_prep_data(data, pair_info, time_index)
             for a2 in args2:
                 results, stats = self.constructor.get_daily_pl(
-                    port_index, **a2)
-                self._capture_output(results, stats)
-                port_index += 1
-        self.write_index_results(self.output_results, index)
-        self.write_index_stats(self.output_stats, index)
+                    arg_index, **a2)
+                self._capture_output(results, stats, arg_index)
+                arg_index += 1
+        # Calculate returns
+        returns = self.output_pl / self.constructor.booksize
+        self.write_index_results(returns, time_index)
+        self.write_index_stats(self.output_stats, time_index)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _capture_output(self, results, stats):
-        if not hasattr(self, 'output_results'):
-            ind = 0
-            self.output_results = pd.DataFrame()
+    def _capture_output(self, results, stats, arg_index):
+        if arg_index == 0:
+            self.output_pl = pd.DataFrame()
+            self.output_exposure = pd.DataFrame()
             self.output_stats = {}
-        results.columns = [ind]
-        self.output_results = self.output_results.join(results, how='outer')
-        self.output_stats[ind] = stats
-        ind += 1
+        results.columns = [arg_index, arg_index]
+        self.output_pl = self.output_pl.join(results.iloc[:, 0], how='outer')
+        self.output_exposure = self.output_exposure.join(
+            results.iloc[:, 1], how='outer')
+        self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def get_filter_args(self):
+        return {
+            'filter': 'AvgDolVol',
+            'where': 'MarketCap >= 200 and GSECTOR in (25) and AvgDolVol >= 10 ' +
+            'and Close_ between 15 and 1000',
+            'univ_size': 200}
+
     def get_features(self):
-        return ['AdjClose', 'AdjVolume',
-                'PRMA5_AdjClose', 'PRMA10_AdjClose',
-                'BOLL10_AdjClose', 'BOLL20_AdjClose',
-                'MFI10_AdjClose', 'MFI20_AdjClose',
-                'VOL5_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
-                'AvgDolVol', 'PRMA10_AvgDolVol',
+        return ['AdjClose', 'AdjVolume', 'AvgDolVol',
                 'RClose', 'RCashDividend',
-                'SplitFactor', 'GSECTOR', 'EARNINGSFLAG']
+                'SplitFactor', 'GSECTOR', 'GGROUP', 'EARNINGSFLAG']
 
     def get_date_parameters(self):
         return {
@@ -101,14 +100,18 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--simulation', action='store_true',
         help='Run simulation')
+    parser.add_argument(
+        '-p', '--prepped_data', default='version_0017',
+        help='Run simulation')
     args = parser.parse_args()
 
     if args.data:
         StatArbStrategy().make_data()
     elif args.write_simulation:
-        strategy = StatArbStrategy('version_0004', True)
+        print('Running for data: {}'.format(args.prepped_data))
+        strategy = StatArbStrategy(args.prepped_data, True)
         strategy.start()
     elif args.simulation:
+        strategy = StatArbStrategy(args.prepped_data, False)
         import pdb; pdb.set_trace()
-        strategy = StatArbStrategy('version_0004', False)
         strategy.start()

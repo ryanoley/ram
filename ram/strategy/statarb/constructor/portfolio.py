@@ -81,7 +81,7 @@ class PairPortfolio(object):
 
     def get_closed_positions(self):
         return [pair for pair, pos in self.pairs.iteritems()
-                if ~pos.open_position]
+                if not pos.open_position]
 
     def count_open_positions(self):
         return sum([pos.open_position for pos in self.pairs.itervalues()])
@@ -114,30 +114,27 @@ class PairPortfolio(object):
         # Clean-up and return container
         stats = self.stats_container
         out = {}
-        try:
-            out['total_trades'] = len(stats['holding_days'])
-    
-            out['avg_holding_days'] = sum(stats['holding_days']) / float(
-                len(stats['holding_days']))
-            out['max_holding_days'] = max(stats['holding_days'])
-    
-            out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
-                len(stats['rebalance_count']))
-            out['max_rebalance_count'] = max(stats['rebalance_count'])
-    
-            out['avg_perc_gain'] = sum(stats['perc_gains']) / float(
-                len(stats['perc_gains']))
-            out['max_perc_gain'] = max(stats['perc_gains'])
-            out['min_perc_gain'] = min(stats['perc_gains'])
-    
-            # Flush stats
-            self.stats_container = {
-                # Position level statistics
-                'holding_days': [],
-                'rebalance_count': [],
-                'perc_gains': []
-            }
-        except:
-            import pdb; pdb.set_trace()
+        out['total_trades'] = len(stats['holding_days'])
+
+        out['avg_holding_days'] = sum(stats['holding_days']) / float(
+            len(stats['holding_days']))
+        out['max_holding_days'] = max(stats['holding_days'])
+
+        out['avg_rebalance_count'] = sum(stats['rebalance_count']) / float(
+            len(stats['rebalance_count']))
+        out['max_rebalance_count'] = max(stats['rebalance_count'])
+
+        out['avg_perc_gain'] = sum(stats['perc_gains']) / float(
+            len(stats['perc_gains']))
+        out['max_perc_gain'] = max(stats['perc_gains'])
+        out['min_perc_gain'] = min(stats['perc_gains'])
+
+        # Flush stats
+        self.stats_container = {
+            # Position level statistics
+            'holding_days': [],
+            'rebalance_count': [],
+            'perc_gains': []
+        }
 
         return out

@@ -6,9 +6,9 @@ import itertools as it
 class PairSelector(object):
 
     def get_iterable_args(self):
-        return {'pair_test_flag': [True]}
+        return {'n_pairs': [500]}
 
-    def rank_pairs(self, data, pair_test_flag):
+    def rank_pairs(self, data, n_pairs):
         """
         pair_test_flag is a placeholder if you ever want to do an A/B
         test with the ranking of pairs. HOWEVER, each unique hyper
@@ -24,7 +24,7 @@ class PairSelector(object):
         train_close = train_close.T.dropna().T
         pairs = self._get_stats_all_pairs(train_close)
         scored_pairs = self._score_pairs(pairs)
-        return scored_pairs
+        return scored_pairs.iloc[:n_pairs]
 
     def _get_stats_all_pairs(self, close_data):
         # Convert to numpy array for calculations
@@ -57,8 +57,7 @@ class PairSelector(object):
         rank2 = np.argsort(np.argsort(pairs.distances))
         pairs.loc[:, 'score'] = rank1 + rank2
         # Sort
-        pairs = pairs.sort_values('score').reset_index(drop=True)
-        return pairs
+        return pairs.sort_values('score').reset_index(drop=True)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
