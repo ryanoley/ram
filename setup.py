@@ -14,6 +14,7 @@ PACKAGES = [
     'ram/strategy/birds',
     'ram/strategy/birds/constructor',
     'ram/strategy/birds/signals',
+    'ram/strategy/cta',
     'ram/strategy/etfs',
     'ram/strategy/gap',
     'ram/strategy/momentum',
