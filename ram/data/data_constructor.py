@@ -37,7 +37,7 @@ class DataConstructor(object):
                 filter_date=adj_filter_date,
                 filter_args=self.filter_args)
             data = data.drop_duplicates()
-            data.SecCode = data.SecCode.astype(str)
+            data.SecCode = data.SecCode.astype(int).astype(str)
             data = data.sort_values(['SecCode', 'Date'])
             # Add TestFlag
             data['TestFlag'] = data.Date > adj_filter_date

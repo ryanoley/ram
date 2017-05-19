@@ -20,6 +20,7 @@ class PairSelector3(object):
         pair_info = self._filter_pairs(train_close, data, same_group)
         self.close_data = close_data
         self.pair_info = pair_info
+        return pair_info
 
     def _filter_pairs(self, close_data, data, same_group):
         pairs = self._prep_output(close_data)

@@ -17,6 +17,7 @@ PACKAGES = [
     'ram/strategy/etfs',
     'ram/strategy/gap',
     'ram/strategy/momentum',
+    'ram/strategy/reversion',
     'ram/strategy/statarb',
     'ram/strategy/statarb/constructor',
     'ram/strategy/statarb/pairselector',
