@@ -19,20 +19,21 @@ select				P.SecCode,
 						when D2.PayFreqCode in ('002', '00A') then D.Rate * 2
 						when D2.PayFreqCode in ('004', '00D') then D.Rate * 12
 						else D.Rate * 4
-					end / P.AdjClose as DividendYield
+					end / P.Close_ as DividendYield
 
 from				ram.dbo.ram_equity_pricing_research P
 
-	join			qai.prc.PrcDiv D 
+	left join		qai.prc.PrcDiv D 
 		on			P.IdcCode = D.Code
 		and			D.SeqCode = (
 						select max(div.SeqCode) 
 						from qai.prc.PrcDiv div
-						where div.ExDate <= P.Date_ )
+						where div.ExDate <= P.Date_
+						and div.Code = P.IdcCode )
 		and			D.DivType = 1											-- Cash dividend
 		and			isnull(D.PayType, 0) in (0, 5, 6, 15, 16, 17, 18, 19)	-- Normal dividends
 
-	join			qai.prc.PrcDiv2 D2
+	left join		qai.prc.PrcDiv2 D2
 		on			D.Code = D2.Code
 		and			D.SeqCode = D2.SeqCode
 
