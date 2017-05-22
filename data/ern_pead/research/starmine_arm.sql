@@ -34,12 +34,32 @@ Items
 
 set NOCOUNT on;
 
---------------------------------------------------------------------------
--- STRATEGY FOR MAPPING:
---  1. Go through SecMapX
---  2. Then get from historical SmartEstimate table
 
-; with starmine_secmap as (
+IF OBJECT_ID('tempdb..#REPORTDATES') IS NOT NULL
+    DROP TABLE #REPORTDATES
+
+
+create table #REPORTDATES (
+	SecId int,
+	SecCode int,
+	ReportDate smalldatetime,
+	FilterDate smalldatetime,
+	HistEps float,
+	HistEpsSurprise float
+	primary key (SecId, ReportDate)
+);
+
+
+--------------------------------------------------------------------------
+
+; with report_dates as (
+select * from ram.dbo.ram_earnings_report_dates where $(trade) = 1
+union all
+select * from ram.dbo.ram_pead_report_dates where $(trade) = 2
+)
+
+
+, starmine_secmap as (
 select			M.SecCode,
 				M.VenCode as SecId
 from			qai.dbo.SecMapX M
@@ -51,14 +71,14 @@ where			M.VenType = 23	-- StarMine
 					and a.VenType = 23 
 					and a.SecCode = M.SecCode)
 	and			M.SecCode in (select distinct SecCode 
-							  from ram.dbo.ram_earnings_report_dates)
+							  from report_dates)
 )
 
 
 , matched_ids_1 as (
 select			M.SecId,
 				D.*
-from			ram.dbo.ram_earnings_report_dates D
+from			report_dates D
 	left join	starmine_secmap M
 	on			D.SecCode = M.SecCode
 )
@@ -79,7 +99,7 @@ select distinct		M.SecId, I.SecCode
 from				starmine_cusip_map M
 	join			ram.dbo.ram_master_ids I
 	on				M.Cusip = I.Cusip
-	and				I.SecCode in (select distinct SecCode from ram.dbo.ram_earnings_report_dates)
+	and				I.SecCode in (select distinct SecCode from report_dates)
 )
 
 
@@ -106,15 +126,12 @@ select				M.SecId,
 					D.SecCode,
 					D.ReportDate,
 					D.FilterDate
-from				ram.dbo.ram_earnings_report_dates D
+from				report_dates D
 	join			starmine_cusip_map3 M
 	on				D.SecCode = M.SecCode
 where				D.FilterDate >= '1998-01-01'
 )
 
-
------------------------------------------------------------------------------
--- StarMine features
 
 , report_dates_1 as (
 select				D.*,
@@ -126,6 +143,12 @@ from				matched_ids_report_dates D
 	and				D.FilterDate = S.AsOfDate
 )
 
+insert into #REPORTDATES
+select * from report_dates_1;
+
+
+-----------------------------------------------------------------------------
+-- StarMine features
 
 select				D.SecCode,
 					D.ReportDate,
@@ -186,6 +209,5 @@ select				D.SecCode,
 								and ISNULL(a.EndDate, cast(getdate() as date)))
 					end as SE_EPS_Surprise
 
-from				report_dates_1 D
+from				#REPORTDATES D
 order by			D.SecCode, D.ReportDate
-
