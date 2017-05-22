@@ -23,6 +23,7 @@ PACKAGES = [
     'ram/strategy/statarb/constructor',
     'ram/strategy/statarb/pairselector',
     'ram/strategy/statarb/responses',
+    'ram/vxx',
     'ram/strategy/yearend',
     'ram/strategy_repo',
     'ram/strategy_repo/basics',
