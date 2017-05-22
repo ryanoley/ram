@@ -116,7 +116,24 @@ select * from ram.dbo.ram_pead_report_dates where $(trade) = 2
 
 
 select			A.ReportDate,
-				B.*
+				B.SecCode,
+
+				B.PRMA5,
+				B.PRMA5_Rank,
+				B.PRMA10,
+				B.PRMA10_Rank,
+				B.PRMA20,
+				B.PRMA20_Rank,
+				B.PRMA60,
+				B.PRMA60_Rank,
+
+				B.PRMA10_20,
+				B.PRMA10_20_Rank,
+				B.PRMA10_60,
+				B.PRMA10_60_Rank,
+				B.PRMA20_60,
+				B.PRMA20_60_Rank
+
 from			report_dates0 A
 	join		all_technical_vars_univ_ranked B
 		on		A.SecCode = B.SecCode
