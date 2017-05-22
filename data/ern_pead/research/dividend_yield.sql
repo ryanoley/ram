@@ -47,20 +47,28 @@ where				P.NormalTradingFlag = 1
 
 
 , dividend_yields2 as (
-select				*,
+select				SecCode,
+					Date_,
 					percent_rank() over (
 					partition by Date_
 					order by DividendYield) as DividendYield_Rank
 from				dividend_yields
+where				DividendYield is not null
 )
 
 
 select				R.SecCode,
 					R.ReportDate,
-					D.DividendYield,
-					D.DividendYield_Rank
+					D1.DividendYield,
+					D2.DividendYield_Rank
 from				report_dates R
-	left join		dividend_yields2 D
-		on			R.SecCode = D.SecCode
-		and			R.FilterDate = D.Date_
+
+	left join		dividend_yields D1
+		on			R.SecCode = D1.SecCode
+		and			R.FilterDate = D1.Date_
+
+	left join		dividend_yields2 D2
+		on			R.SecCode = D2.SecCode
+		and			R.FilterDate = D2.Date_
+
 where				R.ResearchFlag = 1
