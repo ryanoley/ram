@@ -17,4 +17,6 @@ set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 :: GVKEY Mapping
 call %SQLDIR%\gvkey_idc_mapping\get_map_data.bat
 
+%SQLCMD% -i %SQLDIR%\ram_equity_pricing_research.sql
+
 exit

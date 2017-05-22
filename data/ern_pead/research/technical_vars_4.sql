@@ -5,6 +5,7 @@ SET NOCOUNT ON
 select * from ram.dbo.ram_earnings_report_dates where $(trade) = 1
 union all
 select * from ram.dbo.ram_pead_report_dates where $(trade) = 2
+
 )
 
 
@@ -29,7 +30,8 @@ select			*,
 					rows between 59 preceding and current row) as AvgVolume60
 
 from			ram.dbo.ram_equity_pricing_research
-where			SecCode in (select distinct SecCode from ram.dbo.ram_master_ids)
+where			SecCode in (select distinct SecCode from report_dates)
+
 )
 
 
@@ -106,7 +108,6 @@ where			NormalTradingFlag = 1
 	and			AvgDolVol >= 3
 	and			Close_ >= 15
 	and			MarketCap >= 200
-	and			SecCode in (select distinct SecCode from ram.dbo.ram_master_ids)
 
 )
 
