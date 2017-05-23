@@ -3,13 +3,13 @@ SET NOCOUNT ON
 
 ; with pricing_data as (
 select			*,
-				Lead(coalesce(AdjVwap, Close_), 1) over (
+				Lead(coalesce(AdjVwap, AdjClose), 1) over (
 					partition by SecCode
 					order by Date_) as EntryVwap,
-				Lead(coalesce(AdjVwap, Close_), 3) over (
+				Lead(coalesce(AdjVwap, AdjClose), 3) over (
 					partition by SecCode
 					order by Date_) as ExitVwapTwoDay,
-				Lead(coalesce(AdjVwap, Close_), 4) over (
+				Lead(coalesce(AdjVwap, AdjClose), 4) over (
 					partition by SecCode
 					order by Date_) as ExitVwapThreeDay
 from			ram.dbo.ram_equity_pricing
@@ -18,13 +18,13 @@ from			ram.dbo.ram_equity_pricing
 
 , pricing_data_mkt as (
 select			*,
-				Lead(coalesce(AdjVwap, Close_), 1) over (
+				Lead(coalesce(AdjVwap, AdjClose), 1) over (
 					partition by SecCode
 					order by Date_) as EntryVwapMkt,
-				Lead(coalesce(AdjVwap, Close_), 3) over (
+				Lead(coalesce(AdjVwap, AdjClose), 3) over (
 					partition by SecCode
 					order by Date_) as ExitVwapMktTwoDay,
-				Lead(coalesce(AdjVwap, Close_), 4) over (
+				Lead(coalesce(AdjVwap, AdjClose), 4) over (
 					partition by SecCode
 					order by Date_) as ExitVwapMktThreeDay
 from			ram.dbo.ram_etf_pricing
