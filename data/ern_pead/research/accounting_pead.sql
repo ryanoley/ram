@@ -86,6 +86,13 @@ from				all_dates D
 )
 
 
+, shares_adjustments as (
+select distinct GVKEY, DATADATE, AJEXQ as ValueDivisor from qai.dbo.CSCoIDesInd
+union
+select distinct GVKEY, DATADATE, AJEXQ as ValueDivisor from qai.dbo.CSICoIDesInd
+)
+
+
 -- ~~~~~~ PIVOT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- HARD-CODED COLUMNS
 
@@ -100,16 +107,16 @@ from		( select GVKEY, DATADATE, Value_, ItemCode
 
 -- ~~~~~~ AGGREGATED AND HANDLED ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 , aggregated_data as (
-select			*,
+select			Q.*,
 
 				case 
-					when lag(DATADATE, 7) over (
+					when lag(Q.DATADATE, 7) over (
 						partition by GVKey 
-						order by PeriodEndDate) is not NULL
+						order by DATADATE) is not NULL
 						then 1 else 0 
 				end as EightQuarterFlag,
 
-				isnull(EPSFXQ, EPSFIQ) as EPS_Dil,
+				isnull(EPSFXQ, EPSFIQ) / isnull(A.ValueDivisor, 1) as EPS_Dil,
 
 				sum(SALEQ) over (
 					partition by GVKEY
@@ -121,12 +128,16 @@ select			*,
 					order by DATADATE 
 					rows between 3 preceding and current row) as NIQSum,
 
-				sum(isnull(EPSFXQ, EPSFIQ)) over (
+				sum(isnull(EPSFXQ, EPSFIQ) / isnull(A.ValueDivisor, 1)) over (
 					partition by GVKEY
 					order by DATADATE 
 					rows between 3 preceding and current row) as EPS_DilSum
 
 from			pivot_quarterly_data Q
+
+	left join	shares_adjustments A
+		on		Q.GVKEY = A.GVKEY
+		and		Q.DATADATE = A.DATADATE
 
 )
 
@@ -195,4 +206,4 @@ from			ram.dbo.ram_earnings_report_dates U
 		on		B.GVKey = U.GVKey
 		and		B.DATADATE = U.QuarterDate
 
-order by U.SecCode, U.PeriodEndDate
+order by U.SecCode, B.DATADATE

@@ -1,3 +1,4 @@
+set NOCOUNT on;
 
 -- ~~~~~~ Quarterly/Anual Data Items ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- NOTE: The hard-coded items must also be harded further downstream in PIVOT
@@ -25,6 +26,8 @@ insert @itemsA(Item, ItemCode) values (219, 'SALE'),
 
 -- ~~~~~~ Report Dates with GVKeys ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+set NOCOUNT on;
+
 ; with quarter_dates as (
 select distinct GVKey, DATADATE from qai.dbo.CsCoIDesInd
 union
@@ -39,25 +42,6 @@ select distinct GVKey, DATADATE as FiscalYearDate from qai.dbo.CSICoADesInd
 )
 
 
-, report_dates as (
-select				D.SecCode,
-					D.QuarterDate,
-					D.FilterDate,
-					D.ReportDate,
-					G.GVKey
-from				ram.dbo.ram_earnings_report_dates D
-	join			ram.dbo.ram_master_ids I
-		on			D.SecCode = I.SecCode
-		and			D.ReportDate between I.StartDate and I.EndDate
-
-	join			ram.dbo.ram_idccode_to_gvkey_map G
-		on			I.IdcCode = G.IdcCode
-		and			D.ReportDate between G.StartDate and G.EndDate
-
-where				D.ResearchFlag = 1
-)
-
-
 , all_dates as (
 select				D.GVKey,
 					D.DATADATE,
@@ -69,7 +53,7 @@ from				quarter_dates D
 										from	fye_dates a
 										where	a.GVKey = D.GVKey
 										and		a.FiscalYearDate <= D.DATADATE)
-where				D.GVKey in (select distinct GVKey from report_dates)
+where				D.GVKey in (select distinct GVKey from ram.dbo.ram_earnings_report_dates)
 	and				D.DATADATE >= '1990-01-01'
 )
 
@@ -307,15 +291,15 @@ select				D.SecCode,
 					A.Ebitda,
 					A.ProfAsset,
 					A.CashFlowNetIncome,
-					P.MarketCap / A.BOOKVALUE as PriceBook,
+					P.MarketCap / nullif(A.BOOKVALUE, 0) as PriceBook,
 					P.MarketCap + A.DEBT - A.CASH as EnterpriseValue
 
 from				aggregated_data2 A
 
-	join			report_dates D
+	join			ram.dbo.ram_earnings_report_dates D
 		on			A.GVKEY = D.GVKey
 		and			A.MergeQuarterDate = D.QuarterDate
 
-	join			ram.dbo.ram_equity_pricing P
+	join			ram.dbo.ram_equity_pricing_research P
 		on			D.SecCode = P.SecCode
 		and			D.FilterDate = P.Date_

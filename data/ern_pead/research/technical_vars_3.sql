@@ -54,13 +54,13 @@ select			SecCode,
 				percent_rank() over (
 					partition by Date_
 					order by DiscountQ) as DiscountQ_Rank,
-				DiscountS,
 
+				DiscountS,
 				percent_rank() over (
 					partition by Date_
 					order by DiscountS) as DiscountS_Rank,
-				DiscountA,
 
+				DiscountA,
 				percent_rank() over (
 					partition by Date_
 					order by DiscountA) as DiscountA_Rank
@@ -78,7 +78,15 @@ select * from ram.dbo.ram_pead_report_dates where $(trade) = 2
 
 
 select			A.ReportDate,
-				B.*
+				B.SecCode,
+				
+				DiscountQ,
+				DiscountQ_Rank,
+				DiscountS,
+				DiscountS_Rank,
+				DiscountA,
+				DiscountA_Rank
+
 from			report_dates0 A
 	join		all_technical_vars_univ_ranked B
 		on		A.SecCode = B.SecCode
