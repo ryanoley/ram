@@ -24,7 +24,7 @@ insert @itemsA(Item, ItemCode) values (219, 'SALE'),
 	(26, 'NI')
 
 
--- ~~~~~~ Report Dates with GVKeys ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- ~~~~~~ Quarter End Dates with GVKeys ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 set NOCOUNT on;
 
