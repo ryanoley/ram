@@ -83,9 +83,9 @@ if __name__ == '__main__':
     if args.data:
         LongPeadStrategy().make_data()
     elif args.write_simulation:
-        strategy = LongPeadStrategy('version_0001', True)
+        strategy = LongPeadStrategy('version_0009', True)
         strategy.start()
     elif args.simulation:
         import pdb; pdb.set_trace()
-        strategy = LongPeadStrategy('version_0001', False)
+        strategy = LongPeadStrategy('version_0009', False)
         strategy.start()

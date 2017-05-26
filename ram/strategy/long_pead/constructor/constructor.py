@@ -66,8 +66,9 @@ class PortfolioConstructor(object):
             return 2 / (1 + np.exp(-k)) - 1
         n_good = (~mrets.MomRet.isnull()).sum()
         n_bad = mrets.MomRet.isnull().sum()
-        mrets['weights'] = [logistic_weight(x) for x in
-                   np.linspace(-logistic_spread, logistic_spread, n_good)] + [0] * n_bad
+        mrets['weights'] = [
+            logistic_weight(x) for x in np.linspace(
+                logistic_spread, -logistic_spread, n_good)] + [0] * n_bad
         mrets.weights = mrets.weights / mrets.weights.abs().sum() * booksize
         return mrets.weights.to_dict()
 
