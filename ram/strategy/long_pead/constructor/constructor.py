@@ -24,11 +24,10 @@ class PortfolioConstructor(object):
 
     def get_iterable_args(self):
         return {
-            'logistic_spread': [3, 4, 5, 6, 7, 8],
-            'min_move': [0.06, 0.08, 0.10]
+            'logistic_spread': [3, 4, 5, 6, 7, 8]
         }
 
-    def get_daily_pl(self, arg_index, logistic_spread, min_move):
+    def get_daily_pl(self, arg_index, logistic_spread):
         """
         Parameters
         ----------
@@ -48,7 +47,6 @@ class PortfolioConstructor(object):
             portfolio.update_position_sizes(
                 self._get_position_sizes(momentum_rets,
                                          logistic_spread,
-                                         min_move,
                                          self.booksize))
             daily_df.loc[date, 'PL'] = portfolio.get_portfolio_daily_pl()
             daily_df.loc[date, 'Exposure'] = portfolio.get_exposure()
@@ -56,10 +54,9 @@ class PortfolioConstructor(object):
             daily_df.loc[date, 'Count'] = (exps != 0).sum()
         return daily_df
 
-    def _get_position_sizes(self, mrets, logistic_spread, min_move, booksize):
+    def _get_position_sizes(self, mrets, logistic_spread, booksize):
         mrets = pd.Series(mrets).to_frame()
         mrets.columns = ['MomRet']
-        mrets.MomRet[np.abs(mrets.MomRet) < min_move] = np.nan
         mrets = mrets.sort_values('MomRet')
         # Simple rank
         def logistic_weight(k):
