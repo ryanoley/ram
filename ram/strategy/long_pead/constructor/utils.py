@@ -24,6 +24,7 @@ def ern_price_anchor(data, offset=1):
     assert offset >= 0, 'Offset must be greater than/equal to 0'
     inds = np.where(data.EARNINGSFLAG == 1)[0] + offset
     inds = inds[inds >= 0]
+    inds = inds[inds < data.shape[0]]
     anchor = np.zeros(data.shape[0])
     anchor[inds] = 1
     data['anchor'] = anchor
