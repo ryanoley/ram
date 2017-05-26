@@ -13,6 +13,7 @@ def ern_date_blackout(data, offset1=-1, offset2=2):
     for i in range(offset2):
         all_inds = np.append(all_inds, ern_inds+(i+1))
     all_inds = all_inds[all_inds >= 0]
+    all_inds = all_inds[all_inds < data.shape[0]]
     blackouts = np.zeros(data.shape[0])
     blackouts[all_inds] = 1
     data['blackout'] = blackouts
