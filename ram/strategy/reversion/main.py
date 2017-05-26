@@ -63,11 +63,17 @@ class ReversionStrategy(Strategy):
         return {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
-            'and Close_ between 15 and 500',
+            'and Close_ between 15 and 500 and AvgDolVol between 3 and 10',
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjOpen', 'AdjClose', 'AdjVwap', 'GGROUP', 'EARNINGSFLAG']
+        return ['AdjOpen', 'AdjClose', 'AdjVwap', 'GGROUP', 'EARNINGSFLAG'] + \
+            ['RANK_PRMA10_AdjClose', 'RANK_PRMA30_AdjClose',
+             'RANK_VOL30_AdjClose',
+             'RANK_DISCOUNT126_AdjClose',
+             'RANK_RSI10_AdjClose', 'RANK_RSI30_AdjClose',
+             'RANK_MFI10_AdjClose', 'RANK_MFI30_AdjClose',
+             ]
 
     def get_date_parameters(self):
         return {

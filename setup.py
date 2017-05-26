@@ -15,6 +15,7 @@ PACKAGES = [
     'ram/strategy/etfs',
     'ram/strategy/gap',
     'ram/strategy/long_pead',
+    'ram/strategy/long_pead/constructor',
     'ram/strategy/momentum',
     'ram/strategy/reversion',
     'ram/strategy/statarb',

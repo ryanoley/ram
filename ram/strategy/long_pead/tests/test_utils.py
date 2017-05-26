@@ -8,7 +8,7 @@ from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.utils.time_funcs import convert_date_array
 
-from ram.strategy.long_pead.utils import *
+from ram.strategy.long_pead.constructor.utils import *
 
 
 class TestUtils(unittest.TestCase):
@@ -47,8 +47,9 @@ class TestUtils(unittest.TestCase):
     def test_anchor_returns(self):
         data = ern_date_blackout(self.data, -1, 1)
         data = ern_price_anchor(data, 1)
-        import pdb; pdb.set_trace()
         result = anchor_returns(data)
+        benchmark = np.array(sum([[np.nan] * 4 + [.25, .50]] * 2, []))
+        assert_array_equal(result.anchor_ret.values, benchmark)
 
     def tearDown(self):
         pass
