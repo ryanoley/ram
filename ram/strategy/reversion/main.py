@@ -5,6 +5,7 @@ import pandas as pd
 import datetime as dt
 
 from ram.strategy.base import Strategy
+from ram.strategy.reversion.daily_returns import get_daily_returns
 
 
 class ReversionStrategy(Strategy):
@@ -21,18 +22,11 @@ class ReversionStrategy(Strategy):
         return []
 
     def run_index(self, time_index):
+
         data = self.read_data_from_index(time_index)
 
-        # Format
-        close_data = data.pivot(index='Date',
-                                columns='SecCode',
-                                values='AdjClose')
-        vwap_data = data.pivot(index='Date',
-                               columns='SecCode',
-                               values='AdjVwap')
-        open_data = data.pivot(index='Date',
-                               columns='SecCode',
-                               values='AdjOpen')
+        returns = get_daily_returns(data, feature_ndays=5, holding_ndays=5,
+                                    n_per_side=40)
 
         #args1 = make_arg_iter(self.pairselector.get_iterable_args())
         #args2 = make_arg_iter(self.constructor.get_iterable_args())
@@ -47,7 +41,7 @@ class ReversionStrategy(Strategy):
         #        arg_index += 1
         ## Calculate returns
         #returns = self.output_pl / self.constructor.booksize
-        #self.write_index_results(returns, time_index)
+        self.write_index_results(returns, time_index)
         #self.write_index_stats(self.output_stats, time_index)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -69,11 +63,17 @@ class ReversionStrategy(Strategy):
         return {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
-            'and Close_ between 15 and 500',
+            'and Close_ between 15 and 500 and AvgDolVol between 3 and 10',
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjOpen', 'AdjClose', 'AdjVwap', 'GGROUP', 'EARNINGSFLAG']
+        return ['AdjOpen', 'AdjClose', 'AdjVwap', 'GGROUP', 'EARNINGSFLAG'] + \
+            ['RANK_PRMA10_AdjClose', 'RANK_PRMA30_AdjClose',
+             'RANK_VOL30_AdjClose',
+             'RANK_DISCOUNT126_AdjClose',
+             'RANK_RSI10_AdjClose', 'RANK_RSI30_AdjClose',
+             'RANK_MFI10_AdjClose', 'RANK_MFI30_AdjClose',
+             ]
 
     def get_date_parameters(self):
         return {
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         '-s', '--simulation', action='store_true',
         help='Run simulation')
     parser.add_argument(
-        '-p', '--prepped_data', default='version_0002',
+        '-p', '--prepped_data', default='version_0004',
         help='Run simulation')
     args = parser.parse_args()
 

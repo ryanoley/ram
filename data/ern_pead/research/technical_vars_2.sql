@@ -222,7 +222,22 @@ select * from ram.dbo.ram_pead_report_dates where $(trade) = 2
 
 
 select			A.ReportDate,
-				B.*
+				B.SecCode,
+
+				Vol10,
+				Vol10_Rank,
+				Vol30,
+				Vol30_Rank,
+				Vol60,
+				Vol60_Rank,
+
+				PercentB10,
+				PercentB10_Rank,
+				PercentB30,
+				PercentB30_Rank,
+				PercentB60,
+				PercentB60_Rank
+
 from			report_dates0 A
 	join		all_technical_vars_univ_ranked B
 		on		A.SecCode = B.SecCode
