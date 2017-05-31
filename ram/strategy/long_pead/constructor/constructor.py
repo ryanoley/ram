@@ -112,4 +112,4 @@ class PortfolioConstructor(object):
         self.close_dict = closes.T.to_dict()
         self.dividend_dict = dividends.T.to_dict()
         self.split_mult_dict = split_mult.T.to_dict()
-        self.anchor_dict = anchor_rets.T.to_dict()
+        self.anchor_rets_dict = anchor_rets.T.to_dict()
