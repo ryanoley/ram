@@ -15,41 +15,59 @@ class TestUtils(unittest.TestCase):
 
     def setUp(self):
         dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-04-04',
-                 '2015-01-05', '2015-01-06']
+                 '2015-01-05', '2015-01-06', '2015-01-07', '2015-01-08']
         data = pd.DataFrame()
-        data['SecCode'] = ['1234'] * 6
+        data['SecCode'] = ['1234'] * 8
         data['Date'] = convert_date_array(dates)
-        data['AdjClose'] = [1, 2, 3, 4, 5, 6]
-        data['MA5_AdjClose'] = [1, 2, 3, 4, 5, 6]
-        data['EARNINGSFLAG'] = [0, 0, 1, 0, 0, 0]
-        data['TestFlag'] = [True] * 6
+        data['AdjClose'] = [1, 2, 3, 4, 5, 6, 7, 8]
+        data['MA5_AdjClose'] = [1, 2, 3, 4, 5, 6, 7, 8]
+        data['EARNINGSFLAG'] = [0, 0, 1, 0, 0, 0, 0, 0]
+        data['TestFlag'] = [True] * 8
         data2 = data.copy()
-        data2['SecCode'] =  ['5678'] * 6
+        data2['SecCode'] = ['5678'] * 8
         data2['AdjClose'] = data2.AdjClose * 10
         self.data = data.append(data2).reset_index(drop=True)
 
     def test_ern_date_blackout(self):
         result = ern_date_blackout(self.data, -1, 1)
-        benchmark = np.array([0, 1, 1, 1, 0, 0]*2)
+        benchmark = np.array([0, 1, 1, 1, 0, 0, 0, 0]*2)
         assert_array_equal(result.blackout.values, benchmark)
         result = ern_date_blackout(self.data, 0, 1)
-        benchmark = np.array([0, 0, 1, 1, 0, 0]*2)
+        benchmark = np.array([0, 0, 1, 1, 0, 0, 0, 0]*2)
         assert_array_equal(result.blackout.values, benchmark)
         result = ern_date_blackout(self.data, 0, 3)
-        benchmark = np.array([0, 0, 1, 1, 1, 1]*2)
+        benchmark = np.array([0, 0, 1, 1, 1, 1, 0, 0]*2)
         assert_array_equal(result.blackout.values, benchmark)
 
     def test_ern_price_anchor(self):
-        result = ern_price_anchor(self.data, 1)
-        benchmark = np.array([0, 0, 0, 1, 0, 0]*2)
-        assert_array_equal(result.anchor.values, benchmark)
+        data = self.data.copy()
+        data = ern_date_blackout(data, -1, 1)
+        result = ern_price_anchor(data, 1, 3)
+        benchmark = np.array([np.nan] * 4 + [4, 4, 5, 6.])
+        benchmark = np.append(benchmark, benchmark * 10)
+        assert_array_equal(result.anchor_price.values, benchmark)
+        #
+        result = ern_price_anchor(data, 0, 3)
+        benchmark = np.array([np.nan] * 4 + [3, 4, 5, 6.])
+        benchmark = np.append(benchmark, benchmark * 10)
+        assert_array_equal(result.anchor_price.values, benchmark)
+        #
+        import pdb; pdb.set_trace()
+        data2 = self.data.copy()
+        data2 = ern_date_blackout(data2, -1, 1)
+        data2['SecCode'] = ['1234'] * 16
+        result = ern_price_anchor(data2, 1, 3)
 
-    def test_anchor_returns(self):
-        data = ern_date_blackout(self.data, -1, 1)
-        data = ern_price_anchor(data, 1)
-        result = anchor_returns(data)
-        benchmark = np.array(sum([[np.nan] * 4 + [.25, .50]] * 2, []))
-        assert_array_equal(result.anchor_ret.values, benchmark)
+    def test_ern_date_label(self):
+        result = ern_date_label(self.data)
+        benchmark = np.array([0, 0, 1, 1, 1, 1, 1, 1.] * 2)
+        assert_array_equal(result.ern_num.values, benchmark)
+        #
+        data2 = self.data.copy()
+        data2['SecCode'] = ['1234'] * 16
+        result = ern_date_label(data2)
+        benchmark = np.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2])
+        assert_array_equal(result.ern_num.values, benchmark)
 
     def tearDown(self):
         pass

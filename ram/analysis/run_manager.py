@@ -53,8 +53,11 @@ class RunManager(object):
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('stats') > 0]
         self.stats = {}
-        for f in files:
-            self.stats[f] = json.load(open(os.path.join(ddir, f), 'r'))
+        if files:
+            for f in files:
+                self.stats[f] = json.load(open(os.path.join(ddir, f), 'r'))
+        else:
+            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x in self.column_params}
 
     def import_column_params(self, path=config.SIMULATION_OUTPUT_DIR):
         ppath = os.path.join(path, self.strategy_class, self.run_name,

@@ -20,29 +20,41 @@ def ern_date_blackout(data, offset1=-1, offset2=2):
     return data
 
 
-def ern_price_anchor(data, offset=1):
-    assert offset >= 0, 'Offset must be greater than/equal to 0'
-    inds = np.where(data.EARNINGSFLAG == 1)[0] + offset
-    inds = inds[inds >= 0]
-    inds = inds[inds < data.shape[0]]
-    anchor = np.zeros(data.shape[0])
-    anchor[inds] = 1
-    data['anchor'] = anchor
-    return data
+def ern_price_anchor(data, init_offset=1, window=20):
+    assert 'blackout' in data.columns
+    data = ern_date_label(data)
+    # Shift for window price
+    data['shift_price'] = data.AdjClose.shift(window-1)
+    data.shift_price = np.where(data.SecCode != data.SecCode.shift(window+init_offset-1),
+                                np.nan, data.shift_price)
+    data.shift_price = np.where(data.ern_num != data.ern_num.shift(window+init_offset-1),
+                                np.nan, data.shift_price)
+    data.shift_price = np.where(data.ern_num == 0, np.nan, data.shift_price)
+    # Start of init/trailing Anchor
+    init_anchor = data.EARNINGSFLAG.shift(init_offset).fillna(0)
+
+    data['anchor_price'] = np.where(init_anchor, data.AdjClose, np.nan)
+    data.anchor_price = np.where(data.anchor_price.isnull(),
+                                 data.shift_price, data.anchor_price)
+
+    # Create -9999 at start of new security and start of blackout period
+    data.anchor_price = np.where(data.blackout.diff() == 1,
+                                 -9999, data.anchor_price)
+    data.anchor_price = np.where(data.SecCode != data.SecCode.shift(1),
+                                 -9999, data.anchor_price)
+
+    data.anchor_price = data.anchor_price.fillna(method='pad')
+    data.anchor_price = data.anchor_price.replace(-9999, np.nan)
+    data.anchor_price = np.where(data.blackout, np.nan, data.anchor_price)
+    data['anchor_ret'] = data.AdjClose / data.anchor_price
+    return data.drop(['shift_price', 'ern_num'], axis=1)
 
 
-def anchor_returns(data):
-    data['anchor_price'] = np.where(data.anchor == 1, data.AdjClose, np.nan)
-    # Transition inds
-    inds = data.SecCode != data.SecCode.shift(1)
-    data.loc[inds, 'anchor_price'] = -9999
-    data['anchor_price'] = data.anchor_price.fillna(method='pad')
-    data['anchor_ret'] = data.AdjClose / data.anchor_price - 1
-    # Clean inds
-    inds = data.anchor_price == -9999
-    data.loc[inds, 'anchor_ret'] = np.nan
-    # Get rid of blackout rets
-    inds = data.blackout == 1
-    data.loc[inds, 'anchor_ret'] = np.nan
-    data = data.drop(['anchor_price'], axis=1)
+def ern_date_label(data):
+    data['ern_num'] = data.EARNINGSFLAG.cumsum()
+    # Transition to new SecCode
+    inds = (data.SecCode != data.SecCode.shift(1)).values
+    adjs = np.zeros(inds.shape)
+    adjs[inds] = data.ern_num.iloc[inds]
+    data.ern_num = data.ern_num - np.cumsum(adjs)
     return data

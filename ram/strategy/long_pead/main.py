@@ -11,15 +11,28 @@ class LongPeadStrategy(Strategy):
     constructor = PortfolioConstructor()
 
     def get_column_parameters(self):
-        return make_arg_iter(self.constructor.get_iterable_args())
+        args1 = make_arg_iter(self.constructor.get_data_args())
+        args2 = make_arg_iter(self.constructor.get_iterable_args())
+        output_params = {}
+        for col_ind, (x, y) in enumerate(itertools.product(args1, args2)):
+            params = dict(x)
+            params.update(y)
+            output_params[col_ind] = params
+        return output_params
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
-        self.constructor.set_and_prep_data(data, time_index)
         args = make_arg_iter(self.constructor.get_iterable_args())
-        for i, a1 in enumerate(args):
-            result = self.constructor.get_daily_pl(arg_index=i, **a1)
-            self._capture_output(result, i)
+        argsd = make_arg_iter(self.constructor.get_data_args())
+        i = 0
+        for ad in argsd:
+            if ad['blackout_offset2'] < ad['anchor_init_offset']:
+                continue
+            self.constructor.set_and_prep_data(data, time_index, **ad)
+            for a1 in args:
+                result = self.constructor.get_daily_pl(arg_index=i, **a1)
+                self._capture_output(result, i)
+                i += 1
         returns = self.output_pl / self.constructor.booksize
         self.write_index_results(returns, time_index)
 
@@ -83,9 +96,9 @@ if __name__ == '__main__':
     if args.data:
         LongPeadStrategy().make_data()
     elif args.write_simulation:
-        strategy = LongPeadStrategy('version_0009', True)
+        strategy = LongPeadStrategy('version_0005', True)
         strategy.start()
     elif args.simulation:
         import pdb; pdb.set_trace()
-        strategy = LongPeadStrategy('version_0009', False)
+        strategy = LongPeadStrategy('version_0005', False)
         strategy.start()
