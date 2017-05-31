@@ -52,11 +52,13 @@ class TestUtils(unittest.TestCase):
         benchmark = np.append(benchmark, benchmark * 10)
         assert_array_equal(result.anchor_price.values, benchmark)
         #
-        import pdb; pdb.set_trace()
         data2 = self.data.copy()
         data2 = ern_date_blackout(data2, -1, 1)
         data2['SecCode'] = ['1234'] * 16
         result = ern_price_anchor(data2, 1, 3)
+        benchmark = np.array([np.nan] * 4 + [4, 4, 5, 6, 7.] +
+            [np.nan] * 3 + [40, 40, 50, 60.])
+        assert_array_equal(result.anchor_price.values, benchmark)
 
     def test_ern_date_label(self):
         result = ern_date_label(self.data)
