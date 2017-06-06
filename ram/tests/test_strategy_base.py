@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import unittest
 import numpy as np
@@ -58,11 +59,29 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy = TestStrategy('version_001', False)
         self.strategy._prepped_data_dir = version_dir
         self.strategy._output_dir = self.prepped_data_dir
+        meta = {'start_year': 2000,
+                'features': ['F1', 'F2'],
+                'train_period_len': 2,
+                'test_period_len': 2,
+                'frequency': 'Q',
+                'filter_args': {'filter': 'AvgDolVol',
+                                'where': 'Market Cap >= 200',
+                                'univ_size': 10},
+                'strategy_name': 'TestSTrategy',
+                'version': 'version_0002',
+                'git_branch': 'master',
+                'git_commit': 'adfad14324213'}
+        with open(os.path.join(version_dir, 'meta.json'), 'w') as outfile:
+            json.dump(meta, outfile)
+        outfile.close()
 
     def test_data_files(self):
         self.strategy._get_data_file_names()
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(self.strategy._data_files, benchmark)
+
+    def test_print_prepped_data_meta(self):
+        self.strategy._print_prepped_data_meta()
 
     def test_read_data_from_index(self):
         self.strategy._get_data_file_names()

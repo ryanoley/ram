@@ -24,8 +24,8 @@ class TestResponses1(unittest.TestCase):
             1: [10, 4, 9, 10],
             2: [10, 10, 11, 11]})
         result = response_strategy_1(close1, close2, .3, 3)
-        assert_almost_equal(result[0][0], [-0.6, -0.6, 0.1])
-        assert_almost_equal(result[1][0], [0.3, 0.7, -0.1])
+        assert_almost_equal(result[0].iloc[0].values, [-0.6, -0.6, 0.1])
+        assert_almost_equal(result[1].iloc[0].values, [0.3, 0.7, -0.1])
 
     def tearDown(self):
         pass

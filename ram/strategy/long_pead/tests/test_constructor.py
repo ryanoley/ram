@@ -28,21 +28,21 @@ class TestConstructor(unittest.TestCase):
 
     def test_get_position_sizes(self):
         cons = PortfolioConstructor()
-        import pdb; pdb.set_trace()
         mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
-        result = cons._get_position_sizes(mrets, 100)
+        result = cons._get_position_sizes(mrets, 1, 100)
 
     def test_set_and_prep_data(self):
-        cons = PortfolioConstructor(booksize=200)
-        cons.set_and_prep_data(self.data, 0)
+        cons = PortfolioConstructor(booksize=200,)
+        cons.set_and_prep_data(self.data, time_index=0,
+                          blackout_offset1=-1,
+                          blackout_offset2=1,
+                          anchor_init_offset=1,
+                          anchor_window=2)
         result = cons.close_dict[pd.Timestamp('2015-01-01')]
         benchmark = {'AAPL': 10, 'GOOGL': 10, 'IBM': 9}
         self.assertDictEqual(result, benchmark)
         result = cons.close_dict[pd.Timestamp('2015-01-04')]
         benchmark = {'AAPL': 5, 'GOOGL': 15, 'IBM': 12}
-        self.assertDictEqual(result, benchmark)
-        result = cons.momentum_rets_dict[pd.Timestamp('2015-01-04')]
-        benchmark = {'AAPL': np.nan, 'GOOGL': -0.25, 'IBM': np.nan}
         self.assertDictEqual(result, benchmark)
 
     def tearDown(self):

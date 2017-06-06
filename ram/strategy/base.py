@@ -32,6 +32,7 @@ class Strategy(object):
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def start(self):
+        self._print_prepped_data_meta()
         self._get_data_file_names()
         self._create_output_dir()
         for i in ProgBar(range(len(self._data_files))):
@@ -79,6 +80,19 @@ class Strategy(object):
                       'w') as outfile:
                 json.dump(column_params, outfile)
             outfile.close()
+
+    def _print_prepped_data_meta(self):
+        meta = json.load(open(os.path.join(self._prepped_data_dir,
+                                           'meta.json'), 'r'))
+        print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
+                                             meta['version']))
+        print('Start Year: {}'.format(meta['start_year']))
+        print('Train Period Length: {}'.format(meta['train_period_len']))
+        print('Test Period Length: {}'.format(meta['test_period_len']))
+        print('Universe Creation Frequency: {}'.format(meta['frequency']))
+        print('Filter variable: {}'.format(meta['filter_args']['filter']))
+        print('Where filter: {}'.format(meta['filter_args']['where']))
+        print('Universe size: {}\n'.format(meta['filter_args']['univ_size']))
 
     def _get_data_file_names(self):
         all_files = os.listdir(self._prepped_data_dir)

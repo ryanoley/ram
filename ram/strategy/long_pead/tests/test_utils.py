@@ -14,7 +14,7 @@ from ram.strategy.long_pead.constructor.utils import *
 class TestUtils(unittest.TestCase):
 
     def setUp(self):
-        dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-04-04',
+        dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04',
                  '2015-01-05', '2015-01-06', '2015-01-07', '2015-01-08']
         data = pd.DataFrame()
         data['SecCode'] = ['1234'] * 8
@@ -61,8 +61,16 @@ class TestUtils(unittest.TestCase):
         assert_array_equal(result.anchor_price.values, benchmark)
 
     def test_ern_date_label(self):
-        result = ern_date_label(self.data)
-        benchmark = np.array([0, 0, 1, 1, 1, 1, 1, 1.] * 2)
+        data2 = self.data.copy()
+        data2 = data2.append(data2).reset_index(drop=True)
+        data2.SecCode = ['123'] * 8 + ['234'] * 8 + ['345'] * 8 + ['456'] * 8
+        data2.loc[14, 'EARNINGSFLAG'] = 1
+        data2.loc[26, 'EARNINGSFLAG'] = 0
+        result = ern_date_label(data2)
+        benchmark = np.array([0, 0, 1, 1, 1, 1, 1, 1.] +
+                             [0, 0, 1, 1, 1, 1, 2, 2.] +
+                             [0, 0, 1, 1, 1, 1, 1, 1.] +
+                             [0.] * 8)
         assert_array_equal(result.ern_num.values, benchmark)
         #
         data2 = self.data.copy()

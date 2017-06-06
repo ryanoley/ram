@@ -30,7 +30,6 @@ class TestMomentumConstructor2(unittest.TestCase):
 
     def test_get_signals(self):
         con = MomentumConstructor2()
-        import pdb; pdb.set_trace()
         result = con._get_signals(self.data, 4, 1)
 
     def test_get_date_iterable(self):

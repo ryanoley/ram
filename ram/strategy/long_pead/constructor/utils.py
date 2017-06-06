@@ -21,6 +21,15 @@ def ern_date_blackout(data, offset1=-1, offset2=2):
 
 
 def ern_price_anchor(data, init_offset=1, window=20):
+    """
+    Parameters
+    ----------
+    init_offset : int
+        The index relative to the earnings date that represents the first
+        anchor price
+    window : int
+        The maximum number of days to look back to create the anchor price
+    """
     assert 'blackout' in data.columns
     data = ern_date_label(data)
     # Shift for window price
@@ -51,10 +60,14 @@ def ern_price_anchor(data, init_offset=1, window=20):
 
 
 def ern_date_label(data):
+    """
+    Used to get the number of earnings announcements prior to or including
+    the current row specifically for a SecCode
+    """
     data['ern_num'] = data.EARNINGSFLAG.cumsum()
     # Transition to new SecCode
     inds = (data.SecCode != data.SecCode.shift(1)).values
     adjs = np.zeros(inds.shape)
     adjs[inds] = data.ern_num.iloc[inds]
-    data.ern_num = data.ern_num - np.cumsum(adjs)
+    data.ern_num = data.ern_num - np.maximum.accumulate(adjs)
     return data

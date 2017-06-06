@@ -11,7 +11,7 @@ from gearbox import convert_date_array
 from ram.strategy.statarb.constructor.constructor2 import PortfolioConstructor2
 
 
-class TestConstructor(unittest.TestCase):
+class TestConstructor2(unittest.TestCase):
 
     def setUp(self):
         dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04']
@@ -55,7 +55,7 @@ class TestConstructor(unittest.TestCase):
         self.assertDictEqual(result, benchmark)
 
     def test_get_zscores(self):
-        cons = PortfolioConstructor(booksize=200)
+        cons = PortfolioConstructor2()
         close_data = pd.DataFrame({
             'AdjClose': [10, 12, 15, 14, 21, 24, 25, 22],
             'SecCode': ['V1'] * 4 + ['V2'] * 4,
