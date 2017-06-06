@@ -15,7 +15,6 @@ DDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'temp_ern_pead')
 
 class TestTechnicalVars1(unittest.TestCase):
 
-    print('Importing Technical Vars 1')
     data1 = import_sql_output(os.path.join(
         DDIR, 'earnings', 'technical_vars_1.csv'))
     data2 = import_sql_output(os.path.join(
