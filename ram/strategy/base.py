@@ -187,3 +187,67 @@ class Strategy(object):
                                    output_name), 'w') as outfile:
                 json.dump(stats, outfile)
             outfile.close()
+
+
+# ~~~~~~  Make ArgParser  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def make_argument_parser(Strategy):
+
+    import argparse
+    from ram.data.data_constructor import print_strategy_versions
+    from ram.data.data_constructor import print_strategy_meta
+    from ram.data.data_constructor import get_version_name
+
+    parser = argparse.ArgumentParser()
+
+    # Data Exploration Commands
+    parser.add_argument(
+        '-p', '--print_versions', action='store_true',
+        help='Print available prepped data versions.')
+    parser.add_argument(
+        '-m', '--meta',
+        help='Print meta data for version. Accepts integer or name.')
+
+    # Simulation Commands
+    parser.add_argument(
+        '-v', '--data_version',
+        help='Version number of simulation.')
+    parser.add_argument(
+        '-w', '--write_simulation', action='store_true',
+        help='Write simulation')
+    parser.add_argument(
+        '-s', '--simulation', action='store_true',
+        help='Run simulation for debugging')
+
+    # Data Construction Commands
+    parser.add_argument(
+        '--data_prep', action='store_true',
+        help='Run DataConstructor')
+
+    args = parser.parse_args()
+
+    if args.data_prep:
+        Strategy().make_data()
+    elif args.print_versions:
+        print_strategy_versions(Strategy.__name__)
+    elif args.meta:
+        version = get_version_name(Strategy.__name__, args.meta)
+        print_strategy_meta(Strategy.__name__, version)
+    elif args.write_simulation:
+        if not args.data_version:
+            print('Data version must be provided')
+        else:
+            version = get_version_name(Strategy.__name__, args.data_version)
+            strategy = Strategy(version, True)
+            strategy.start()
+    elif args.simulation:
+        if not args.data_version:
+            print('Data version must be provided')
+        else:
+            import pdb; pdb.set_trace()
+            version = get_version_name(Strategy.__name__, args.data_version)
+            strategy = Strategy(version, False)
+            strategy.start()
+
+
+

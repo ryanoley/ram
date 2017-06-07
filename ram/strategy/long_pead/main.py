@@ -4,11 +4,12 @@ import datetime as dt
 
 from ram.strategy.base import Strategy
 from ram.strategy.long_pead.constructor.constructor import PortfolioConstructor
+from ram.strategy.long_pead.constructor.constructor2 import PortfolioConstructor2
 
 
 class LongPeadStrategy(Strategy):
 
-    constructor = PortfolioConstructor()
+    constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):
         args1 = make_arg_iter(self.constructor.get_data_args())
@@ -53,20 +54,35 @@ class LongPeadStrategy(Strategy):
     def get_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (25) ' +
+            'where': 'MarketCap >= 200 and GSECTOR in (30) ' +
             'and Close_ between 10 and 500',
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjClose', 'AvgDolVol',
+        return ['AdjClose', 'MarketCap',
                 'RClose', 'RCashDividend', 'SplitFactor',
-                'PRMA5_AdjClose', 'GGROUP', 'EARNINGSFLAG']
+
+                # Features
+                'RANK_AvgDolVol', 'RANK_PRMA120_AvgDolVol',
+                'RANK_PRMA10_AdjClose', 'RANK_PRMA20_AdjClose',
+
+                'RANK_BOLL10_AdjClose', 'RANK_BOLL20_AdjClose', 'RANK_BOLL60_AdjClose',
+                'RANK_MFI10_AdjClose', 'RANK_MFI20_AdjClose', 'RANK_MFI60_AdjClose',
+                'RANK_RSI10_AdjClose', 'RANK_RSI20_AdjClose', 'RANK_RSI60_AdjClose',
+                'RANK_VOL10_AdjClose', 'RANK_VOL20_AdjClose', 'RANK_VOL60_AdjClose',
+
+                'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
+                'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose', 'RANK_DISCOUNT252_AdjClose',
+
+                'ACCTSALES', 'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
+                'ACCTEPSGROWTH', 'ACCTPRICESALES',
+                'GGROUP', 'EARNINGSFLAG']
 
     def get_date_parameters(self):
         return {
             'frequency': 'Q',
-            'train_period_length': 4,
-            'test_period_length': 2,
+            'train_period_length': 1,
+            'test_period_length': 1,
             'start_year': 2002
         }
 
@@ -76,29 +92,8 @@ def make_arg_iter(variants):
             for vals in itertools.product(*variants.values())]
 
 
-
 if __name__ == '__main__':
 
-    import argparse
+    from ram.strategy.base import make_argument_parser
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--data', action='store_true',
-        help='Run DataConstructor')
-    parser.add_argument(
-        '-w', '--write_simulation', action='store_true',
-        help='Run simulation')
-    parser.add_argument(
-        '-s', '--simulation', action='store_true',
-        help='Run simulation')
-    args = parser.parse_args()
-
-    if args.data:
-        LongPeadStrategy().make_data()
-    elif args.write_simulation:
-        strategy = LongPeadStrategy('version_0005', True)
-        strategy.start()
-    elif args.simulation:
-        import pdb; pdb.set_trace()
-        strategy = LongPeadStrategy('version_0005', False)
-        strategy.start()
+    make_argument_parser(LongPeadStrategy)
