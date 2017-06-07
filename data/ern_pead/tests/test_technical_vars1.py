@@ -4,13 +4,15 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from ram import config
+
 from ram.utils.read_write import import_sql_output
 
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 
-DDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'temp_ern_pead')
+DDIR = config.ERN_PEAD_DIR
 
 
 class TestTechnicalVars1(unittest.TestCase):
