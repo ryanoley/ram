@@ -121,8 +121,76 @@ class DataConstructor(object):
         outfile.close()
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def clean_directory():
     pass
+
+
+def _get_directories(path):
+    return [name for name in os.listdir(path)
+            if os.path.isdir(os.path.join(path, name))]
+
+
+def _get_strategies():
+    dirs = _get_directories(config.PREPPED_DATA_DIR)
+    dirs.sort()
+    return {i: d for i, d in enumerate(dirs)}
+
+
+def _get_versions(strategy):
+    dirs = _get_directories(os.path.join(config.PREPPED_DATA_DIR, strategy))
+    dirs.sort()
+    dirs = [x for x in dirs if x.find('version') >= 0]
+    return {i: d for i, d in enumerate(dirs)}
+
+
+def _get_meta_data(strategy, version):
+    path = os.path.join(config.PREPPED_DATA_DIR, strategy,
+                        version, 'meta.json')
+    with open(path) as data_file:
+        meta = json.load(data_file)
+    return meta
+
+
+def print_strategies():
+    dirs = _get_strategies()
+    print('\n Available Strategies with prepped data')
+    print(' --------------------------------------')
+    for i, name in dirs.items():
+        print('  [{}] '.format(i)+name)
+    print('\n')
+
+
+def print_strategy_versions(strategy):
+    versions = _get_versions(strategy)
+    pstring = '\n Available Verions for {}'.format(strategy)
+    print(pstring)
+    print(' ' + '-' * (len(pstring)-2))
+    for i, v in versions.items():
+        print('  [{}] '.format(i)+v)
+    print('\n')
+
+
+def print_strategy_meta(strategy, version):
+    meta = _get_meta_data(strategy, version)
+    print('\n Meta data for {} / {}'.format(strategy, version))
+    print(' ' + '-' * (len(strategy) + len(version) + 17))
+    print('   Git Branch:\t' + str(meta['git_branch']))
+    print('   Features:\t' + meta['features'][0])
+    for feature in meta['features'][1:]:
+        print('\t\t{}'.format(feature))
+    print('\n')
+    print('   Filter Arguments: ')
+    print('\tUniverse Size:\t' + str(meta['filter_args']['univ_size']))
+    print('\tFilter:\t\t' + meta['filter_args']['filter'])
+    print('\tWhere:\t\t' + meta['filter_args']['where'])
+    print('\n')
+    print('   Start Year:\t\t' + str(meta['start_year']))
+    print('   Train Period Length:\t' + str(meta['train_period_len']))
+    print('   Test Period Length:\t' + str(meta['test_period_len']))
+    print('   Frequency:\t' + str(meta['frequency']))
+    print('\n')
 
 
 if __name__ == '__main__':
@@ -131,9 +199,31 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--clean', action='store_true',
+        '-c', '--clean', action='store_true',
         help='Clean all empty version directories')
+    parser.add_argument(
+        '-l', '--strategy', action='store_true',
+        help='List all strategies')
+    parser.add_argument(
+        '-m', '--meta', nargs='+',
+        help='Print meta data. If no version given, prints truncated view')
     args = parser.parse_args()
 
     if args.clean:
         clean_directory()
+    elif args.strategy:
+        print_strategies()
+    elif args.meta:
+        if args.meta[0].isdigit():
+            strategy = _get_strategies()[int(args.meta[0])]
+        else:
+            strategy = args.meta[0]
+        if len(args.meta) > 1:
+            # Print meta data for specific Strategy/Version
+            if args.meta[1].isdigit():
+                version = _get_versions(strategy)[int(args.meta[1])]
+            else:
+                version = args.meta[1]
+            print_strategy_meta(strategy, version)
+        else:
+            print_strategy_versions(strategy)
