@@ -127,6 +127,18 @@ def clean_directory():
     pass
 
 
+def get_strategy_name(name):
+    if name.isdigit():
+        return _get_strategies()[int(name)]
+    return name
+
+
+def get_version_name(strategy, name):
+    if name.isdigit():
+        return _get_versions(strategy)[int(name)]
+    return name
+
+
 def _get_directories(path):
     return [name for name in os.listdir(path)
             if os.path.isdir(os.path.join(path, name))]
@@ -214,16 +226,9 @@ if __name__ == '__main__':
     elif args.strategy:
         print_strategies()
     elif args.meta:
-        if args.meta[0].isdigit():
-            strategy = _get_strategies()[int(args.meta[0])]
-        else:
-            strategy = args.meta[0]
+        strategy = get_strategy_name(args.meta[0])
         if len(args.meta) > 1:
-            # Print meta data for specific Strategy/Version
-            if args.meta[1].isdigit():
-                version = _get_versions(strategy)[int(args.meta[1])]
-            else:
-                version = args.meta[1]
+            version = get_version_name(strategy, args.meta[1])
             print_strategy_meta(strategy, version)
         else:
             print_strategy_versions(strategy)
