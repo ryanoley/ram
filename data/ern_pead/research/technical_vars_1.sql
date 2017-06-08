@@ -172,6 +172,13 @@ select			A.ReportDate,
 				B.PRMA60 - C.PRMA60 as PRMA60,
 				B.PRMA60_Rank,
 
+				B.PRMA5_10 - C.PRMA5_10 as PRMA5_10,
+				B.PRMA5_10_Rank,
+				B.PRMA5_20 - C.PRMA5_20 as PRMA5_20,
+				B.PRMA5_20_Rank,
+				B.PRMA5_60 - C.PRMA5_60 as PRMA5_60,
+				B.PRMA5_60_Rank,
+
 				B.PRMA10_20 - C.PRMA10_20 as PRMA10_20,
 				B.PRMA10_20_Rank,
 				B.PRMA10_60 - C.PRMA10_60 as PRMA10_60,

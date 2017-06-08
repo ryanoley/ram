@@ -207,7 +207,20 @@ select			SecCode,
 				PercentB60,
 				percent_rank() over (
 					partition by Date_
-					order by PercentB60) as PercentB60_Rank
+					order by PercentB60) as PercentB60_Rank,
+
+				RSI10,
+				percent_rank() over (
+					partition by Date_
+					order by RSI10) as RSI10_Rank,
+				RSI30,
+				percent_rank() over (
+					partition by Date_
+					order by RSI30) as RSI30_Rank,
+				RSI60,
+				percent_rank() over (
+					partition by Date_
+					order by RSI60) as RSI60_Rank
 
 from			all_technical_vars_univ4
 
@@ -236,7 +249,14 @@ select			A.ReportDate,
 				PercentB30,
 				PercentB30_Rank,
 				PercentB60,
-				PercentB60_Rank
+				PercentB60_Rank,
+
+				RSI10,
+				RSI10_Rank,
+				RSI30,
+				RSI30_Rank,
+				RSI60,
+				RSI60_Rank
 
 from			report_dates0 A
 	join		all_technical_vars_univ_ranked B
