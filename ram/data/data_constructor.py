@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import itertools
 import numpy as np
 import datetime as dt
@@ -123,20 +124,31 @@ class DataConstructor(object):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def clean_directory():
-    pass
+def clean_directory(strategy, version):
+    dir_path = os.path.join(config.PREPPED_DATA_DIR, strategy, version)
+    print('\n Are you sure you want to delete the following path:')
+    print('   ' + dir_path)
+    print('\n Type `1234` if you are certain: ')
+    user_input = raw_input()
+    if user_input == '1234':
+        print('\nDeleting\n')
+        shutil.rmtree(dir_path)
+    else:
+        print('\nNo versions deleted\n')
 
 
 def get_strategy_name(name):
-    if name.isdigit():
+    try:
         return _get_strategies()[int(name)]
-    return name
+    except:
+        return name
 
 
 def get_version_name(strategy, name):
-    if name.isdigit():
+    try:
         return _get_versions(strategy)[int(name)]
-    return name
+    except:
+        return name
 
 
 def _get_directories(path):
@@ -165,29 +177,65 @@ def _get_meta_data(strategy, version):
     return meta
 
 
+def _get_min_max_dates_counts(strategy, version):
+    files = os.listdir(os.path.join(config.PREPPED_DATA_DIR,
+                                    strategy, version))
+    files = [f for f in files if f.find('_data.csv') > 1]
+    if len(files):
+        dates = [f.split('_')[0] for f in files]
+        dates.sort()
+        return dates[0], dates[-1], len(dates)
+    else:
+        return 'No Files', 'No Files', 0
+
+
 def print_strategies():
     dirs = _get_strategies()
-    print('\n Available Strategies with prepped data')
-    print(' --------------------------------------')
+    _print_line_underscore('Available Strategies with prepped data')
     for i, name in dirs.items():
         print('  [{}] '.format(i)+name)
     print('\n')
 
 
+def _print_line_underscore(pstring):
+    print('\n ' + pstring)
+    print(' ' + '-' * len(pstring))
+
+
 def print_strategy_versions(strategy):
-    versions = _get_versions(strategy)
-    pstring = '\n Available Verions for {}'.format(strategy)
-    print(pstring)
-    print(' ' + '-' * (len(pstring)-2))
-    for i, v in versions.items():
-        print('  [{}] '.format(i)+v)
+    stats = _get_strategy_version_stats(strategy)
+    _print_line_underscore('Available Verions for {}'.format(strategy))
+    print('  Key\tVersion\t\tStart Date\tEnd Date\tFile Count')
+    keys = stats.keys()
+    keys.sort()
+    for key in keys:
+        print('  [{}]\t{}\t{}\t{}\t{}'.format(
+            key,
+            stats[key]['version'],
+            stats[key]['min_date'],
+            stats[key]['max_date'],
+            stats[key]['file_count']))
     print('\n')
+
+
+def _get_strategy_version_stats(strategy):
+    versions = _get_versions(strategy)
+    # Get MinMax dates for files
+    dir_stats = {}
+    for key, version in versions.items():
+        stats = _get_min_max_dates_counts(strategy, version)
+        dir_stats[key] = {
+            'version': version,
+            'min_date': stats[0],
+            'max_date': stats[1],
+            'file_count': stats[2]
+        }
+    return dir_stats
 
 
 def print_strategy_meta(strategy, version):
     meta = _get_meta_data(strategy, version)
-    print('\n Meta data for {} / {}'.format(strategy, version))
-    print(' ' + '-' * (len(strategy) + len(version) + 17))
+    _print_line_underscore('Meta data for {} / {}'.format(strategy, version))
     print('   Git Branch:\t' + str(meta['git_branch']))
     print('   Features:\t' + meta['features'][0])
     for feature in meta['features'][1:]:
@@ -201,7 +249,7 @@ def print_strategy_meta(strategy, version):
     print('   Start Year:\t\t' + str(meta['start_year']))
     print('   Train Period Length:\t' + str(meta['train_period_len']))
     print('   Test Period Length:\t' + str(meta['test_period_len']))
-    print('   Frequency:\t' + str(meta['frequency']))
+    print('   Frequency:\t\t' + str(meta['frequency']))
     print('\n')
 
 
@@ -211,24 +259,30 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-c', '--clean', action='store_true',
-        help='Clean all empty version directories')
-    parser.add_argument(
-        '-l', '--strategy', action='store_true',
+        '-ls', '--list_strategies', action='store_true',
         help='List all strategies')
     parser.add_argument(
-        '-m', '--meta', nargs='+',
-        help='Print meta data. If no version given, prints truncated view')
+        '-lv', '--list_versions', type=str,
+        help='List all versions of prepped data for a strategy')
+    parser.add_argument(
+        '-pm', '--print_meta', type=str, nargs=2,
+        help='Print meta data. Takes two arguments for Strategy and Version')
+    parser.add_argument(
+        '-cv', '--clean_version', type=str, nargs=2,
+        help='Delete version. Takes two arguments for Strategy and Version')
+
     args = parser.parse_args()
 
-    if args.clean:
-        clean_directory()
-    elif args.strategy:
+    if args.list_strategies:
         print_strategies()
-    elif args.meta:
-        strategy = get_strategy_name(args.meta[0])
-        if len(args.meta) > 1:
-            version = get_version_name(strategy, args.meta[1])
-            print_strategy_meta(strategy, version)
-        else:
-            print_strategy_versions(strategy)
+    elif args.list_versions:
+        strategy = get_strategy_name(args.list_versions)
+        print_strategy_versions(strategy)
+    elif args.print_meta:
+        strategy = get_strategy_name(args.print_meta[0])
+        version = get_version_name(strategy, args.print_meta[1])
+        print_strategy_meta(strategy, version)
+    elif args.clean_version:
+        strategy = get_strategy_name(args.clean_version[0])
+        version = get_version_name(strategy, args.clean_version[1])
+        clean_directory(strategy, version)

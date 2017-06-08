@@ -197,16 +197,20 @@ def make_argument_parser(Strategy):
     from ram.data.data_constructor import print_strategy_versions
     from ram.data.data_constructor import print_strategy_meta
     from ram.data.data_constructor import get_version_name
+    from ram.data.data_constructor import clean_directory
 
     parser = argparse.ArgumentParser()
 
     # Data Exploration Commands
     parser.add_argument(
-        '-p', '--print_versions', action='store_true',
-        help='Print available prepped data versions.')
+        '-lv', '--list_versions', action='store_true',
+        help='List all versions of prepped data for a strategy')
     parser.add_argument(
-        '-m', '--meta',
-        help='Print meta data for version. Accepts integer or name.')
+        '-pm', '--print_meta', type=str,
+        help='Print meta data. Takes two arguments for Strategy and Version')
+    parser.add_argument(
+        '-cv', '--clean_version', type=str,
+        help='Delete version. Takes two arguments for Strategy and Version')
 
     # Simulation Commands
     parser.add_argument(
@@ -226,13 +230,17 @@ def make_argument_parser(Strategy):
 
     args = parser.parse_args()
 
-    if args.data_prep:
-        Strategy().make_data()
-    elif args.print_versions:
+    # Data Exploration
+    if args.list_versions:
         print_strategy_versions(Strategy.__name__)
-    elif args.meta:
-        version = get_version_name(Strategy.__name__, args.meta)
+    elif args.print_meta:
+        version = get_version_name(Strategy.__name__, args.print_meta)
         print_strategy_meta(Strategy.__name__, version)
+    elif args.clean_version:
+        version = get_version_name(Strategy.__name__, args.clean_version)
+        clean_directory(Strategy.__name__, version)
+
+    # Simulation Commands
     elif args.write_simulation:
         if not args.data_version:
             print('Data version must be provided')
@@ -248,3 +256,7 @@ def make_argument_parser(Strategy):
             version = get_version_name(Strategy.__name__, args.data_version)
             strategy = Strategy(version, False)
             strategy.start()
+
+    # Data Construction
+    elif args.data_prep:
+        Strategy().make_data()
