@@ -134,7 +134,9 @@ class PortfolioConstructor2(object):
         clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
                                  max_samples=0.7, max_features=0.6, n_jobs=-1)
 
-        clf4 = RidgeClassifier(tol=1e-2, solver="lsqr")
+        clf4 = BaggingClassifier(RidgeClassifier(tol=1e-2, solver="lsqr"),
+                                 n_estimators=10,
+                                 max_samples=0.7, max_features=0.6, n_jobs=-1)
 
         clf = VotingClassifier(estimators=[('rf', clf1), ('et', clf2),
             ('lc', clf3), ('rc', clf4)], voting='soft')
