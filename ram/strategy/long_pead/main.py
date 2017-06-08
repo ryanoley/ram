@@ -59,7 +59,7 @@ class LongPeadStrategy(Strategy):
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjClose',
+        return ['AdjClose', 'AdjVwap',
                 'RClose', 'RCashDividend', 'SplitFactor',
 
                 # Features

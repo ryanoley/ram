@@ -4,7 +4,8 @@ import datetime as dt
 
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 from ram.strategy.long_pead.constructor.utils import ern_date_blackout
-from ram.strategy.long_pead.constructor.utils import ern_price_anchor
+from ram.strategy.long_pead.constructor.utils import make_anchor_ret_rank
+from ram.strategy.long_pead.constructor.utils import ern_return
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
@@ -12,6 +13,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import BaggingClassifier
 from sklearn.linear_model import RidgeClassifier
 from sklearn.ensemble import VotingClassifier
+
+
+NJOBS = 2
 
 
 class PortfolioConstructor2(object):
@@ -92,30 +96,42 @@ class PortfolioConstructor2(object):
         # Anchor prices
         data = ern_date_blackout(data, offset1=blackout_offset1,
                                  offset2=blackout_offset2)
-        data = ern_price_anchor(data, init_offset=anchor_init_offset,
-                                window=anchor_window)
+        data = make_anchor_ret_rank(data, init_offset=anchor_init_offset,
+                                    window=anchor_window)
+        data = ern_return(data)
+        data = data.merge(smoothed_responses(data))
 
         # Training happens
         features = [
-            'anchor_ret',
+            'blackout', 'anchor_ret_rank', 'earnings_ret',
             'RANK_AvgDolVol', 'RANK_PRMA120_AvgDolVol',
             'RANK_PRMA10_AdjClose', 'RANK_PRMA20_AdjClose',
 
-            'RANK_BOLL10_AdjClose', 'RANK_BOLL20_AdjClose', 'RANK_BOLL60_AdjClose',
-            'RANK_MFI10_AdjClose', 'RANK_MFI20_AdjClose', 'RANK_MFI60_AdjClose',
-            'RANK_RSI10_AdjClose', 'RANK_RSI20_AdjClose', 'RANK_RSI60_AdjClose',
-            'RANK_VOL10_AdjClose', 'RANK_VOL20_AdjClose', 'RANK_VOL60_AdjClose',
+            'RANK_BOLL10_AdjClose', 'RANK_BOLL20_AdjClose',
+            'RANK_BOLL60_AdjClose',
 
-            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
-            'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose', 'RANK_DISCOUNT252_AdjClose',
+            'RANK_MFI10_AdjClose', 'RANK_MFI20_AdjClose',
+            'RANK_MFI60_AdjClose',
+
+            'RANK_RSI10_AdjClose', 'RANK_RSI20_AdjClose',
+            'RANK_RSI60_AdjClose',
+
+            'RANK_VOL10_AdjClose', 'RANK_VOL20_AdjClose',
+            'RANK_VOL60_AdjClose',
+
+            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
+            'DISCOUNT252_AdjClose',
+
+            'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose',
+            'RANK_DISCOUNT252_AdjClose',
 
             'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
             'ACCTEPSGROWTH', 'ACCTPRICESALES']
 
         train_data = data[~data.TestFlag]
-        train_data = train_data.merge(smoothed_responses(train_data))
-        train_data = train_data[['SecCode', 'Date', 'Response'] +
-                                features].dropna()
+
+        train_data = train_data[['SecCode', 'Date', 'Response'] + features]
+        train_data = train_data.dropna()
 
         # Cache training data
         if time_index == 0:
@@ -123,20 +139,22 @@ class PortfolioConstructor2(object):
         else:
             self.train_data = self.train_data.append(train_data)
 
-        clf1 = RandomForestClassifier(n_estimators=100, n_jobs=-1,
+        clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
                                      min_samples_leaf=30,
                                      max_features=7)
 
-        clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=-1,
+        clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
                                     min_samples_leaf=30,
                                     max_features=7)
 
         clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
-                                 max_samples=0.7, max_features=0.6, n_jobs=-1)
+                                 max_samples=0.7, max_features=0.6,
+                                 n_jobs=NJOBS)
 
         clf4 = BaggingClassifier(RidgeClassifier(tol=1e-2, solver="lsqr"),
                                  n_estimators=10,
-                                 max_samples=0.7, max_features=0.6, n_jobs=-1)
+                                 max_samples=0.7, max_features=0.6,
+                                 n_jobs=NJOBS)
 
         clf = VotingClassifier(estimators=[('rf', clf1), ('et', clf2),
             ('lc', clf3), ('rc', clf4)], voting='soft')
@@ -183,7 +201,6 @@ class PortfolioConstructor2(object):
         self.data = data
 
 
-
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
     for i in days:
@@ -198,9 +215,3 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
     return output
-
-
-
-
-
-

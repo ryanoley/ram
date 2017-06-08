@@ -32,7 +32,7 @@ class TestConstructor(unittest.TestCase):
         result = cons._get_position_sizes(mrets, 1, 100)
 
     def test_set_and_prep_data(self):
-        cons = PortfolioConstructor(booksize=200,)
+        cons = PortfolioConstructor(booksize=200)
         cons.set_and_prep_data(self.data, time_index=0,
                           blackout_offset1=-1,
                           blackout_offset2=1,

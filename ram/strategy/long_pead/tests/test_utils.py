@@ -26,7 +26,9 @@ class TestUtils(unittest.TestCase):
         data2 = data.copy()
         data2['SecCode'] = ['5678'] * 8
         data2['AdjClose'] = data2.AdjClose * 10
-        self.data = data.append(data2).reset_index(drop=True)
+        data = data.append(data2).reset_index(drop=True)
+        data['AdjVwap'] = data['AdjClose'].copy()
+        self.data = data
 
     def test_ern_date_blackout(self):
         result = ern_date_blackout(self.data, -1, 1)
@@ -55,29 +57,40 @@ class TestUtils(unittest.TestCase):
         data2 = self.data.copy()
         data2 = ern_date_blackout(data2, -1, 1)
         data2['SecCode'] = ['1234'] * 16
+        data2['Date'] = ['2015-01-01', '2015-01-02', '2015-01-03',
+                         '2015-01-04', '2015-01-05', '2015-01-06',
+                         '2015-01-07', '2015-01-08', '2015-01-09',
+                         '2015-01-10', '2015-01-11', '2015-01-12',
+                         '2015-01-13', '2015-01-14', '2015-01-15',
+                         '2015-01-16']
         result = ern_price_anchor(data2, 1, 3)
         benchmark = np.array([np.nan] * 4 + [4, 4, 5, 6, 7.] +
-            [np.nan] * 3 + [40, 40, 50, 60.])
+                             [np.nan] * 3 + [40, 40, 50, 60.])
         assert_array_equal(result.anchor_price.values, benchmark)
 
-    def test_ern_date_label(self):
+    def test_make_anchor_ret_rank(self):
+        data = self.data.copy()
+        data = ern_date_blackout(data, -1, 1)
+        make_anchor_ret_rank(data)
+
+    def test_ern_return(self):
+        result = ern_return(self.data)
+        benchmark = [1.]*4 + [2.]*4
+        benchmark = np.array(benchmark * 2)
+        assert_array_equal(result.earnings_ret.values, benchmark)
         data2 = self.data.copy()
-        data2 = data2.append(data2).reset_index(drop=True)
-        data2.SecCode = ['123'] * 8 + ['234'] * 8 + ['345'] * 8 + ['456'] * 8
-        data2.loc[14, 'EARNINGSFLAG'] = 1
-        data2.loc[26, 'EARNINGSFLAG'] = 0
-        result = ern_date_label(data2)
-        benchmark = np.array([0, 0, 1, 1, 1, 1, 1, 1.] +
-                             [0, 0, 1, 1, 1, 1, 2, 2.] +
-                             [0, 0, 1, 1, 1, 1, 1, 1.] +
-                             [0.] * 8)
-        assert_array_equal(result.ern_num.values, benchmark)
-        #
-        data2 = self.data.copy()
+        data2 = ern_date_blackout(data2, -1, 1)
         data2['SecCode'] = ['1234'] * 16
-        result = ern_date_label(data2)
-        benchmark = np.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2])
-        assert_array_equal(result.ern_num.values, benchmark)
+        data2['Date'] = ['2015-01-01', '2015-01-02', '2015-01-03',
+                         '2015-01-04', '2015-01-05', '2015-01-06',
+                         '2015-01-07', '2015-01-08', '2015-01-09',
+                         '2015-01-10', '2015-01-11', '2015-01-12',
+                         '2015-01-13', '2015-01-14', '2015-01-15',
+                         '2015-01-16']
+        data2.loc[8:, 'AdjVwap'] = [9, 10, 12, 14, 15, 16, 17, 18]
+        result = ern_return(data2)
+        benchmark = np.array([1]*4 + [2]*8 + [1.4]*4)
+        assert_array_equal(result.earnings_ret.values, benchmark)
 
     def tearDown(self):
         pass

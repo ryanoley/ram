@@ -31,43 +31,50 @@ def ern_price_anchor(data, init_offset=1, window=20):
         The maximum number of days to look back to create the anchor price
     """
     assert 'blackout' in data.columns
-    data = ern_date_label(data)
-    # Shift for window price
-    data['shift_price'] = data.AdjClose.shift(window-1)
-    data.shift_price = np.where(data.SecCode != data.SecCode.shift(window+init_offset-1),
-                                np.nan, data.shift_price)
-    data.shift_price = np.where(data.ern_num != data.ern_num.shift(window+init_offset-1),
-                                np.nan, data.shift_price)
-    data.shift_price = np.where(data.ern_num == 0, np.nan, data.shift_price)
-    # Start of init/trailing Anchor
-    init_anchor = data.EARNINGSFLAG.shift(init_offset).fillna(0)
-
-    data['anchor_price'] = np.where(init_anchor, data.AdjClose, np.nan)
-    data.anchor_price = np.where(data.anchor_price.isnull(),
-                                 data.shift_price, data.anchor_price)
-
-    # Create -9999 at start of new security and start of blackout period
-    data.anchor_price = np.where(data.blackout.diff() == 1,
-                                 -9999, data.anchor_price)
-    data.anchor_price = np.where(data.SecCode != data.SecCode.shift(1),
-                                 -9999, data.anchor_price)
-
-    data.anchor_price = data.anchor_price.fillna(method='pad')
-    data.anchor_price = data.anchor_price.replace(-9999, np.nan)
-    data.anchor_price = np.where(data.blackout, np.nan, data.anchor_price)
+    closes = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+    earningsflag = data.pivot(index='Date', columns='SecCode',
+                              values='EARNINGSFLAG').fillna(0)
+    blackout = data.pivot(index='Date', columns='SecCode',
+                          values='blackout').fillna(0)
+    # Get window period anchor price
+    init_anchor = earningsflag.shift(init_offset).fillna(0) * closes
+    end_anchor = earningsflag.shift(init_offset+window).fillna(0) * -1 * \
+        closes.shift(window).fillna(0)
+    init_anchor2 = (init_anchor + end_anchor).cumsum()
+    output = closes.copy()
+    output[:] = np.where(init_anchor2 == 0, closes.shift(window-1), init_anchor2)
+    output[:] = np.where(blackout, np.nan, output)
+    output = output.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'anchor_price']
+    data = data.merge(output)
     data['anchor_ret'] = data.AdjClose / data.anchor_price
-    return data.drop(['shift_price', 'ern_num'], axis=1)
-
-
-def ern_date_label(data):
-    """
-    Used to get the number of earnings announcements prior to or including
-    the current row specifically for a SecCode
-    """
-    data['ern_num'] = data.EARNINGSFLAG.cumsum()
-    # Transition to new SecCode
-    inds = (data.SecCode != data.SecCode.shift(1)).values
-    adjs = np.zeros(inds.shape)
-    adjs[inds] = data.ern_num.iloc[inds]
-    data.ern_num = data.ern_num - np.maximum.accumulate(adjs)
     return data
+
+
+def ern_return(data):
+    """
+    (T-1) to (T+1) Vwap return
+    """
+    prices = data.pivot(index='Date', columns='SecCode', values='AdjVwap')
+    earningsflag = data.pivot(index='Date', columns='SecCode',
+                              values='EARNINGSFLAG').fillna(0)
+    rets = prices.shift(-1) / prices.shift(1)
+    rets[:] = np.where(earningsflag == 1, rets, np.nan)
+    rets = rets.fillna(method='pad').shift(2).fillna(1)
+    output = rets.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'earnings_ret']
+    return data.merge(output)
+
+
+def make_anchor_ret_rank(data, init_offset=1,
+                         window=20):
+    data = ern_price_anchor(data, init_offset=init_offset,
+                            window=window)
+    data['anchor_ret'] = data.AdjClose / data.anchor_price - 1
+    data['anchor_ret'] = data.anchor_ret.fillna(0)
+    anchor_rets = data.pivot(index='Date',
+                             columns='SecCode', values='anchor_ret')
+    ranks = anchor_rets.rank(axis=1, pct=True)
+    ranks = ranks.unstack().reset_index()
+    ranks.columns = ['SecCode', 'Date', 'anchor_ret_rank']
+    return data.merge(ranks)
