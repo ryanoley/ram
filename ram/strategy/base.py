@@ -67,8 +67,8 @@ class Strategy(object):
             self.strategy_output_dir = os.path.join(run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
             # Copy source code for Strategy
-            source_path = inspect.getmodule(
-                self.__class__).__file__.strip('/main.py').split('/')
+            source_path = inspect.getfile(
+                self.__class__).strip('/main.py').split('/')
             source_path = os.path.join(os.getenv('GITHUB'), 'ram',
                                        *source_path)
             dest_path = os.path.join(run_dir, 'strategy_source_copy')
