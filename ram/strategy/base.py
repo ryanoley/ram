@@ -85,7 +85,7 @@ class Strategy(object):
         meta = json.load(open(os.path.join(self._prepped_data_dir,
                                            'meta.json'), 'r'))
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
-                                             meta['version']))
+                                                     meta['version']))
         print('Start Year: {}'.format(meta['start_year']))
         print('Train Period Length: {}'.format(meta['train_period_len']))
         print('Test Period Length: {}'.format(meta['test_period_len']))
@@ -248,6 +248,3 @@ def make_argument_parser(Strategy):
             version = get_version_name(Strategy.__name__, args.data_version)
             strategy = Strategy(version, False)
             strategy.start()
-
-
-
