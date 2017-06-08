@@ -59,10 +59,11 @@ class LongPeadStrategy(Strategy):
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjClose', 'MarketCap',
+        return ['AdjClose',
                 'RClose', 'RCashDividend', 'SplitFactor',
 
                 # Features
+                'MarketCap', 'RANK_MarketCap',
                 'RANK_AvgDolVol', 'RANK_PRMA120_AvgDolVol',
                 'RANK_PRMA10_AdjClose', 'RANK_PRMA20_AdjClose',
 
@@ -74,7 +75,7 @@ class LongPeadStrategy(Strategy):
                 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
                 'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose', 'RANK_DISCOUNT252_AdjClose',
 
-                'ACCTSALES', 'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
+                'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
                 'ACCTEPSGROWTH', 'ACCTPRICESALES',
                 'GGROUP', 'EARNINGSFLAG']
 

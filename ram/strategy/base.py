@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import shutil
+import inspect
 import logging
 import pandas as pd
 import datetime as dt
@@ -64,6 +66,13 @@ class Strategy(object):
             # Output directory setup
             self.strategy_output_dir = os.path.join(run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
+            # Copy source code for Strategy
+            source_path = [x for x in inspect.getfile(self.__class__).split('/')
+                           if x not in ['', 'main.py']]
+            source_path = os.path.join(os.getenv('GITHUB'),
+                                       'ram', *source_path)
+            dest_path = os.path.join(run_dir, 'strategy_source_copy')
+            copytree(source_path, dest_path)
             # Create meta object
             run_meta = {
                 'prepped_data_version': self._data_version,
@@ -187,6 +196,19 @@ class Strategy(object):
                                    output_name), 'w') as outfile:
                 json.dump(stats, outfile)
             outfile.close()
+
+
+def copytree(src, dst, symlinks=False, ignore=None):
+    os.mkdir(dst)
+    for item in os.listdir(src):
+        if item.find('.pyc') > 0:
+            continue
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
 
 
 # ~~~~~~  Make ArgParser  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

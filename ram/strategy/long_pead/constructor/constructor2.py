@@ -7,6 +7,11 @@ from ram.strategy.long_pead.constructor.utils import ern_date_blackout
 from ram.strategy.long_pead.constructor.utils import ern_price_anchor
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import BaggingClassifier
+from sklearn.linear_model import RidgeClassifier
+from sklearn.ensemble import VotingClassifier
 
 
 class PortfolioConstructor2(object):
@@ -91,16 +96,50 @@ class PortfolioConstructor2(object):
                                 window=anchor_window)
 
         # Training happens
-        features = ['anchor_ret', 'PRMA5_AdjClose', 'DISCOUNT252_AdjClose',
-                    'ACCTPRICESALES', 'ACCTSALESGROWTHTTM']
+        features = [
+            'anchor_ret',
+            'RANK_AvgDolVol', 'RANK_PRMA120_AvgDolVol',
+            'RANK_PRMA10_AdjClose', 'RANK_PRMA20_AdjClose',
+
+            'RANK_BOLL10_AdjClose', 'RANK_BOLL20_AdjClose', 'RANK_BOLL60_AdjClose',
+            'RANK_MFI10_AdjClose', 'RANK_MFI20_AdjClose', 'RANK_MFI60_AdjClose',
+            'RANK_RSI10_AdjClose', 'RANK_RSI20_AdjClose', 'RANK_RSI60_AdjClose',
+            'RANK_VOL10_AdjClose', 'RANK_VOL20_AdjClose', 'RANK_VOL60_AdjClose',
+
+            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
+            'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose', 'RANK_DISCOUNT252_AdjClose',
+
+            'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
+            'ACCTEPSGROWTH', 'ACCTPRICESALES']
 
         train_data = data[~data.TestFlag]
         train_data = train_data.merge(smoothed_responses(train_data))
         train_data = train_data[['SecCode', 'Date', 'Response'] +
                                 features].dropna()
 
-        clf = RandomForestClassifier(n_estimators=100, n_jobs=-1)
-        clf.fit(X=train_data[features], y=train_data['Response'])
+        # Cache training data
+        if time_index == 0:
+            self.train_data = train_data
+        else:
+            self.train_data = self.train_data.append(train_data)
+
+        clf1 = RandomForestClassifier(n_estimators=100, n_jobs=-1,
+                                     min_samples_leaf=30,
+                                     max_features=7)
+
+        clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=-1,
+                                    min_samples_leaf=30,
+                                    max_features=7)
+
+        clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
+                                 max_samples=0.7, max_features=0.6, n_jobs=-1)
+
+        clf4 = RidgeClassifier(tol=1e-2, solver="lsqr")
+
+        clf = VotingClassifier(estimators=[('rf', clf1), ('et', clf2),
+            ('lc', clf3), ('rc', clf4)], voting='soft')
+
+        clf.fit(X=self.train_data[features], y=self.train_data['Response'])
 
         # Get indexes of long and short sides
         short_ind = np.where(clf.classes_ == -1)[0][0]
