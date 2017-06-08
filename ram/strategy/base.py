@@ -2,7 +2,6 @@ import os
 import sys
 import json
 import shutil
-import inspect
 import logging
 import pandas as pd
 import datetime as dt
@@ -67,10 +66,7 @@ class Strategy(object):
             self.strategy_output_dir = os.path.join(run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
             # Copy source code for Strategy
-            source_path = [x for x in inspect.getfile(self.__class__).split('/')
-                           if x not in ['', 'main.py']]
-            source_path = os.path.join(os.getenv('GITHUB'),
-                                       'ram', *source_path)
+            source_path = os.path.dirname(os.path.abspath(__file__))
             dest_path = os.path.join(run_dir, 'strategy_source_copy')
             copytree(source_path, dest_path)
             # Create meta object
