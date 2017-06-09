@@ -8,9 +8,9 @@ qai.dbo.CSCoIFndQ		Company Interim Fundamentals – Quarterly
 qai.dbo.CSICoIFndQ		Inactive Company Interim Fundamentals – Quarterly
 
 qai.dbo.CSCoAFnd1		Compustat XF Fundamentals 1 - Annual
-qai.dbo.CSCoAFnd2		Compustat XF Fundamentals 2 - Annual
-
 qai.dbo.CSICoAFnd1		Inactive Fundamental Data - Annual
+
+qai.dbo.CSCoAFnd2		Compustat XF Fundamentals 2 - Annual
 qai.dbo.CSICoAFnd2		Inactive Fundamental Data - Annual
 
 [DATES AND QTR INFO]
@@ -90,7 +90,8 @@ if object_id('ram.dbo.ram_compustat_accounting_items', 'U') is not null
 
 
 create table ram.dbo.ram_compustat_accounting_items (
-		DataFrequency varchar(20),
+		Table_ varchar(20),
+		Frequency varchar(1),
 		Group_ int,
 		Item int,
 		Mnemonic varchar(20),
@@ -101,30 +102,36 @@ create table ram.dbo.ram_compustat_accounting_items (
 
 -- Quarterly Items
 insert into ram.dbo.ram_compustat_accounting_items
-select		'CSCoIFndQ' as DataFrequency,
+select		'CSCoIFndQ' as Table_,
+			'Q' as Frequency,
 			GROUP_,
 			NUMBER,
 			MNEMONIC,
 			DESC_
 from		qai.dbo.CSNAItem
 where		Group_ = 218
-	and		Number in (37, 54, 65, 80, 81, 176, 184, 195, 196, 288, 403)
+	and		Number in (37, 54, 65, 80, 81, 99, 100, 101, 102, 
+					   103, 104, 176, 184, 195, 196, 288, 403)
 
 
--- Annual Items
+-- Annual Items 1
 insert into ram.dbo.ram_compustat_accounting_items
-select		'CSCoAFnd1' as DataFrequency,
+select		'CSCoAFnd1' as Table_,
+			'A' as Frequency,
 			GROUP_,
 			NUMBER,
 			MNEMONIC,
 			DESC_
 from		qai.dbo.CSNAItem
 where		Group_ = 204
-	and		Number in (58, 84, 104, 128, 176, 183, 189, 240, 241, 242, 243, 343, 460)
+	and		Number in (58, 84, 104, 128, 176, 183, 189, 
+					   240, 241, 242, 243, 343, 460)
 
 
+-- Annual Items 2
 insert into ram.dbo.ram_compustat_accounting_items
-select		'CSCoAFnd2' as DataFrequency,
+select		'CSCoAFnd2' as Table_,
+			'A' as Frequency,
 			GROUP_,
 			NUMBER,
 			MNEMONIC,
@@ -134,25 +141,147 @@ where		Group_ = 205
 	and		Number in (26, 46, 50, 51, 219, 234, 235, 423)
 
 
-select * from ram.dbo.ram_compustat_accounting_items
-order by Item
+-- select * from ram.dbo.ram_compustat_accounting_items
+-- order by Item
+
+
+-- ######  DATES  #########################################################
+
+; with all_report_dates as (
+select distinct GVKey, DATADATE, RDQ, FQTR from qai.dbo.CSCoIDesInd
+where RDQ is not null
+	and DATACQTR is not null
+	and DateDiff(day, DATADATE, RDQ) < 92
+	and RDQ >= '1985-01-01'
+union
+select distinct GVKey, DATADATE, RDQ, FQTR from qai.dbo.CSICoIDesInd
+where RDQ is not null
+	and DATACQTR is not null
+	and DateDiff(day, DATADATE, RDQ) < 92
+	and RDQ >= '1985-01-01'
+)
+
+
+, fye_dates as (
+select distinct GVKey, DATADATE as FiscalYearEndDate from qai.dbo.CSCoADesInd
+union
+select distinct GVKey, DATADATE as FiscalYearEndDate from qai.dbo.CSICoADesInd
+)
+
+
+, all_dates as (
+select				D.GVKey,
+					D.DATADATE as QuarterEndDate,
+					Y.FiscalYearEndDate,
+					D.RDQ as ReportDate,
+					D.FQTR as FiscalQuarter
+from				all_report_dates D
+	left join		fye_dates Y
+		on			D.GVKey = Y.GVKEY
+		and			Y.FiscalYearEndDate = (select	max(a.FiscalYearEndDate)
+										   from	    fye_dates a
+										   where	a.GVKey = D.GVKey
+										   and		a.FiscalYearEndDate <= D.DATADATE)
+)
+
+
+-- ######  QUARTER DATA  ##########################################################
+
+, quarterly_data as (
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+from			qai.dbo.CSCoIFndQ
+where			INDFMT = 5
+	and			Item in (select Item 
+						 from ram.dbo.ram_compustat_accounting_items 
+					     where Group_ = 218)
+group by		GVKEY, DATADATE, Item
+union
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+from			qai.dbo.CSICoIFndQ
+where			INDFMT = 5
+	and			Item in (select Item 
+						 from ram.dbo.ram_compustat_accounting_items 
+					     where Group_ = 218)
+group by		GVKEY, DATADATE, Item
+
+)
+
+
+, quarterly_data_final as (
+
+select			A.GVKEY,
+				A.QuarterEndDate,
+				A.FiscalYearEndDate,
+				A.ReportDate,
+				B.Item,
+				C.Mnemonic,
+				C.Frequency,
+				B.Value_ 
+from			all_dates A
+	left join	quarterly_data B
+		on		A.GVKEY = B.GVKEY
+		and		A.QuarterEndDate = B.DATADATE
+	left join	ram.dbo.ram_compustat_accounting_items C
+		on		B.Item = C.Item
+)
+
+
+-- ######  ANNUAL DATA 1  ##########################################################
+
+, annual_data_1 as (
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+from			qai.dbo.CSCoAFnd1
+where			INDFMT = 5
+	and			Item in (select Item 
+						 from ram.dbo.ram_compustat_accounting_items 
+					     where Group_ = 204)
+group by		GVKEY, DATADATE, Item
+union
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+from			qai.dbo.CSICoAFnd1
+where			INDFMT = 5
+	and			Item in (select Item 
+						 from ram.dbo.ram_compustat_accounting_items 
+					     where Group_ = 204)
+group by		GVKEY, DATADATE, Item
+
+)
+
+
+, annual_data_1_final as (
+
+select			A.GVKEY,
+				A.QuarterEndDate,
+				A.FiscalYearEndDate,
+				A.ReportDate,
+				B.Item,
+				C.Mnemonic,
+				C.Frequency,
+				B.Value_ 
+from			all_dates A
+	left join	annual_data_1 B
+		on		A.GVKEY = B.GVKEY
+		and		A.QuarterEndDate = B.DATADATE
+	left join	ram.dbo.ram_compustat_accounting_items C
+		on		B.Item = C.Item
+)
 
 
 
-
-
-
-
-
--- Annual Data
--- INDFMT = 9 is a weird industry format and is removed purposefully
--- Use 'where INDFMT = 5'
-
-
-
-
-
-
+select * from annual_data_1_final
+where GVKey = 114628
 
 
 
