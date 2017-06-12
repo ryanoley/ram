@@ -1,22 +1,3 @@
-/*
-Simplifying logic: Don't use the CSPITDHstFnd point dates. Not enough
-time to figure this out at this point
-
-select * from qai.dbo.CSPITItem
-
-ITEMS
------
-SALEQ								:	2
-EPSFXQ (EPS excl extra (Diluted)	:	9
-NIQ (Net Income (Loss))				:	69
-
-*/
-
-use ram;
-
--- Put item numbers in here
-declare @ITEMTABLE table (ItemNum int)
-insert into @ITEMTABLE (ItemNum) values (2), (9), (69)
 
 
 -------------------------------------------------------------
