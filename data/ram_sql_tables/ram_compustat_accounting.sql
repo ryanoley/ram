@@ -27,6 +27,7 @@ Group_:
 	* Fnd1 = 204
 	* Fnd2 = 205
 
+
 ------------
 --  DATA  --
 ------------
@@ -78,6 +79,10 @@ Group_:
 51		OIBDP		Operating Income Before Depreciation
 219		SALE		Sales/Turnover (Net)
 423		XSGA		Selling, General and Administrative Expense
+
+
+[CSPITDFnd]
+108		OANCFQ		Operating Activities - Net Cash Flow - Qtl	
 
 */
 
@@ -160,6 +165,19 @@ select		'CSCoAFnd2' as Table_,
 from		qai.dbo.CSNAItem
 where		Group_ = 205
 	and		Number in (26, 46, 50, 51, 219, 423)
+
+
+-- PIT Items
+insert into ram.dbo.ram_compustat_accounting_items
+select		'CSPITDFnd' as Table_,
+			'Q' as Frequency,
+			-999 as GROUP_,
+			NUMBER,
+			MNEMONIC,
+			DESC_
+from		qai.dbo.CSPITItem
+where		Number in (108)
+
 
  --select * from ram.dbo.ram_compustat_accounting_items
  --order by Group_, Item
@@ -380,6 +398,41 @@ where			B.Group_ = 205
 
 )
 
+-- ######  PIT DATA  ############################################################
+
+, pit_operating_cash_flows_1 as (
+select			A.GVKEY,
+				A.QuarterEndDate,
+				A.FiscalYearEndDate,
+				A.ReportDate,
+				A.FiscalQuarter,
+				B.Group_,
+				B.Item,
+				B.Mnemonic,
+				B.Frequency,
+				-- Calculation
+				case
+					when A.FiscalQuarter = 1 then C.Value_
+					else C.Value_ - Lag(C.Value_, 1) over (
+						partition by A.GVKey, B.Item
+						order by C.Datadate)
+				end as Value_
+				-- /Calculation
+from			all_dates A
+
+	cross join	ram.dbo.ram_compustat_accounting_items B
+
+	left join	qai.dbo.CSPITDFnd C
+		on		A.GVKEY = C.GVKEY
+		and		A.FiscalYearEndDate = C.DATADATE
+		and		B.Item = C.Item
+
+where			B.Group_ = -999
+		and		B.Item = 108
+
+)
+
+
 
 -- ######  STACK and WRITE GROWTH  ##############################################
 
@@ -389,6 +442,8 @@ union
 select * from annual_data_1_final
 union
 select * from annual_data_2_final
+union
+select * from pit_operating_cash_flows_1
 )
 
 
