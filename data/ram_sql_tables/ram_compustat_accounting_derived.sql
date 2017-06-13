@@ -2,23 +2,58 @@
 This is generally the table that should be called by an API
 to get formatted values, which include the following:
 
-[NET INCOME]
-* NIGROWTHQTR
-* NIGROWTHTTM
-* GROSSPROFASSET
+[Net Income]
+* NETINCOMEQ
+* NETINCOMETTM
+* NETINCOMEGROWTHQ
+* NETINCOMEGROWTHTTM
 
-[SALES]
+[Operating Income]
+* OPERATINGINCOMEQ
+* OPERATINGINCOMETTM
+* OPERATINGINCOMEGROWTHQ
+* OPERATINGINCOMEGROWTHTTM
+
+[Sales]
 * SALESQ
 * SALESTTM
-* SALESGROWTHQTR
+* SALESGROWTHQ
 * SALESGROWTHTTM
 
-[CASH]
-
+[Cash]
 * FREECASHFLOW
+* FREECASHFLOWGROWTHQ
+* FREECASHFLOWGROWTHTTM
+* X_CASHANDSECURITIES
 
-* CASHFLOWGROWTHQTR
-* CASHFLOWREALIZATION
+
+[Debt]
+
+
+
+
+[Operating Income]
+* Net Debt / Operating Income
+
+
+[OTHER]
+* GROSSMARGIN: (Sales - Cogs) / Sales
+
+
+
+net debt/EBITDA
+Ebitda margin %
+EBIT margin %
+Sales growth
+EBITDA growth
+
+Cash as a % of the EV
+
+
+
+Enterprise Value: market cap - cash + debt + preferred equity
+Net Debt: total debt + preferred equity - cash & marketable securities
+
 
 */
 
@@ -41,7 +76,6 @@ create table	ram.dbo.ram_compustat_accounting_derived (
 )
 
 
-
 -- ######  DATES  #########################################################
 
 ; with unique_gvkeys_dates as (
@@ -54,17 +88,20 @@ select		*,
 			end	as LagQuarterFlag
 from		(select	distinct GVKey, QuarterEndDate, ReportDate, FiscalQuarter 
 			 from ram.dbo.ram_compustat_accounting) A
-where		GVKey = 1690
+where		GVKey in (1690, 3243, 6066)
 )
 
 
 -- ######  OPERATING INCOME BEFORE DEPRECIATION  ################################
 
-, ebitda_data1 as (
-
+, operating_income_data as (
 select				T.*,
-					D1.Value_ as OIBDPQ,
-					D2.Value_ as OIBDP
+					coalesce(D1.Value_, D2.Value_ / 4) as operating_income,
+					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
+						partition by T.GVKey 
+						order by T.QuarterEndDate
+						rows between 3 preceding and current row) as operating_income_ttm
+
 from				unique_gvkeys_dates T
 
 	left join		ram.dbo.ram_compustat_accounting D1
@@ -81,7 +118,75 @@ from				unique_gvkeys_dates T
 
 )
 
-	
+
+, operating_income_1 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'OPERATINGINCOMEQ' as ItemName,
+					operating_income
+from				operating_income_data
+)
+
+
+, operating_income_2 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'OPERATINGINCOMETTM' as ItemName,
+					operating_income_ttm
+from				operating_income_data
+)
+
+
+, operating_income_3 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'OPERATINGINCOMEGROWTHQ' as ItemName,
+					operating_income / lag(operating_income, 4) over (
+						partition by GVKey
+						order by QuarterEndDate) - 1 as Value_
+
+from				operating_income_data
+)
+
+
+, operating_income_4 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'OPERATINGINCOMEGROWTHTTM' as ItemName,
+					operating_income_ttm / lag(operating_income_ttm, 4) over (
+						partition by GVKey
+						order by QuarterEndDate) - 1 as Value_
+
+from				operating_income_data
+)
+
+-- ######  CASH AND MARKETABLE SECURITIES  ###########################################
+--- NOT EVEN CLOSE TO CORRECT FOR `C` (Perhaps financials generally)
+
+, cash_and_marketable_securities_data1 as (
+
+select				T.GVKey,
+					T.ReportDate as AsOfDate,
+					'X_CASHANDSECURITIES' as ItemName,
+					(D1.Value_ + D2.Value_) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 218
+		and			D1.Item = 54		-- Cash and Short Term Securities
+
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = 218
+		and			D2.Item = 162		-- Long Term Investments
+
+)
+
+
 -- ######  NET INCOME  ###############################################################
 
 , net_income_data1 as (
@@ -108,28 +213,45 @@ from				unique_gvkeys_dates T
 
 )
 
-, net_income_data_final1 as (
+, net_income_data_final0 as (
 select				GVKey,
 					ReportDate as AsOfDate,
-					'NIGROWTHQTR' as ItemName,
-					case when LagQuarterFlag = 1 then
-						net_income / lag(net_income, 4) over (
-							partition by GVKey
-							order by QuarterEndDate) - 1
-					else Null end as Value_
+					'NETINCOMEQ' as ItemName,
+					net_income as Value_
 
 from				net_income_data1
 )
 
+
+, net_income_data_final1 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'NETINCOMETTM' as ItemName,
+					net_income_ttm as Value_
+
+from				net_income_data1
+)
+
+
 , net_income_data_final2 as (
 select				GVKey,
 					ReportDate as AsOfDate,
-					'NIGROWTHTTM' as ItemName,
-					case when LagQuarterFlag = 1 then
-						net_income_ttm / lag(net_income_ttm, 4) over (
+					'NETINCOMEGROWTHQ' as ItemName,
+					net_income / lag(net_income, 4) over (
+						partition by GVKey
+						order by QuarterEndDate) - 1 as Value_
+
+from				net_income_data1
+)
+
+
+, net_income_data_final3 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'NETINCOMEGROWTHTTM' as ItemName,
+					net_income_ttm / lag(net_income_ttm, 4) over (
 							partition by GVKey
-							order by QuarterEndDate) - 1
-					else Null end as Value_
+							order by QuarterEndDate) - 1 as Value_
 
 from				net_income_data1
 )
@@ -158,31 +280,27 @@ from				unique_gvkeys_dates T
 		and			T.QuarterEndDate = D2.QuarterEndDate
 		and			D2.Group_ = 205
 		and			D2.Item = 219
-
 )
+
 
 , sales_data_final1 as (
 select				GVKey,
 					ReportDate as AsOfDate,
-					'SALESGROWTHQTR' as ItemName,
-					case when LagQuarterFlag = 1 then
-						SALESQ / lag(SALESQ, 4) over (
-							partition by GVKey
-							order by QuarterEndDate) - 1
-					else Null end as Value_
-
+					'SALESGROWTHQ' as ItemName,
+					SALESQ / lag(SALESQ, 4) over (
+						partition by GVKey
+						order by QuarterEndDate) - 1 as Value_
 from				sales_data1
 )
+
 
 , sales_data_final2 as (
 select				GVKey,
 					ReportDate as AsOfDate,
 					'SALESGROWTHTTM' as ItemName,
-					case when LagQuarterFlag = 1 then
-						SALESTTM / lag(SALESTTM, 4) over (
+					SALESTTM / lag(SALESTTM, 4) over (
 							partition by GVKey
-							order by QuarterEndDate) - 1
-					else Null end as Value_
+							order by QuarterEndDate) - 1 as Value_
 from				sales_data1
 )
 
@@ -267,18 +385,89 @@ from				unique_gvkeys_dates T
 , prof_assets_final as (
 select			GVKey,
 				ReportDate as AsOfDate,
-				'GROSSPROFASSET' as ItemName,
+				'X_GROSSPROFASSET' as ItemName,
 				(SALESTTM - COGSTTM) / nullif(ASSETS, 0) as Value_
 from			prof_assets_1
 )
 
 
+-- ######  FREE CASH FLOW  #####################################################
+
+, free_cash_flow as (
+select				T.GVKey,
+					T.ReportDate as AsOfDate,
+					'FREECASHFLOW' as ItemName,
+					(D1.Value_ - D2.Value_) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = -999
+		and			D1.Item = 108
+
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = -999
+		and			D2.Item = 90
+
+)
+
+
+, free_cash_flow0 as (
+select				*,
+					sum(Value_) over (
+						partition by GVKey
+						order by AsOfDate
+						rows between 3 preceding and current row) as ValueTTM
+
+from				free_cash_flow
+)
+
+
+, free_cash_flow1 as (
+select				GVKey,
+					AsOfDate,
+					'FREECASHFLOWGROWTHQ' as ItemName,
+					Value_ / lag(Value_, 4) over (
+							partition by GVKey
+							order by AsOfDate) - 1 as Value_
+from				free_cash_flow0
+)
+
+
+, free_cash_flow2 as (
+select				GVKey,
+					AsOfDate,
+					'FREECASHFLOWGROWTHTTM' as ItemName,
+					ValueTTM / lag(ValueTTM, 4) over (
+							partition by GVKey
+							order by AsOfDate) - 1 as Value_
+from				free_cash_flow0
+)
+
 -- ######  STACK AND WRITE  #####################################################
 
 , stacked_data as (
+select * from net_income_data_final0
+union
 select * from net_income_data_final1
 union
 select * from net_income_data_final2
+union
+select * from net_income_data_final3
+union
+select * from operating_income_1
+union
+select * from operating_income_2
+union
+select * from operating_income_3
+union
+select * from operating_income_4
+union
+select * from cash_and_marketable_securities_data1
 union
 select * from sales_data_final1
 union
@@ -289,16 +478,15 @@ union
 select * from sales_data_final4
 union
 select * from prof_assets_final
+union
+select * from free_cash_flow
+union
+select * from free_cash_flow1
+union
+select * from free_cash_flow2
+
 )
 
 
 insert into ram.dbo.ram_compustat_accounting_derived
 select * from stacked_data
-
-
-
-
-select * from ram.dbo.ram_compustat_accounting_derived
-where ItemName = 'GROSSPROFASSET'
-order by AsOfDate
-

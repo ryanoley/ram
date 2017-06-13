@@ -44,12 +44,15 @@ Group_:
 102		EPSPIQ		Earnings Per Share (Basic) - Including Extraordinary Items
 103		EPSPXQ		Earnings Per Share (Basic) - Excluding Extraordinary Items
 104		EPSX12		Earnings Per Share (Basic) - Excluding Extraordinary Items - 12 Months Moving
+135		IBADJQ		Income Before Extraordinary Items - Adjusted for Common Stock Equivalents
+162		IVLTQ		Total Long-term Investments
 176		LTQ			Liabilities - Total
 184		NIQ			Net Income (Loss)
 195		OIADPQ		Operating Income After Depreciation
 196		OIBDPQ		Operating Income Before Depreciation
 288		SALEQ		Sales/Turnover (Net)
 403		XSGAQ		Selling, General and Administrative Expenses
+
 
 
 [CSCoAFnd1 - Group 204]
@@ -82,7 +85,8 @@ Group_:
 
 
 [CSPITDFnd]
-108		OANCFQ		Operating Activities - Net Cash Flow - Qtl	
+108		OANCFQ		Operating Activities - Net Cash Flow - Qtly
+90		CAPXQ		Capital Expenditures - Qtly
 
 */
 
@@ -137,7 +141,7 @@ select		'CSCoIFndQ' as Table_,
 from		qai.dbo.CSNAItem
 where		Group_ = 218
 	and		Number in (37, 54, 65, 80, 81, 99, 100, 101, 102, 
-					   103, 104, 176, 184, 195, 196, 288, 403)
+					   103, 104, 135, 162, 176, 184, 195, 196, 288, 403)
 
 
 -- Annual Items 1
@@ -176,7 +180,7 @@ select		'CSPITDFnd' as Table_,
 			MNEMONIC,
 			DESC_
 from		qai.dbo.CSPITItem
-where		Number in (108)
+where		Number in (90, 108)
 
 
  --select * from ram.dbo.ram_compustat_accounting_items
@@ -401,37 +405,69 @@ where			B.Group_ = 205
 -- ######  PIT DATA  ############################################################
 
 , pit_operating_cash_flows_1 as (
-select			A.GVKEY,
-				A.QuarterEndDate,
-				A.FiscalYearEndDate,
-				A.ReportDate,
-				A.FiscalQuarter,
-				B.Group_,
-				B.Item,
-				B.Mnemonic,
-				B.Frequency,
-				-- Calculation
-				case
-					when A.FiscalQuarter = 1 then C.Value_
-					else C.Value_ - Lag(C.Value_, 1) over (
-						partition by A.GVKey, B.Item
-						order by C.Datadate)
-				end as Value_
-				-- /Calculation
-from			all_dates A
+select				A.GVKEY,
+					A.QuarterEndDate,
+					A.FiscalYearEndDate,
+					A.ReportDate,
+					A.FiscalQuarter,
+					B.Group_,
+					B.Item,
+					B.Mnemonic,
+					B.Frequency,
+					case
+						when FiscalQuarter = 1 then Value_
+						else Value_ - Lag(Value_, 1) over (
+							partition by C.GVKey, C.Item
+							order by C.Datadate)
+					end as OperatingCashFlow
 
-	cross join	ram.dbo.ram_compustat_accounting_items B
+from				all_dates A
 
-	left join	qai.dbo.CSPITDFnd C
-		on		A.GVKEY = C.GVKEY
-		and		A.FiscalYearEndDate = C.DATADATE
-		and		B.Item = C.Item
+	cross join		ram.dbo.ram_compustat_accounting_items B
 
-where			B.Group_ = -999
-		and		B.Item = 108
+	left join		qai.dbo.CSPITDFnd C
+		on			A.GVKey = C.GVKEY
+		and			A.QuarterEndDate = C.Datadate
+		and			B.Item = C.Item
+		and			C.Valuetype = 0
+		and			C.Value_ is not null
+
+where				B.Group_ = -999
+		and			B.Item = 108
 
 )
 
+
+, pit_cap_ex_1 as (
+select				A.GVKEY,
+					A.QuarterEndDate,
+					A.FiscalYearEndDate,
+					A.ReportDate,
+					A.FiscalQuarter,
+					B.Group_,
+					B.Item,
+					B.Mnemonic,
+					B.Frequency,
+					case
+						when FiscalQuarter = 1 then Value_
+						else Value_ - Lag(Value_, 1) over (
+							partition by C.GVKey, C.Item
+							order by C.Datadate)
+					end as OperatingCashFlow
+
+from				all_dates A
+
+	cross join		ram.dbo.ram_compustat_accounting_items B
+
+	left join		qai.dbo.CSPITDFnd C
+		on			A.GVKey = C.GVKEY
+		and			A.QuarterEndDate = C.Datadate
+		and			B.Item = C.Item
+		and			C.Valuetype = 0
+
+where				B.Group_ = -999
+		and			B.Item = 90
+)
 
 
 -- ######  STACK and WRITE GROWTH  ##############################################
@@ -444,6 +480,8 @@ union
 select * from annual_data_2_final
 union
 select * from pit_operating_cash_flows_1
+union
+select * from pit_cap_ex_1
 )
 
 
