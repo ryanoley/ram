@@ -4,7 +4,8 @@ use ram;
 -- Manual inclusion of securities
 
 declare @ETFS table (IdcCode int, DsInfoCode int)	
-insert @ETFS values (59751, 8931), (140062, 230116), (59791, 73898), (59813, 74093)	-- SPY, VXX, IWM, QQQ
+insert @ETFS values (59751, 8931), (140062, 230116), (59791, 73898), (59813, 74093), (59743, 73896), (103854, 49922)
+-- SPY, VXX, IWM, QQQ, DIA, KRE
 
 
 -------------------------------------------------------------

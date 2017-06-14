@@ -9,7 +9,7 @@ from ram.strategy.base import Strategy
 
 
 
-class SPY(Strategy):
+class OvernightSPY(Strategy):
     
     def get_column_parameters(self):
         return {}
@@ -26,7 +26,7 @@ class SPY(Strategy):
         '''
         Overriden method from Strategy
         '''
-        return ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose',
+        return ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'MarketCap',
                 'AdjVolume', 'RVolume', 'LAG1_AdjClose', 'MIN250_AdjClose',
                 'MAX250_AdjClose', 'MIN125_AdjClose', 'MAX125_AdjClose',
                 'VOL5_AdjClose', 'VOL20_AdjClose',
@@ -49,7 +49,7 @@ class SPY(Strategy):
         return {'frequency': 'Q',
                 'train_period_length': 0,
                 'test_period_length': 1,
-                'start_year': 1994}
+                'start_year': 2000}
 
 
 def make_arg_iter(variants):
@@ -73,12 +73,12 @@ def main():
     args = parser.parse_args()
 
     if args.data:
-        SPY().make_data()
+        OvernightSPY().make_data()
     elif args.write_simulation:
-        strategy = SPY('version_0001', True)
+        strategy = OvernightSPY('version_0001', True)
         strategy.start()
     elif args.simulation:
-        strategy = SPY('version_0001', False)
+        strategy = OvernightSPY('version_0001', False)
         strategy.start()
 
 

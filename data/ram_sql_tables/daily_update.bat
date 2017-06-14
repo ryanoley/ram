@@ -9,6 +9,7 @@ set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 :: RAM Tables
 %SQLCMD% -i %SQLDIR%\ram_compustat_sector.sql
 %SQLCMD% -i %SQLDIR%\ram_compustat_accounting.sql
+%SQLCMD% -i %SQLDIR%\ram_compustat_accounting_derived.sql
 %SQLCMD% -i %SQLDIR%\ram_equity_report_dates.sql
 %SQLCMD% -v tabletype=1 -i %SQLDIR%\ram_equity_pricing.sql
 %SQLCMD% -v tabletype=2 -i %SQLDIR%\ram_equity_pricing.sql
