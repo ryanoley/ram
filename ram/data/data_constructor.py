@@ -205,16 +205,18 @@ def _print_line_underscore(pstring):
 def print_strategy_versions(strategy):
     stats = _get_strategy_version_stats(strategy)
     _print_line_underscore('Available Verions for {}'.format(strategy))
-    print('  Key\tVersion\t\tStart Date\tEnd Date\tFile Count')
+    print('  Key\tVersion\t\tStart Date\tEnd Date\t'
+          'File Count\tDir Creation Date')
     keys = stats.keys()
     keys.sort()
     for key in keys:
-        print('  [{}]\t{}\t{}\t{}\t{}'.format(
+        print('  [{}]\t{}\t{}\t{}\t{}\t\t{}'.format(
             key,
             stats[key]['version'],
             stats[key]['min_date'],
             stats[key]['max_date'],
-            stats[key]['file_count']))
+            stats[key]['file_count'],
+            stats[key]['create_date']))
     print('\n')
 
 
@@ -223,12 +225,14 @@ def _get_strategy_version_stats(strategy):
     # Get MinMax dates for files
     dir_stats = {}
     for key, version in versions.items():
+        meta = _get_meta_data(strategy, version)
         stats = _get_min_max_dates_counts(strategy, version)
         dir_stats[key] = {
             'version': version,
             'min_date': stats[0],
             'max_date': stats[1],
-            'file_count': stats[2]
+            'file_count': stats[2],
+            'create_date': meta['start_time'][:10]
         }
     return dir_stats
 
