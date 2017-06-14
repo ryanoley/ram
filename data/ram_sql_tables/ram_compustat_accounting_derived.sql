@@ -8,7 +8,7 @@ to get formatted values, which include the following:
 * NETINCOMEGROWTHQ
 * NETINCOMEGROWTHTTM
 
-[Operating Income - EBIT]
+[Operating Income - Almost EBITDA]
 * OPERATINGINCOMEQ
 * OPERATINGINCOMETTM
 * OPERATINGINCOMEGROWTHQ
@@ -471,7 +471,7 @@ from			prof_assets_1
 , free_cash_flow as (
 select				T.GVKey,
 					T.ReportDate as AsOfDate,
-					'FREECASHFLOW' as ItemName,
+					'FREECASHFLOWQ' as ItemName,
 					(D1.Value_ - D2.Value_) as Value_
 
 from				unique_gvkeys_dates T
@@ -492,7 +492,9 @@ from				unique_gvkeys_dates T
 
 
 , free_cash_flow0 as (
-select				*,
+select				GVKey,
+					AsOfDate,
+					'FREECASHFLOWTTM' as ItemName,
 					sum(Value_) over (
 						partition by GVKey
 						order by AsOfDate
@@ -509,7 +511,7 @@ select				GVKey,
 					Value_ /  nullif(lag(Value_, 4) over (
 							partition by GVKey
 							order by AsOfDate), 0) - 1 as Value_
-from				free_cash_flow0
+from				free_cash_flow
 )
 
 
@@ -625,6 +627,8 @@ union
 select * from prof_assets_final
 union
 select * from free_cash_flow
+union
+select * from free_cash_flow0
 union
 select * from free_cash_flow1
 union
