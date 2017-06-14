@@ -38,6 +38,7 @@ Group_:
 65		COGSQ		Cost of Goods Sold
 80		DLCQ		Debt in Current Liabilities
 81		DLTTQ		Long-Term Debt - Total
+85		DPQ			Depreciation and Amortization - Total
 99		EPSF12		Earnings Per Share (Diluted) - Excluding Extraordinary Items - 12 Months Moving
 100		EPSFIQ		Earnings Per Share (Diluted) - Including Extraordinary Items
 101		EPSFXQ		Earnings Per Share (Diluted) - Excluding Extraordinary items
@@ -52,6 +53,7 @@ Group_:
 196		OIBDPQ		Operating Income Before Depreciation
 288		SALEQ		Sales/Turnover (Net)
 403		XSGAQ		Selling, General and Administrative Expenses
+
 
 
 
@@ -140,7 +142,7 @@ select		'CSCoIFndQ' as Table_,
 			DESC_
 from		qai.dbo.CSNAItem
 where		Group_ = 218
-	and		Number in (37, 54, 65, 80, 81, 99, 100, 101, 102, 
+	and		Number in (37, 54, 65, 80, 81, 85, 99, 100, 101, 102, 
 					   103, 104, 135, 162, 176, 184, 195, 196, 288, 403)
 
 
