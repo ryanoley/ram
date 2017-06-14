@@ -2,6 +2,46 @@ import re
 import datetime as dt
 
 
+# FUNCTIONS/Column heads that are registered
+
+FUNCS = [
+    # Pricing Varabies
+    'MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'MIN', 'MAX', 'RSI',
+    'MFI', 'SI', 'PRMAH', 'EARNINGSFLAG',
+    'EARNINGSRETURN', 'MKT',
+
+    # QUALITATIVE
+    'GSECTOR', 'GGROUP',
+
+    # ACCOUNTING VARIABLES
+    # Net Income
+    'NETINCOMEQ', 'NETINCOMETTM',
+    'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
+
+    # Operating Income (~EBIT)
+    'OPERATINGINCOMEQ', 'OPERATINGINCOMETTM',
+    'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
+
+    # EBIT
+    'EBITQ', 'EBITTTM',
+    'EBITGROWTHQ', 'EBITGROWTHTTM',
+
+    # Sales
+    'SALESQ', 'SALESTTM',
+    'SALESGROWTHQ', 'SALESGROWTHTTM',
+
+    # Cash
+    'FREECASHFLOWQ', 'FREECASHFLOWTTM',
+    'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
+
+    # OTHER
+    'GROSSMARGINQ', 'GROSSMARGINTTM', 'GROSSPROFASSET',
+
+    # RATIOS
+    'EBITDAMARGIN'
+]
+
+
 ###############################################################################
 
 def sqlcmd_from_feature_list(features, ids, start_date, end_date,
@@ -96,12 +136,6 @@ def make_id_date_filter(ids, start_date, end_date):
 ###############################################################################
 
 def parse_input_var(vstring, table, filter_commands):
-
-    FUNCS = ['MA', 'PRMA', 'VOL', 'BOLL', 'DISCOUNT', 'MIN', 'MAX', 'RSI',
-             'MFI', 'GSECTOR', 'GGROUP', 'SI', 'PRMAH', 'EARNINGSFLAG',
-             'EARNINGSRETURN', 'MKT',
-             'ACCTSALES', 'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
-             'ACCTEPSGROWTH', 'ACCTPRICESALES']
 
     # Return object that is used downstream per requested feature
     out = {
@@ -329,6 +363,7 @@ def DISCOUNT(data_column, feature_name, length_arg, table):
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
 def MIN(data_column, feature_name, length_arg, table):
     if data_column is None:
         assert "MIN requires data column"
@@ -342,6 +377,7 @@ def MIN(data_column, feature_name, length_arg, table):
         from {3} A
         """.format(data_column, length_arg-1, feature_name, table)
     return clean_sql_cmd(sqlcmd)
+
 
 def MAX(data_column, feature_name, length_arg, table):
     if data_column is None:
@@ -499,7 +535,9 @@ def SI(arg0, arg1, arg2, table):
     return clean_sql_cmd(sqlcmd)
 
 
-def ACCTSALES(arg0, feature_name, arg2, table):
+# ~~~~~~ Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def _ACCOUNTING_FRAMEWORK(feature, feature_name, table):
     sqlcmd = \
         """
         select      A.SecCode,
@@ -509,28 +547,139 @@ def ACCTSALES(arg0, feature_name, arg2, table):
         join        ram.dbo.ram_master_ids M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
         left join   ram.dbo.ram_idccode_to_gvkey_map G
             on      M.IdcCode = G.IdcCode
             and     A.Date_ between G.StartDate and G.EndDate
-
-        left join   ram.dbo.ram_compustat_accounting B
+        left join   ram.dbo.ram_compustat_accounting_derived B
             on      G.GVKey = B.GVKey
-            and     B.Item = 'SALEQ'
-            and     B.ReportDate = (select max(ReportDate)
-                        from ram.dbo.ram_compustat_accounting
-                        where GVKey = G.GVKey and ReportDate < A.Date_)
-        """.format(table, feature_name)
+            and     B.ItemName = '{2}'
+            and     B.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.ram_compustat_accounting_derived d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+        """.format(table, feature_name, feature)
     return clean_sql_cmd(sqlcmd)
 
 
-def ACCTSALESGROWTH(arg0, feature_name, arg2, table):
+def SALESQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESQ', feature_name, table)
+
+
+def SALESTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESTTM', feature_name, table)
+
+
+def SALESGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESGROWTHQ', feature_name, table)
+
+
+def SALESGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESGROWTHTTM', feature_name, table)
+
+
+def NETINCOMEQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('NETINCOMEQ', feature_name, table)
+
+
+def NETINCOMETTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('NETINCOMETTM', feature_name, table)
+
+
+def NETINCOMEGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('NETINCOMEGROWTHQ', feature_name, table)
+
+
+def NETINCOMEGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('NETINCOMEGROWTHTTM', feature_name, table)
+
+
+def OPERATINGINCOMEQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('OPERATINGINCOMEQ', feature_name, table)
+
+
+def OPERATINGINCOMETTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('OPERATINGINCOMETTM', feature_name, table)
+
+
+def OPERATINGINCOMEGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('OPERATINGINCOMEGROWTHQ',
+                                 feature_name, table)
+
+
+def OPERATINGINCOMEGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('OPERATINGINCOMEGROWTHTTM',
+                                 feature_name, table)
+
+
+def EBITQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('EBITQ', feature_name, table)
+
+
+def EBITTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('EBITTTM', feature_name, table)
+
+
+def EBITGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('EBITGROWTHQ', feature_name, table)
+
+
+def EBITGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('EBITGROWTHTTM', feature_name, table)
+
+
+def SALESQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESQ', feature_name, table)
+
+
+def SALESTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESTTM', feature_name, table)
+
+
+def SALESGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESGROWTHQ', feature_name, table)
+
+
+def SALESGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('SALESGROWTHTTM', feature_name, table)
+
+
+def FREECASHFLOWQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('FREECASHFLOWQ', feature_name, table)
+
+
+def FREECASHFLOWTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('FREECASHFLOWTTM', feature_name, table)
+
+
+def FREECASHFLOWGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('FREECASHFLOWGROWTHQ', feature_name, table)
+
+
+def FREECASHFLOWGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('FREECASHFLOWGROWTHTTM', feature_name, table)
+
+
+def GROSSMARGINQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('X_GROSSMARGINQ', feature_name, table)
+
+
+def GROSSMARGINTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('X_GROSSMARGINTTM', feature_name, table)
+
+
+def GROSSPROFASSET(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('X_GROSSPROFASSET', feature_name, table)
+
+
+# ~~~~~~  Accounting Ratios ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def _ACCOUNTING_RATIO(feature_name, numerator, denominator, table):
     sqlcmd = \
         """
         select      A.SecCode,
                     A.Date_,
-                    B.ValueGrowth as {1}
+                    nullif(B1.Value_ / B2.Value_, 0) as {1}
         from        {0} A
+
         join        ram.dbo.ram_master_ids M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
@@ -539,73 +688,38 @@ def ACCTSALESGROWTH(arg0, feature_name, arg2, table):
             on      M.IdcCode = G.IdcCode
             and     A.Date_ between G.StartDate and G.EndDate
 
-        left join   ram.dbo.ram_compustat_accounting B
-            on      G.GVKey = B.GVKey
-            and     B.Item = 'SALEQ'
-            and     B.ReportDate = (select max(ReportDate)
-                        from ram.dbo.ram_compustat_accounting
-                        where GVKey = G.GVKey and ReportDate < A.Date_)
-        """.format(table, feature_name)
+        left join   ram.dbo.ram_compustat_accounting_derived B1
+            on      G.GVKey = B1.GVKey
+            and     B1.ItemName = '{2}'
+            and     B1.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.ram_compustat_accounting_derived d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+
+        left join   ram.dbo.ram_compustat_accounting_derived B2
+            on      G.GVKey = B2.GVKey
+            and     B2.ItemName = '{3}'
+            and     B2.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.ram_compustat_accounting_derived d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+        """.format(table, feature_name, numerator, denominator)
     return clean_sql_cmd(sqlcmd)
 
 
-def ACCTSALESGROWTHTTM(arg0, feature_name, arg2, table):
-    sqlcmd = \
-        """
-        select      A.SecCode,
-                    A.Date_,
-                    B.ValueGrowthTTM as {1}
-        from        {0} A
-        join        ram.dbo.ram_master_ids M
-            on      A.SecCode = M.SecCode
-            and     A.Date_ between M.StartDate and M.EndDate
-
-        left join   ram.dbo.ram_idccode_to_gvkey_map G
-            on      M.IdcCode = G.IdcCode
-            and     A.Date_ between G.StartDate and G.EndDate
-
-        left join   ram.dbo.ram_compustat_accounting B
-            on      G.GVKey = B.GVKey
-            and     B.Item = 'SALEQ'
-            and     B.ReportDate = (select max(ReportDate)
-                        from ram.dbo.ram_compustat_accounting
-                        where GVKey = G.GVKey and ReportDate < A.Date_)
-        """.format(table, feature_name)
-    return clean_sql_cmd(sqlcmd)
+def EBITDAMARGIN(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_RATIO(feature_name, 'OPERATINGINCOMETTM',
+                             'SALESTTM', table)
 
 
-def ACCTEPSGROWTH(arg0, feature_name, arg2, table):
-    sqlcmd = \
-        """
-        select      A.SecCode,
-                    A.Date_,
-                    B.ValueGrowth as {1}
-        from        {0} A
-        join        ram.dbo.ram_master_ids M
-            on      A.SecCode = M.SecCode
-            and     A.Date_ between M.StartDate and M.EndDate
+# ~~~~~~ Pricing and Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        left join   ram.dbo.ram_idccode_to_gvkey_map G
-            on      M.IdcCode = G.IdcCode
-            and     A.Date_ between G.StartDate and G.EndDate
-
-        left join   ram.dbo.ram_compustat_accounting B
-            on      G.GVKey = B.GVKey
-            and     B.Item = 'EPSFXQ'
-            and     B.ReportDate = (select max(ReportDate)
-                        from ram.dbo.ram_compustat_accounting
-                        where GVKey = G.GVKey and ReportDate < A.Date_)
-        """.format(table, feature_name)
-    return clean_sql_cmd(sqlcmd)
-
-
-def ACCTPRICESALES(arg0, feature_name, arg2, table):
+def PE(arg0, feature_name, arg2, table):
     sqlcmd = \
         """
         select      A.SecCode,
                     A.Date_,
                     A.MarketCap / nullif(B.Value_, 0) as {1}
         from        {0} A
+
         join        ram.dbo.ram_master_ids M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
@@ -614,33 +728,34 @@ def ACCTPRICESALES(arg0, feature_name, arg2, table):
             on      M.IdcCode = G.IdcCode
             and     A.Date_ between G.StartDate and G.EndDate
 
-        left join   ram.dbo.ram_compustat_accounting B
+        left join   ram.dbo.ram_compustat_accounting_derived B
             on      G.GVKey = B.GVKey
-            and     B.Item = 'SALEQ'
-            and     B.ReportDate = (select max(ReportDate)
-                        from ram.dbo.ram_compustat_accounting
-                        where GVKey = G.GVKey and ReportDate < A.Date_)
+            and     B.ItemName = 'NETINCOMETTM'
+            and     B.AsOfDate = (select max(ReportDate) d
+                        from ram.dbo.ram_compustat_accounting d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
         """.format(table, feature_name)
     return clean_sql_cmd(sqlcmd)
 
 
+# ~~~~~~ SPY ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def MKT(data_column, feature_name, arg2, table):
     sqlcmd = \
         """
-        select  A.SecCode,
-                A.Date_,
-                B.{0} as {1}
-        from    {2} A
-        left join (
-            select  b.Date_,
-                    b.{0}
-            from ram.dbo.ram_etf_pricing b
-            where b.SecCode = 61494
-            ) B
-        on  A.Date_ = B.Date_
+        select      A.SecCode,
+                    A.Date_,
+                    B.{0} as {1}
+        from        {2} A
+        left join   (select  b.Date_, b.{0}
+                     from ram.dbo.ram_etf_pricing b
+                     where b.SecCode = 61494) B
+            on       A.Date_ = B.Date_
         """.format(data_column, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
+# ~~~~~~ Utility ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def clean_sql_cmd(sqlcmd):
     return ' '.join(sqlcmd.replace('\n', ' ').split())
