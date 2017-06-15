@@ -24,8 +24,6 @@ PACKAGES = [
     'ram/strategy/statarb/responses',
     'ram/strategy/vxx',
     'ram/strategy/yearend',
-    'ram/strategy_repo',
-    'ram/strategy_repo/basics',
     'ram/utils'
 ]
 
