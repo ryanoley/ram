@@ -55,8 +55,6 @@ Group_:
 403		XSGAQ		Selling, General and Administrative Expenses
 
 
-
-
 [CSCoAFnd1 - Group 204]
 
 58		AT			Assets - Total

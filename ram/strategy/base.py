@@ -67,10 +67,7 @@ class Strategy(object):
             self.strategy_output_dir = os.path.join(run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
             # Copy source code for Strategy
-            source_path = inspect.getfile(
-                self.__class__).strip('/main.py').split('/')
-            source_path = os.path.join(os.getenv('GITHUB'), 'ram',
-                                       *source_path)
+            source_path = os.path.dirname(inspect.getabsfile(self.__class__))
             dest_path = os.path.join(run_dir, 'strategy_source_copy')
             copytree(source_path, dest_path)
             # Create meta object
