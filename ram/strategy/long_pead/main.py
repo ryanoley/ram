@@ -55,29 +55,36 @@ class LongPeadStrategy(Strategy):
         return {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR in (30) ' +
-            'and Close_ between 10 and 500',
+            'and Close_ between 5 and 500',
             'univ_size': 500}
 
     def get_features(self):
-        return ['AdjClose', 'AdjVwap',
-                'RClose', 'RCashDividend', 'SplitFactor',
+        return [
+            'AdjClose', 'AdjVwap', 'LEAD1_AdjOpen',
+            'RClose', 'RCashDividend', 'SplitFactor',
 
-                # Features
-                'MarketCap', 'RANK_MarketCap',
-                'RANK_AvgDolVol', 'RANK_PRMA120_AvgDolVol',
-                'RANK_PRMA10_AdjClose', 'RANK_PRMA20_AdjClose',
+            # Descriptive
+            'GGROUP', 'EARNINGSFLAG', 'MarketCap', 'AvgDolVol',
 
-                'RANK_BOLL10_AdjClose', 'RANK_BOLL20_AdjClose', 'RANK_BOLL60_AdjClose',
-                'RANK_MFI10_AdjClose', 'RANK_MFI20_AdjClose', 'RANK_MFI60_AdjClose',
-                'RANK_RSI10_AdjClose', 'RANK_RSI20_AdjClose', 'RANK_RSI60_AdjClose',
-                'RANK_VOL10_AdjClose', 'RANK_VOL20_AdjClose', 'RANK_VOL60_AdjClose',
+            # Pricing Features
+            'PRMA120_AvgDolVol',
+            'PRMA10_AdjClose', 'PRMA20_AdjClose',
+            'BOLL10_AdjClose', 'BOLL20_AdjClose', 'BOLL60_AdjClose',
+            'MFI10_AdjClose', 'MFI20_AdjClose', 'MFI60_AdjClose',
+            'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
+            'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
+            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
+            'DISCOUNT252_AdjClose',
 
-                'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
-                'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose', 'RANK_DISCOUNT252_AdjClose',
-
-                'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
-                'ACCTEPSGROWTH', 'ACCTPRICESALES',
-                'GGROUP', 'EARNINGSFLAG']
+            # Accounting Features
+            'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
+            'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
+            'EBITGROWTHQ', 'EBITGROWTHTTM',
+            'SALESGROWTHQ', 'SALESGROWTHTTM',
+            'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
+            'GROSSMARGINTTM', 'GROSSPROFASSET',
+            'EBITDAMARGIN'
+        ]
 
     def get_date_parameters(self):
         return {

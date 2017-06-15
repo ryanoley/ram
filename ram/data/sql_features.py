@@ -79,7 +79,7 @@ def make_final_commands(feature_data):
         if f['rank']:
             final_cmds += \
                 """
-                , RANK() over (
+                , PERCENT_RANK() over (
                     partition by Date_
                     order by {0}) as {0}
                 """.format(f['feature_name'])
