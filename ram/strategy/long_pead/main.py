@@ -77,13 +77,28 @@ class LongPeadStrategy(Strategy):
             'DISCOUNT252_AdjClose',
 
             # Accounting Features
+            'NETINCOMEQ', 'NETINCOMETTM',
             'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
+
+            'OPERATINGINCOMEQ', 'OPERATINGINCOMETTM',
             'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
+
+            'EBITQ', 'EBITTTM',
             'EBITGROWTHQ', 'EBITGROWTHTTM',
+
+            'SALESQ', 'SALESTTM',
             'SALESGROWTHQ', 'SALESGROWTHTTM',
+
+            'FREECASHFLOWQ', 'FREECASHFLOWTTM',
             'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
-            'GROSSMARGINTTM', 'GROSSPROFASSET',
-            'EBITDAMARGIN'
+
+            'GROSSPROFASSET',
+            'ASSETS',
+
+            'GROSSMARGINTTM',
+            'EBITDAMARGIN',
+
+            'PE', 'FCFMARKETCAP', 'CASHEV',
         ]
 
     def get_date_parameters(self):
