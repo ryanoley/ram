@@ -64,11 +64,19 @@ class TestRunManager(unittest.TestCase):
         f.close()
 
     def test_import_return_frame(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
         rm1.import_return_frame(path=self.base_path)
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.] * 2
         data['1'] = [6, 7, 8, 9, 10.] * 2
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data.index = convert_date_array(data.index)
+        assert_frame_equal(rm1.returns, data)
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=1)
+        rm1.import_return_frame(path=self.base_path)
+        data = pd.DataFrame()
+        data['0'] = [1, 2, 3, 4, 5.] + [0] * 5
+        data['1'] = [6, 7, 8, 9, 10.] + [0] * 5
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(rm1.returns, data)
