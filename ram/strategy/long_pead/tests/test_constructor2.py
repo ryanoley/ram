@@ -8,6 +8,7 @@ from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.utils.time_funcs import convert_date_array
 from ram.strategy.long_pead.constructor.constructor2 import PortfolioConstructor2
+from ram.strategy.long_pead.constructor.constructor2 import outlier_rank
 
 
 class TestConstructor2(unittest.TestCase):
@@ -44,6 +45,15 @@ class TestConstructor2(unittest.TestCase):
         result = cons.close_dict[pd.Timestamp('2015-01-04')]
         benchmark = {'AAPL': 5, 'GOOGL': 15, 'IBM': 12}
         self.assertDictEqual(result, benchmark)
+
+    def test_outlier_rank(self):
+        df = pd.DataFrame({
+            'SecCode': ['a', 'a', 'a', 'b', 'b', 'b',
+                        'c', 'c', 'c', 'd', 'd', 'd'],
+            'Date': [1, 2, 3] * 4,
+            'V1': [1, 2, 1, 2, 2, 1, 100, -100, 323, 3, 3, 3]
+        })
+        result = outlier_rank(df, 'V1', outlier_std=.4, pad=True)
 
     def tearDown(self):
         pass
