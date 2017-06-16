@@ -91,7 +91,27 @@ from				unique_gvkeys_dates T
 		and			D2.Group_ = 204
 		and			D2.Item = 58		-- ASSETS / ANNUAL
 )
-	
+
+
+, cash_data_0 as (
+select				T.*,
+					coalesce(D1.Value_, D2.Value_, 0) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 218
+		and			D1.Item = 54		-- Cash and Short Term Securities
+
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = 204
+		and			D2.Item = 104		-- Cash and Short Term Securities / ANNUAL
+)
+
 
 , sales_data_0 as (
 select				T.*,
@@ -264,21 +284,19 @@ from				operating_income_data_0
 select				T.GVKey,
 					T.ReportDate as AsOfDate,
 					'X_CASHANDSECURITIES' as ItemName,
-					(D1.Value_ + D2.Value_) as Value_
+					(D1.Value_ + coalesce(D2.Value_, 0)) as Value_
 
 from				unique_gvkeys_dates T
 
-	left join		ram.dbo.ram_compustat_accounting D1
+	left join		cash_data_0 D1
 		on			T.GVKey = D1.GVKey
 		and			T.QuarterEndDate = D1.QuarterEndDate
-		and			D1.Group_ = 218
-		and			D1.Item = 54		-- Cash and Short Term Securities
 
 	left join		ram.dbo.ram_compustat_accounting D2
 		on			T.GVKey = D2.GVKey
 		and			T.QuarterEndDate = D2.QuarterEndDate
 		and			D2.Group_ = 218
-		and			D2.Item = 162		-- Long Term Investments
+		and			D2.Item = 162		-- Long Term Investments (NOTHING IN ANNUAL TABLES)
 )
 
 
