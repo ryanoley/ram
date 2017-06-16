@@ -59,6 +59,8 @@ class PortfolioConstructor2(object):
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
             scores = self.scores_dict[date]
+            mcaps = self.market_cap_dict[date]
+
             # Get PL
             portfolio.update_prices(closes, dividends, splits)
             portfolio.update_position_sizes(
@@ -101,35 +103,45 @@ class PortfolioConstructor2(object):
         data = ern_return(data)
         data = data.merge(smoothed_responses(data))
 
-        # Training happens
+        # Easy ranking
         features = [
-            'blackout', 'anchor_ret_rank', 'earnings_ret',
-            'RANK_AvgDolVol', 'RANK_PRMA120_AvgDolVol',
-            'RANK_PRMA10_AdjClose', 'RANK_PRMA20_AdjClose',
-
-            'RANK_BOLL10_AdjClose', 'RANK_BOLL20_AdjClose',
-            'RANK_BOLL60_AdjClose',
-
-            'RANK_MFI10_AdjClose', 'RANK_MFI20_AdjClose',
-            'RANK_MFI60_AdjClose',
-
-            'RANK_RSI10_AdjClose', 'RANK_RSI20_AdjClose',
-            'RANK_RSI60_AdjClose',
-
-            'RANK_VOL10_AdjClose', 'RANK_VOL20_AdjClose',
-            'RANK_VOL60_AdjClose',
-
-            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
+            'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
+            'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
+            'BOLL60_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
+            'MFI60_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose',
+            'RSI60_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
+            'VOL60_AdjClose', 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
             'DISCOUNT252_AdjClose',
+            # Accounting Variables
+            'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM', 'ASSETS',
+            'CASHEV', 'FCFMARKETCAP',
+            'NETINCOMEGROWTHQ',
+            'NETINCOMEGROWTHTTM',
+            'OPERATINGINCOMEGROWTHQ',
+            'OPERATINGINCOMEGROWTHTTM',
+            'EBITGROWTHQ',
+            'EBITGROWTHTTM',
+            'SALESGROWTHQ',
+            'SALESGROWTHTTM',
+            'FREECASHFLOWGROWTHQ',
+            'FREECASHFLOWGROWTHTTM',
+            'GROSSPROFASSET',
+            'GROSSMARGINTTM',
+            'EBITDAMARGIN',
+            'PE',
+        ]
 
-            'RANK_DISCOUNT63_AdjClose', 'RANK_DISCOUNT126_AdjClose',
-            'RANK_DISCOUNT252_AdjClose',
+        data2 = outlier_rank(data, features[0])
+        for f in features[1:]:
+            data2 = data2.merge(outlier_rank(data, f))
 
-            'ACCTSALESGROWTH', 'ACCTSALESGROWTHTTM',
-            'ACCTEPSGROWTH', 'ACCTPRICESALES']
+        data = data.drop(features, axis=1)
+        data = data.merge(data2)
+
+        features = features + [f + '_extreme' for f in features] + \
+            ['blackout', 'anchor_ret_rank', 'earnings_ret']
 
         train_data = data[~data.TestFlag]
-
         train_data = train_data[['SecCode', 'Date', 'Response'] + features]
         train_data = train_data.dropna()
 
@@ -183,6 +195,10 @@ class PortfolioConstructor2(object):
             index='Date', columns='SecCode',
             values='RCashDividend').fillna(0).loc[test_dates]
 
+        market_caps = data.pivot(
+            index='Date', columns='SecCode',
+            values='MarketCap').fillna(0).loc[test_dates]
+
         scores = test_data.pivot(index='Date', columns='SecCode',
                                  values='preds').loc[test_dates]
 
@@ -197,6 +213,7 @@ class PortfolioConstructor2(object):
         self.close_dict = closes.T.to_dict()
         self.dividend_dict = dividends.T.to_dict()
         self.split_mult_dict = split_mult.T.to_dict()
+        self.market_cap_dict = market_caps.T.to_dict()
         self.scores_dict = scores.T.to_dict()
         self.data = data
 
@@ -215,3 +232,41 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
     return output
+
+
+def outlier_rank(data, variable, outlier_std=4, pad=True):
+    """
+    Will create two columns, and if the variable is an extreme outlier will
+    code it as a 1 or -1 depending on side and force rank to median for
+    the date.
+    """
+    x_pivot = data.pivot(index='Date', columns='SecCode', values=variable)
+    extreme_vals = x_pivot.copy() * 0
+    if pad:
+        x_pivot = x_pivot.fillna(method='pad')
+    x_min = x_pivot.median(axis=1) - outlier_std * x_pivot.std(axis=1)
+    x_max = x_pivot.median(axis=1) + outlier_std * x_pivot.std(axis=1)
+    x_range = x_pivot.copy()
+    x_range[:] = _duplicate(x_max, x_pivot.shape)
+    extreme_vals[x_pivot >= x_range] = 1
+    x_pivot[x_pivot >= x_range] = np.nan
+    x_range[:] = _duplicate(x_min, x_pivot.shape)
+    extreme_vals[x_pivot <= x_range] = -1
+    x_pivot[x_pivot <= x_range] = np.nan
+    # Force extremes to median value
+    x_range[:] = _duplicate(x_pivot.median(axis=1), x_pivot.shape)
+    x_pivot[:] = np.where(x_pivot.isnull(), x_range, x_pivot)
+    # Rank
+    x_ranks = x_pivot.rank(axis=1)
+    x_ranks_max = x_ranks.copy()
+    x_ranks_max[:] = _duplicate(x_ranks.max(axis=1), x_ranks.shape)
+    x_ranks = x_ranks / x_ranks_max
+    x_ranks = x_ranks.unstack().reset_index()
+    x_ranks.columns = ['SecCode', 'Date', variable]
+    extreme_vals = extreme_vals.unstack().reset_index()
+    extreme_vals.columns = ['SecCode', 'Date', variable + '_extreme']
+    return x_ranks.merge(extreme_vals)
+
+
+def _duplicate(series, shape):
+    return series.repeat(shape[1]).values.reshape(shape)
