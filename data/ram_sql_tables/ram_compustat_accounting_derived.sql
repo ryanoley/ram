@@ -27,7 +27,8 @@ to get formatted values, which include the following:
 * SALESGROWTHTTM
 
 [Cash]
-* FREECASHFLOW
+* FREECASHFLOWQ
+* FREECASHFLOWTTM
 * FREECASHFLOWGROWTHQ
 * FREECASHFLOWGROWTHTTM
 * X_CASHANDSECURITIES
@@ -36,6 +37,7 @@ to get formatted values, which include the following:
 * X_GROSSMARGINQ: Cannot confirm COGS with Bloomberg
 * X_GROSSMARGINTTM: Cannot confirm COGS with Bloomberg
 * X_GROSSPROFASSET
+* ASSETS
 
 [Debt]
 * SHORTLONGDEBT
@@ -70,6 +72,26 @@ from				ram.dbo.ram_compustat_accounting
 -- ######  COMMON FIELDS   ######################################################
 --   Combine Quarterly and Annual tables, handle missing quarterly data
 --   and calculate Trailing Twelve Month values (TTM)
+
+, assets_data_0 as (
+select				T.*,
+					coalesce(D1.Value_, D2.Value_) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 218
+		and			D1.Item = 37		-- ASSETS / QUARTERLY
+
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = 204
+		and			D2.Item = 58		-- ASSETS / ANNUAL
+)
+	
 
 , sales_data_0 as (
 select				T.*,
@@ -392,6 +414,16 @@ from				net_income_data_0
 
 -- ######  SALES  ###############################################################
 
+, assets_data_final_1 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'ASSETS' as ItemName,
+					Value_
+from				assets_data_0
+)
+
+-- ######  SALES  ###############################################################
+
 , sales_data_final_1 as (
 select				GVKey,
 					ReportDate as AsOfDate,
@@ -462,7 +494,7 @@ from				unique_gvkeys_dates T
 select				D1.GVKey,
 					D1.ReportDate as AsOfDate,
 					'X_GROSSPROFASSET' as ItemName,
-					(D1.ValueTTM - D2.ValueTTM) / nullif(coalesce(D3a.Value_, D3b.Value_), 0) as Value_
+					(D1.ValueTTM - D2.ValueTTM) / nullif(D3.Value_, 0) as Value_
 
 from				sales_data_0 D1
 
@@ -470,17 +502,9 @@ from				sales_data_0 D1
 		on			D1.GVKey = D2.GVKey
 		and			D1.QuarterEndDate = D2.QuarterEndDate
 
-	left join		ram.dbo.ram_compustat_accounting D3a
-		on			D1.GVKey = D3a.GVKey
-		and			D1.QuarterEndDate = D3a.QuarterEndDate
-		and			D3a.Group_ = 218
-		and			D3a.Item = 37		-- ASSETS / QUARTERLY
-
-	left join		ram.dbo.ram_compustat_accounting D3b
-		on			D1.GVKey = D3b.GVKey
-		and			D1.QuarterEndDate = D3b.QuarterEndDate
-		and			D3b.Group_ = 204
-		and			D3b.Item = 58		-- ASSETS / ANNUAL
+	join			assets_data_0 D3
+		on			D1.GVKey = D3.GVKey
+		and			D1.QuarterEndDate = D3.QuarterEndDate
 )
 
 
@@ -632,6 +656,8 @@ union
 select * from ebit_final_3
 union
 select * from ebit_final_4
+union
+select * from assets_data_final_1
 )
 
 
