@@ -10,10 +10,12 @@ from ram import config
 
 class RunManager(object):
 
-    def __init__(self, strategy_class, run_name, start_year=1950):
+    def __init__(self, strategy_class, run_name, start_year=1950,
+                 test_periods=6):
         self.strategy_class = strategy_class
         self.run_name = run_name
         self.start_year = start_year
+        self.test_periods = test_periods
 
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -38,12 +40,17 @@ class RunManager(object):
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('returns') > 0]
+        # Trim files for test periods
+        test_index = max([0, len(files) - self.test_periods])
+        test_mult = 1
         returns = pd.DataFrame()
-        for f in files:
+        for i, f in enumerate(files):
             if int(f[:4]) < self.start_year:
                 continue
+            if i >= test_index:
+                test_mult = 0
             returns = returns.add(
-                pd.read_csv(os.path.join(ddir, f), index_col=0),
+                test_mult * pd.read_csv(os.path.join(ddir, f), index_col=0),
                 fill_value=0)
         returns.index = convert_date_array(returns.index)
         self.returns = returns
@@ -57,7 +64,8 @@ class RunManager(object):
             for f in files:
                 self.stats[f] = json.load(open(os.path.join(ddir, f), 'r'))
         else:
-            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x in self.column_params}
+            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
+                                             in self.column_params}
 
     def import_column_params(self, path=config.SIMULATION_OUTPUT_DIR):
         ppath = os.path.join(path, self.strategy_class, self.run_name,
