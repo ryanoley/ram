@@ -30,15 +30,18 @@ FUNCS = [
     'SALESQ', 'SALESTTM',
     'SALESGROWTHQ', 'SALESGROWTHTTM',
 
-    # Cash
+    # Free Cash
     'FREECASHFLOWQ', 'FREECASHFLOWTTM',
     'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
 
     # OTHER
-    'GROSSMARGINQ', 'GROSSMARGINTTM', 'GROSSPROFASSET',
+    'GROSSMARGINQ', 'GROSSMARGINTTM',
+
+    'GROSSPROFASSET', 'ASSETS',
 
     # RATIOS
-    'EBITDAMARGIN'
+    'EBITDAMARGIN', 'CASHEV', 'PE',
+    'FCFMARKETCAP'
 ]
 
 
@@ -670,6 +673,10 @@ def GROSSPROFASSET(arg0, feature_name, arg2, table):
     return _ACCOUNTING_FRAMEWORK('X_GROSSPROFASSET', feature_name, table)
 
 
+def ASSETS(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ASSETS', feature_name, table)
+
+
 # ~~~~~~  Accounting Ratios ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _ACCOUNTING_RATIO(feature_name, numerator, denominator, table):
@@ -710,6 +717,67 @@ def EBITDAMARGIN(arg0, feature_name, arg2, table):
                              'SALESTTM', table)
 
 
+# ~~~~~~ Custom Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def CASHEV(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B2.Value_ / nullif(A.MarketCap + B1.Value_ - B2.Value_, 0) as {1}
+        from        {0} A
+
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting_derived B1
+            on      G.GVKey = B1.GVKey
+            and     B1.ItemName = 'SHORTLONGDEBT'
+            and     B1.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.ram_compustat_accounting_derived d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+
+        left join   ram.dbo.ram_compustat_accounting_derived B2
+            on      G.GVKey = B2.GVKey
+            and     B2.ItemName = 'X_CASHANDSECURITIES'
+            and     B2.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.ram_compustat_accounting_derived d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+        """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
+def FCFMARKETCAP(arg0, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B1.Value_ / nullif(A.MarketCap, 0) as {1}
+        from        {0} A
+
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_idccode_to_gvkey_map G
+            on      M.IdcCode = G.IdcCode
+            and     A.Date_ between G.StartDate and G.EndDate
+
+        left join   ram.dbo.ram_compustat_accounting_derived B1
+            on      G.GVKey = B1.GVKey
+            and     B1.ItemName = 'FREECASHFLOWTTM'
+            and     B1.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.ram_compustat_accounting_derived d
+                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+        """.format(table, feature_name)
+    return clean_sql_cmd(sqlcmd)
+
+
 # ~~~~~~ Pricing and Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def PE(arg0, feature_name, arg2, table):
@@ -733,7 +801,7 @@ def PE(arg0, feature_name, arg2, table):
             and     B.ItemName = 'NETINCOMETTM'
             and     B.AsOfDate = (select max(ReportDate) d
                         from ram.dbo.ram_compustat_accounting d
-                        where d.GVKey = G.GVKey and d.AsOfDate < A.Date_)
+                        where d.GVKey = G.GVKey and d.ReportDate < A.Date_)
         """.format(table, feature_name)
     return clean_sql_cmd(sqlcmd)
 
