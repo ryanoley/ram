@@ -60,8 +60,8 @@ class LongPeadStrategy(Strategy):
 
     def get_features(self):
         return [
-            'AdjClose', 'AdjVwap', 'LEAD1_AdjOpen',
-            'RClose', 'RCashDividend', 'SplitFactor',
+            'AdjClose', 'AdjVwap',
+            'LEAD1_ROpen', 'RClose', 'RCashDividend', 'SplitFactor',
 
             # Descriptive
             'GGROUP', 'EARNINGSFLAG', 'MarketCap', 'AvgDolVol',
@@ -118,5 +118,4 @@ def make_arg_iter(variants):
 if __name__ == '__main__':
 
     from ram.strategy.base import make_argument_parser
-
     make_argument_parser(LongPeadStrategy)
