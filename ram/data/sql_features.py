@@ -684,7 +684,7 @@ def _ACCOUNTING_RATIO(feature_name, numerator, denominator, table):
         """
         select      A.SecCode,
                     A.Date_,
-                    nullif(B1.Value_ / B2.Value_, 0) as {1}
+                    B1.Value_ / nullif(B2.Value_, 0) as {1}
         from        {0} A
 
         join        ram.dbo.ram_master_ids M
