@@ -19,31 +19,31 @@ class Portfolio(object):
         """
         for symbol, close_ in closes.iteritems():
             if symbol not in self.positions:
-                self.positions[symbol] = Position(
-                    symbol=symbol, price=close_, size=0)
+                self.positions[symbol] = Position(symbol=symbol, price=close_)
             else:
                 self.positions[symbol].update_position_prices(
                     close_, dividends[symbol], splits[symbol])
         return
 
-    def update_position_sizes(self, sizes):
+    def update_position_sizes(self, sizes, exec_prices):
         for symbol, size in sizes.iteritems():
-            self.positions[symbol].update_position_size(size)
+            self.positions[symbol].update_position_size(
+                size, exec_prices[symbol])
         return
 
-    def get_exposure(self):
+    def get_portfolio_exposure(self):
         return sum([abs(pos.exposure) for pos in self.positions.itervalues()])
 
     def get_portfolio_daily_pl(self):
         port_daily_pl = 0
         for position in self.positions.values():
-            port_daily_pl += position.daily_pl
+            port_daily_pl += position.get_daily_pl()
         return port_daily_pl
 
     def get_portfolio_daily_turnover(self):
         port_turnover = 0
         for position in self.positions.values():
-            port_turnover += position.daily_turnover
+            port_turnover += position.get_daily_turnover()
         return port_turnover
 
     def close_portfolio_positions(self):

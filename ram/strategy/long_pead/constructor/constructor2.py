@@ -34,7 +34,7 @@ class PortfolioConstructor2(object):
     def get_iterable_args(self):
         return {
             'logistic_spread': [.1, .5, 1, 2],
-            'open_execution': [False]
+            'open_execution': [True, False]
         }
 
     def get_data_args(self):
@@ -43,7 +43,8 @@ class PortfolioConstructor2(object):
             'blackout_offset2': [4],
             'anchor_init_offset': [-1, 3],
             'anchor_window': [10],
-            'response_days': [[2, 4, 6], [2], [6]]
+            'response_days': [[2, 4, 6], [2], [6]],
+            'response_thresh': [.25, .45]
         }
 
     def get_daily_pl(self, arg_index, logistic_spread, open_execution):
@@ -54,36 +55,50 @@ class PortfolioConstructor2(object):
         portfolio = Portfolio()
         # Output object
         daily_df = pd.DataFrame(index=self.iter_dates,
-                                columns=['PL', 'Exposure', 'Count'],
+                                columns=['PL', 'Exposure', 'Turnover'],
                                 dtype=float)
 
         for date in self.iter_dates:
-            open_prices = self.open_lead_dict[date]
+
+            opens = self.open_lead_dict[date]
             closes = self.close_dict[date]
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
             scores = self.scores_dict[date]
+            # Could this be just a simple "Group"
             mcaps = self.market_cap_dict[date]
 
-            # Get PL
             portfolio.update_prices(closes, dividends, splits)
 
+            # WHEN DO YOU EXECUTE?
             if open_execution:
-                pass
+                if date == self.iter_dates.iloc[-1]:
+                    portfolio.close_portfolio_positions()
+                    daily_pl = portfolio.get_portfolio_daily_pl()
+                    daily_turnover = portfolio.get_portfolio_daily_turnover()
+                    daily_exposure = portfolio.get_portfolio_exposure()
+                else:
+                    daily_pl = portfolio.get_portfolio_daily_pl()
+                    daily_turnover = portfolio.get_portfolio_daily_turnover()
+                    daily_exposure = portfolio.get_portfolio_exposure()
+                    portfolio.update_position_sizes(
+                        self._get_position_sizes(scores, logistic_spread,
+                                                 self.booksize), opens)
             else:
-                portfolio.update_position_sizes(
-                    self._get_position_sizes(scores,
-                                             logistic_spread,
-                                             self.booksize))
+                if date == self.iter_dates.iloc[-1]:
+                    portfolio.close_portfolio_positions()
+                else:
+                    portfolio.update_position_sizes(
+                        self._get_position_sizes(scores, logistic_spread,
+                                                 self.booksize), closes)
+                daily_pl = portfolio.get_portfolio_daily_pl()
+                daily_turnover = portfolio.get_portfolio_daily_turnover()
+                daily_exposure = portfolio.get_portfolio_exposure()
 
-            if date == self.iter_dates.iloc[-1]:
-                portfolio.close_portfolio_positions()
-            daily_df.loc[date, 'PL'] = portfolio.get_portfolio_daily_pl()
-            daily_df.loc[date, 'Exposure'] = portfolio.get_exposure()
-            exps = np.array([x.exposure for x in portfolio.positions.values()])
-            daily_df.loc[date, 'Count'] = (exps != 0).sum()
-            # Daily statistics
-            daily_df.loc[date, 'Turnover'] = portfolio.get_portfolio_daily_turnover()
+            daily_df.loc[date, 'PL'] = daily_pl
+            daily_df.loc[date, 'Turnover'] = daily_turnover
+            daily_df.loc[date, 'Exposure'] = daily_exposure
+
         # Close everything and begin anew in new quarter
         return daily_df
 
@@ -109,7 +124,8 @@ class PortfolioConstructor2(object):
                           blackout_offset2,
                           anchor_init_offset,
                           anchor_window,
-                          response_days):
+                          response_days,
+                          response_thresh):
 
         # Instead of using the levels, use the change in levels.
         # This is necessary for the updating of positions and prices
@@ -124,7 +140,8 @@ class PortfolioConstructor2(object):
                                     init_offset=anchor_init_offset,
                                     window=anchor_window)
         data = ern_return(data)
-        data = data.merge(smoothed_responses(data, days=response_days))
+        data = data.merge(smoothed_responses(data, days=response_days,
+                                             thresh=response_thresh))
 
         # Easy ranking
         features = [

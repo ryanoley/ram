@@ -16,22 +16,25 @@ class TestPosition(unittest.TestCase):
         pass
 
     def test_init(self):
-        pos = Position(symbol='IBM', price=100, size=-10004)
+        pos = Position(symbol='IBM', price=100)
+        pos.update_position_size(-10004, 100)
         self.assertEqual(pos.shares, -100)
         self.assertTrue(pos.open_position)
         self.assertTrue(pos.daily_pl, -.5)
 
     def test_update_position_prices(self):
-        pos = Position(symbol='IBM', price=100, size=-10004)
+        pos = Position(symbol='IBM', price=100)
+        pos.update_position_size(-10004, 100)
+        pos.get_daily_pl()
         pos.update_position_prices(price=101, dividend=0, split=1)
-        self.assertEqual(pos.daily_pl, -100.0)
+        self.assertEqual(pos.get_daily_pl(), -100.0)
         pos.update_position_prices(price=95, dividend=0, split=1)
-        self.assertEqual(pos.daily_pl, 600.0)
+        self.assertEqual(pos.get_daily_pl(), 600.0)
         pos.update_position_prices(price=96, dividend=1, split=1)
-        self.assertEqual(pos.daily_pl, -200.0)
+        self.assertEqual(pos.get_daily_pl(), -200.0)
         pos.update_position_prices(price=48, dividend=0, split=2)
         self.assertEqual(pos.shares, -200)
-        self.assertEqual(pos.daily_pl, 0.0)
+        self.assertEqual(pos.get_daily_pl(), 0.0)
 
     def tearDown(self):
         pass

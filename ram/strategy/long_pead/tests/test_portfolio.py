@@ -23,17 +23,6 @@ class TestPortfolio(unittest.TestCase):
         splits = {'AAPL': 1, 'IBM': 1}
         portfolio.update_prices(closes, dividends, splits)
 
-    def Xtest_close_pairs(self):
-        port = self.port
-        port.close_pairs(['IBM~VMW'])
-        self.assertEqual(port.pairs.keys(), ['IBM~VMW', 'GOOGL~AAPL'])
-        self.assertEqual(port.pairs['IBM~VMW'].gross_exposure, 0)
-        self.assertNotEqual(port.pairs['GOOGL~AAPL'].gross_exposure, 0)
-        self.assertEqual(port.count_open_positions(), 1)
-        port.close_all_pairs()
-        self.assertEqual(port.count_open_positions(), 0)
-        self.assertEqual(port.pairs['IBM~VMW'].gross_exposure, 0)
-
     def tearDown(self):
         pass
 
