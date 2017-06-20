@@ -71,7 +71,7 @@ class TestUtils(unittest.TestCase):
     def test_make_anchor_ret_rank(self):
         data = self.data.copy()
         data = ern_date_blackout(data, -1, 1)
-        make_anchor_ret_rank(data)
+        result = make_anchor_ret_rank(data)
 
     def test_ern_return(self):
         result = ern_return(self.data)

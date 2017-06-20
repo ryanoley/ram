@@ -175,12 +175,12 @@ class Strategy(object):
         data.SecCode = data.SecCode.astype(int).astype(str)
         return data
 
-    def write_index_results(self, returns_df, index):
+    def write_index_results(self, returns_df, index, suffix='returns'):
         """
         This is a wrapper function for cloud implementation.
         """
         output_name = self._data_files[index]
-        output_name = output_name.replace('data', 'returns')
+        output_name = output_name.replace('data', suffix)
         if self._write_flag:
             returns_df.to_csv(os.path.join(self.strategy_output_dir,
                                            output_name))

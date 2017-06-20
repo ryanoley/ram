@@ -7,8 +7,7 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.utils.time_funcs import convert_date_array
-from ram.strategy.long_pead.constructor.constructor2 import PortfolioConstructor2
-from ram.strategy.long_pead.constructor.constructor2 import outlier_rank
+from ram.strategy.long_pead.constructor.constructor2 import *
 
 
 class TestConstructor2(unittest.TestCase):
@@ -54,6 +53,33 @@ class TestConstructor2(unittest.TestCase):
             'V1': [1, 2, 1, 2, 2, 1, 100, -100, 323, 3, 3, 3]
         })
         result = outlier_rank(df, 'V1', outlier_std=.4, pad=True)
+
+    def test_make_variable_dict(self):
+        data = pd.DataFrame({
+            'SecCode': ['a'] * 3 + ['b'] * 3,
+            'Date': ['2010-01-01', '2010-01-02', '2010-01-03'] * 2,
+            'V1': range(6),
+            'V2': range(1, 7)
+        })
+        data.iloc[2, 2] = np.nan
+        data.iloc[5, 3] = np.nan
+        result = make_variable_dict(data, 'V1', fillna=np.nan)
+        self.assertTrue(np.isnan(result['2010-01-03']['a']))
+        self.assertEqual(result['2010-01-03']['b'], 5.0)
+        result = make_variable_dict(data, 'V2', fillna=-99.0)
+        self.assertFalse(np.isnan(result['2010-01-03']['b']))
+        self.assertEqual(result['2010-01-03']['a'], 3.0)
+        self.assertEqual(result['2010-01-03']['b'], -99.0)
+
+    def test_get_iter_dates(self):
+        data = pd.DataFrame({
+            'SecCode': ['a'] * 3 + ['b'] * 3,
+            'Date': ['2010-01-01', '2010-01-02', '2010-01-03'] * 2,
+            'TestFlag': [False, True, True] * 2,
+            'V1': range(6),
+            'V2': range(1, 7)
+        })
+        result = get_iter_dates(self.data)
 
     def tearDown(self):
         pass

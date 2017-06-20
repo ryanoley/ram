@@ -34,20 +34,23 @@ class LongPeadStrategy(Strategy):
                 result = self.constructor.get_daily_pl(arg_index=i, **a1)
                 self._capture_output(result, i)
                 i += 1
-        returns = self.output_pl / self.constructor.booksize
-        self.write_index_results(returns, time_index)
+        self.write_index_results(self.output_returns, time_index)
+        self.write_index_results(self.output_statistics, time_index, 'daily_stats')
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _capture_output(self, results, arg_index):
+        returns = pd.DataFrame(results.PL / self.constructor.booksize)
+        returns.columns = [arg_index]
+        # Rename columns
+        results.columns = ['{}_{}'.format(x, arg_index) for x in results.columns]
         if arg_index == 0:
-            self.output_pl = pd.DataFrame()
-            self.output_exposure = pd.DataFrame()
-        results = results[['PL', 'Exposure']].copy()
-        results.columns = [arg_index, arg_index]
-        self.output_pl = self.output_pl.join(results.iloc[:, 0], how='outer')
-        self.output_exposure = self.output_exposure.join(
-            results.iloc[:, 1], how='outer')
+            self.output_returns = returns
+            self.output_statistics = results
+        else:
+            self.output_returns = self.output_returns.join(returns, how='outer')
+            self.output_statistics = self.output_statistics.join(
+                results, how='outer')
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -33,18 +33,20 @@ class PortfolioConstructor2(object):
 
     def get_iterable_args(self):
         return {
-            'logistic_spread': [.1, .5, 1, 2]
+            'logistic_spread': [.1, .5, 1, 2],
+            'open_execution': [False]
         }
 
     def get_data_args(self):
         return {
             'blackout_offset1': [-1],
-            'blackout_offset2': [3, 6],
-            'anchor_init_offset': [5],
-            'anchor_window': [10]
+            'blackout_offset2': [4],
+            'anchor_init_offset': [-1, 3],
+            'anchor_window': [10],
+            'response_days': [[2, 4, 6], [2], [6]]
         }
 
-    def get_daily_pl(self, arg_index, logistic_spread):
+    def get_daily_pl(self, arg_index, logistic_spread, open_execution):
         """
         Parameters
         ----------
@@ -54,7 +56,9 @@ class PortfolioConstructor2(object):
         daily_df = pd.DataFrame(index=self.iter_dates,
                                 columns=['PL', 'Exposure', 'Count'],
                                 dtype=float)
+
         for date in self.iter_dates:
+            open_prices = self.open_lead_dict[date]
             closes = self.close_dict[date]
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
@@ -63,14 +67,24 @@ class PortfolioConstructor2(object):
 
             # Get PL
             portfolio.update_prices(closes, dividends, splits)
-            portfolio.update_position_sizes(
-                self._get_position_sizes(scores,
-                                         logistic_spread,
-                                         self.booksize))
+
+            if open_execution:
+                pass
+            else:
+                portfolio.update_position_sizes(
+                    self._get_position_sizes(scores,
+                                             logistic_spread,
+                                             self.booksize))
+
+            if date == self.iter_dates.iloc[-1]:
+                portfolio.close_portfolio_positions()
             daily_df.loc[date, 'PL'] = portfolio.get_portfolio_daily_pl()
             daily_df.loc[date, 'Exposure'] = portfolio.get_exposure()
             exps = np.array([x.exposure for x in portfolio.positions.values()])
             daily_df.loc[date, 'Count'] = (exps != 0).sum()
+            # Daily statistics
+            daily_df.loc[date, 'Turnover'] = portfolio.get_portfolio_daily_turnover()
+        # Close everything and begin anew in new quarter
         return daily_df
 
     def _get_position_sizes(self, mrets, logistic_spread, booksize):
@@ -94,14 +108,23 @@ class PortfolioConstructor2(object):
                           blackout_offset1,
                           blackout_offset2,
                           anchor_init_offset,
-                          anchor_window):
-        # Anchor prices
-        data = ern_date_blackout(data, offset1=blackout_offset1,
+                          anchor_window,
+                          response_days):
+
+        # Instead of using the levels, use the change in levels.
+        # This is necessary for the updating of positions and prices
+        data.loc[:, 'SplitMultiplier'] = \
+            data.SplitFactor.pct_change().fillna(0) + 1
+
+        # Blackout flags and anchor returns
+        data = ern_date_blackout(data,
+                                 offset1=blackout_offset1,
                                  offset2=blackout_offset2)
-        data = make_anchor_ret_rank(data, init_offset=anchor_init_offset,
+        data = make_anchor_ret_rank(data,
+                                    init_offset=anchor_init_offset,
                                     window=anchor_window)
         data = ern_return(data)
-        data = data.merge(smoothed_responses(data))
+        data = data.merge(smoothed_responses(data, days=response_days))
 
         # Easy ranking
         features = [
@@ -184,41 +207,39 @@ class PortfolioConstructor2(object):
         preds = clf.predict_proba(test_data[features])
         test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
 
-        # Get training and test dates
-        test_dates = data[data.TestFlag].Date.drop_duplicates()
-        qtrs = np.array([(x.month-1)/3+1 for x in test_dates])
-        iter_dates = test_dates[qtrs == qtrs[0]]
-        # Calculate State Variables, including Z-Score
-        closes = data.pivot(
-            index='Date', columns='SecCode', values='RClose').loc[test_dates]
-        dividends = data.pivot(
-            index='Date', columns='SecCode',
-            values='RCashDividend').fillna(0).loc[test_dates]
+        self.iter_dates = get_iter_dates(data)
 
-        market_caps = data.pivot(
-            index='Date', columns='SecCode',
-            values='MarketCap').fillna(0).loc[test_dates]
+        # Formatted for portfolio construction
+        self.close_dict = make_variable_dict(data, 'RClose')
+        self.open_lead_dict = make_variable_dict(data, 'LEAD1_ROpen')
+        self.dividend_dict = make_variable_dict(data, 'RCashDividend', 0)
+        self.split_mult_dict = make_variable_dict(data,
+                                                  'SplitMultiplier', 1)
+        self.market_cap_dict = make_variable_dict(data,
+                                                  'MarketCap', 'pad')
+        self.scores_dict = make_variable_dict(test_data, 'preds')
 
-        scores = test_data.pivot(index='Date', columns='SecCode',
-                                 values='preds').loc[test_dates]
 
-        # Instead of using the levels, use the change in levels.
-        # This is necessary for the updating of positions and prices
-        data.loc[:, 'SplitMultiplier'] = \
-            data.SplitFactor.pct_change().fillna(0) + 1
-        split_mult = data.pivot(
-            index='Date', columns='SecCode',
-            values='SplitMultiplier').fillna(1).loc[test_dates]
-        self.iter_dates = iter_dates
-        self.close_dict = closes.T.to_dict()
-        self.dividend_dict = dividends.T.to_dict()
-        self.split_mult_dict = split_mult.T.to_dict()
-        self.market_cap_dict = market_caps.T.to_dict()
-        self.scores_dict = scores.T.to_dict()
-        self.data = data
+def make_variable_dict(data, variable, fillna=np.nan):
+    data_pivot = data.pivot(index='Date', columns='SecCode', values=variable)
+    if fillna == 'pad':
+        data_pivot = data_pivot.fillna(method='pad')
+    else:
+        data_pivot = data_pivot.fillna(fillna)
+    return data_pivot.T.to_dict()
+
+
+def get_iter_dates(data):
+    # Get training and test dates
+    test_dates = data[data.TestFlag].Date.drop_duplicates()
+    qtrs = np.array([(x.month-1)/3+1 for x in test_dates])
+    iter_dates = test_dates[qtrs == qtrs[0]]
+    return iter_dates
 
 
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
+    if not isinstance(days, list):
+        days = [days]
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
     for i in days:
         if i == days[0]:

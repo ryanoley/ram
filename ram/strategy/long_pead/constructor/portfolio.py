@@ -39,3 +39,13 @@ class Portfolio(object):
         for position in self.positions.values():
             port_daily_pl += position.daily_pl
         return port_daily_pl
+
+    def get_portfolio_daily_turnover(self):
+        port_turnover = 0
+        for position in self.positions.values():
+            port_turnover += position.daily_turnover
+        return port_turnover
+
+    def close_portfolio_positions(self):
+        for position in self.positions.values():
+            position.close_position()

@@ -27,6 +27,7 @@ class Position(object):
         # Cost of entering the position calculated here
         self.daily_pl = -1 * abs(self.shares) * self.comm
         self.total_pl = float(self.daily_pl)
+        self.daily_turnover = 0
 
     def update_position_prices(self, price, dividend, split):
         """
@@ -60,10 +61,12 @@ class Position(object):
             self.shares = new_shares
             self.exposure = self.shares * self.current_price
             self.daily_pl += -1 * abs(d_shares) * self.comm
+            self.daily_turnover = abs(d_shares) * self.current_price
 
     def close_position(self):
         if self.open_position:
             self.daily_pl += -1 * abs(self.shares) * self.comm
+            self.daily_turnover = abs(self.shares) * self.current_price
             self.shares = 0
             self.open_position = False
         return

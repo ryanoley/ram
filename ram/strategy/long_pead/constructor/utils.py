@@ -55,7 +55,8 @@ def ern_return(data):
     """
     (T-1) to (T+1) Vwap return
     """
-    prices = data.pivot(index='Date', columns='SecCode', values='AdjVwap')
+    prices = data.pivot(index='Date', columns='SecCode',
+                        values='AdjVwap').fillna(method='pad')
     earningsflag = data.pivot(index='Date', columns='SecCode',
                               values='EARNINGSFLAG').fillna(0)
     rets = prices.shift(-1) / prices.shift(1)
