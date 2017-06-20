@@ -9,26 +9,6 @@ from ram.utils.time_funcs import check_input_date
 from gearbox.analysis_system import metrics
 
 
-def create_strategy_report(results, name, path):
-
-    assert isinstance(results, pd.DataFrame)
-    if not isinstance(results.index[0], dt.datetime):
-        results.index = [check_input_date(x) for x in results.index]
-    results = results.astype(float)
-
-    # STATISTICS
-    stats1 = get_stats(results)
-    stats2 = get_stats(results.loc[results.index >= dt.datetime(2012, 1, 1)])
-
-    stats1.to_csv(os.path.join(path, '{0}_stats.csv'.format(name)))
-    stats2.to_csv(os.path.join(path, '{0}_stats_since2012.csv'.format(name)))
-
-    # PLOTTING
-    make_plot(results, name, path)
-
-
-###############################################################################
-
 def get_stats(results):
     """
     `results` is a data frame of returns, not cum returns or PL
@@ -36,6 +16,8 @@ def get_stats(results):
     # Check input!
     assert isinstance(results, pd.DataFrame)
     assert results.isnull().sum().sum() == 0
+    if isinstance(results.index[0], dt.date):
+        results.index = pd.to_datetime(results.index)
     assert isinstance(results.index, pd.DatetimeIndex)
 
     out = pd.DataFrame(columns=[
@@ -77,22 +59,6 @@ def get_stats(results):
     out = out.join(var3)
 
     return out.T
-
-
-def make_plot(results, name=None, spath=None):
-    data = results.copy()
-    data = data.cumsum()
-
-    plt.figure()
-    for col, vals in data.iteritems():
-        plt.plot(vals, label=col)
-    plt.grid()
-    if data.shape[1] < 6:
-        plt.legend(loc=2)
-    if name:
-        plt.savefig('{0}/{1}'.format(spath, '{0}_plot'.format(name)))
-    else:
-        plt.show()
 
 
 ###############################################################################

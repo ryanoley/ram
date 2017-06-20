@@ -6,6 +6,7 @@ import pandas as pd
 from gearbox import convert_date_array
 
 from ram import config
+from ram.analysis.statistics import get_stats
 
 
 class RunManager(object):
@@ -90,6 +91,31 @@ class RunManager(object):
         astats = aggregate_statistics(self.stats, self.start_year)
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
+
+    def analyze_returns(self, columns=None, start_year=1950):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
+        # Get indexes from imported data
+        inds = _get_date_indexes(self.returns.index, start_year)
+        if columns:
+            return get_stats(self.returns.loc[inds, _format_columns(columns)])
+        else:
+            return get_stats(self.returns.loc[inds])
+
+
+###############################################################################
+
+def _format_columns(columns):
+    if not isinstance(columns, list):
+        columns = [columns]
+    if not isinstance(columns[0], str):
+        columns = [str(x) for x in columns]
+    return columns
+
+
+def _get_date_indexes(date_index, start_year):
+    years = np.array([x.year for x in date_index])
+    return date_index[years >= start_year]
 
 
 ###############################################################################

@@ -12,6 +12,9 @@ class LongPeadStrategy(Strategy):
     constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):
+        """
+        These are written to file
+        """
         args1 = make_arg_iter(self.constructor.get_data_args())
         args2 = make_arg_iter(self.constructor.get_iterable_args())
         output_params = {}
@@ -23,19 +26,18 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
-        args = make_arg_iter(self.constructor.get_iterable_args())
-        argsd = make_arg_iter(self.constructor.get_data_args())
+        args_port = make_arg_iter(self.constructor.get_iterable_args())
+        args_data = make_arg_iter(self.constructor.get_data_args())
         i = 0
-        for ad in argsd:
-            if ad['blackout_offset2'] < ad['anchor_init_offset']:
-                continue
+        for ad in args_data:
             self.constructor.set_and_prep_data(data, time_index, **ad)
-            for a1 in args:
-                result = self.constructor.get_daily_pl(arg_index=i, **a1)
+            for ap in args_port:
+                result = self.constructor.get_daily_pl(arg_index=i, **ap)
                 self._capture_output(result, i)
                 i += 1
         self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_statistics, time_index, 'all_output')
+        self.write_index_results(self.output_statistics, time_index,
+                                 'all_output')
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
