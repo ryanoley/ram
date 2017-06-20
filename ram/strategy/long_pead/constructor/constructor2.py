@@ -41,10 +41,10 @@ class PortfolioConstructor2(object):
         return {
             'blackout_offset1': [-1],
             'blackout_offset2': [4],
-            'anchor_init_offset': [-1, 3],
+            'anchor_init_offset': [3],
             'anchor_window': [10],
-            'response_days': [[2, 4, 6], [2], [6]],
-            'response_thresh': [.25, .45]
+            'response_days': [[2, 4, 6], [6]],
+            'response_thresh': [.25]
         }
 
     def get_daily_pl(self, arg_index, logistic_spread, open_execution):
