@@ -35,7 +35,7 @@ class LongPeadStrategy(Strategy):
                 self._capture_output(result, i)
                 i += 1
         self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_statistics, time_index, 'daily_stats')
+        self.write_index_results(self.output_statistics, time_index, 'all_output')
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -58,7 +58,7 @@ class RunManager(object):
     def import_stats(self, path=config.SIMULATION_OUTPUT_DIR):
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
-        files = [x for x in os.listdir(ddir) if x.find('stats') > 0]
+        files = [x for x in os.listdir(ddir) if x.find('stats.json') > 0]
         self.stats = {}
         if files:
             for f in files:
@@ -121,12 +121,12 @@ def classify_params(params):
     out = {}
     for i, p in params.iteritems():
         for k, v in p.iteritems():
-            if k not in out:
-                out[k] = {}
-            if v not in out[k]:
-                out[k][v] = []
-            out[k][v].append(i)
-            out[k][v].sort()
+            if str(k) not in out:
+                out[str(k)] = {}
+            if str(v) not in out[str(k)]:
+                out[str(k)][str(v)] = []
+            out[str(k)][str(v)].append(i)
+            out[str(k)][str(v)].sort()
     return out
 
 
