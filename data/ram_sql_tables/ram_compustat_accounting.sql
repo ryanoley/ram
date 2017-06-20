@@ -109,7 +109,7 @@ create table	ram.dbo.ram_compustat_accounting (
 		Mnemonic varchar(20),
 		Frequency varchar(1),
 		Value_ float
-		primary key (GVKey, Group_, Item, QuarterEndDate)
+		primary key (Group_, Item, GVKey, QuarterEndDate)
 )
 
 
