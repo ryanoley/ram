@@ -28,8 +28,8 @@ class PortfolioConstructor2(object):
             Size of gross position
         """
         self.booksize = booksize
-        self._portfolios = {}
-        self._data = {}
+        self.train_data = pd.DataFrame()
+        self._train_data_max_time_index = -99
 
     def get_iterable_args(self):
         return {
@@ -186,9 +186,8 @@ class PortfolioConstructor2(object):
         train_data = train_data.dropna()
 
         # Cache training data
-        if time_index == 0:
-            self.train_data = train_data
-        else:
+        if time_index != self._train_data_max_time_index:
+            self._train_data_max_time_index = time_index
             self.train_data = self.train_data.append(train_data)
 
         clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
