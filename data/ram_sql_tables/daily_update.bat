@@ -7,6 +7,7 @@ set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 %SQLCMD% -i %SQLDIR%\ram_master_ids_etf.sql
 
 :: RAM Tables
+%SQLCMD% -i %SQLDIR%\ram_annualized_cash_dividends.sql
 %SQLCMD% -i %SQLDIR%\ram_compustat_sector.sql
 %SQLCMD% -i %SQLDIR%\ram_compustat_accounting.sql
 %SQLCMD% -i %SQLDIR%\ram_compustat_accounting_derived.sql
