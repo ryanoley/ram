@@ -140,8 +140,6 @@ class PortfolioConstructor2(object):
                                     init_offset=anchor_init_offset,
                                     window=anchor_window)
         data = ern_return(data)
-        data = data.merge(smoothed_responses(data, days=response_days,
-                                             thresh=response_thresh))
 
         # Easy ranking
         features = [
@@ -174,22 +172,33 @@ class PortfolioConstructor2(object):
         data2 = outlier_rank(data, features[0])
         for f in features[1:]:
             data2 = data2.merge(outlier_rank(data, f))
-
         data = data.drop(features, axis=1)
         data = data.merge(data2)
 
         features = features + [f + '_extreme' for f in features] + \
             ['blackout', 'anchor_ret_rank', 'earnings_ret']
 
-        train_data = data[~data.TestFlag]
-        train_data = train_data[['SecCode', 'Date', 'Response'] + features]
-        train_data = train_data.dropna()
+        # Separate training from test data
+        temp_train_data = data[~data.TestFlag]
+        temp_train_data = temp_train_data[['SecCode', 'Date',
+                                           'AdjClose'] + features]
+        temp_train_data = temp_train_data.dropna()
+
+        test_data = data[data.TestFlag]
+        test_data = test_data[['SecCode', 'Date'] + features].dropna()
 
         # Cache training data
         if time_index != self._train_data_max_time_index:
             self._train_data_max_time_index = time_index
-            self.train_data = self.train_data.append(train_data)
+            self.train_data = self.train_data.append(temp_train_data)
 
+        train_data2 = self.train_data.copy()
+
+        train_data2 = train_data2.merge(
+            smoothed_responses(train_data2, days=response_days,
+                               thresh=response_thresh))
+
+        # CREATE MODELS
         clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
                                      min_samples_leaf=30,
                                      max_features=7)
@@ -210,7 +219,7 @@ class PortfolioConstructor2(object):
         clf = VotingClassifier(estimators=[('rf', clf1), ('et', clf2),
             ('lc', clf3), ('rc', clf4)], voting='soft')
 
-        clf.fit(X=self.train_data[features], y=self.train_data['Response'])
+        clf.fit(X=train_data2[features], y=train_data2['Response'])
 
         # Get indexes of long and short sides
         short_ind = np.where(clf.classes_ == -1)[0][0]
@@ -218,13 +227,10 @@ class PortfolioConstructor2(object):
 
         # Get test predictions to create portfolios on:
         #    Long Prediction - Short Prediction
-        test_data = data[data.TestFlag]
-        test_data = test_data[['SecCode', 'Date'] + features].dropna()
         preds = clf.predict_proba(test_data[features])
         test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
 
-        self.iter_dates = get_iter_dates(data)
-
+        self.iter_dates = test_data.Date.drop_duplicates()
         # Formatted for portfolio construction
         self.close_dict = make_variable_dict(data, 'RClose')
         self.open_lead_dict = make_variable_dict(data, 'LEAD1_ROpen')
@@ -243,14 +249,6 @@ def make_variable_dict(data, variable, fillna=np.nan):
     else:
         data_pivot = data_pivot.fillna(fillna)
     return data_pivot.T.to_dict()
-
-
-def get_iter_dates(data):
-    # Get training and test dates
-    test_dates = data[data.TestFlag].Date.drop_duplicates()
-    qtrs = np.array([(x.month-1)/3+1 for x in test_dates])
-    iter_dates = test_dates[qtrs == qtrs[0]]
-    return iter_dates
 
 
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
