@@ -84,7 +84,7 @@ select				Code,
 						else sum(Rate) over (
 							partition by Code
 							order by ExDate
-							rows between 11 preceding and current row)
+							rows between 1 preceding and current row)
 						end as AnnualizedCashDividends
 from				semiannual_dividends_0
 )
