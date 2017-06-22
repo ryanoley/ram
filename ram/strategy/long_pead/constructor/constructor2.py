@@ -148,7 +148,7 @@ class PortfolioConstructor2(object):
                                  n_jobs=NJOBS)
         assert model_drop in [1, 2, 3, 4]
         models = [('rf', clf1), ('et', clf2), ('lc', clf3), ('rc', clf4)]
-        models.remove(model_drop - 1)
+        models.pop(model_drop - 1)
         clf = VotingClassifier(estimators=models, voting='soft')
 
         clf.fit(X=train_data[features], y=train_data['Response'])
