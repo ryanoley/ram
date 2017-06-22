@@ -26,6 +26,12 @@ to get formatted values, which include the following:
 * SALESGROWTHQ
 * SALESGROWTHTTM
 
+[EPS]
+* ADJEPSQ
+* ADJEPSTTM
+* ADJEPSGROWTHQ
+* ADJEPSGROWTHTTM
+
 [Cash]
 * FREECASHFLOWQ
 * FREECASHFLOWTTM
@@ -38,6 +44,7 @@ to get formatted values, which include the following:
 * X_GROSSMARGINTTM: Cannot confirm COGS with Bloomberg
 * X_GROSSPROFASSET
 * ASSETS
+* BOOKVALUE
 
 [Debt]
 * SHORTLONGDEBT
@@ -46,7 +53,7 @@ to get formatted values, which include the following:
 
 use ram;
 
--- ######  Final Accounting Table table   #########################################
+-- ######  Final Accounting Table table  #######################################
 
 if object_id('ram.dbo.ram_compustat_accounting_derived', 'U') is not null 
 	drop table ram.dbo.ram_compustat_accounting_derived
@@ -61,7 +68,7 @@ create table	ram.dbo.ram_compustat_accounting_derived (
 )
 
 
--- ######  DATES  #########################################################
+-- ######  DATES  ##############################################################
 
 ; with unique_gvkeys_dates as (
 select distinct		GVKey, QuarterEndDate, ReportDate, FiscalQuarter 
@@ -69,10 +76,27 @@ from				ram.dbo.ram_compustat_accounting
 )
 
 
+-- ######  EPS DIVISOR  ########################################################
+
+, eps_divisor as (
+select distinct GVKey, DATADATE, AJEXQ as EpsDivisor from qai.dbo.CSCoIDesInd
+where RDQ is not null
+	and DATACQTR is not null
+	and DateDiff(day, DATADATE, RDQ) < 92
+	and RDQ >= '1985-01-01'
+union
+select distinct GVKey, DATADATE, AJEXQ as EpsDivisor from qai.dbo.CSICoIDesInd
+where RDQ is not null
+	and DATACQTR is not null
+	and DateDiff(day, DATADATE, RDQ) < 92
+	and RDQ >= '1985-01-01'
+)
+
+
 -- ######  COMMON FIELDS   ######################################################
 --   Combine Quarterly and Annual tables, handle missing quarterly data
---   and calculate Trailing Twelve Month values (TTM)
 
+--   BALANCE SHEET   ---
 , assets_data_0 as (
 select				T.*,
 					coalesce(D1.Value_, D2.Value_) as Value_
@@ -90,6 +114,40 @@ from				unique_gvkeys_dates T
 		and			T.QuarterEndDate = D2.QuarterEndDate
 		and			D2.Group_ = 204
 		and			D2.Item = 58		-- ASSETS / ANNUAL
+)
+
+
+, liabilities_data_0 as (
+select				T.*,
+					coalesce(D1.Value_, D2.Value_) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 218
+		and			D1.Item = 176		-- TOTAL LIABILTIIES / QUARTERLY
+
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = 204
+		and			D2.Item = 460		-- TOTAL LIABILTIIES / ANNUAL
+)
+
+
+, intangibles_data_0 as (
+select				T.*,
+					coalesce(D1.Value_, 0) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 204
+		and			D1.Item = 343		-- Intangibles / ANNUAL
 )
 
 
@@ -112,6 +170,29 @@ from				unique_gvkeys_dates T
 		and			D2.Item = 104		-- Cash and Short Term Securities / ANNUAL
 )
 
+
+, debt_data_0 as (
+select				T.*,
+					coalesce(D1.Value_, D2.Value_, 0) as Value_
+
+from				unique_gvkeys_dates T
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 218
+		and			D1.Item = 81		-- DLTTQ / QUARTERLY TABLE
+
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = 204
+		and			D2.Item = 183		-- DLTT / ANNUAL TABLE
+)
+
+
+--   INCOME STATEMENT   ----
+--   Included are Trailing Twelve Month values (TTM)
 
 , sales_data_0 as (
 select				T.*,
@@ -231,6 +312,88 @@ from				unique_gvkeys_dates T
 		and			T.QuarterEndDate = D2.QuarterEndDate
 		and			D2.Group_ = 205
 		and			D2.Item = 51		-- OIBDP / Annual Table
+)
+
+-- ######  EPS  #################################################################
+
+, eps_data_0 as (
+select				T.*,
+					coalesce(D1.Value_, D2.Value_) / isnull(E.EpsDivisor, 1) as ValueQ,
+					coalesce(sum(coalesce(D1.Value_, D2.Value_) / isnull(E.EpsDivisor, 1)) over (
+						partition by T.GVKey 
+						order by T.QuarterEndDate
+						rows between 3 preceding and current row), D3.Value_, D4.Value_) as ValueTTM
+
+from				unique_gvkeys_dates T
+
+	left join		eps_divisor E
+		on			T.GVKey = E.GVKEY
+		and			T.QuarterEndDate = E.DATADATE
+
+	left join		ram.dbo.ram_compustat_accounting D1
+		on			T.GVKey = D1.GVKey
+		and			T.QuarterEndDate = D1.QuarterEndDate
+		and			D1.Group_ = 218
+		and			D1.Item = 101		-- EPSFXQ / Quarterly Table
+				
+	left join		ram.dbo.ram_compustat_accounting D2
+		on			T.GVKey = D2.GVKey
+		and			T.QuarterEndDate = D2.QuarterEndDate
+		and			D2.Group_ = 218
+		and			D2.Item = 100		-- EPSFIQ / Quarterly Table
+
+	-- ANNUAL DATA
+	left join		ram.dbo.ram_compustat_accounting D3
+		on			T.GVKey = D3.GVKey
+		and			T.QuarterEndDate = D3.QuarterEndDate
+		and			D3.Group_ = 204
+		and			D3.Item = 241		-- EPSFX / Annual Table
+				
+	left join		ram.dbo.ram_compustat_accounting D4
+		on			T.GVKey = D4.GVKey
+		and			T.QuarterEndDate = D4.QuarterEndDate
+		and			D4.Group_ = 204
+		and			D4.Item = 240		-- EPSFI / Annual Table
+)
+
+
+, eps_final_1 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'ADJEPSQ' as ItemName,
+					ValueQ as Value_
+from				eps_data_0
+)
+
+
+, eps_final_2 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'ADJEPSTTM' as ItemName,
+					ValueTTM as Value_
+from				eps_data_0
+)
+
+
+, eps_final_3 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'ADJEPSGROWTHQ' as ItemName,
+					ValueQ / nullif(lag(ValueQ, 4) over (
+						partition by GVKey
+						order by QuarterEndDate), 0) - 1 as Value_
+from				eps_data_0
+)
+
+
+, eps_final_4 as (
+select				GVKey,
+					ReportDate as AsOfDate,
+					'ADJEPSGROWTHTTM' as ItemName,
+					ValueTTM / nullif(lag(ValueTTM, 4) over (
+						partition by GVKey
+						order by QuarterEndDate), 0) - 1 as Value_
+from				eps_data_0
 )
 
 
@@ -430,7 +593,7 @@ from				net_income_data_0
 )
 
 
--- ######  SALES  ###############################################################
+-- ######  ASSETS  ###############################################################
 
 , assets_data_final_1 as (
 select				GVKey,
@@ -492,17 +655,13 @@ select				T.GVKey,
 
 from				unique_gvkeys_dates T
 
-	left join		ram.dbo.ram_compustat_accounting D1
+	left join		liabilities_data_0 D1
 		on			T.GVKey = D1.GVKey
 		and			T.QuarterEndDate = D1.QuarterEndDate
-		and			D1.Group_ = 218
-		and			D1.Item = 80		-- Debt in Current Liabilities
 
-	left join		ram.dbo.ram_compustat_accounting D2
+	left join		debt_data_0 D2
 		on			T.GVKey = D2.GVKey
 		and			T.QuarterEndDate = D2.QuarterEndDate
-		and			D2.Group_ = 218
-		and			D2.Item = 81		-- Long-Term Debt - Total
 )
 
 
@@ -521,6 +680,26 @@ from				sales_data_0 D1
 		and			D1.QuarterEndDate = D2.QuarterEndDate
 
 	join			assets_data_0 D3
+		on			D1.GVKey = D3.GVKey
+		and			D1.QuarterEndDate = D3.QuarterEndDate
+)
+
+
+-- ######  BOOK VALUE  #####################################################
+
+, bookvalue_final as (
+select				D1.GVKey,
+					D1.ReportDate as AsOfDate,
+					'BOOKVALUE' as ItemName,
+					D1.Value_ - D2.Value_ - D3.Value_ as Value_
+					
+from				assets_data_0 D1
+
+	join			liabilities_data_0 D2
+		on			D1.GVKey = D2.GVKey
+		and			D1.QuarterEndDate = D2.QuarterEndDate
+
+	join			intangibles_data_0 D3
 		on			D1.GVKey = D3.GVKey
 		and			D1.QuarterEndDate = D3.QuarterEndDate
 )
@@ -676,6 +855,16 @@ union
 select * from ebit_final_4
 union
 select * from assets_data_final_1
+union
+select * from bookvalue_final
+union
+select * from eps_final_1
+union
+select * from eps_final_2
+union
+select * from eps_final_3
+union
+select * from eps_final_4
 )
 
 
