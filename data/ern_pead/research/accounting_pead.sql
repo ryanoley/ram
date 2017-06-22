@@ -2,39 +2,54 @@
 set NOCOUNT on;
 
 
-; with pivot_data as (
-select		*
-from		( select GVKEY, AsOfDate, Value_, ItemName
-			  from ram.dbo.ram_compustat_accounting_derived ) d
-			pivot
-			( max(Value_) for ItemName in (NETINCOMEQ, NETINCOMETTM,
-										   SALESQ, SALESTTM, ADJEPSQ, ADJEPSTTM) ) p
+-- ######   Temp table   ###############################################
+
+create table #stackeddata
+(
+    GVKey int,
+    AsOfDate smalldatetime,
+	ItemName varchar(40),
+	Value_ float
+	primary key (GVKey, ItemName, AsOfDate)
+)
+    
+
+; with all_data as (
+select		*,
+			Lag(Value_, 3) over (
+				partition by GVKey, ItemName
+				order by AsOfDate) as LagValue_
+from		ram.dbo.ram_compustat_accounting_derived
+where		ItemName in  ('NETINCOMEQ', 'NETINCOMETTM',
+						  'SALESQ', 'SALESTTM', 
+						  'ADJEPSQ', 'ADJEPSTTM')
 )
 
 
-, pivot_data_1 as (
-select			*,
-				Lag(NETINCOMEQ, 3) over (
-					partition by GVKey
-					order by AsOfDate) as NetIncomeQtrLag,
-				Lag(NETINCOMETTM, 3) over (
-					partition by GVKey
-					order by AsOfDate) as NetIncomeTTLag,
-				Lag(SALESQ, 3) over (
-					partition by GVKey
-					order by AsOfDate) as RevenueQtrLag,
-				Lag(SALESTTM, 3) over (
-					partition by GVKey
-					order by AsOfDate) as RevenueTTMLag,
-				Lag(ADJEPSQ, 3) over (
-					partition by GVKey
-					order by AsOfDate) as DilEPSQtrLag,
-				Lag(ADJEPSTTM, 3) over (
-					partition by GVKey
-					order by AsOfDate) as DilEPSTTMLag
+, stacked_data as (
+select GVKey, AsOfDate, ItemName, Value_ from all_data
+union
+select GVKey, AsOfDate, ItemName + 'Lag' as ItemName, LagValue_ as Value_ from all_data
+)
 
-from			pivot_data
+INSERT INTO #stackeddata
+SELECT * from stacked_data
 
+
+
+-- ######   Extract data from table   ##################################
+
+
+; with pivot_data as (
+
+select		*
+from		( select GVKEY, AsOfDate, Value_, ItemName
+			  from #stackeddata ) d
+			pivot
+			( max(Value_) for ItemName in (NETINCOMEQ, NETINCOMETTM,
+										   SALESQ, SALESTTM, ADJEPSQ, ADJEPSTTM,
+										   NETINCOMEQLag, NETINCOMETTMLag,
+										   SALESQLag, SALESTTMLag, ADJEPSQLag, ADJEPSTTMLag) ) p
 )
 
 
@@ -42,23 +57,23 @@ select				D.SecCode,
 					D.ReportDate,
 
 					A.ADJEPSQ as DilEPSQtr,
-					A.DilEPSQtrLag,
+					A.ADJEPSQLag as DilEPSQtrLag,
 					A.ADJEPSTTM as DilEPSTTM,
-					A.DilEPSTTMLag,
+					A.ADJEPSTTMLag as DilEPSTTMLag,
 
 					A.NETINCOMEQ as NetIncomeQtr,
-					A.NetIncomeQtrLag,
+					A.NETINCOMEQLag as NetIncomeQtrLag,
 					A.NETINCOMETTM as NetIncomeTTM,
-					A.NetIncomeTTLag,
+					A.NETINCOMETTMLag as NetIncomeTTMLag,
 
 					A.SALESQ as RevenueQtr,
-					A.RevenueQtrLag,
+					A.SALESQLag as RevenueQtrLag,
 					A.SALESTTM as RevenueTTM,
-					A.RevenueTTMLag
+					A.SALESTTMLag as RevenueTTMLag
 
 from				ram.dbo.ram_pead_report_dates D
 	
-	left join		pivot_data_1 A
+	left join		pivot_data A
 		on			D.GVKey = A.GVKey
 		and			A.AsOfDate = (select max(AsOfDate) from pivot_data
 								  where GVKey = D.GVKey and AsOfDate < D.FilterDate)
