@@ -174,23 +174,6 @@ class PortfolioConstructor2(object):
         self.scores_dict = make_variable_dict(test_data, 'preds')
 
     def _process_train_test_data(self, data, time_index):
-        # Cache training data
-        if time_index == self._train_data_max_time_index:
-            return self.train_data, self.test_data
-        self._train_data_max_time_index = time_index
-        # Instead of using the levels, use the change in levels.
-        # This is necessary for the updating of positions and prices
-        data.loc[:, 'SplitMultiplier'] = \
-            data.SplitFactor.pct_change().fillna(0) + 1
-        # Blackout flags and anchor returns
-        data = ern_date_blackout(data,
-                                 offset1=-2,
-                                 offset2=4)
-        data = make_anchor_ret_rank(data,
-                                    init_offset=3,
-                                    window=10)
-        data = ern_return(data)
-        # Easy ranking
         features = [
             'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
             'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
@@ -217,6 +200,24 @@ class PortfolioConstructor2(object):
             'EBITDAMARGIN',
             'PE',
         ]
+        # Cache training data
+        if time_index == self._train_data_max_time_index:
+            return self.train_data.copy(), self.test_data.copy(), features
+        self._train_data_max_time_index = time_index
+        # Instead of using the levels, use the change in levels.
+        # This is necessary for the updating of positions and prices
+        data.loc[:, 'SplitMultiplier'] = \
+            data.SplitFactor.pct_change().fillna(0) + 1
+        # Blackout flags and anchor returns
+        data = ern_date_blackout(data,
+                                 offset1=-2,
+                                 offset2=4)
+        data = make_anchor_ret_rank(data,
+                                    init_offset=3,
+                                    window=10)
+        data = ern_return(data)
+        # Easy ranking
+
         data2 = outlier_rank(data, features[0])
         for f in features[1:]:
             data2 = data2.merge(outlier_rank(data, f))
