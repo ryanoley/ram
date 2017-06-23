@@ -29,6 +29,7 @@ class PortfolioConstructor2(object):
         """
         self.booksize = booksize
         self.train_data = pd.DataFrame()
+        self.test_data = pd.DataFrame()
         self._train_data_max_time_index = -99
 
     def get_iterable_args(self):
@@ -39,12 +40,9 @@ class PortfolioConstructor2(object):
 
     def get_data_args(self):
         return {
-            'blackout_offset1': [-1],
-            'blackout_offset2': [4],
-            'anchor_init_offset': [3],
-            'anchor_window': [10],
-            'response_days': [[2, 4, 6], [6]],
-            'response_thresh': [.25]
+            'response_days': [[2, 4, 6], [2], [6]],
+            'response_thresh': [.25, .45],
+            'model_drop': [1, 2, 3, 4]
         }
 
     def get_daily_pl(self, arg_index, logistic_spread, open_execution):
@@ -120,30 +118,62 @@ class PortfolioConstructor2(object):
     # ~~~~~~ Data Format ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def set_and_prep_data(self, data, time_index,
-                          blackout_offset1,
-                          blackout_offset2,
-                          anchor_init_offset,
-                          anchor_window,
                           response_days,
-                          response_thresh):
+                          response_thresh,
+                          model_drop):
 
-        # Instead of using the levels, use the change in levels.
-        # This is necessary for the updating of positions and prices
-        data.loc[:, 'SplitMultiplier'] = \
-            data.SplitFactor.pct_change().fillna(0) + 1
+        train_data, test_data, features = self._process_train_test_data(
+            data, time_index)
 
-        # Blackout flags and anchor returns
-        data = ern_date_blackout(data,
-                                 offset1=blackout_offset1,
-                                 offset2=blackout_offset2)
-        data = make_anchor_ret_rank(data,
-                                    init_offset=anchor_init_offset,
-                                    window=anchor_window)
-        data = ern_return(data)
-        data = data.merge(smoothed_responses(data, days=response_days,
-                                             thresh=response_thresh))
+        train_data = train_data.merge(
+            smoothed_responses(train_data, days=response_days,
+                               thresh=response_thresh))
 
-        # Easy ranking
+        # CREATE MODELS
+        clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
+                                     min_samples_leaf=30,
+                                     max_features=7)
+
+        clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
+                                    min_samples_leaf=30,
+                                    max_features=7)
+
+        clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
+                                 max_samples=0.7, max_features=0.6,
+                                 n_jobs=NJOBS)
+
+        clf4 = BaggingClassifier(RidgeClassifier(tol=1e-2, solver="lsqr"),
+                                 n_estimators=10,
+                                 max_samples=0.7, max_features=0.6,
+                                 n_jobs=NJOBS)
+        assert model_drop in [1, 2, 3, 4]
+        models = [('rf', clf1), ('et', clf2), ('lc', clf3), ('rc', clf4)]
+        models.pop(model_drop - 1)
+        clf = VotingClassifier(estimators=models, voting='soft')
+
+        clf.fit(X=train_data[features], y=train_data['Response'])
+
+        # Get indexes of long and short sides
+        short_ind = np.where(clf.classes_ == -1)[0][0]
+        long_ind = np.where(clf.classes_ == 1)[0][0]
+
+        # Get test predictions to create portfolios on:
+        #    Long Prediction - Short Prediction
+        preds = clf.predict_proba(test_data[features])
+        test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
+
+        self.iter_dates = test_data.Date.drop_duplicates()
+        # Formatted for portfolio construction
+        self.close_dict = make_variable_dict(data, 'RClose')
+        self.open_lead_dict = make_variable_dict(data, 'LEAD1_ROpen')
+        self.dividend_dict = make_variable_dict(data, 'RCashDividend', 0)
+        self.split_mult_dict = make_variable_dict(data,
+                                                  'SplitMultiplier', 1)
+        self.market_cap_dict = make_variable_dict(data,
+                                                  'MarketCap', 'pad')
+        self.scores_dict = make_variable_dict(test_data, 'preds')
+
+    def _process_train_test_data(self, data, time_index):
         features = [
             'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
             'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
@@ -170,70 +200,37 @@ class PortfolioConstructor2(object):
             'EBITDAMARGIN',
             'PE',
         ]
+        # Cache training data
+        if time_index == self._train_data_max_time_index:
+            return self.train_data.copy(), self.test_data.copy(), features
+        self._train_data_max_time_index = time_index
+        # Instead of using the levels, use the change in levels.
+        # This is necessary for the updating of positions and prices
+        data.loc[:, 'SplitMultiplier'] = \
+            data.SplitFactor.pct_change().fillna(0) + 1
+        # Blackout flags and anchor returns
+        data = ern_date_blackout(data,
+                                 offset1=-2,
+                                 offset2=4)
+        data = make_anchor_ret_rank(data,
+                                    init_offset=3,
+                                    window=10)
+        data = ern_return(data)
+        # Easy ranking
 
         data2 = outlier_rank(data, features[0])
         for f in features[1:]:
             data2 = data2.merge(outlier_rank(data, f))
-
         data = data.drop(features, axis=1)
         data = data.merge(data2)
-
         features = features + [f + '_extreme' for f in features] + \
             ['blackout', 'anchor_ret_rank', 'earnings_ret']
-
-        train_data = data[~data.TestFlag]
-        train_data = train_data[['SecCode', 'Date', 'Response'] + features]
-        train_data = train_data.dropna()
-
-        # Cache training data
-        if time_index != self._train_data_max_time_index:
-            self._train_data_max_time_index = time_index
-            self.train_data = self.train_data.append(train_data)
-
-        clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
-                                     min_samples_leaf=30,
-                                     max_features=7)
-
-        clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
-                                    min_samples_leaf=30,
-                                    max_features=7)
-
-        clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
-                                 max_samples=0.7, max_features=0.6,
-                                 n_jobs=NJOBS)
-
-        clf4 = BaggingClassifier(RidgeClassifier(tol=1e-2, solver="lsqr"),
-                                 n_estimators=10,
-                                 max_samples=0.7, max_features=0.6,
-                                 n_jobs=NJOBS)
-
-        clf = VotingClassifier(estimators=[('rf', clf1), ('et', clf2),
-            ('lc', clf3), ('rc', clf4)], voting='soft')
-
-        clf.fit(X=self.train_data[features], y=self.train_data['Response'])
-
-        # Get indexes of long and short sides
-        short_ind = np.where(clf.classes_ == -1)[0][0]
-        long_ind = np.where(clf.classes_ == 1)[0][0]
-
-        # Get test predictions to create portfolios on:
-        #    Long Prediction - Short Prediction
-        test_data = data[data.TestFlag]
-        test_data = test_data[['SecCode', 'Date'] + features].dropna()
-        preds = clf.predict_proba(test_data[features])
-        test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
-
-        self.iter_dates = get_iter_dates(data)
-
-        # Formatted for portfolio construction
-        self.close_dict = make_variable_dict(data, 'RClose')
-        self.open_lead_dict = make_variable_dict(data, 'LEAD1_ROpen')
-        self.dividend_dict = make_variable_dict(data, 'RCashDividend', 0)
-        self.split_mult_dict = make_variable_dict(data,
-                                                  'SplitMultiplier', 1)
-        self.market_cap_dict = make_variable_dict(data,
-                                                  'MarketCap', 'pad')
-        self.scores_dict = make_variable_dict(test_data, 'preds')
+        data = data[['SecCode', 'Date', 'TestFlag', 'AdjClose'] + features]
+        data = data.dropna()
+        # Separate training from test data
+        self.train_data = self.train_data.append(data[~data.TestFlag])
+        self.test_data = data[data.TestFlag]
+        return self.train_data.copy(), self.test_data.copy(), features
 
 
 def make_variable_dict(data, variable, fillna=np.nan):
@@ -243,14 +240,6 @@ def make_variable_dict(data, variable, fillna=np.nan):
     else:
         data_pivot = data_pivot.fillna(fillna)
     return data_pivot.T.to_dict()
-
-
-def get_iter_dates(data):
-    # Get training and test dates
-    test_dates = data[data.TestFlag].Date.drop_duplicates()
-    qtrs = np.array([(x.month-1)/3+1 for x in test_dates])
-    iter_dates = test_dates[qtrs == qtrs[0]]
-    return iter_dates
 
 
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):

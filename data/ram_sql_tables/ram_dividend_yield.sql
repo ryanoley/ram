@@ -3,15 +3,28 @@ use ram;
 
 -- ######  Final Dividends Table   ################################################
 
-if object_id('ram.dbo.ram_annualized_cash_dividends', 'U') is not null 
-	drop table ram.dbo.ram_annualized_cash_dividends
+if object_id('ram.dbo.ram_dividend_yield', 'U') is not null 
+	drop table ram.dbo.ram_dividend_yield
 
 
-create table	ram.dbo.ram_annualized_cash_dividends (
+create table	ram.dbo.ram_dividend_yield (
 		IdcCode int,
-		ExDate smalldatetime,
+		Date_ smalldatetime,
 		Value_ float
-		primary key (IdcCode, ExDate)
+		primary key (IdcCode, Date_)
+)
+
+
+IF OBJECT_ID('tempdb..#stackeddata') IS NOT NULL 
+	DROP TABLE #stackeddata
+
+create table #stackeddata
+(
+    Code int,
+    ExDate smalldatetime,
+	AnnualizedCashDividends float,
+	Periodicity varchar(20)
+	primary key (Code, ExDate)
 )
 
 
@@ -35,7 +48,7 @@ where			D1.PayType  = 0			-- Normal Cash Dividend
 , cleaned_dividends_1 as (
 select				D1.Code,
 					D1.ExDate,
-					D1.Rate,
+					D1.Rate * coalesce(P.SplitFactor, 1) as Rate,
 					case 
 						when D2.PayFreqCode in ('001', '009') then 'Annual'
 						when D2.PayFreqCode in ('002', '00A') then 'SemiAnnual'
@@ -48,6 +61,9 @@ from				cleaned_dividends_0 D1
 		on			D1.Code = D2.Code
 		and			D1.SeqCode = D2.SeqCode
 
+	left join		ram.dbo.ram_equity_pricing_research P
+		on			D1.Code = P.IdcCode
+		and			D1.ExDate = P.Date_
 )
 
 
@@ -56,7 +72,8 @@ from				cleaned_dividends_0 D1
 , annual_dividends_final as (
 select				Code,
 					ExDate,
-					Rate as AnnualizedCashDividends
+					Rate as AnnualizedCashDividends,
+					Periodicity
 from				cleaned_dividends_1
 where				Periodicity = 'Annual'
 )
@@ -85,7 +102,8 @@ select				Code,
 							partition by Code
 							order by ExDate
 							rows between 1 preceding and current row)
-						end as AnnualizedCashDividends
+						end as AnnualizedCashDividends,
+					Periodicity
 from				semiannual_dividends_0
 )
 
@@ -113,7 +131,8 @@ select				Code,
 							partition by Code
 							order by ExDate
 							rows between 3 preceding and current row)
-						end as AnnualizedCashDividends
+						end as AnnualizedCashDividends,
+					Periodicity
 from				quarterly_dividends_0
 )
 
@@ -140,12 +159,13 @@ select				Code,
 							partition by Code
 							order by ExDate
 							rows between 11 preceding and current row)
-						end as AnnualizedCashDividends
+						end as AnnualizedCashDividends,
+					Periodicity
 from				monthly_dividends_0
 )
 
 
-, stacked_data as (
+, stacked_dividends as (
 select * from annual_dividends_final
 union
 select * from semiannual_dividends_final
@@ -156,5 +176,35 @@ select * from monthly_dividends_final
 )
 
 
-insert into ram.dbo.ram_annualized_cash_dividends
-select * from stacked_data
+INSERT INTO #stackeddata
+SELECT * from stacked_dividends
+
+
+-- ######  FINAL  #########################################################
+
+; with dividend_yield_data_0 as (   
+select				P.Date_,
+					P.IdcCode,
+					D.Periodicity,
+					D.ExDate,
+					D.AnnualizedCashDividends / (P.Close_ * P.SplitFactor) as DividendYield
+from				ram.dbo.ram_equity_pricing_research P
+	left join		#stackeddata D
+		on			P.IdcCode = D.Code
+		and			D.ExDate = (select max(ExDate) from #stackeddata a
+							    where a.Code = P.IdcCode and a.ExDate <= P.Date_)
+)
+
+
+insert into ram.dbo.ram_dividend_yield
+select				IdcCode,
+					Date_,
+					case
+						when Periodicity = 'Monthly' and datediff(day, ExDate, Date_) < 70 then DividendYield
+						when Periodicity = 'Quarterly' and datediff(day, ExDate, Date_) < 120 then DividendYield
+						when Periodicity = 'SemiAnnual' and datediff(day, ExDate, Date_) < 210 then DividendYield
+						when Periodicity = 'Annual' and datediff(day, ExDate, Date_) < 390 then DividendYield
+						else Null
+					end as DividendYield
+from				dividend_yield_data_0
+
