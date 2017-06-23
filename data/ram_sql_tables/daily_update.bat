@@ -15,6 +15,7 @@ set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 %SQLCMD% -v tabletype=1 -i %SQLDIR%\ram_equity_pricing.sql
 %SQLCMD% -v tabletype=2 -i %SQLDIR%\ram_equity_pricing.sql
 %SQLCMD% -i %SQLDIR%\ram_index_pricing.sql
+%SQLCMD% -i %SQLDIR%\ram_starmine_map.sql
 
 :: GVKEY Mapping
 call %SQLDIR%\gvkey_idc_mapping\get_map_data.bat
