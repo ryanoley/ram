@@ -231,7 +231,7 @@ where				D.GVKey in (select distinct GVKey from ram.dbo.ram_idccode_to_gvkey_map
 
 -- ######  QUARTER DATA  ##########################################################
 
-, quarterly_data as (
+, quarterly_data_0 as (
 select			GVKEY,
 				DATADATE,
 				Item,
@@ -240,7 +240,7 @@ select			GVKEY,
 						when FyrFlag = 0 then DValue
 						when FyrFlag = 2 then DValue * 2
 						when FyrFlag = 4 then DValue * 4
-						else Null
+						else Value_
 					end
 				) as Value_
 from			qai.dbo.CSCoIFndQ
@@ -259,7 +259,7 @@ select			GVKEY,
 						when FyrFlag = 0 then DValue
 						when FyrFlag = 2 then DValue * 2
 						when FyrFlag = 4 then DValue * 4
-						else Null
+						else Value_
 					end
 				) as Value_
 from			qai.dbo.CSICoIFndQ
@@ -270,6 +270,18 @@ where			INDFMT = 5
 					     where Group_ = 218)
 group by		GVKEY, DATADATE, Item
 
+)
+
+
+, quarterly_data_1 as (
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+
+from			quarterly_data_0
+where			Value_ is not null
+group by		GVKEY, DATADATE, Item
 )
 
 
@@ -288,7 +300,7 @@ from			all_dates A
 
 	cross join	ram.dbo.ram_compustat_accounting_items B
 
-	left join	quarterly_data C
+	left join	quarterly_data_1 C
 		on		A.GVKEY = C.GVKEY
 		and		A.QuarterEndDate = C.DATADATE
 		and		B.Item = C.Item
@@ -299,7 +311,7 @@ where			B.Group_ = 218
 
 -- ######  ANNUAL DATA 1  ##########################################################
 
-, annual_data_1 as (
+, annual_data_1_0 as (
 select			GVKEY,
 				DATADATE,
 				Item,
@@ -325,6 +337,18 @@ group by		GVKEY, DATADATE, Item
 )
 
 
+, annual_data_1_1 as (
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+
+from			annual_data_1_0
+where			Value_ is not null
+group by		GVKEY, DATADATE, Item
+)
+
+
 , annual_data_1_final as (
 select			A.GVKEY,
 				A.QuarterEndDate,
@@ -340,7 +364,7 @@ from			all_dates A
 
 	cross join	ram.dbo.ram_compustat_accounting_items B
 
-	left join	annual_data_1 C
+	left join	annual_data_1_1 C
 		on		A.GVKEY = C.GVKEY
 		and		A.FiscalYearEndDate = C.DATADATE
 		and		B.Item = C.Item
@@ -352,7 +376,7 @@ where			B.Group_ = 204
 
 -- ######  ANNUAL DATA 2  ##########################################################
 
-, annual_data_2 as (
+, annual_data_2_0 as (
 select			GVKEY,
 				DATADATE,
 				Item,
@@ -378,6 +402,18 @@ group by		GVKEY, DATADATE, Item
 )
 
 
+, annual_data_2_1 as (
+select			GVKEY,
+				DATADATE,
+				Item,
+				avg(Value_) as Value_
+
+from			annual_data_2_0
+where			Value_ is not null
+group by		GVKEY, DATADATE, Item
+)
+
+
 , annual_data_2_final as (
 select			A.GVKEY,
 				A.QuarterEndDate,
@@ -393,7 +429,7 @@ from			all_dates A
 
 	cross join	ram.dbo.ram_compustat_accounting_items B
 
-	left join	annual_data_2 C
+	left join	annual_data_2_1 C
 		on		A.GVKEY = C.GVKEY
 		and		A.FiscalYearEndDate = C.DATADATE
 		and		B.Item = C.Item
