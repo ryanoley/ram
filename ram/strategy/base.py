@@ -174,7 +174,7 @@ class Strategy(object):
             'test_period_length': 1,
             'start_year': 2007
         }
-    
+
     # ~~~~~~ To Be Used by Derived Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def read_data_from_index(self, index):
