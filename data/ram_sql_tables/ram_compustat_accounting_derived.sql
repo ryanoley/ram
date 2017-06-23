@@ -711,7 +711,7 @@ from				assets_data_0 D1
 select				T.GVKey,
 					T.ReportDate as AsOfDate,
 					'FREECASHFLOWQ' as ItemName,
-					(D1.Value_ - D2.Value_) as Value_
+					(coalesce(D1.Value_, D3.Value_ / 4) - coalesce(D2.Value_, D4.Value_ / 4)) as Value_
 
 from				unique_gvkeys_dates T
 
@@ -719,13 +719,26 @@ from				unique_gvkeys_dates T
 		on			T.GVKey = D1.GVKey
 		and			T.QuarterEndDate = D1.QuarterEndDate
 		and			D1.Group_ = -999
-		and			D1.Item = 108
+		and			D1.Item = 108		-- CASH FLOW / PIT Database
 
 	left join		ram.dbo.ram_compustat_accounting D2
 		on			T.GVKey = D2.GVKey
 		and			T.QuarterEndDate = D2.QuarterEndDate
 		and			D2.Group_ = -999
-		and			D2.Item = 90
+		and			D2.Item = 90		-- CAPEX / PIT Database
+
+	left join		ram.dbo.ram_compustat_accounting D3
+		on			T.GVKey = D3.GVKey
+		and			T.QuarterEndDate = D3.QuarterEndDate
+		and			D3.Group_ = 205
+		and			D3.Item = 46		-- CASH FLOW / Annual Number
+
+	left join		ram.dbo.ram_compustat_accounting D4
+		on			T.GVKey = D4.GVKey
+		and			T.QuarterEndDate = D4.QuarterEndDate
+		and			D4.Group_ = 204
+		and			D4.Item = 84		-- CAPEX / Annual Number
+
 )
 
 
