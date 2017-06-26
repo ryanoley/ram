@@ -79,18 +79,18 @@ select			SecCode,
 				min(StartDate) as StartDate
 from			ram.dbo.ram_master_ids
 	where		SecCode in (select distinct SecCode from ram.dbo.ram_equity_pricing_research)
+	and			Cusip in (select distinct Cusip from #secid_cusips)
 group by		SecCode, Cusip
 )
+
 
 , seccode_secid_map_0 as (
 select			M1.SecCode,
 				M2.SecId,
-				min(M1.StartDate) as StartDate
+				M1.StartDate
 from			seccode_cusip_map_0 M1
 	join		#secid_cusips M2
 	on			M1.Cusip = M2.Cusip
-
-group by		M1.SecCode, M2.SecId
 )
 
 
