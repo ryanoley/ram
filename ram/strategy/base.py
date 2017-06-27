@@ -92,13 +92,18 @@ class Strategy(object):
                                            'meta.json'), 'r'))
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
                                                      meta['version']))
-        print('Start Year: {}'.format(meta['start_year']))
-        print('Train Period Length: {}'.format(meta['train_period_len']))
-        print('Test Period Length: {}'.format(meta['test_period_len']))
-        print('Universe Creation Frequency: {}'.format(meta['frequency']))
-        print('Filter variable: {}'.format(meta['filter_args']['filter']))
-        print('Where filter: {}'.format(meta['filter_args']['where']))
-        print('Universe size: {}\n'.format(meta['filter_args']['univ_size']))
+        if self.get_constructor_type() in ['etfs', 'ids']:
+            print('IDs variable: {}'.format(meta['filter_args']['ids']))
+            print('Start Date: {}'.format(meta['filter_args']['start_date']))
+            print('End Date: {}\n'.format(meta['filter_args']['end_date']))
+        else:
+            print('Filter variable: {}'.format(meta['filter_args']['filter']))
+            print('Where filter: {}'.format(meta['filter_args']['where']))
+            print('Universe size: {}\n'.format(meta['filter_args']['univ_size']))
+            print('Start Year: {}'.format(meta['start_year']))
+            print('Train Period Length: {}'.format(meta['train_period_len']))
+            print('Test Period Length: {}'.format(meta['test_period_len']))
+            print('Universe Creation Frequency: {}'.format(meta['frequency']))
 
     def _get_data_file_names(self):
         all_files = os.listdir(self._prepped_data_dir)
@@ -129,14 +134,23 @@ class Strategy(object):
     def get_features(self):
         raise NotImplementedError('Strategy.get_features')
 
-    def get_filter_args(self):
+    def get_constructor_type(self):
+        return 'universe'
+
+    def get_ids_filter_args(self):
+        return {
+            'ids': [],
+            'start_date': '01/01/2010',
+            'end_date': '01/01/2015'}
+
+    def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
             'and Close_ between 15 and 1000',
             'univ_size': 500}
 
-    def get_date_parameters(self):
+    def get_univ_date_parameters(self):
         """
         Parameters
         ----------
