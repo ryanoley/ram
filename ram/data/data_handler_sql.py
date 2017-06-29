@@ -6,6 +6,8 @@ import datetime as dt
 from ram.utils.time_funcs import check_input_date
 from ram.data.sql_features import sqlcmd_from_feature_list
 
+pypyodbc.connection_timeout = 8
+
 
 class DataHandlerSQL(object):
 
