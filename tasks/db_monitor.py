@@ -27,7 +27,7 @@ def update_ram_monitor(cursor):
     them to table_monitor.
     '''
     db_update_path = os.path.join(os.getenv('GITHUB'), 'ram', 'data',
-                                  'table_monitor.sql')
+                                  'ram_sql_tables', 'table_monitor.sql')
     with open(db_update_path, 'r') as sqlfile:
         sqlscript = sqlfile.read()
     cursor.execute(sqlscript)
@@ -88,10 +88,10 @@ def _poll_table_monitor(cursor):
     '''
     SQLCommandRAM = ("select TableName, "
                      "isnull(MaxTableDate, '01/01/1900') as MaxTableDate "
-                     "from ram.dbo.table_monitor "
-                     "where MonitorDateTime = ("
-                     "select max(MonitorDateTime) "
-                     "from ram.dbo.table_monitor)")
+                     "from ram.dbo.ram_table_monitor "
+                     "where StatusDateTime = ("
+                     "select max(StatusDateTime) "
+                     "from ram.dbo.ram_table_monitor)")
     cursor.execute(SQLCommandRAM)
     sqlres4 = cursor.fetchall()
     tables = [x[0] for x in sqlres4]
@@ -183,7 +183,7 @@ def main():
     connection = pypyodbc.connect('Driver={SQL Server};Server=QADIRECT;'
                                   'Database=ram;uid=ramuser;pwd=183madison')
     cursor = connection.cursor()
-
+ 
     if args.update_db_stats:
         update_qad_monitor(cursor)
         update_ram_monitor(cursor)
@@ -211,8 +211,9 @@ def main():
     if args.check_ram:
         check_tables = ['univ_filter_data_etf', 'univ_filter_data',
                         'sm_SmartEstimate_eps', 'sm_ShortInterest', 'sm_ARM',
-                        'ram_sector', 'ram_master_etf', 'ram_master_equities',
-                        'pead_event_dates_live', 'ern_event_dates_live']
+                        'pead_event_dates_live', 'ern_event_dates_live', 
+                        'ram_compustat_sector', 'ram_equity_pricing',
+                        'ram_etf_pricing', ]
         ram_chk = np.all([y >= prior_bdate for (x, y) in
                           zip(ram_status['RAMTables'], ram_status['RAMUpdDts'])
                           if x in check_tables])
