@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from gearbox import convert_date_array
+from ram.utils.time_funcs import convert_date_array
+from ram.utils.read_write import import_sql_output
+
 
 STARTDATE = dt.date(1960, 1, 1)
 ENDDATE = dt.date(2079, 1, 1)
@@ -235,9 +237,7 @@ def _create_row(idccode, gvkey, start_date, end_date):
 
 def import_bad_gvkeydata():
     # Import gvkey data
-    df = pd.read_csv(os.path.join(DDIR, 'bad_gvkeydata.csv'),
-                     header=0, skiprows=[1])
-    df.columns = [x.replace(' ', '') for x in df.columns]
+    df = import_sql_output(os.path.join(DDIR, 'bad_gvkeydata.txt'))
     df.Changedate = convert_date_array(
         df.Changedate.apply(lambda x: x[:10]))
     df.MinReportDate = convert_date_array(
@@ -254,9 +254,7 @@ def import_bad_gvkeydata():
 
 def import_bad_idcdata():
     # Import IDCData
-    df = pd.read_csv(os.path.join(DDIR, 'bad_idcdata.csv'),
-                      header=0, skiprows=[1])
-    df.columns = [x.replace(' ', '') for x in df.columns]
+    df = import_sql_output(os.path.join(DDIR, 'bad_idcdata.txt'))
     df = df.loc[:, ['Code', 'StartDate', 'EndDate', 'Cusip', 'Ticker',
                       'Issuer', 'Exchange']]
     df.StartDate = convert_date_array(df.StartDate.apply(lambda x: x[:10]))

@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from gearbox import convert_date_array
+from ram.utils.time_funcs import convert_date_array
 
 from ram import config
 from ram.analysis.statistics import get_stats
