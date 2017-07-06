@@ -9,6 +9,8 @@ from tqdm import tqdm
 from ram.strategy.base import Strategy
 from gearbox import create_time_index
 
+from ram.data.data_handler_sql import DataHandlerSQL
+
 from sklearn.ensemble import RandomForestClassifier
 
 
@@ -21,63 +23,37 @@ class IntradayReversion(Strategy):
     secCode_ticker = {37591:'IWM', 49234:'QQQ', 61494:'SPY',
                       10902726:'VXX', 19753:'DIA', 72954:'KRE'}
     '''
-    args1 = make_arg_iter({'n_estimators': [25, 50, 75],
-                            'min_samples_split': [25, 50, 75],
-                            'min_samples_leaf': [5, 10, 20]})
+    args1 = make_arg_iter({'n_estimators': [100],
+                            'min_samples_split': [50, 75],
+                            'min_samples_leaf': [10, 20]})
 
-    args2 = make_arg_iter({'zLim': [.35, .50, .65],
-                            'dwnPctLim1': [.1, .25, .4],
-                            'dwnPctLim2': [.1, .25, .4],
-                            'upPctLim1': [.1, .25, .4],
-                            'upPctLim2': [.1, .25, .4]})
-                            
-    args3 = [
-        {'SPY':(.007,.002), 'IWM':(.007,.002), 'QQQ':(.007,.002), 'VXX':(.01,.01)},
-        {'SPY':(.007,.004), 'IWM':(.007,.004), 'QQQ':(.007,.004), 'VXX':(.01,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.01)},
-        {'SPY':(.01,.002), 'IWM':(.01,.002), 'QQQ':(.01,.002), 'VXX':(.01,.01)},
-        {'SPY':(.01,.004), 'IWM':(.01,.04), 'QQQ':(.01,.004), 'VXX':(.01,.01)},
-        {'SPY':(.01,.006), 'IWM':(.01,.06), 'QQQ':(.01,.006), 'VXX':(.01,.01)},
-        {'SPY':(.005,.002), 'IWM':(.005,.002), 'QQQ':(.005,.002), 'VXX':(.01,.01)},
-        {'SPY':(.005,.004), 'IWM':(.005,.04), 'QQQ':(.005,.004), 'VXX':(.01,.01)},
-        {'SPY':(.005,.006), 'IWM':(.005,.06), 'QQQ':(.005,.006), 'VXX':(.01,.01)},
-        {'SPY':(.007,.002), 'IWM':(.007,.002), 'QQQ':(.007,.002), 'VXX':(.0075,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.015,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.0075)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.01)},
-        {'SPY':(.007,.004), 'IWM':(.007,.004), 'QQQ':(.007,.004), 'VXX':(.01,.015)}
-        ]
-        
+    args2 = make_arg_iter({'zLim': [.35, .5],
+                            'dwnPctLim1': [.2, .3],
+                            'dwnPctLim2': [.2, .3],
+                            'upPctLim1': [.2, .3],
+                            'upPctLim2': [.2, .3]})
+
+    args3 = make_arg_iter(
+    {'SPY':[(.007, .002), (.01, .002)],
+    'IWM':[(.007, .002), (.01, .002)],
+    'QQQ':[(.007, .002), (.01, .004)],
+    'VXX':[(.01, .01), (.01, .007)]})
     '''
-    args1 = make_arg_iter({'n_estimators': [50],
-                            'min_samples_split': [25],
-                            'min_samples_leaf': [10]})
+    args1 = make_arg_iter({'n_estimators': [100],
+                            'min_samples_split': [75],
+                            'min_samples_leaf': [20]})
 
-    args2 = make_arg_iter({'zLim': [.50],
-                            'dwnPctLim1': [.1],
-                            'dwnPctLim2': [.4],
-                            'upPctLim1': [.4],
-                            'upPctLim2': [.1]})
+    args2 = make_arg_iter({'zLim': [.35],
+                            'dwnPctLim1': [.2, .4],
+                            'dwnPctLim2': [.2, .4],
+                            'upPctLim1': [.2, .4],
+                            'upPctLim2': [.2, .4]})
 
-    args3 = [
-        {'SPY':(.007,.002), 'IWM':(.007,.002), 'QQQ':(.007,.002), 'VXX':(.01,.01)},
-        {'SPY':(.007,.004), 'IWM':(.007,.004), 'QQQ':(.007,.004), 'VXX':(.01,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.01)},
-        {'SPY':(.01,.002), 'IWM':(.01,.002), 'QQQ':(.01,.002), 'VXX':(.01,.01)},
-        {'SPY':(.01,.004), 'IWM':(.01,.04), 'QQQ':(.01,.004), 'VXX':(.01,.01)},
-        {'SPY':(.01,.006), 'IWM':(.01,.06), 'QQQ':(.01,.006), 'VXX':(.01,.01)},
-        {'SPY':(.005,.002), 'IWM':(.005,.002), 'QQQ':(.005,.002), 'VXX':(.01,.01)},
-        {'SPY':(.005,.004), 'IWM':(.005,.04), 'QQQ':(.005,.004), 'VXX':(.01,.01)},
-        {'SPY':(.005,.006), 'IWM':(.005,.06), 'QQQ':(.005,.006), 'VXX':(.01,.01)},
-        {'SPY':(.007,.002), 'IWM':(.007,.002), 'QQQ':(.007,.002), 'VXX':(.0075,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.015,.01)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.0075)},
-        {'SPY':(.007,.006), 'IWM':(.007,.006), 'QQQ':(.007,.006), 'VXX':(.01,.01)},
-        {'SPY':(.007,.004), 'IWM':(.007,.004), 'QQQ':(.007,.004), 'VXX':(.01,.015)}
-        ]
-
+    args3 = make_arg_iter(
+    {'SPY':[(.007, .002), (.01, .002)],
+    'IWM':[(.007, .002), (.01, .002)],
+    'QQQ':[(.007, .002), (.01, .004)],
+    'VXX':[(.01, .01), (.01, .007)]})
 
     def get_column_parameters(self):
         output_params = {}
@@ -96,7 +72,6 @@ class IntradayReversion(Strategy):
         idata = self.create_intraday_data(tickers,
                                           intraday_dir='C:/temp/intraday_src')
         min_dt = idata.Date.min()
-      
         output_results = pd.DataFrame()
         ind = 0
         for a1 in self.args1:
@@ -121,6 +96,7 @@ class IntradayReversion(Strategy):
                     output_results = output_results.join(allTrades[[ind]],
                                                          how='outer')
                     ind += 1
+                    print ind
         self.write_index_results(output_results, index)
         return
 
@@ -148,7 +124,7 @@ class IntradayReversion(Strategy):
         data = data.dropna()
         data.reset_index(drop=True, inplace=True)
         return data
-    
+
     def create_seas_vars(self, data):
         data['DoW'] = [x.weekday() for x in data.Date]
         data['Day'] = [x.day for x in data.Date]
@@ -167,7 +143,7 @@ class IntradayReversion(Strategy):
         data['DoW4'] = data.DoW == 4
         
         return data
-    
+
     def create_pricing_vars(self, data):
         out = pd.DataFrame([])
         for tkr in data.Ticker.unique():
@@ -255,7 +231,7 @@ class IntradayReversion(Strategy):
         return data
 
     def create_intraday_data(self, tickers,
-                             intraday_dir='C:/temp/intraday_src'):
+                             intraday_dir='Q:/QUANT/data/ram/intraday_src'):
         if intraday_dir is None:
             SQLCommand = ("SELECT * from ram.dbo.IntradayPricing" +
                           " WHERE Ticker in {}".format(str(tuple(tickers))))
@@ -282,8 +258,8 @@ class IntradayReversion(Strategy):
         idata.reset_index(drop=True, inplace=True)
         return idata
 
-    def get_preds(self, data, trainLen = 6, n_estimators = 50,
-                  min_samples_split = 30, min_samples_leaf = 10):
+    def get_preds(self, data, trainLen = 6, n_estimators = 100,
+                  min_samples_split = 75, min_samples_leaf = 20):
         pdata = data.copy()
         qtrIdxs = data.QIndex.sort_values().unique()[trainLen:]
         features = list(pdata.columns.difference([
@@ -311,8 +287,8 @@ class IntradayReversion(Strategy):
     def get_trd_signals(self, data,
                         zLim=.5,
                         start_dt=datetime.date(2007, 4, 25),
-                        dwnPctLim1 = .15, dwnPctLim2 = .4,
-                        upPctLim1 = .4, upPctLim2 = .15):
+                        dwnPctLim1 = .25, dwnPctLim2 = .25,
+                        upPctLim1 = .25, upPctLim2 = .25):
         sdata = data[data.pred.notnull()].copy()
         allSignals = (sdata.Date >= start_dt) & (np.abs(sdata.zOpen) > zLim)
         evalDates = sdata.loc[allSignals, 'Date'].sort_values().unique()
@@ -375,6 +351,7 @@ class IntradayReversion(Strategy):
                 continue
             nomOpen = intraTkrDateData.Open.iloc[0]
             nomClose = intraTkrDateData.Close.iloc[-1]
+            cost = .007 / nomClose
 
             if row.Signal == -1:
                 prcExit = nomOpen * (1 - exitRet)
@@ -399,9 +376,10 @@ class IntradayReversion(Strategy):
                 ret = -stopRet
             else:
                 ret = row.Signal * (nomClose - nomOpen) / nomOpen
-            rets[i] = ret
+            rets[i] = ret - cost
 
         tkrData.loc[tkrData.Signal != 0, 'Ret'] = rets
+        tkrData.Ret.fillna(0., inplace=True)
         tkrData = tkrData.loc[tkrData.Date >= start_dt,
                               ['Ticker','Date','Signal','Ret']]
         tkrData.index = tkrData.Date
@@ -443,7 +421,6 @@ class IntradayReversion(Strategy):
         return 'etfs'
 
 
-
 def main():
     import argparse
 
@@ -457,6 +434,9 @@ def main():
     parser.add_argument(
         '-s', '--simulation', action='store_true',
         help='Run simulatoin')
+    parser.add_argument(
+        '-l', '--live', action='store_true',
+        help='Run simulatoin')
     args = parser.parse_args()
 
     if args.data:
@@ -467,6 +447,9 @@ def main():
     elif args.simulation:
         strategy = IntradayReversion('version_0001', False)
         strategy.start()
+    elif args.live:
+        strategy = IntradayReversion('version_0001', False)
+        strategy.get_live_trades()
 
 
 
