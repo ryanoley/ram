@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import BaggingClassifier
 from sklearn.linear_model import RidgeClassifier
 from sklearn.ensemble import VotingClassifier
-
+from sklearn.linear_model import Lasso
 
 NJOBS = 2
 
@@ -131,23 +131,30 @@ class PortfolioConstructor2(object):
 
         # CREATE MODELS
         clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
-                                     min_samples_leaf=30,
+                                     min_samples_leaf=60,
                                      max_features=7)
 
         clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
-                                    min_samples_leaf=30,
+                                    min_samples_leaf=60,
                                     max_features=7)
 
         clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
                                  max_samples=0.7, max_features=0.6,
                                  n_jobs=NJOBS)
 
-        clf4 = BaggingClassifier(RidgeClassifier(tol=1e-2, solver="lsqr"),
+        clf4 = BaggingClassifier(RidgeClassifier(tol=1e-1, solver="lsqr"),
                                  n_estimators=10,
                                  max_samples=0.7, max_features=0.6,
                                  n_jobs=NJOBS)
-        assert model_drop in [1, 2, 3, 4]
-        models = [('rf', clf1), ('et', clf2), ('lc', clf3), ('rc', clf4)]
+
+        clf5 = BaggingClassifier(Lasso(alpha=0.3, tol=0.0001),
+                                 n_estimators=10,
+                                 max_samples=0.7, max_features=0.6,
+                                 n_jobs=NJOBS)
+
+        assert model_drop in [1, 2, 3, 4, 5]
+        models = [('rf', clf1), ('et', clf2), ('lc', clf3),
+                  ('rc', clf4), ('ls', clf5)]
         models.pop(model_drop - 1)
         clf = VotingClassifier(estimators=models, voting='soft')
 

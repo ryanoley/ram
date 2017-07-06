@@ -146,7 +146,7 @@ select			SecCode,
 					order by VolumeMA10_30) as VolumeMA10_30_Rank,
 				percent_rank() over (
 					partition by Date_
-					order by VolumeMA10_60) as VolumeMA10_60_Rank				
+					order by VolumeMA10_60) as VolumeMA10_60_Rank
 
 from			prices4
 )

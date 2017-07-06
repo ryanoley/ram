@@ -18,9 +18,9 @@ DDIR = config.ERN_PEAD_DIR
 class TestTechnicalVars2(unittest.TestCase):
 
     data1 = import_sql_output(os.path.join(
-        DDIR, 'earnings', 'technical_vars_2.csv'))
+        DDIR, 'earnings', 'technical_vars_2.txt'))
     data2 = import_sql_output(os.path.join(
-        DDIR, 'pead', 'technical_vars_2.csv'))
+        DDIR, 'pead', 'technical_vars_2.txt'))
 
     def setUp(self):
         pass
@@ -43,9 +43,7 @@ class TestTechnicalVars2(unittest.TestCase):
         self.assertEqual(test_data.Vol60.iloc[0].round(6), 0.009415)
         self.assertEqual(test_data.PercentB10.iloc[0].round(6), 0.913912)
         self.assertEqual(test_data.PercentB30.iloc[0].round(6), 1.033366)
-        import pdb; pdb.set_trace()
-        # Left off here
-        self.assertEqual(test_data.RSI10.iloc[0].round(4), 75.8129)
+        self.assertEqual(test_data.RSI10.iloc[0].round(4), 75.8128)        
         # Pead
         test_data = data_pead[
             data_pead.ReportDate == dt.datetime(2015, 7, 20)].copy()
@@ -65,7 +63,6 @@ class TestTechnicalVars2(unittest.TestCase):
              dt.datetime(2005, 2, 28), dt.datetime(2006, 8, 3)])
         self.assertTrue(benchmark.isin(data_earnings.ReportDate).all())
         self.assertTrue(benchmark.isin(data_pead.ReportDate).all())
-        import pdb; pdb.set_trace()
         # Earnings
         test_data = data_earnings[
             data_earnings.ReportDate == dt.datetime(1999, 10, 18)].copy()
