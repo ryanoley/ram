@@ -14,11 +14,8 @@ from gearbox import create_time_index
 
 from sklearn.ensemble import RandomForestClassifier
 
-
-from ram.strategy.intraday_reversion.src.import_data import get_intraday_rets_data
-from ram.strategy.intraday_reversion.src.take_stop_returns import get_long_returns
-from ram.strategy.intraday_reversion.src.take_stop_returns import get_short_returns
-
+from ram.strategy.intraday_reversion.src.import_data import *
+from ram.strategy.intraday_reversion.src.take_stop_returns import *
 
 
 INTRADAY_DATA = os.path.join(os.getenv('DATA'), 'ram', 'intraday_src')
@@ -32,26 +29,14 @@ def make_arg_iter(variants):
 class IntradayReversion(Strategy):
 
     seccode_ticker_map = {
-        37591:'IWM', 49234:'QQQ', 61494:'SPY',
-        10902726:'VXX', 19753:'DIA', 72954:'KRE'
+        37591: 'IWM',
+        49234: 'QQQ',
+        61494: 'SPY',
+        10902726: 'VXX',
+        19753: 'DIA',
+        72954: 'KRE'
     }
-    '''
-    args1 = make_arg_iter({'n_estimators': [100],
-                            'min_samples_split': [50, 75],
-                            'min_samples_leaf': [10, 20]})
 
-    args2 = make_arg_iter({'zLim': [.35, .5],
-                            'dwnPctLim1': [.2, .3],
-                            'dwnPctLim2': [.2, .3],
-                            'upPctLim1': [.2, .3],
-                            'upPctLim2': [.2, .3]})
-
-    args3 = make_arg_iter(
-    {'SPY':[(.007, .002), (.01, .002)],
-    'IWM':[(.007, .002), (.01, .002)],
-    'QQQ':[(.007, .002), (.01, .004)],
-    'VXX':[(.01, .01), (.01, .007)]})
-    '''
     args1 = make_arg_iter({
         'n_estimators': [100],
         'min_samples_split': [75],
@@ -67,47 +52,48 @@ class IntradayReversion(Strategy):
     })
 
     args3 = make_arg_iter({
-        'SPY':[(.007, .002), (.01, .002)],
-        'IWM':[(.007, .002), (.01, .002)],
-        'QQQ':[(.007, .002), (.01, .004)],
-        'VXX':[(.01, .01), (.01, .007)]
+        'SPY': [(.007, .002), (.01, .002)],
+        'IWM': [(.007, .002), (.01, .002)],
+        'QQQ': [(.007, .002), (.01, .004)],
+        'VXX': [(.01, .01), (.01, .007)]
     })
 
     def get_column_parameters(self):
         output_params = {}
-        for col_ind, (x, y, z) in enumerate(itertools.product(
-            self.args1, self.args2, self.args3)):
+        for col_ind, (x, y, z) in enumerate(
+                itertools.product(self.args1, self.args2, self.args3)):
             params = dict(x)
             params.update(y)
             params.update(z)
             output_params[col_ind] = params
         return output_params
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def run_index(self, index):
+
         data = self.read_data_from_index(index)
         data = self.create_features(data)
-        tickers = data.Ticker.unique()
-        idata = self.create_intraday_data(tickers)
-        min_dt = idata.Date.min()
-        output_results = pd.DataFrame()
+
         ind = 0
+        output_results = pd.DataFrame()
 
         for a1 in self.args1:
             self.get_preds(data, trainLen=6, **a1)
 
             for a2 in self.args2:
-                data['Signal'] = self.get_trd_signals(
+                data['Signal'] = self.get_trade_signals(
                     data, start_dt=min_dt, **a2)
-                import pdb; pdb.set_trace()
+
                 for a3 in self.args3:
                     allTrades = pd.DataFrame(
                         index=data.loc[data.Date >= min_dt,
                                        'Date'].sort_values().unique())
-                    for tkr in tickers: 
+                    for tkr in tickers:
                         tData = data[data.Ticker == tkr].copy()
                         tIData = idata[idata.Ticker == tkr].copy()
                         exitRet, stopRet = a3[tkr]
-                        tkr_results = self.get_tkr_returns(tData, tIData, 
+                        tkr_results = self.get_tkr_returns(tData, tIData,
                                                            exitRet, stopRet)
                         allTrades[tkr] = tkr_results.Ret
 
@@ -116,18 +102,20 @@ class IntradayReversion(Strategy):
                     output_results = output_results.join(allTrades[[ind]],
                                                          how='outer')
                     ind += 1
-                    print ind
+
         self.write_index_results(output_results, index)
         return
 
+    # ~~~~~~ Predictive model data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def create_features(self, data):
         data.SecCode = data.SecCode.astype(int)
-        data.sort_values(by=['SecCode','Date'], inplace=True)
+        data.sort_values(by=['SecCode', 'Date'], inplace=True)
         data['Ticker'] = [self.seccode_ticker_map[x] for x in data.SecCode]
         data['QIndex'] = create_time_index(data.Date)
 
         data['OpenRet'] = ((data.AdjOpen - data.LAG1_AdjClose) /
-                            data.LAG1_AdjClose)
+                           data.LAG1_AdjClose)
         data['DayRet'] = (data.AdjClose - data.AdjOpen) / data.AdjOpen
         data['zOpen'] = data.OpenRet / data.LAG1_VOL90_AdjClose
 
@@ -167,20 +155,20 @@ class IntradayReversion(Strategy):
     def create_pricing_vars(self, data):
         out = pd.DataFrame([])
         for tkr in data.Ticker.unique():
-            tdata = data[data.Ticker==tkr].copy()
+            tdata = data[data.Ticker == tkr].copy()
             tdata['Min5'] = (tdata.LAG1_AdjClose ==
-                                tdata.LAG1_AdjClose.rolling(window=5).min())
+                             tdata.LAG1_AdjClose.rolling(window=5).min())
             tdata['Min10'] = (tdata.LAG1_AdjClose ==
-                                tdata.LAG1_AdjClose.rolling(window=10).min())
+                              tdata.LAG1_AdjClose.rolling(window=10).min())
             tdata['Min20'] = (tdata.LAG1_AdjClose ==
-                                tdata.LAG1_AdjClose.rolling(window=20).min())
+                              tdata.LAG1_AdjClose.rolling(window=20).min())
 
             tdata['Max5'] = (tdata.LAG1_AdjClose ==
-                                tdata.LAG1_AdjClose.rolling(window=5).max())
+                             tdata.LAG1_AdjClose.rolling(window=5).max())
             tdata['Max10'] = (tdata.LAG1_AdjClose ==
-                                tdata.LAG1_AdjClose.rolling(window=10).max())
+                              tdata.LAG1_AdjClose.rolling(window=10).max())
             tdata['Max20'] = (tdata.LAG1_AdjClose ==
-                                tdata.LAG1_AdjClose.rolling(window=20).max())
+                              tdata.LAG1_AdjClose.rolling(window=20).max())
 
             tdata['AbvPRMA10'] = tdata.LAG1_PRMA10_AdjClose > 0.
             tdata['BlwPRMA10'] = tdata.LAG1_PRMA10_AdjClose < 0.
@@ -190,46 +178,49 @@ class IntradayReversion(Strategy):
             tdata['BlwPRMA50'] = tdata.LAG1_PRMA50_AdjClose < 0.
             tdata['AbvPRMA200'] = tdata.LAG1_PRMA200_AdjClose > 0.
             tdata['BlwPRMA200'] = tdata.LAG1_PRMA200_AdjClose < 0.
-        
+
             tdata['Spread'] = ((tdata.LAG1_AdjHigh - tdata.LAG1_AdjLow) /
-                                    tdata.LAG1_AdjOpen)
+                               tdata.LAG1_AdjOpen)
             tdata['MaxSpread5'] = (tdata.Spread ==
-                                        tdata.Spread.rolling(window=5).max())
+                                   tdata.Spread.rolling(window=5).max())
             tdata['MaxSpread10'] = (tdata.Spread ==
-                                        tdata.Spread.rolling(window=10).max())
+                                    tdata.Spread.rolling(window=10).max())
             tdata['MinSpread5'] = (tdata.Spread ==
-                                        tdata.Spread.rolling(window=5).min())
+                                   tdata.Spread.rolling(window=5).min())
             tdata['MinSpread10'] = (tdata.Spread ==
-                                        tdata.Spread.rolling(window=10).min())
+                                    tdata.Spread.rolling(window=10).min())
             tdata['SRMA20'] = (tdata.Spread /
-                                    tdata.Spread.rolling(window=20).mean())
+                               tdata.Spread.rolling(window=20).mean())
             tdata['AbvSRMA20'] = tdata.SRMA20 > 1.
             tdata['BlwSRMA20'] = tdata.SRMA20 < 1.
-        
-            tdata['MinVolume5'] = (tdata.LAG1_AdjVolume ==
-                                        tdata.LAG1_AdjVolume.rolling(window=5
-                                                                     ).min())
-            tdata['MinVolume10'] = (tdata.LAG1_AdjVolume ==
-                                        tdata.LAG1_AdjVolume.rolling(window=10
-                                                                     ).min())
-            tdata['MinVolume20'] = (tdata.LAG1_AdjVolume ==
-                                        tdata.LAG1_AdjVolume.rolling(window=20
-                                                                     ).min())
-            tdata['MaxVolume5'] = (tdata.LAG1_AdjVolume ==
-                                        tdata.LAG1_AdjVolume.rolling(window=5
-                                                                     ).max())
-            tdata['MaxVolume10'] = (tdata.LAG1_AdjVolume ==
-                                        tdata.LAG1_AdjVolume.rolling(window=10
-                                                                     ).max())
-            tdata['MaxVolume20'] = (tdata.LAG1_AdjVolume ==
-                                        tdata.LAG1_AdjVolume.rolling(window=20
-                                                                     ).max())
-            tdata['VRMA5'] = (tdata.LAG1_AdjVolume /
-                                tdata.LAG1_AdjVolume.rolling(window=5).mean())
-            tdata['VRMA10'] = (tdata.LAG1_AdjVolume /
-                                tdata.LAG1_AdjVolume.rolling(window=10).mean())
-            
-            tdata['zScore5'] = ((tdata.LAG1_AdjClose - tdata.LAG5_AdjClose)  /
+
+            tdata['MinVolume5'] = (
+                tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
+                    window=5).min())
+            tdata['MinVolume10'] = (
+                tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
+                    window=10).min())
+            tdata['MinVolume20'] = (
+                tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
+                    window=20).min())
+            tdata['MaxVolume5'] = (
+                tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
+                    window=5).max())
+            tdata['MaxVolume10'] = (
+                tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
+                    window=10).max())
+            tdata['MaxVolume20'] = (
+                tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
+                    window=20).max())
+            tdata['VRMA5'] = (
+                tdata.LAG1_AdjVolume / tdata.LAG1_AdjVolume.rolling(
+                    window=5).mean())
+            tdata['VRMA10'] = (
+                tdata.LAG1_AdjVolume / tdata.LAG1_AdjVolume.rolling(
+                    window=10).mean())
+
+            tdata['zScore5'] = (
+                (tdata.LAG1_AdjClose - tdata.LAG5_AdjClose) /
                 tdata.LAG5_AdjClose) / tdata.LAG1_VOL90_AdjClose
             out = out.append(tdata)
 
@@ -239,10 +230,11 @@ class IntradayReversion(Strategy):
         momInd = np.zeros(data.shape[0])
         for i in range(10, 0, -1):
             posMo = ((data['LAG{}_AdjClose'.format(i+1)] <= data['LAG{}_AdjOpen'.format(i)]) &
-                        (data['LAG{}_AdjOpen'.format(i)] <= data['LAG{}_AdjClose'.format(i)]))
+                     (data['LAG{}_AdjOpen'.format(i)] <= data['LAG{}_AdjClose'.format(i)]))
             negMo = ((data['LAG{}_AdjClose'.format(i+1)] >= data['LAG{}_AdjOpen'.format(i)]) &
-                        (data['LAG{}_AdjOpen'.format(i)] >= data['LAG{}_AdjClose'.format(i)]))
-            momInd += np.where((posMo) | (negMo),
+                     (data['LAG{}_AdjOpen'.format(i)] >= data['LAG{}_AdjClose'.format(i)]))
+            momInd += np.where(
+                (posMo) | (negMo),
                 np.abs((data['LAG{}_AdjClose'.format(i)] - data['LAG{}_AdjOpen'.format(i)]) / data['LAG{}_AdjOpen'.format(i)]),
                 -np.abs((data['LAG{}_AdjClose'.format(i)] - data['LAG{}_AdjOpen'.format(i)]) / data['LAG{}_AdjOpen'.format(i)]))
             data.drop(labels=['LAG{}_AdjClose'.format(i+1),
@@ -250,45 +242,16 @@ class IntradayReversion(Strategy):
         data['momInd'] = momInd
         return data
 
-    def create_intraday_data(self, tickers, intraday_dir=INTRADAY_DATA):
-        if intraday_dir is None:
-            SQLCommand = ("SELECT * from ram.dbo.IntradayPricing" +
-                          " WHERE Ticker in {}".format(str(tuple(tickers))))
-            connection = pypyodbc.connect('Driver={SQL Server};Server=QADIRECT;'
-                                      'Database=ram;uid=ramuser;pwd=183madison')
-            cursor = connection.cursor()
-            cursor.execute(SQLCommand)
-            idata = pd.DataFrame(cursor.fetchall(),
-                                 columns=['Ticker', 'DateTime', 'High', 'Low',
-                                          'Open', 'Close', 'Volume',
-                                          'OpenInterest'])
-            connection.close()
-        else:
-            idata = pd.DataFrame([])
-            for tkr in tickers:
-                fl_path = os.path.join(intraday_dir, '{}.csv'.format(tkr))
-                tdata = pd.read_csv(fl_path)
-                idata = idata.append(tdata)
-            idata.reset_index(drop=True, inplace=True)
-
-        idata.rename(columns={'Volume': 'CumVolume'}, inplace=True)
-
-        idata.DateTime = pd.to_datetime(idata.DateTime)
-        idata['Date'] = idata.DateTime.apply(lambda x: x.date())
-        idata['Time'] = idata.DateTime.apply(lambda x: x.time())
-
-        return idata
-
     def get_preds(self, pdata, trainLen=6, n_estimators=100,
                   min_samples_split=75, min_samples_leaf=20):
 
         qtrIdxs = np.unique(pdata.QIndex)[trainLen:]
 
         features = list(pdata.columns.difference([
-            'SecCode', 'Date', 'AdjOpen','AdjClose', 'LAG1_AdjVolume',
-            'LAG1_AdjOpen','LAG1_AdjHigh','LAG1_AdjLow','LAG1_AdjClose',
+            'SecCode', 'Date', 'AdjOpen', 'AdjClose', 'LAG1_AdjVolume',
+            'LAG1_AdjOpen', 'LAG1_AdjHigh', 'LAG1_AdjLow', 'LAG1_AdjClose',
             'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose', 'Ticker', 'QIndex',
-            'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day','Month','Qtr',
+            'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day', 'Month', 'Qtr',
             'PriorDate', 'pred', 'Signal'
         ]))
 
@@ -307,128 +270,22 @@ class IntradayReversion(Strategy):
             testPreds = clf.predict_proba(test_X)[:, 1]
             pdata.loc[pdata.QIndex == qtr, 'pred'] = testPreds
 
-    # MOVE OUTSIDE OF FUNCTION?
-    @staticmethod
-    def _get_prediction_threshold(data, sort_value, eval_value,
-                                  lower_limit, upper_limit):
-        # Reset index and make local copy
-        data = data.reset_index(drop=True)
-        # Sort values, and get max differences
-        data.sort_values(by=sort_value, inplace=True)
-        data['pctDwnBlw'] = (data.loc[:, eval_value] < 0).cumsum() / \
-            np.arange(1, len(data)+1)
-        data['pctUpAbv'] = ((data.loc[::-1, eval_value] > 0).cumsum() / \
-            np.arange(1, len(data)+1))[::-1]
-        data['pctUpAbv'] = data.pctUpAbv.shift(1)
-        data['diffInd'] = data.pctDwnBlw + data.pctUpAbv
-    
-        # Get counts of limits, and snip edges of data
-        lower_limit_n = int(round(len(data) * lower_limit))
-        upper_limit_n = int(round(len(data) * upper_limit))
-        max_index = data[lower_limit_n:-upper_limit_n].diffInd.argmax()
-        return data.loc[max_index, sort_value]
-
-    def get_trd_signals(self,
-                        data,
-                        zLim=.5,
-                        start_dt=dt.date(2007, 4, 25),
-                        dwnPctLim1=0.25,
-                        dwnPctLim2=0.25,
-                        upPctLim1=0.25,
-                        upPctLim2=0.25):
+    def get_trade_signals(self, data, zLim=.5, thresh_buffer=0.0):
         """
         At what point is the prediction value a good long or short
         """
-
-        # sdata = data[data.pred.notnull()].copy()
-        # evalDates = np.unique(sdata.loc[sdata.Date >= start_dt, 'Date'])
-        # for date in tqdm(evalDates):
-        #     gap_down = sdata.loc[(sdata.zOpen < -zLim) & (sdata.Date < date),
-        #                          ['Ticker', 'Date', 'pred', 'DayRet']]
-        # 
-        #     gap_up = sdata.loc[(sdata.zOpen > zLim) & (sdata.Date < date),
-        #                        ['Ticker', 'Date', 'pred','DayRet']]
-        # 
-        #     lower_thresh = self._get_prediction_threshold(
-        #         gap_down, 'pred', 'DayRet', dwnPctLim1, dwnPctLim2)
-        # 
-        #     upper_thresh = self._get_prediction_threshold(
-        #         gap_up, 'pred', 'DayRet', upPctLim1, upPctLim2)
-        # 
-        #     sdata.loc[sdata.Date == date, 'predLimDown'] = lower_thresh
-        #     sdata.loc[sdata.Date == date, 'predLimUp'] = upper_thresh
-        # 
-        # 
-        # gapDwnRev = (sdata.zOpen <= -zLim) & (sdata.pred  >= sdata.predLimDown)
-        # gapDwnMo = (sdata.zOpen <= -zLim) & (sdata.pred < sdata.predLimDown)
-        # gapUpRev = (sdata.zOpen >= zLim) & (sdata.pred  <= sdata.predLimUp)
-        # gapUpMo = (sdata.zOpen >= zLim) & (sdata.pred  > sdata.predLimUp)
-        # 
-        # tradeSignals = np.zeros(len(data))
-        # tradeSignals[data.pred.notnull().values] = np.where((gapUpRev) | (gapDwnMo),
-        #     -1, np.where((gapDwnRev) | (gapUpMo), 1, 0))
-
-        # tradeSignals = np.where(
-        #     (data.zOpen > zLim) & (data.pred < 0.5), -1, np.where(
-        #     (data.zOpen < -zLim) & (data.pred > 0.5), 1, 0))
         tradeSignals = np.where((data.zOpen > zLim), -1, np.where((data.zOpen < -zLim), 1, 0))
         return tradeSignals
 
-    def get_tkr_returns(self, tkrData, intraTkrData, exitRet, stopRet,
-                      start_dt=dt.date(2007, 4, 25)):
-
-        trades = pd.DataFrame([])
-        tradeRows = tkrData.loc[tkrData.Signal != 0,
-                                ['Date', 'PriorDate', 'Signal']]
-        rets = np.zeros(len(tradeRows))
-
-        for i in tqdm(range(len(tradeRows))):
-            row = tradeRows.iloc[i]
-            intraTkrDateData = intraTkrData[intraTkrData.Date == row.Date]
-            if (len(intraTkrDateData) == 0):
-                continue
-            nomOpen = intraTkrDateData.Open.iloc[0]
-            nomClose = intraTkrDateData.Close.iloc[-1]
-            cost = .007 / nomClose
-
-            if row.Signal == -1:
-                prcExit = nomOpen * (1 - exitRet)
-                prcStop = nomOpen * (1 + stopRet)
-                exitBars = (intraTkrDateData.Low <= prcExit)
-                stopBars = (intraTkrDateData.High >= prcStop)
-            elif row.Signal == 1:
-                prcExit = nomOpen * (1 + exitRet)
-                prcStop = nomOpen * (1 - stopRet)
-                exitBars = (intraTkrDateData.High >= prcExit)
-                stopBars = (intraTkrDateData.Low <= prcStop)
-
-            exitIx = intraTkrDateData[exitBars].index.min()
-            stopIx = intraTkrDateData[stopBars].index.min()
-            exitIx = np.inf if np.isnan(exitIx) else exitIx
-            stopIx = np.inf if np.isnan(stopIx) else stopIx
-            if (exitIx == stopIx) & (exitIx != np.inf):
-                ret = 0.
-            elif (exitIx <= stopIx) & (exitIx != np.inf):
-                ret = exitRet
-            elif stopIx < exitIx:
-                ret = -stopRet
-            else:
-                ret = row.Signal * (nomClose - nomOpen) / nomOpen
-            rets[i] = ret - cost
-
-        tkrData.loc[tkrData.Signal != 0, 'Ret'] = rets
-        tkrData.Ret.fillna(0., inplace=True)
-        tkrData = tkrData.loc[tkrData.Date >= start_dt,
-                              ['Ticker','Date','Signal','Ret']]
-        tkrData.index = tkrData.Date
-        return tkrData
+    def get_ticker_returns(self, tkrData, intraTkrData, take_perc, stop_perc):
+        return None
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def get_features(self):
-        '''
+        """
         Overriden method from Strategy
-        '''
-        return ['AdjOpen', 'AdjClose', 'LAG1_AdjVolume','LAG1_AdjOpen',
+        """
+        return ['AdjOpen', 'AdjClose', 'LAG1_AdjVolume', 'LAG1_AdjOpen',
                 'LAG1_AdjHigh', 'LAG1_AdjLow', 'LAG1_AdjClose',
                 'LAG2_AdjOpen', 'LAG2_AdjClose', 'LAG3_AdjOpen',
                 'LAG3_AdjClose', 'LAG4_AdjOpen', 'LAG4_AdjClose',
@@ -437,10 +294,10 @@ class IntradayReversion(Strategy):
                 'LAG8_AdjOpen', 'LAG8_AdjClose', 'LAG9_AdjOpen',
                 'LAG9_AdjClose', 'LAG10_AdjOpen', 'LAG10_AdjClose',
                 'LAG11_AdjOpen', 'LAG11_AdjClose',
-                'LAG1_VOL90_AdjClose','LAG1_VOL10_AdjClose',
+                'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose',
                 'LAG1_PRMA10_AdjClose', 'LAG1_PRMA20_AdjClose',
                 'LAG1_PRMA50_AdjClose', 'LAG1_PRMA200_AdjClose',
-                'LAG1_RSI10', 'LAG1_RSI30', 
+                'LAG1_RSI10', 'LAG1_RSI30',
                 'LAG1_MFI10', 'LAG1_MFI30']
 
     def get_ids_filter_args(self):
@@ -459,38 +316,7 @@ class IntradayReversion(Strategy):
         return 'etfs'
 
 
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--data', action='store_true',
-        help='Run DataConstructor')
-    parser.add_argument(
-        '-w', '--write_simulation', action='store_true',
-        help='Run simulatoin')
-    parser.add_argument(
-        '-s', '--simulation', action='store_true',
-        help='Run simulatoin')
-    parser.add_argument(
-        '-l', '--live', action='store_true',
-        help='Run simulatoin')
-    args = parser.parse_args()
-
-    if args.data:
-        IntradayReversion().make_data()
-    elif args.write_simulation:
-        strategy = IntradayReversion('version_0001', True)
-        strategy.start()
-    elif args.simulation:
-        import pdb; pdb.set_trace()
-        strategy = IntradayReversion('version_0001', False)
-        strategy.start()
-    elif args.live:
-        strategy = IntradayReversion('version_0001', False)
-        strategy.get_live_trades()
-
-
-
 if __name__ == '__main__':
-    main()
+
+    from ram.strategy.base import make_argument_parser
+    make_argument_parser(IntradayReversion)
