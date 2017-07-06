@@ -1,30 +1,40 @@
-import numpy as np
-import pandas as pd
 import os
 import pypyodbc
-import datetime
 import itertools
+import numpy as np
+import pandas as pd
+import datetime as dt
+
 from tqdm import tqdm
 
-INTRADAY_DATA = os.path.join(os.getenv('DATA'), 'ram', 'intraday_src')
-
-
 from ram.strategy.base import Strategy
-from gearbox import create_time_index
-
 from ram.data.data_handler_sql import DataHandlerSQL
 
+from gearbox import create_time_index
+
 from sklearn.ensemble import RandomForestClassifier
+
+
+from ram.strategy.intraday_reversion.src.import_data import get_intraday_rets_data
+from ram.strategy.intraday_reversion.src.take_stop_returns import get_long_returns
+from ram.strategy.intraday_reversion.src.take_stop_returns import get_short_returns
+
+
+
+INTRADAY_DATA = os.path.join(os.getenv('DATA'), 'ram', 'intraday_src')
 
 
 def make_arg_iter(variants):
     return [{x: y for x, y in zip(variants.keys(), vals)}
             for vals in itertools.product(*variants.values())]
 
+
 class IntradayReversion(Strategy):
 
-    secCode_ticker = {37591:'IWM', 49234:'QQQ', 61494:'SPY',
-                      10902726:'VXX', 19753:'DIA', 72954:'KRE'}
+    seccode_ticker_map = {
+        37591:'IWM', 49234:'QQQ', 61494:'SPY',
+        10902726:'VXX', 19753:'DIA', 72954:'KRE'
+    }
     '''
     args1 = make_arg_iter({'n_estimators': [100],
                             'min_samples_split': [50, 75],
@@ -42,21 +52,26 @@ class IntradayReversion(Strategy):
     'QQQ':[(.007, .002), (.01, .004)],
     'VXX':[(.01, .01), (.01, .007)]})
     '''
-    args1 = make_arg_iter({'n_estimators': [100],
-                            'min_samples_split': [75],
-                            'min_samples_leaf': [20]})
+    args1 = make_arg_iter({
+        'n_estimators': [100],
+        'min_samples_split': [75],
+        'min_samples_leaf': [20]
+    })
 
-    args2 = make_arg_iter({'zLim': [.35],
-                            'dwnPctLim1': [.2, .4],
-                            'dwnPctLim2': [.2, .4],
-                            'upPctLim1': [.2, .4],
-                            'upPctLim2': [.2, .4]})
+    args2 = make_arg_iter({
+        'zLim': [.35],
+        'dwnPctLim1': [.2, .4],
+        'dwnPctLim2': [.2, .4],
+        'upPctLim1': [.2, .4],
+        'upPctLim2': [.2, .4]
+    })
 
-    args3 = make_arg_iter(
-    {'SPY':[(.007, .002), (.01, .002)],
-    'IWM':[(.007, .002), (.01, .002)],
-    'QQQ':[(.007, .002), (.01, .004)],
-    'VXX':[(.01, .01), (.01, .007)]})
+    args3 = make_arg_iter({
+        'SPY':[(.007, .002), (.01, .002)],
+        'IWM':[(.007, .002), (.01, .002)],
+        'QQQ':[(.007, .002), (.01, .004)],
+        'VXX':[(.01, .01), (.01, .007)]
+    })
 
     def get_column_parameters(self):
         output_params = {}
@@ -72,20 +87,22 @@ class IntradayReversion(Strategy):
         data = self.read_data_from_index(index)
         data = self.create_features(data)
         tickers = data.Ticker.unique()
-        idata = self.create_intraday_data(tickers,
-                                          intraday_dir=INTRADAY_DATA)
+        idata = self.create_intraday_data(tickers)
         min_dt = idata.Date.min()
         output_results = pd.DataFrame()
         ind = 0
+
         for a1 in self.args1:
-            data['pred'] = self.get_preds(data, trainLen=6, **a1)
+            self.get_preds(data, trainLen=6, **a1)
 
             for a2 in self.args2:
-                data['Signal'] = self.get_trd_signals(data, start_dt = min_dt,
-                                                      **a2)
+                data['Signal'] = self.get_trd_signals(
+                    data, start_dt=min_dt, **a2)
+                import pdb; pdb.set_trace()
                 for a3 in self.args3:
-                    allTrades = pd.DataFrame(index = data.loc[data.Date >= min_dt,
-                                            'Date'].sort_values().unique())
+                    allTrades = pd.DataFrame(
+                        index=data.loc[data.Date >= min_dt,
+                                       'Date'].sort_values().unique())
                     for tkr in tickers: 
                         tData = data[data.Ticker == tkr].copy()
                         tIData = idata[idata.Ticker == tkr].copy()
@@ -106,7 +123,7 @@ class IntradayReversion(Strategy):
     def create_features(self, data):
         data.SecCode = data.SecCode.astype(int)
         data.sort_values(by=['SecCode','Date'], inplace=True)
-        data['Ticker'] = [self.secCode_ticker[x] for x in data.SecCode]
+        data['Ticker'] = [self.seccode_ticker_map[x] for x in data.SecCode]
         data['QIndex'] = create_time_index(data.Date)
 
         data['OpenRet'] = ((data.AdjOpen - data.LAG1_AdjClose) /
@@ -114,7 +131,7 @@ class IntradayReversion(Strategy):
         data['DayRet'] = (data.AdjClose - data.AdjOpen) / data.AdjOpen
         data['zOpen'] = data.OpenRet / data.LAG1_VOL90_AdjClose
 
-        data = self.create_seas_vars(data)
+        data = self.create_seasonal_vars(data)
         data = self.create_pricing_vars(data)
         data = self.get_momentum_indicator(data)
 
@@ -128,23 +145,23 @@ class IntradayReversion(Strategy):
         data.reset_index(drop=True, inplace=True)
         return data
 
-    def create_seas_vars(self, data):
+    def create_seasonal_vars(self, data):
         data['DoW'] = [x.weekday() for x in data.Date]
         data['Day'] = [x.day for x in data.Date]
         data['Month'] = [x.month for x in data.Date]
         data['Qtr'] = np.array([(m - 1) / 3 + 1 for m in data.Month])
-    
+
         data['Q1'] = data.Qtr == 1
         data['Q2'] = data.Qtr == 2
         data['Q3'] = data.Qtr == 3
         data['Q4'] = data.Qtr == 4
-    
+
         data['DoW0'] = data.DoW == 0
         data['DoW1'] = data.DoW == 1
         data['DoW2'] = data.DoW == 2
         data['DoW3'] = data.DoW == 3
         data['DoW4'] = data.DoW == 4
-        
+
         return data
 
     def create_pricing_vars(self, data):
@@ -249,98 +266,117 @@ class IntradayReversion(Strategy):
         else:
             idata = pd.DataFrame([])
             for tkr in tickers:
-                fl_path = os.path.join(intraday_dir, tkr + '.csv')
+                fl_path = os.path.join(intraday_dir, '{}.csv'.format(tkr))
                 tdata = pd.read_csv(fl_path)
                 idata = idata.append(tdata)
+            idata.reset_index(drop=True, inplace=True)
+
+        idata.rename(columns={'Volume': 'CumVolume'}, inplace=True)
 
         idata.DateTime = pd.to_datetime(idata.DateTime)
-        idata['Date'] = [x.date() for x in idata.DateTime]
-        idata['Time'] = [x.time() for x in idata.DateTime]
-        idata.rename(columns={'Volume':'CumVolume'}, inplace=True)
-        idata.reset_index(drop=True, inplace=True)
+        idata['Date'] = idata.DateTime.apply(lambda x: x.date())
+        idata['Time'] = idata.DateTime.apply(lambda x: x.time())
+
         return idata
 
-    def get_preds(self, data, trainLen = 6, n_estimators = 100,
-                  min_samples_split = 75, min_samples_leaf = 20):
-        pdata = data.copy()
-        qtrIdxs = data.QIndex.sort_values().unique()[trainLen:]
+    def get_preds(self, pdata, trainLen=6, n_estimators=100,
+                  min_samples_split=75, min_samples_leaf=20):
+
+        qtrIdxs = np.unique(pdata.QIndex)[trainLen:]
+
         features = list(pdata.columns.difference([
             'SecCode', 'Date', 'AdjOpen','AdjClose', 'LAG1_AdjVolume',
             'LAG1_AdjOpen','LAG1_AdjHigh','LAG1_AdjLow','LAG1_AdjClose',
             'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose', 'Ticker', 'QIndex',
             'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day','Month','Qtr',
-            'PriorDate', 'pred', 'Signal']))
+            'PriorDate', 'pred', 'Signal'
+        ]))
 
-        rfModel = RandomForestClassifier(n_estimators = n_estimators,
-                                         min_samples_split = min_samples_split,
-                                          min_samples_leaf= min_samples_leaf,
-                                          random_state=123)
+        clf = RandomForestClassifier(n_estimators=n_estimators,
+                                     min_samples_split=min_samples_split,
+                                     min_samples_leaf=min_samples_leaf,
+                                     random_state=123, n_jobs=-1)
 
-        for i in tqdm(range(len(qtrIdxs))):
-            qtr = qtrIdxs[i]
-            train = pdata.loc[pdata.QIndex < qtr]
-            test = pdata.loc[pdata.QIndex == qtr, features]
-            rfModel.fit(train[features], train.DayRet > 0)
-            testPreds = rfModel.predict_proba(test)[:,1]
+        for qtr in tqdm(qtrIdxs):
+            train_X = pdata.loc[pdata.QIndex < qtr, features]
+            train_y = pdata.loc[pdata.QIndex < qtr, 'DayRet'] > 0
+            test_X = pdata.loc[pdata.QIndex == qtr, features]
+
+            clf.fit(X=train_X, y=train_y)
+
+            testPreds = clf.predict_proba(test_X)[:, 1]
             pdata.loc[pdata.QIndex == qtr, 'pred'] = testPreds
 
-        return pdata.pred
+    # MOVE OUTSIDE OF FUNCTION?
+    @staticmethod
+    def _get_prediction_threshold(data, sort_value, eval_value,
+                                  lower_limit, upper_limit):
+        # Reset index and make local copy
+        data = data.reset_index(drop=True)
+        # Sort values, and get max differences
+        data.sort_values(by=sort_value, inplace=True)
+        data['pctDwnBlw'] = (data.loc[:, eval_value] < 0).cumsum() / \
+            np.arange(1, len(data)+1)
+        data['pctUpAbv'] = ((data.loc[::-1, eval_value] > 0).cumsum() / \
+            np.arange(1, len(data)+1))[::-1]
+        data['pctUpAbv'] = data.pctUpAbv.shift(1)
+        data['diffInd'] = data.pctDwnBlw + data.pctUpAbv
     
-    def get_trd_signals(self, data,
+        # Get counts of limits, and snip edges of data
+        lower_limit_n = int(round(len(data) * lower_limit))
+        upper_limit_n = int(round(len(data) * upper_limit))
+        max_index = data[lower_limit_n:-upper_limit_n].diffInd.argmax()
+        return data.loc[max_index, sort_value]
+
+    def get_trd_signals(self,
+                        data,
                         zLim=.5,
-                        start_dt=datetime.date(2007, 4, 25),
-                        dwnPctLim1 = .25, dwnPctLim2 = .25,
-                        upPctLim1 = .25, upPctLim2 = .25):
-        sdata = data[data.pred.notnull()].copy()
-        allSignals = (sdata.Date >= start_dt) & (np.abs(sdata.zOpen) > zLim)
-        evalDates = sdata.loc[allSignals, 'Date'].sort_values().unique()
+                        start_dt=dt.date(2007, 4, 25),
+                        dwnPctLim1=0.25,
+                        dwnPctLim2=0.25,
+                        upPctLim1=0.25,
+                        upPctLim2=0.25):
+        """
+        At what point is the prediction value a good long or short
+        """
 
-        for i in tqdm(range(len(evalDates))):  
-            dt = evalDates[i]
-            trainDwn = sdata.loc[(sdata.zOpen < -zLim) & (sdata.Date < dt),
-                                ['Ticker', 'Date', 'pred','DayRet']].copy()
-            trainDwn.sort_values(by='pred', inplace=True)
-            trainDwn.reset_index(drop=True, inplace=True)
-            trainDwn['pctDwnBlw'] = ((trainDwn.DayRet < 0).cumsum() /
-                                    trainDwn.index.values)
-            trainDwn['pctUpAbv'] = ((trainDwn.DayRet[::-1] > 0).cumsum()[::-1] /
-                                    (len(trainDwn) - trainDwn.index))
-            trainDwn['diffInd'] = trainDwn.pctDwnBlw + trainDwn.pctUpAbv
-            sampleLim1 = np.round(len(trainDwn) * dwnPctLim1, 0).astype(int)
-            sampleLim2 = np.round(len(trainDwn) * dwnPctLim2, 0).astype(int)
-            maxRow = trainDwn[sampleLim1 : -sampleLim2].sort_values(
-                'diffInd', ascending=False).iloc[0]
-            sdata.loc[sdata.Date == dt, 'predLimDown'] = maxRow.pred 
+        # sdata = data[data.pred.notnull()].copy()
+        # evalDates = np.unique(sdata.loc[sdata.Date >= start_dt, 'Date'])
+        # for date in tqdm(evalDates):
+        #     gap_down = sdata.loc[(sdata.zOpen < -zLim) & (sdata.Date < date),
+        #                          ['Ticker', 'Date', 'pred', 'DayRet']]
+        # 
+        #     gap_up = sdata.loc[(sdata.zOpen > zLim) & (sdata.Date < date),
+        #                        ['Ticker', 'Date', 'pred','DayRet']]
+        # 
+        #     lower_thresh = self._get_prediction_threshold(
+        #         gap_down, 'pred', 'DayRet', dwnPctLim1, dwnPctLim2)
+        # 
+        #     upper_thresh = self._get_prediction_threshold(
+        #         gap_up, 'pred', 'DayRet', upPctLim1, upPctLim2)
+        # 
+        #     sdata.loc[sdata.Date == date, 'predLimDown'] = lower_thresh
+        #     sdata.loc[sdata.Date == date, 'predLimUp'] = upper_thresh
+        # 
+        # 
+        # gapDwnRev = (sdata.zOpen <= -zLim) & (sdata.pred  >= sdata.predLimDown)
+        # gapDwnMo = (sdata.zOpen <= -zLim) & (sdata.pred < sdata.predLimDown)
+        # gapUpRev = (sdata.zOpen >= zLim) & (sdata.pred  <= sdata.predLimUp)
+        # gapUpMo = (sdata.zOpen >= zLim) & (sdata.pred  > sdata.predLimUp)
+        # 
+        # tradeSignals = np.zeros(len(data))
+        # tradeSignals[data.pred.notnull().values] = np.where((gapUpRev) | (gapDwnMo),
+        #     -1, np.where((gapDwnRev) | (gapUpMo), 1, 0))
 
-            trainUp = sdata.loc[(sdata.zOpen > zLim) & (sdata.Date < dt),
-                                    ['Ticker', 'Date', 'pred','DayRet']].copy()
-            trainUp.sort_values(by='pred', inplace=True)
-            trainUp.reset_index(drop=True, inplace=True)
-            trainUp['pctDwnBlw'] = ((trainUp.DayRet < 0).cumsum() /
-                                    trainUp.index.values)
-            trainUp['pctUpAbv'] = ((trainUp.DayRet[::-1] > 0).cumsum()[::-1] /
-                                    (len(trainUp) - trainUp.index))
-            trainUp['diffInd'] = trainUp.pctDwnBlw + trainUp.pctUpAbv
-            sampleLim1 = np.round(len(trainUp) * upPctLim1, 0).astype(int)
-            sampleLim2 = np.round(len(trainUp) * upPctLim2, 0).astype(int)
-            maxRow = trainUp[sampleLim1 : -sampleLim2].sort_values(
-                'diffInd', ascending=False).iloc[0]
-            sdata.loc[sdata.Date == dt, 'predLimUp'] = maxRow.pred
-    
-        gapDwnRev = (sdata.zOpen <= -zLim) & (sdata.pred  >= sdata.predLimDown)
-        gapDwnMo = (sdata.zOpen <= -zLim) & (sdata.pred < sdata.predLimDown)
-        gapUpRev = (sdata.zOpen >= zLim) & (sdata.pred  <= sdata.predLimUp)
-        gapUpMo = (sdata.zOpen >= zLim) & (sdata.pred  > sdata.predLimUp)
-        
-        tradeSignals = np.zeros(len(data))
-        tradeSignals[data.pred.notnull().values] = np.where((gapUpRev) | (gapDwnMo),
-            -1, np.where((gapDwnRev) | (gapUpMo), 1, 0))
-
+        # tradeSignals = np.where(
+        #     (data.zOpen > zLim) & (data.pred < 0.5), -1, np.where(
+        #     (data.zOpen < -zLim) & (data.pred > 0.5), 1, 0))
+        tradeSignals = np.where((data.zOpen > zLim), -1, np.where((data.zOpen < -zLim), 1, 0))
         return tradeSignals
 
     def get_tkr_returns(self, tkrData, intraTkrData, exitRet, stopRet,
-                      start_dt=datetime.date(2007, 4, 25)):
-        
+                      start_dt=dt.date(2007, 4, 25)):
+
         trades = pd.DataFrame([])
         tradeRows = tkrData.loc[tkrData.Signal != 0,
                                 ['Date', 'PriorDate', 'Signal']]
@@ -413,9 +449,9 @@ class IntradayReversion(Strategy):
         '''
         return {
             'ids': ['SPY', 'QQQ', 'IWM', 'VXX'],
-            'start_date': '4/24/2002',
-            'end_date': '06/07/2017'}
-    
+            'start_date': '2002-04-24',
+            'end_date': '2017-06-07'}
+
     def get_constructor_type(self):
         '''
         Overriden method from Strategy
@@ -447,6 +483,7 @@ def main():
         strategy = IntradayReversion('version_0001', True)
         strategy.start()
     elif args.simulation:
+        import pdb; pdb.set_trace()
         strategy = IntradayReversion('version_0001', False)
         strategy.start()
     elif args.live:
