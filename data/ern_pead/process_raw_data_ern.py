@@ -12,16 +12,16 @@ def _assert_no_duplicates(data):
 
 ddir = os.path.join(os.getenv('DATA'), 'ram', 'data', 'temp_ern_pead', 'earnings')
 
-report_dates_file_name = 'report_dates_returns.csv'
+report_dates_file_name = 'report_dates_returns.txt'
 
 feature_file_names = [
-    'accounting.csv',
-    'dividend_yield.csv',
-    'starmine_arm.csv',
-    'technical_vars_1.csv',
-    'technical_vars_2.csv',
-    'technical_vars_3.csv',
-    'technical_vars_4.csv'
+    'accounting.txt',
+    'dividend_yield.txt',
+    'starmine_arm.txt',
+    'technical_vars_1.txt',
+    'technical_vars_2.txt',
+    'technical_vars_3.txt',
+    'technical_vars_4.txt'
 ]
 
 data = import_sql_output(os.path.join(ddir, report_dates_file_name))

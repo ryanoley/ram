@@ -18,7 +18,7 @@ class TestStrategy(Strategy):
     def get_features(self):
         return ['AvgDolVol', 'PRMA10_Close']
 
-    def get_date_parameters(self):
+    def get_univ_date_parameters(self):
         return {
             'frequency': 'Q',
             'train_period_length': 4,
@@ -73,7 +73,8 @@ class TestDataConstructor(unittest.TestCase):
         shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
 
     def tearDown(self):
-        pass
+        if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):
+            shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
 
 
 if __name__ == '__main__':
