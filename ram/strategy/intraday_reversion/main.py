@@ -285,7 +285,7 @@ class IntradayReversion(Strategy):
             pdata.loc[pdata.QIndex == qtr, 'pred'] = testPreds
 
         return pdata.pred
-    
+
     def get_trd_signals(self, data,
                         zLim=.5,
                         start_dt=datetime.date(2007, 4, 25),
@@ -300,43 +300,38 @@ class IntradayReversion(Strategy):
             trainDwn = sdata.loc[(sdata.zOpen < -zLim) & (sdata.Date < dt),
                                 ['Ticker', 'Date', 'pred','DayRet']].copy()
             trainDwn.sort_values(by='pred', inplace=True)
-            trainDwn.reset_index(drop=True, inplace=True)
-            trainDwn['pctDwnBlw'] = ((trainDwn.DayRet < 0).cumsum() /
-                                    trainDwn.index.values)
-            trainDwn['pctUpAbv'] = ((trainDwn.DayRet[::-1] > 0).cumsum()[::-1] /
-                                    (len(trainDwn) - trainDwn.index))
-            trainDwn['diffInd'] = trainDwn.pctDwnBlw + trainDwn.pctUpAbv
-            sampleLim1 = np.round(len(trainDwn) * dwnPctLim1, 0).astype(int)
-            sampleLim2 = np.round(len(trainDwn) * dwnPctLim2, 0).astype(int)
-            maxRow = trainDwn[sampleLim1 : -sampleLim2].sort_values(
-                'diffInd', ascending=False).iloc[0]
-            sdata.loc[sdata.Date == dt, 'predLimDown'] = maxRow.pred 
+            predGapDwn = self.get_pred_thresh(trainDwn, dwnPctLim1, dwnPctLim2)
 
             trainUp = sdata.loc[(sdata.zOpen > zLim) & (sdata.Date < dt),
                                     ['Ticker', 'Date', 'pred','DayRet']].copy()
             trainUp.sort_values(by='pred', inplace=True)
-            trainUp.reset_index(drop=True, inplace=True)
-            trainUp['pctDwnBlw'] = ((trainUp.DayRet < 0).cumsum() /
-                                    trainUp.index.values)
-            trainUp['pctUpAbv'] = ((trainUp.DayRet[::-1] > 0).cumsum()[::-1] /
-                                    (len(trainUp) - trainUp.index))
-            trainUp['diffInd'] = trainUp.pctDwnBlw + trainUp.pctUpAbv
-            sampleLim1 = np.round(len(trainUp) * upPctLim1, 0).astype(int)
-            sampleLim2 = np.round(len(trainUp) * upPctLim2, 0).astype(int)
-            maxRow = trainUp[sampleLim1 : -sampleLim2].sort_values(
-                'diffInd', ascending=False).iloc[0]
-            sdata.loc[sdata.Date == dt, 'predLimUp'] = maxRow.pred
+            predGapUp = self.get_pred_thresh(trainUp, upPctLim1, upPctLim2)
+
+            sdata.loc[sdata.Date == dt, 'predLimDown'] = predGapDwn
+            sdata.loc[sdata.Date == dt, 'predLimUp'] = predGapUp
     
         gapDwnRev = (sdata.zOpen <= -zLim) & (sdata.pred  >= sdata.predLimDown)
         gapDwnMo = (sdata.zOpen <= -zLim) & (sdata.pred < sdata.predLimDown)
         gapUpRev = (sdata.zOpen >= zLim) & (sdata.pred  <= sdata.predLimUp)
         gapUpMo = (sdata.zOpen >= zLim) & (sdata.pred  > sdata.predLimUp)
-        
+
         tradeSignals = np.zeros(len(data))
         tradeSignals[data.pred.notnull().values] = np.where((gapUpRev) | (gapDwnMo),
             -1, np.where((gapDwnRev) | (gapUpMo), 1, 0))
 
         return tradeSignals
+
+    def get_pred_thresh(self, trainData, sampleLimLow, sampleLimHigh):
+        obsN = np.arange(1, len(trainData) + 1)
+        trainData['pctDwnBlw'] = ((trainData.DayRet < 0).cumsum() / obsN)
+        trainData['pctUpAbv'] = ((trainData.DayRet[::-1] > 0).cumsum()[::-1] /
+            (obsN[::-1]))
+        trainData['winPctSum'] = trainData.pctDwnBlw + trainData.pctUpAbv
+        nTrimL = np.round(len(trainData) * sampleLimLow, 0).astype(int)
+        nTrimH = np.round(len(trainData) * sampleLimHigh, 0).astype(int)
+        maxRow = trainData[nTrimL : -nTrimH].sort_values(
+            'winPctSum', ascending=False).iloc[0]
+        return maxRow.pred
 
     def get_tkr_returns(self, tkrData, intraTkrData, exitRet, stopRet,
                       start_dt=datetime.date(2007, 4, 25)):
@@ -422,6 +417,93 @@ class IntradayReversion(Strategy):
         '''
         return 'etfs'
 
+    def get_live_trades(self, params=None):
+        zLim = .5
+        rfcParams = {'n_estimators':100, 'min_samples_split':75,
+                  'min_samples_leaf':20}
+        gapDownParams = {'sampleLimLow':.25, 'sampleLimHigh':.25}
+        gapUpParams = {'sampleLimLow':.25, 'sampleLimHigh':.25}
+        
+        datahandler = DataHandlerSQL()
+        today = datetime.date.today()
+
+        SQLCommandDate = ("select max(T0) from ram.dbo.ram_trading_dates "
+                          "where CalendarDate < '{0}/{1}/{2}'".format(
+                            today.month, today.day,today.year))
+        priorDate = datahandler.sql_execute(SQLCommandDate)[0][0].date()
+
+        live_features = [
+            'AdjVolume', 'AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'RClose',
+            'LAG1_AdjOpen','LAG1_AdjClose', 'LAG2_AdjOpen', 'LAG2_AdjClose',
+            'LAG3_AdjOpen', 'LAG3_AdjClose', 'LAG4_AdjOpen', 'LAG4_AdjClose',
+            'LAG5_AdjOpen', 'LAG5_AdjClose', 'LAG6_AdjOpen', 'LAG6_AdjClose',
+            'LAG7_AdjOpen', 'LAG7_AdjClose', 'LAG8_AdjOpen', 'LAG8_AdjClose',
+            'LAG9_AdjOpen', 'LAG9_AdjClose', 'LAG10_AdjOpen', 'LAG10_AdjClose',
+            'VOL90_AdjClose','VOL10_AdjClose', 'PRMA10_AdjClose',
+            'PRMA20_AdjClose', 'PRMA50_AdjClose', 'PRMA200_AdjClose',
+            'RSI10', 'RSI30', 'MFI10', 'MFI30']
+
+        train = datahandler.get_etf_data(
+            self.get_ids_filter_args()['ids'],
+            self.get_features(),
+            self.get_ids_filter_args()['start_date'],
+            today
+            )
+        live = datahandler.get_etf_data(
+            self.get_ids_filter_args()['ids'],
+            live_features,
+            priorDate,
+            today
+            )
+        live.Date = today
+        livePriorClose = live[['SecCode','RClose']].copy()
+        live.drop('RClose', axis=1, inplace=True)
+
+        for col in live_features[::-1]:
+            if col.find('LAG') < 0:
+                live.rename(columns={col:'LAG1_{}'.format(col)}, inplace=True)
+            else:
+                ix1 = col.find('LAG') + 3
+                ix2 = col.find('_')
+                lix = int(col[ix1:ix2]) + 1
+                live.rename(columns={col:'LAG{0}_{1}'.format(
+                    lix, col[ix2+1:])},inplace=True)
+
+        train.Date = [x.date() for x in train.Date]
+        live['AdjOpen'] = -9999.
+        live['AdjClose'] = -9999.
+        data = train.append(live)
+        data.reset_index(drop=True, inplace=True)
+        data = self.create_features(data)
+        data['pred'] = self.get_preds(data, trainLen=6, **rfcParams)
+
+        train = data[(data.Date < today) & (data.pred.notnull())].copy()
+        trainDwn = train.loc[train.zOpen < -zLim,
+                             ['Ticker', 'Date', 'pred','DayRet']].copy()
+        trainDwn.sort_values(by='pred', inplace=True)
+        predGapDwn = self.get_pred_thresh(trainDwn, **gapDownParams)
+        
+        trainUp = train.loc[train.zOpen > zLim,
+                             ['Ticker', 'Date', 'pred','DayRet']].copy()
+        trainUp.sort_values(by='pred', inplace=True)
+        predGapUp = self.get_pred_thresh(trainUp, **gapUpParams)
+        
+        livePreds = data.loc[data.Date == today,
+                              ['Ticker', 'SecCode','LAG1_VOL90_AdjClose',
+                               'pred','Date']].reset_index(drop=True)
+        livePreds = livePreds.merge(livePriorClose)
+        livePreds['OpenRetMin'] = zLim * livePreds.LAG1_VOL90_AdjClose
+        livePreds['OpenPriceMinUp'] = livePreds.RClose * (1 + livePreds.OpenRetMin)
+        livePreds['OpenPriceMinDwn'] = livePreds.RClose * (1 - livePreds.OpenRetMin)
+        livePreds['predLimGapDown'] = predGapDwn
+        livePreds['predLimGapUp'] = predGapUp
+        livePreds['OpenUpSide'] = np.where(livePreds.pred >= predGapUp, 'Long',
+                                           'Short')
+        livePreds['OpenDownSide'] = np.where(livePreds.pred >= predGapDwn, 'Long',
+                                           'Short')
+
+        return livePreds
+
 
 def main():
     import argparse
@@ -451,9 +533,8 @@ def main():
         strategy.start()
     elif args.live:
         strategy = IntradayReversion('version_0001', False)
-        strategy.get_live_trades()
-
-
+        trades = strategy.get_live_trades()
+        # Send to Trade Engine
 
 if __name__ == '__main__':
     main()
