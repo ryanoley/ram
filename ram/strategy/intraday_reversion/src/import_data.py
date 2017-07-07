@@ -4,8 +4,16 @@ import pandas as pd
 INTRADAY_DIR = os.path.join(os.getenv('DATA'), 'ram', 'intraday_src')
 
 
+def get_available_tickers(intraday_dir=INTRADAY_DIR):
+    try:
+        return [x.strip('.csv') for x in os.listdir(intraday_dir)
+                if x.find('.csv') > 0]
+    except:
+        return 'No source files or directory found'
+
+
 def get_intraday_rets_data(ticker, intraday_dir=INTRADAY_DIR):
-    data = _import_data('IWM', intraday_dir)
+    data = _import_data(ticker, intraday_dir)
     return _format_returns(data)
 
 

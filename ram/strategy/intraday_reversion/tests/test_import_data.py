@@ -7,13 +7,19 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.strategy.intraday_reversion.src.import_data import _pivot_data
-from ram.strategy.intraday_reversion.src.import_data import _format_data
+from ram.strategy.intraday_reversion.src.import_data import _format_returns
+from ram.strategy.intraday_reversion.src.import_data import get_available_tickers
 
 
 class TestImportData(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def test_get_available_tickers(self):
+        result = get_available_tickers()
+        if result != 'No source files or directory found':
+            self.assertTrue(True)
 
     def test_pivot_data(self):
         data = pd.DataFrame()
@@ -44,7 +50,7 @@ class TestImportData(unittest.TestCase):
         benchmark.columns.name = 'Date'
         assert_frame_equal(result, benchmark)
 
-    def test_format_data(self):
+    def test_format_returns(self):
         data = pd.DataFrame()
         data['Ticker'] = ['SPY'] * 10
         data['Date'] = [dt.date(2010, 1, 4)] * 5 + [dt.date(2010, 1, 5)] * 5
@@ -53,7 +59,7 @@ class TestImportData(unittest.TestCase):
         data['High'] = [10, 11, 12, 13, 14] * 2
         data['Low'] = [10, 9, 8, 7, 6] * 2
         data['Close'] = [11] * 10
-        result = _format_data(data)
+        result = _format_returns(data)
 
     def tearDown(self):
         pass
