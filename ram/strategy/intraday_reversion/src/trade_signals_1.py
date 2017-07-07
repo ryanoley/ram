@@ -12,6 +12,7 @@ def get_predictions(data,
                     min_samples_split=75,
                     min_samples_leaf=20):
 
+    data = data.copy()
     data = _format_raw_data(data)
 
     # HARD-CODED TRAINING PERIOD LENGTH
