@@ -140,8 +140,8 @@ class Strategy(object):
     def get_ids_filter_args(self):
         return {
             'ids': [],
-            'start_date': '01/01/2010',
-            'end_date': '01/01/2015'}
+            'start_date': '2010-01-01',
+            'end_date': '2015-01-01'}
 
     def get_univ_filter_args(self):
         return {

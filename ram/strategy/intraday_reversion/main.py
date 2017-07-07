@@ -6,6 +6,9 @@ import datetime
 import itertools
 from tqdm import tqdm
 
+INTRADAY_DATA = os.path.join(os.getenv('DATA'), 'ram', 'intraday_src')
+
+
 from ram.strategy.base import Strategy
 from gearbox import create_time_index
 
@@ -69,7 +72,8 @@ class IntradayReversion(Strategy):
         data = self.read_data_from_index(index)
         data = self.create_features(data)
         tickers = data.Ticker.unique()
-        idata = self.create_intraday_data(tickers)
+        idata = self.create_intraday_data(tickers,
+                                          intraday_dir=INTRADAY_DATA)
         min_dt = idata.Date.min()
         output_results = pd.DataFrame()
         ind = 0
@@ -229,8 +233,7 @@ class IntradayReversion(Strategy):
         data['momInd'] = momInd
         return data
 
-    def create_intraday_data(self, tickers,
-                             intraday_dir='Q:/QUANT/data/ram/intraday_src'):
+    def create_intraday_data(self, tickers, intraday_dir=INTRADAY_DATA):
         if intraday_dir is None:
             SQLCommand = ("SELECT * from ram.dbo.IntradayPricing" +
                           " WHERE Ticker in {}".format(str(tuple(tickers))))
@@ -246,7 +249,7 @@ class IntradayReversion(Strategy):
         else:
             idata = pd.DataFrame([])
             for tkr in tickers:
-                fl_path = os.path.join(intraday_dir, tkr + '.csv.')
+                fl_path = os.path.join(intraday_dir, tkr + '.csv')
                 tdata = pd.read_csv(fl_path)
                 idata = idata.append(tdata)
 
@@ -535,5 +538,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
-
