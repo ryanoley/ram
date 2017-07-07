@@ -16,7 +16,6 @@ def get_predictions(data,
 
     # HARD-CODED TRAINING PERIOD LENGTH
     qtr_indexes = np.unique(data.QIndex)[6:]
-    #qtr_indexes = np.unique(data.QIndex)[-5:]  ## TEMP
 
     features = list(data.columns.difference([
         'SecCode', 'Date', 'AdjOpen', 'AdjClose', 'LAG1_AdjVolume',
