@@ -53,7 +53,10 @@ def get_predictions(data,
 def get_trade_signals(predictions,
                       zLim=.5):
     # 2. From predictions, map [1, 0, -1] for side of trade. NO SCALING
-    predictions['signal'] = predictions.prediction
+    predictions['signal'] = np.where(
+        (predictions.zOpen < -zLim) & (predictions.prediction == 1), 1,
+        np.where((predictions.zOpen > zLim) & (predictions.prediction == -1),
+            1, 0))
     return predictions
 
 
