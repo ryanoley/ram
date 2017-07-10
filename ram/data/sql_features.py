@@ -12,6 +12,9 @@ FUNCS = [
 
     # QUALITATIVE
     'GSECTOR', 'GGROUP',
+    
+    # VIX
+    'VIX',
 
     # ACCOUNTING VARIABLES
     # Net Income
@@ -36,7 +39,6 @@ FUNCS = [
 
     # OTHER
     'GROSSMARGINQ', 'GROSSMARGINTTM',
-
     'GROSSPROFASSET', 'ASSETS',
 
     # RATIOS
@@ -822,6 +824,22 @@ def MKT(data_column, feature_name, arg2, table):
         """.format(data_column, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
+# ~~~~~~ VIX ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def VIX(data_column, feature_name, arg2, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.Close_ as {0}
+        from        {1} A
+        left join   (select  b.Date_, b.Close_
+                     from ram.dbo.ram_index_pricing b
+                     where b.IdcCode = 101506) B
+            on       A.Date_ = B.Date_
+        """.format(feature_name, table)
+    return clean_sql_cmd(sqlcmd)
 
 # ~~~~~~ Utility ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
