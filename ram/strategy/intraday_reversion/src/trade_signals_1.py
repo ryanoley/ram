@@ -5,15 +5,20 @@ from tqdm import tqdm
 from gearbox import create_time_index
 
 from sklearn.ensemble import RandomForestClassifier
+from ram.strategy.intraday_reversion.src.intraday_return_simulator import *
 
 
 def get_predictions(data,
+                    intraday_simulator,
+                    response_perc_take,
+                    response_perc_stop,
                     n_estimators=100,
                     min_samples_split=75,
                     min_samples_leaf=20):
 
     data = data.copy()
-    data = _format_raw_data(data)
+    data = _format_raw_data(data, intraday_simulator,
+                            response_perc_take, response_perc_stop)
 
     # HARD-CODED TRAINING PERIOD LENGTH
     qtr_indexes = np.unique(data.QIndex)[6:]
@@ -23,7 +28,7 @@ def get_predictions(data,
         'LAG1_AdjOpen', 'LAG1_AdjHigh', 'LAG1_AdjLow', 'LAG1_AdjClose',
         'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose', 'Ticker', 'QIndex',
         'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day', 'Month', 'Qtr',
-        'PriorDate', 'pred', 'Signal'
+        'pred', 'Signal', 'response'
     ]))
 
     clf = RandomForestClassifier(n_estimators=n_estimators,
@@ -34,13 +39,12 @@ def get_predictions(data,
     for qtr in tqdm(qtr_indexes):
 
         train_X = data.loc[data.QIndex < qtr, features]
-        train_y = data.loc[data.QIndex < qtr, 'DayRet'] > 0
+        train_y = data.loc[data.QIndex < qtr, 'response']
         test_X = data.loc[data.QIndex == qtr, features]
 
         clf.fit(X=train_X, y=train_y)
 
-        testPreds = clf.predict_proba(test_X)[:, 1]
-        data.loc[data.QIndex == qtr, 'prediction'] = testPreds
+        data.loc[data.QIndex == qtr, 'prediction'] = clf.predict(test_X)
 
     downstream_features = ['zOpen']
     return data[['Ticker', 'Date', 'prediction'] + downstream_features]
@@ -49,9 +53,7 @@ def get_predictions(data,
 def get_trade_signals(predictions,
                       zLim=.5):
     # 2. From predictions, map [1, 0, -1] for side of trade. NO SCALING
-    predictions['signal'] = np.where(
-        predictions.zOpen > zLim, -1, np.where(
-        predictions.zOpen < -zLim, 1, 0))
+    predictions['signal'] = predictions.prediction
     return predictions
 
 
@@ -67,29 +69,28 @@ seccode_ticker_map = {
 }
 
 
-def _format_raw_data(data):
+def _format_raw_data(data, intraday_simulator, perc_take, perc_stop):
 
     data = data.merge(pd.DataFrame(seccode_ticker_map.items(),
                                    columns=['SecCode', 'Ticker']))
-    data['QIndex'] = create_time_index(data.Date)
 
     data['OpenRet'] = ((data.AdjOpen - data.LAG1_AdjClose) /
                        data.LAG1_AdjClose)
     data['DayRet'] = (data.AdjClose - data.AdjOpen) / data.AdjOpen
     data['zOpen'] = data.OpenRet / data.LAG1_VOL90_AdjClose
 
+    data['QIndex'] = create_time_index(data.Date)
     data = _create_seasonal_vars(data)
     data = _create_pricing_vars(data)
     data = _get_momentum_indicator(data)
 
-    # Offset dates
-    data.sort_values(by=['SecCode', 'Date'], inplace=True)
-
-    # CAN WE GET RID OF THIS LOOP?
+    # Create responses
+    responses = pd.DataFrame([])
     for ticker in data.Ticker.unique():
-        tDates = data[data.Ticker == ticker].Date.shift(1)
-        data.loc[data.Ticker == ticker, 'PriorDate'] = tDates
-        #data['b{}'.format(ticker)] = np.where(data.Ticker == ticker, 1, 0)
+        # Make responses
+        responses = responses.append(intraday_simulator.get_responses(
+            ticker, perc_take, perc_stop).reset_index())
+    data = data.merge(responses)
 
     data = data.dropna()
     data.reset_index(drop=True, inplace=True)

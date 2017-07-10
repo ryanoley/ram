@@ -7,6 +7,9 @@ class IntradayReturnSimulator(object):
     def __init__(self):
         self.tickers = get_available_tickers()
         self._bar_data = {}
+        self._response_data = {}
+
+    # ~~~~~~ Returns for equity curve simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_returns(self, signals, perc_take, perc_stop):
         """
@@ -36,11 +39,20 @@ class IntradayReturnSimulator(object):
         return ticker_returns.sum(axis=1) / \
             (~ticker_returns.isnull()).sum(axis=1)
 
+    # ~~~~~~ Responses for learning model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def get_responses(self, ticker, perc_take, perc_stop):
         assert perc_take >= 0
         assert perc_stop >= 0
+
+        # See if data has already been processed
+        response_label = '{}_{}'.format(perc_take, perc_stop)
+        if ticker in self._response_data:
+            if response_label in self._response_data[ticker]:
+                return self._response_data[ticker][response_label]
+
+        # Calculate responses
         ret_data = self._retrieve_return_data(ticker)
-        # Calculate all intraday returns
         long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
                                      perc_take, perc_stop)
         short_rets = get_short_returns(ret_data[0], ret_data[1],
@@ -51,7 +63,15 @@ class IntradayReturnSimulator(object):
         output['response'] = np.where(
             long_rets == perc_take, 1, np.where(
             short_rets == perc_take, -1, 0))
+
+        # Cache processed data
+        if not ticker in self._response_data:
+            self._response_data[ticker] = {}
+        self._response_data[ticker][response_label] = output
+
         return output
+
+    # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _get_returns_from_signals(self, signals, longs, shorts):
         longs = longs.reset_index()

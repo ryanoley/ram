@@ -19,18 +19,20 @@ def make_arg_iter(variants):
 class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
-        'n_estimators': [10, 100],
-        'min_samples_split': [40, 80],
-        'min_samples_leaf': [10, 20]
+        'response_perc_take': [0.004, 0.008],
+        'response_perc_stop': [0.004, 0.008],
+        'n_estimators': [100],
+        'min_samples_split': [80],
+        'min_samples_leaf': [20]
     })
 
     args2 = make_arg_iter({
-        'zLim': [0.20, 0.25, 0.30],
+        'zLim': [0.20],
     })
 
     args3 = make_arg_iter({
-        'perc_take': [0.002, 0.003, 0.004, 0.005, 0.006, 0.007],
-        'perc_stop': [0.002, 0.003, 0.004, 0.005, 0.006, 0.007]
+        'perc_take': [0.006, 0.007, 0.008, 0.009, 0.010, 0.011],
+        'perc_stop': [0.004, 0.005, 0.006]
     })
 
     def get_column_parameters(self):
@@ -51,7 +53,7 @@ class IntradayReversion(Strategy):
         i = 0
         for a1 in self.args1:
             print('\nTraining Predictive Model: ')
-            predictions = get_predictions(data, **a1)
+            predictions = get_predictions(data, irs, **a1)
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
