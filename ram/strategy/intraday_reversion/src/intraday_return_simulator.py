@@ -15,6 +15,8 @@ class IntradayReturnSimulator(object):
         assert 'Ticker' in signals
         assert 'Date' in signals
         assert 'signal' in signals
+        assert perc_take >= 0
+        assert perc_stop >= 0
 
         tickers = signals.Ticker.unique()
         ticker_returns = pd.DataFrame()
@@ -33,6 +35,23 @@ class IntradayReturnSimulator(object):
                 how='outer')
         return ticker_returns.sum(axis=1) / \
             (~ticker_returns.isnull()).sum(axis=1)
+
+    def get_responses(self, ticker, perc_take, perc_stop):
+        assert perc_take >= 0
+        assert perc_stop >= 0
+        ret_data = self._retrieve_return_data(ticker)
+        # Calculate all intraday returns
+        long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
+                                     perc_take, perc_stop)
+        short_rets = get_short_returns(ret_data[0], ret_data[1],
+                                       ret_data[2], perc_take, perc_stop)
+        # Create output for daily responses
+        output = pd.DataFrame(index=ret_data[0].columns)
+        output['Ticker'] = ticker
+        output['response'] = np.where(
+            long_rets == perc_take, 1, np.where(
+            short_rets == perc_take, -1, 0))
+        return output
 
     def _get_returns_from_signals(self, signals, longs, shorts):
         longs = longs.reset_index()

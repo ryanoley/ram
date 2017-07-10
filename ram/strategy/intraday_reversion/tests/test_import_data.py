@@ -18,8 +18,10 @@ class TestImportData(unittest.TestCase):
 
     def test_get_available_tickers(self):
         result = get_available_tickers()
-        if result != 'No source files or directory found':
-            self.assertTrue(True)
+        if result == 'No source files or directory found':
+            self.skipTest('Could not connect to server')
+        else:
+            self.assertTrue('SPY' in result)
 
     def test_pivot_data(self):
         data = pd.DataFrame()

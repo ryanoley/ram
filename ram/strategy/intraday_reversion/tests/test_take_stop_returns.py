@@ -30,7 +30,7 @@ class TestTakeStopReturns(unittest.TestCase):
         high_rets, low_rets, close_rets = _format_returns(self.data)
         result = _get_first_time_index_by_column(high_rets > 0.1)
         benchmark = pd.Series([dt.datetime(1950, 1, 1, 10, 1),
-                               dt.datetime(1950, 1, 1, 10, 4)])
+                               dt.datetime(1950, 1, 1, 23, 59)])
         benchmark.index = [dt.date(2010, 1, 4), dt.date(2010, 1, 5)]
         benchmark.name = 'Time'
         benchmark.index.name = 'Date'

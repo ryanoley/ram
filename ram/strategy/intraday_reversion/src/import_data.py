@@ -13,8 +13,11 @@ def get_available_tickers(intraday_dir=INTRADAY_DIR):
 
 
 def get_intraday_rets_data(ticker, intraday_dir=INTRADAY_DIR):
-    data = _import_data(ticker, intraday_dir)
-    return _format_returns(data)
+    try:
+        data = _import_data(ticker, intraday_dir)
+        return _format_returns(data)
+    except:
+        return pd.DataFrame([])
 
 
 def _import_data(ticker, intraday_dir):
@@ -41,5 +44,8 @@ def _format_returns(data):
 
 
 def _pivot_data(data, values):
+    """
+    ASSUMPTION: Missing values are padded.
+    """
     return data.pivot(index='Time', columns='Date',
                       values=values).fillna(method='pad')

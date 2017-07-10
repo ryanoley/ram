@@ -25,7 +25,7 @@ class IntradayReversion(Strategy):
     })
 
     args2 = make_arg_iter({
-        'zLim': [0.25, 0.35, 0.45, 0.55],
+        'zLim': [0.20, 0.25, 0.30],
     })
 
     args3 = make_arg_iter({

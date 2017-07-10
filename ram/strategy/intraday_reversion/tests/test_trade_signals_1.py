@@ -6,6 +6,8 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
+from ram.strategy.intraday_reversion.src.trade_signals_1 import *
+
 
 class TestTradeSignals1(unittest.TestCase):
 
@@ -20,8 +22,9 @@ class TestTradeSignals1(unittest.TestCase):
         data['Close'] = [11] * 10
         self.data = data
 
-    def Xtest_get_trade_signals(self):
-        data = pd.DataFrame()
+    def test_get_trade_signals(self):
+        # import pdb; pdb.set_trace()
+        pass
 
     def tearDown(self):
         pass
