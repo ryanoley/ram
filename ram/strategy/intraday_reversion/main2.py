@@ -26,12 +26,20 @@ class IntradayReversion(Strategy):
         'min_samples_leaf': [20]
     })
 
+    # args2 = make_arg_iter({
+    #     'zLim': [0.25, 0.50],
+    # })
+
     args2 = make_arg_iter({
-        'zLim': [0.25, 0.50],
+        'zLim': [0.25, 0.35],
+        'gap_down_limit_1': [0.30],
+        'gap_down_limit_2': [0.30],
+        'gap_up_limit_1': [0.30],
+        'gap_up_limit_2': [0.30]
     })
 
     args3 = make_arg_iter({
-        'perc_take': [0.006, 0.007, 0.008, 0.009, 0.010, 0.011],
+        'perc_take': [0.007, 0.008, 0.009, 0.010, 0.011, 0.012],
         'perc_stop': [0.004, 0.005, 0.006]
     })
 
@@ -52,7 +60,6 @@ class IntradayReversion(Strategy):
         irs = IntradayReturnSimulator()
         i = 0
         for a1 in self.args1:
-            print('\nTraining Predictive Model: ')
             predictions = get_predictions(data, irs, **a1)
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)

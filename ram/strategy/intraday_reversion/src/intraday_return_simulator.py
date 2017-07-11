@@ -44,6 +44,8 @@ class IntradayReturnSimulator(object):
     def get_responses(self, ticker, perc_take, perc_stop):
         assert perc_take >= 0
         assert perc_stop >= 0
+        # To assert that it can't be a long and short winner
+        assert perc_stop <= perc_take
 
         # See if data has already been processed
         response_label = '{}_{}'.format(perc_take, perc_stop)
@@ -60,6 +62,8 @@ class IntradayReturnSimulator(object):
         # Create output for daily responses
         output = pd.DataFrame(index=ret_data[0].columns)
         output['Ticker'] = ticker
+
+        # IS THIS HOW WE WANT TO CODE RESPONSES??
         output['response'] = np.where(
             long_rets == perc_take, 1, np.where(
             short_rets == perc_take, -1, 0))

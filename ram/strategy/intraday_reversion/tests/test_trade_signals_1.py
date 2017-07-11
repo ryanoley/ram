@@ -7,6 +7,7 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.strategy.intraday_reversion.src.trade_signals_1 import *
+from ram.strategy.intraday_reversion.src.trade_signals_1 import _create_ticker_binaries
 
 
 class TestTradeSignals1(unittest.TestCase):
@@ -25,6 +26,15 @@ class TestTradeSignals1(unittest.TestCase):
     def test_get_trade_signals(self):
         # import pdb; pdb.set_trace()
         pass
+
+    def test_create_ticker_binaries(self):
+        data = self.data.copy()
+        data['Ticker'] = ['SPY'] * 6 + ['VXX'] * 4
+        result = _create_ticker_binaries(data)
+        benchmark = data.copy()
+        benchmark['bSPY'] = [True] * 6 + [False] * 4
+        benchmark['bVXX'] = [False] * 6 + [True] * 4
+        assert_frame_equal(result, benchmark)
 
     def tearDown(self):
         pass

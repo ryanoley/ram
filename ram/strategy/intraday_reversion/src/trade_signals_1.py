@@ -6,6 +6,7 @@ from gearbox import create_time_index
 
 from sklearn.ensemble import RandomForestClassifier
 from ram.strategy.intraday_reversion.src.intraday_return_simulator import *
+from ram.strategy.intraday_reversion.src.prediction_thresh_optim import prediction_thresh_optim
 
 
 def get_predictions(data,
@@ -36,6 +37,7 @@ def get_predictions(data,
                                  min_samples_leaf=min_samples_leaf,
                                  random_state=123, n_jobs=-1)
 
+    print('\nTraining Predictive Models: ')
     for qtr in tqdm(qtr_indexes):
 
         train_X = data.loc[data.QIndex < qtr, features]
@@ -43,21 +45,33 @@ def get_predictions(data,
         test_X = data.loc[data.QIndex == qtr, features]
 
         clf.fit(X=train_X, y=train_y)
+        # ASSUMPTION: prediction = Long Prob - Short Prob
+        probs = clf.predict_proba(test_X)
+        long_ind = np.where(clf.classes_ == 1)[0][0]
+        short_ind = np.where(clf.classes_ == -1)[0][0]
+        preds = probs[:, long_ind] - probs[:, short_ind]
 
-        data.loc[data.QIndex == qtr, 'prediction'] = clf.predict(test_X)
+        data.loc[data.QIndex == qtr, 'prediction'] = preds
 
-    downstream_features = ['zOpen']
+    downstream_features = ['zOpen', 'response']
     return data[['Ticker', 'Date', 'prediction'] + downstream_features]
 
 
 def get_trade_signals(predictions,
-                      zLim=.5):
-    # 2. From predictions, map [1, 0, -1] for side of trade. NO SCALING
-    predictions['signal'] = np.where(
-        (predictions.zOpen < -zLim) & (predictions.prediction == 1), 1,
-        np.where((predictions.zOpen > zLim) & (predictions.prediction == -1),
-            -1, 0))
-    return predictions
+                      zLim=.5,
+                      gap_down_limit_1=0.25,
+                      gap_down_limit_2=0.25,
+                      gap_up_limit_1=0.25,
+                      gap_up_limit_2=0.25):
+    ## prediction_thresh_optim
+    predictions['signal'] = prediction_thresh_optim(
+        predictions,
+        zLim,
+        gap_down_limit_1,
+        gap_down_limit_2,
+        gap_up_limit_1,
+        gap_up_limit_2)
+    return predictions[['Ticker', 'Date', 'signal']]
 
 
 # ~~~~~~ Data Processing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,6 +100,7 @@ def _format_raw_data(data, intraday_simulator, perc_take, perc_stop):
     data = _create_seasonal_vars(data)
     data = _create_pricing_vars(data)
     data = _get_momentum_indicator(data)
+    data = _create_ticker_binaries(data)
 
     # Create responses
     responses = pd.DataFrame([])
@@ -97,6 +112,12 @@ def _format_raw_data(data, intraday_simulator, perc_take, perc_stop):
 
     data = data.dropna()
     data.reset_index(drop=True, inplace=True)
+    return data
+
+
+def _create_ticker_binaries(data):
+    for ticker in data.Ticker.unique():
+        data['b{}'.format(ticker)] = data.Ticker == ticker
     return data
 
 
