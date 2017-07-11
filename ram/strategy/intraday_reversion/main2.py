@@ -20,7 +20,7 @@ class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
         'response_perc_take': [0.004, 0.008],
-        'response_perc_stop': [0.004, 0.008],
+        'response_perc_stop': [0.002, 0.004],
         'n_estimators': [100],
         'min_samples_split': [80],
         'min_samples_leaf': [20]
