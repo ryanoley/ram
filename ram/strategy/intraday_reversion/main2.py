@@ -16,6 +16,16 @@ def make_arg_iter(variants):
             for vals in itertools.product(*variants.values())]
 
 
+def make_arg_iter_take_stop(perc_take, perc_stop):
+    output = []
+    for take in perc_take:
+        for stop in perc_stop:
+            if stop > take:
+                continue
+            output.append({'perc_take': take, 'perc_stop': stop})
+    return output
+
+
 class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
@@ -32,13 +42,10 @@ class IntradayReversion(Strategy):
         'gap_up_limit': [0.20, 0.30],
     })
 
-    PERC_TAKE = [0.007, 0.008, 0.009, 0.010, 0.011, 0.012]
-    PERC_STOP = [0.004, 0.005, 0.006]
+    PERC_TAKE = [0.007, 0.008, 0.009, 0.010, 0.011, 0.012, 0.015]
+    PERC_STOP = [0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.10]
 
-    args3 = make_arg_iter({
-        'perc_take': PERC_TAKE,
-        'perc_stop': PERC_STOP
-    })
+    args3 = make_arg_iter_take_stop(PERC_TAKE, PERC_STOP)
 
     def get_column_parameters(self):
         output_params = {}
@@ -68,8 +75,6 @@ class IntradayReversion(Strategy):
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
-                    if a3['perc_take'] < a3['perc_stop']:
-                        continue
                     signals.loc[:, 'perc_take'] = a3['perc_take']
                     signals.loc[:, 'perc_stop'] = a3['perc_stop']
                     returns, stats = irs.get_returns(signals)
