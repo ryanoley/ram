@@ -29,21 +29,21 @@ def make_arg_iter_take_stop(perc_take, perc_stop):
 class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
-        'response_perc_take': [0.004, 0.008],
-        'response_perc_stop': [0.002, 0.004],
+        'response_perc_take': [0.008, 0.012, 0.016],
+        'response_perc_stop': [0.004, 0.008],
         'n_estimators': [100],
-        'min_samples_split': [40, 80],
-        'min_samples_leaf': [6, 20]
+        'min_samples_split': [40, 80, 120],
+        'min_samples_leaf': [20]
     })
 
     args2 = make_arg_iter({
-        'zLim': [0.15, 0.25, 0.35],
-        'gap_down_limit': [0.20, 0.30],
-        'gap_up_limit': [0.20, 0.30],
+        'zLim': [0.15, 0.25, 0.35, 0.50, 0.70],
+        'gap_down_limit': [0.25, 0.40],
+        'gap_up_limit': [0.25, 0.40],
     })
 
-    PERC_TAKE = [0.007, 0.008, 0.009, 0.010, 0.011, 0.012, 0.015]
-    PERC_STOP = [0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.10]
+    PERC_TAKE = [0.007, 0.008, 0.009, 0.010, 0.012, 0.015]
+    PERC_STOP = [0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.010]
 
     args3 = make_arg_iter_take_stop(PERC_TAKE, PERC_STOP)
 
@@ -67,7 +67,7 @@ class IntradayReversion(Strategy):
             perc_take=self.PERC_TAKE,
             perc_stop=self.PERC_STOP,
             tickers=['SPY', 'IWM', 'QQQ', 'VXX']
-            )
+        )
 
         i = 0
         for a1 in self.args1:

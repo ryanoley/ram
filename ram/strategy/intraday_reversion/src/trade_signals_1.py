@@ -69,7 +69,7 @@ def get_trade_signals(predictions,
         gap_down_limit,
         gap_up_limit,
         gap_up_limit)
-    return predictions[['Ticker', 'Date', 'signal']]
+    return predictions[['Ticker', 'Date', 'signal']].copy()
 
 
 # ~~~~~~ Data Processing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
