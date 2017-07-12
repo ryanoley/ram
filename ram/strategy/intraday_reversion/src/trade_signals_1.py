@@ -59,18 +59,16 @@ def get_predictions(data,
 
 def get_trade_signals(predictions,
                       zLim=.5,
-                      gap_down_limit_1=0.25,
-                      gap_down_limit_2=0.25,
-                      gap_up_limit_1=0.25,
-                      gap_up_limit_2=0.25):
+                      gap_down_limit=0.25,
+                      gap_up_limit=0.25):
     ## prediction_thresh_optim
     predictions['signal'] = prediction_thresh_optim(
         predictions,
         zLim,
-        gap_down_limit_1,
-        gap_down_limit_2,
-        gap_up_limit_1,
-        gap_up_limit_2)
+        gap_down_limit,
+        gap_down_limit,
+        gap_up_limit,
+        gap_up_limit)
     return predictions[['Ticker', 'Date', 'signal']]
 
 

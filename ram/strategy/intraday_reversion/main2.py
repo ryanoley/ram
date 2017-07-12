@@ -19,25 +19,17 @@ def make_arg_iter(variants):
 class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
-        # 'response_perc_take': [0.004, 0.008],
-        # 'response_perc_stop': [0.002, 0.004],
-        'response_perc_take': [0.004],
-        'response_perc_stop': [0.002],
+        'response_perc_take': [0.004, 0.008],
+        'response_perc_stop': [0.002, 0.004],
         'n_estimators': [100],
         'min_samples_split': [40, 80],
-        'min_samples_leaf': [20]
+        'min_samples_leaf': [6, 20]
     })
 
-    # args2 = make_arg_iter({
-    #     'zLim': [0.25, 0.50],
-    # })
-
     args2 = make_arg_iter({
-        'zLim': [0.25, 0.35],
-        'gap_down_limit_1': [0.30],
-        'gap_down_limit_2': [0.30],
-        'gap_up_limit_1': [0.30],
-        'gap_up_limit_2': [0.30]
+        'zLim': [0.15, 0.25, 0.35],
+        'gap_down_limit': [0.20, 0.30],
+        'gap_up_limit': [0.20, 0.30],
     })
 
     PERC_TAKE = [0.007, 0.008, 0.009, 0.010, 0.011, 0.012]
@@ -76,8 +68,8 @@ class IntradayReversion(Strategy):
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
-                    signals['perc_take'] = a3['perc_take']
-                    signals['perc_stop'] = a3['perc_stop']
+                    signals.loc[:, 'perc_take'] = a3['perc_take']
+                    signals.loc[:, 'perc_stop'] = a3['perc_stop']
                     returns, stats = irs.get_returns(signals)
                     self._capture_output(returns, stats, i)
                     i += 1
