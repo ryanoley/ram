@@ -36,8 +36,11 @@ class IntradayReturnSimulator(object):
             ticker_returns = ticker_returns.join(
                 self._get_returns_from_signals(sigs, long_rets, short_rets),
                 how='outer')
+        # STATISTICS
+        stats = {}
+        stats.update(self._get_ticker_stats(ticker_returns))
         return ticker_returns.sum(axis=1) / \
-            (~ticker_returns.isnull()).sum(axis=1)
+            (~ticker_returns.isnull()).sum(axis=1), stats
 
     # ~~~~~~ Responses for learning model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -94,3 +97,25 @@ class IntradayReturnSimulator(object):
         if ticker not in self._bar_data:
             self._bar_data[ticker] = get_intraday_rets_data(ticker)
         return self._bar_data[ticker]
+
+    def _get_ticker_stats(self, returns):
+        returns = returns.copy()
+        # Fill nan until first non-zero return so to not count
+        # training data
+        for col in returns.columns:
+            ind = np.where(returns[col] != 0)[0][0]
+            if ind > 0:
+                returns.loc[:ind, col] = np.nan
+        trades = ((returns != 0) & (~returns.isnull())).sum()
+        winners = (returns > 0).sum()
+        counts = (~returns.isnull()).sum()
+        #
+        participation = trades / counts.astype(float)
+        win_percent = winners / trades.astype(float)
+        # Convert names
+        participation = {'participation_{}'.format(key): val for key, val in  participation.iteritems()}
+        win_percent = {'win_percent_{}'.format(key): val for key, val in  win_percent.iteritems()}
+        output = {}
+        output.update(participation)
+        output.update(win_percent)
+        return output

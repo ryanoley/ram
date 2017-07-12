@@ -59,6 +59,24 @@ class TestIntradayReturnSimulator(unittest.TestCase):
         benchmark['response'] = [1, -1, 0]
         assert_frame_equal(result, benchmark)
 
+    def test_get_ticker_stats(self):
+        returns = pd.DataFrame(index=[dt.date(2009, 12, 31),
+                                      dt.date(2010, 1, 1),
+                                      dt.date(2010, 1, 2),
+                                      dt.date(2010, 1, 3),
+                                      dt.date(2010, 1, 4)])
+        returns['SPY'] = [0, 10, 10, -10, -10]
+        returns['VXX'] = [0, np.nan, 10, 0, 0]
+        returns['IWM'] = [0, 1, 2, 0, np.nan]
+        irs = IntradayReturnSimulator()
+        result = irs._get_ticker_stats(returns)
+        self.assertAlmostEqual(result['win_percent_SPY'], 1/2.)
+        self.assertAlmostEqual(result['win_percent_IWM'], 1)
+        self.assertAlmostEqual(result['win_percent_VXX'], 1.0)
+        self.assertAlmostEqual(result['participation_SPY'], 1.0)
+        self.assertAlmostEqual(result['participation_IWM'], 2/3.)
+        self.assertAlmostEqual(result['participation_VXX'], 1/3.)
+
     def tearDown(self):
         pass
 

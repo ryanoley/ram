@@ -19,10 +19,12 @@ def make_arg_iter(variants):
 class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
-        'response_perc_take': [0.004, 0.008],
-        'response_perc_stop': [0.002, 0.004],
+        # 'response_perc_take': [0.004, 0.008],
+        # 'response_perc_stop': [0.002, 0.004],
+        'response_perc_take': [0.004],
+        'response_perc_stop': [0.002],
         'n_estimators': [100],
-        'min_samples_split': [80],
+        'min_samples_split': [40, 80],
         'min_samples_leaf': [20]
     })
 
@@ -64,20 +66,23 @@ class IntradayReversion(Strategy):
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
-                    returns = irs.get_returns(signals, **a3)
-                    self._capture_output(returns, i)
+                    returns, stats = irs.get_returns(signals, **a3)
+                    self._capture_output(returns, stats, i)
                     i += 1
         self.write_index_results(self.output_returns, index)
+        self.write_index_stats(self.output_stats, index)
         return
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _capture_output(self, returns, arg_index):
+    def _capture_output(self, returns, stats, arg_index):
         returns.name = arg_index
         if arg_index == 0:
             self.output_returns = pd.DataFrame(returns)
+            self.output_stats = {}
         else:
             self.output_returns = self.output_returns.join(returns, how='outer')
+        self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
