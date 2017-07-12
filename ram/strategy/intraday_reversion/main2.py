@@ -68,6 +68,8 @@ class IntradayReversion(Strategy):
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
+                    if a3['perc_take'] < a3['perc_stop']:
+                        continue
                     signals.loc[:, 'perc_take'] = a3['perc_take']
                     signals.loc[:, 'perc_stop'] = a3['perc_stop']
                     returns, stats = irs.get_returns(signals)
