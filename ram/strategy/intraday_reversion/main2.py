@@ -40,9 +40,12 @@ class IntradayReversion(Strategy):
         'gap_up_limit_2': [0.30]
     })
 
+    PERC_TAKE = [0.007, 0.008, 0.009, 0.010, 0.011, 0.012]
+    PERC_STOP = [0.004, 0.005, 0.006]
+
     args3 = make_arg_iter({
-        'perc_take': [0.007, 0.008, 0.009, 0.010, 0.011, 0.012],
-        'perc_stop': [0.004, 0.005, 0.006]
+        'perc_take': PERC_TAKE,
+        'perc_stop': PERC_STOP
     })
 
     def get_column_parameters(self):
@@ -59,14 +62,23 @@ class IntradayReversion(Strategy):
 
     def run_index(self, index):
         data = self.read_data_from_index(index)
+
         irs = IntradayReturnSimulator()
+        irs.preprocess_returns(
+            perc_take=self.PERC_TAKE,
+            perc_stop=self.PERC_STOP,
+            tickers=['SPY', 'IWM', 'QQQ', 'VXX']
+            )
+
         i = 0
         for a1 in self.args1:
             predictions = get_predictions(data, irs, **a1)
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
-                    returns, stats = irs.get_returns(signals, **a3)
+                    signals['perc_take'] = a3['perc_take']
+                    signals['perc_stop'] = a3['perc_stop']
+                    returns, stats = irs.get_returns(signals)
                     self._capture_output(returns, stats, i)
                     i += 1
         self.write_index_results(self.output_returns, index)
