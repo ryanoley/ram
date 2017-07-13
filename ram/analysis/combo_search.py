@@ -22,7 +22,7 @@ class CombinationSearch(object):
     def add_run(self, run):
         self.runs.add_run(run)
 
-    def start(self, epochs=50):
+    def start(self, epochs=50, criteria='mean'):
         # Merge
         returns = self.runs.aggregate_returns()
         self._create_results_objects(returns)
@@ -30,25 +30,33 @@ class CombinationSearch(object):
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
                 train_data = returns.iloc[t1:t2].copy()
-                # Drop any column that has an na
+                # Drop any column that has an na. DO WE WANT TO DO THIS?
                 train_data = train_data.T.dropna().T
                 test_data = returns.iloc[t2:t3].copy()
-                # Same columns
-                test_data = test_data[train_data.columns]
                 # Search
                 test_results, train_scores, combs = \
                     self._fit_top_combinations(
-                        t2, train_data, test_data)
+                        t2, train_data, test_data, criteria)
                 self._process_results(
                     t2, test_results, train_scores, combs)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _fit_top_combinations(self, time_index, train_data, test_data):
+    def _fit_top_combinations(self, time_index, train_data, test_data,
+                              criteria='mean'):
+        """
+        Main selection mechanism of top combinations. Optimizes on Sharpe.
+        """
+        # Generates a bunch of random vectors of Ints that represent cols
         combs = self._generate_random_combs(
             train_data.shape[1], time_index)
         # Calculate sharpes
-        scores = self._get_sharpes(train_data, combs)
+        if criteria == 'sharpe':
+            scores = self._get_sharpes(train_data, combs)
+        elif criteria == 'mean':
+            scores = self._get_means(train_data, combs)
+        else:
+            raise 'Criteria needs to be selected from: [sharpe, mean]'
         best_inds = np.argsort(-scores)[:self.params['n_best_ports']]
         test_results = pd.DataFrame(
             self._get_ports(test_data, combs[best_inds]).T,
@@ -58,6 +66,10 @@ class CombinationSearch(object):
     def _get_sharpes(self, data, combs):
         ports = self._get_ports(data, combs)
         return np.mean(ports, axis=1) / np.std(ports, axis=1)
+
+    def _get_means(self, data, combs):
+        ports = self._get_ports(data, combs)
+        return np.mean(ports, axis=1)
 
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)
@@ -93,6 +105,16 @@ class CombinationSearch(object):
     # ~~~~~~ Time Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _create_training_indexes(self, data):
+        """
+        Creates the row indexes that create the training and test data sets.
+        Used as an .iloc[] on the data frame.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Uses dates from index to get the row numbers for the bookends
+            for the training and test data.
+        """
         if self.params['train_freq'] == 'm':
             # Get changes in months
             transition_indexes = np.where(np.diff(
@@ -127,6 +149,16 @@ class CombinationSearch(object):
     # ~~~~~~ Output Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _create_results_objects(self, data):
+        """
+        Creates containers to hold the daily returns for the best portfolios,
+        and also some dictionaries that specify the "scores" and which
+        columns from the data the combinations came from.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Used simply to get the dates
+        """
         if not hasattr(self, 'best_results_rets'):
             self.best_results_rets = pd.DataFrame(
                 columns=range(self.params['n_best_ports']),
