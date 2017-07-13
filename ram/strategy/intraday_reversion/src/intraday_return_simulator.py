@@ -5,12 +5,14 @@ from tqdm import tqdm
 from ram.strategy.intraday_reversion.src.import_data import *
 from ram.strategy.intraday_reversion.src.take_stop_returns import *
 
+# !! NOTE: All transaction costs are hard-coded into take_stop_returns.py
+
 
 class IntradayReturnSimulator(object):
 
     def __init__(self):
         self.tickers = get_available_tickers()
-        self._bar_data = {}
+        self._hlc_rets_data = {}
         self._response_data = {}
         self._return_data = {}
 
@@ -69,17 +71,8 @@ class IntradayReturnSimulator(object):
         if ticker not in self._return_data:
             self._return_data[ticker] = pd.DataFrame()
 
-        ret_data = self._retrieve_return_data(ticker)
-
-        long_rets = get_long_returns(ret_data[0],
-                                     ret_data[1],
-                                     ret_data[2],
-                                     perc_take, perc_stop)
-
-        short_rets = get_short_returns(ret_data[0],
-                                       ret_data[1],
-                                       ret_data[2],
-                                       perc_take, perc_stop)
+        long_rets, short_rets = self._get_long_short_rets(
+            ticker, perc_take, perc_stop)
 
         # Stack for get_returns calculation
         stacked = pd.DataFrame({'Return': long_rets, 'signal': 1}).append(
@@ -107,13 +100,11 @@ class IntradayReturnSimulator(object):
                 return self._response_data[ticker][response_label]
 
         # Calculate responses
-        ret_data = self._retrieve_return_data(ticker)
-        long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
-                                     perc_take, perc_stop)
-        short_rets = get_short_returns(ret_data[0], ret_data[1],
-                                       ret_data[2], perc_take, perc_stop)
+        long_rets, short_rets = self._get_long_short_rets(
+            ticker, perc_take, perc_stop, False)
+
         # Create output for daily responses
-        output = pd.DataFrame(index=ret_data[0].columns)
+        output = pd.DataFrame(index=long_rets.index)
         output['Ticker'] = ticker
 
         # IS THIS HOW WE WANT TO CODE RESPONSES??
@@ -144,9 +135,33 @@ class IntradayReturnSimulator(object):
         return signals2
 
     def _retrieve_return_data(self, ticker):
-        if ticker not in self._bar_data:
-            self._bar_data[ticker] = get_intraday_rets_data(ticker)
-        return self._bar_data[ticker]
+        """
+        Creates a cache of open/high/low return data
+        """
+        if ticker not in self._hlc_rets_data:
+            self._hlc_rets_data[ticker] = get_intraday_rets_data(ticker)
+        return self._hlc_rets_data[ticker]
+
+    def _get_long_short_rets(self, ticker, perc_take, perc_stop,
+                             costs_flag=True):
+        ret_data = self._retrieve_return_data(ticker)
+        if costs_flag:
+            long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
+                                         ret_data[3], ret_data[4],
+                                         perc_take, perc_stop)
+            short_rets = get_short_returns(ret_data[0], ret_data[1],
+                                           ret_data[2], ret_data[3],
+                                           ret_data[4], perc_take, perc_stop)
+        else:
+            # For response calculation with no costs taken out
+            long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
+                                         ret_data[3] * 0, ret_data[4] * 0,
+                                         perc_take, perc_stop)
+            short_rets = get_short_returns(ret_data[0], ret_data[1],
+                                           ret_data[2], ret_data[3] * 0,
+                                           ret_data[4] * 0,
+                                           perc_take, perc_stop)
+        return long_rets, short_rets
 
     # ~~~~~~ Stats ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

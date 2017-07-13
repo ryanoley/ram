@@ -27,7 +27,8 @@ class TestTakeStopReturns(unittest.TestCase):
         self.data = data
 
     def test_get_first_time_index_by_column(self):
-        high_rets, low_rets, close_rets = _format_returns(self.data)
+        high_rets, low_rets, close_rets, slippage, tcosts = \
+            _format_returns(self.data, 0.02, 0.01)
         result = _get_first_time_index_by_column(high_rets > 0.1)
         benchmark = pd.Series([dt.datetime(1950, 1, 1, 10, 1),
                                dt.datetime(1950, 1, 1, 23, 59)])
@@ -45,14 +46,16 @@ class TestTakeStopReturns(unittest.TestCase):
         assert_series_equal(pd.to_datetime(result), pd.to_datetime(benchmark))
 
     def test_calculate_rets(self):
-        high_rets, low_rets, close_rets = _format_returns(self.data)
+        high_rets, low_rets, close_rets, slippage, tcosts = \
+            _format_returns(self.data, 0.02, 0.01)
         # Simulate a long position
         take_perc = 0.2
         stop_perc = 0.1
         wins = _get_first_time_index_by_column(high_rets > take_perc)
         losses = _get_first_time_index_by_column(low_rets < -stop_perc)
-        result = _calculate_rets(wins, losses, close_rets, take_perc, stop_perc)
-        benchmark = pd.Series([0.2, -0.1])
+        result = _calculate_rets(wins, losses, close_rets, slippage,
+                                 tcosts, take_perc, stop_perc)
+        benchmark = pd.Series([0.199, -0.103])
         benchmark.name = 'Rets'
         benchmark.index = [dt.date(2010, 1, 4), dt.date(2010, 1, 5)]
         benchmark.index.name = 'Date'

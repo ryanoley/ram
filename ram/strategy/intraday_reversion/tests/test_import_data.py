@@ -61,7 +61,12 @@ class TestImportData(unittest.TestCase):
         data['High'] = [10, 11, 12, 13, 14] * 2
         data['Low'] = [10, 9, 8, 7, 6] * 2
         data['Close'] = [11] * 10
-        result = _format_returns(data)
+        result = _format_returns(data, 0.02, 0.01)
+        self.assertTrue(isinstance(result[0], pd.DataFrame))
+        self.assertTrue(isinstance(result[3], pd.Series))
+        self.assertTrue(isinstance(result[4], pd.Series))
+        self.assertEqual(result[3].iloc[0], 0.002)
+        self.assertEqual(result[4].iloc[0], 0.001)
 
     def tearDown(self):
         pass

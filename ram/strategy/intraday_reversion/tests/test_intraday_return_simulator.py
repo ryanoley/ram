@@ -79,12 +79,15 @@ class TestIntradayReturnSimulator(unittest.TestCase):
     def test_get_responses(self):
         irs = IntradayReturnSimulator()
         # Add test bar data
-        irs._bar_data['SPY'] = (self.data2, self.data2, self.data2)
+        slippage = pd.Series([0.001, 0.001, 0.001],
+            index=[dt.date(2010, 1, i) for i in range(1, 4)])
+        tcost = slippage.copy()
+        irs._hlc_rets_data['SPY'] = (self.data2, self.data2, self.data2,
+                                     slippage, tcost)
         result = irs.get_responses('SPY', 1, .3)
         benchmark = pd.DataFrame(index=[dt.date(2010, 1, 1),
                                         dt.date(2010, 1, 2),
                                         dt.date(2010, 1, 3)])
-        benchmark.index.name = 'Date'
         benchmark['Ticker'] = 'SPY'
         benchmark['response'] = [1, -1, 0]
         assert_frame_equal(result, benchmark)
