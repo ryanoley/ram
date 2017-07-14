@@ -56,12 +56,21 @@ class LongPeadStrategy(Strategy):
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def get_filter_args(self):
+    def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR in (30) ' +
             'and Close_ between 5 and 500',
-            'univ_size': 500}
+            'univ_size': 500
+        }
+
+    def get_univ_date_parameters(self):
+        return {
+            'frequency': 'Q',
+            'train_period_length': 1,
+            'test_period_length': 1,
+            'start_year': 2002
+        }
 
     def get_features(self):
         return [
@@ -105,14 +114,6 @@ class LongPeadStrategy(Strategy):
 
             'PE', 'FCFMARKETCAP', 'CASHEV',
         ]
-
-    def get_date_parameters(self):
-        return {
-            'frequency': 'Q',
-            'train_period_length': 1,
-            'test_period_length': 1,
-            'start_year': 2002
-        }
 
 
 def make_arg_iter(variants):
