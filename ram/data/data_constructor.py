@@ -3,10 +3,9 @@ import json
 import shutil
 import itertools
 import numpy as np
+from tqdm import tqdm
 import datetime as dt
 from dateutil import parser as dparser
-
-from gearbox import ProgBar
 
 from ram import config
 
@@ -54,7 +53,7 @@ class DataConstructor(object):
             data.to_csv(os.path.join(self._output_dir, file_name), index=False)
         else:
             self._make_date_iterator()
-            for t1, t2, t3 in ProgBar(self._date_iterator):
+            for t1, t2, t3 in tqdm(self._date_iterator):
                 adj_filter_date = t2 - dt.timedelta(days=1)
                 data = datahandler.get_filtered_univ_data(
                     features=self.features,
