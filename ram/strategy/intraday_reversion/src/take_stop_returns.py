@@ -56,6 +56,6 @@ def _calculate_rets(wins, losses, ret_close, stop_slippage,
         # MAKES IT TO THE CLOSE
         wins == dt.datetime(1950, 1, 1, 23, 59), ret_close.iloc[-1], np.where(
         losses == dt.datetime(1950, 1, 1, 23, 59), ret_close.iloc[-1], np.where(
-        # TIE GETS THE MEAN RETURN
+        # TIE GETS THE MEAN RETURN - DO WE WANT THIS?
         wins == losses, (take_perc - stop_perc) / 2., 0)))))
     return rets
