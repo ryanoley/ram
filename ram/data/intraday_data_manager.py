@@ -18,6 +18,7 @@ data format returned from iqfeed:
 import socket
 import time
 import os
+import argparse
 import pandas as pd
 import numpy as np
 import datetime as dt
@@ -198,11 +199,11 @@ if __name__ == "__main__":
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-h', '--history', action='store_true',
-        help='Run DataConstructor')
+        '-history', '--history', action='store_true',
+        help='Get full history')
     parser.add_argument(
         '-u', '--update', action='store_true',
-        help='Run simulatoin')
+        help='Update tickers in src_dir')
     args = parser.parse_args()
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
