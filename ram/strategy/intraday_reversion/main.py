@@ -74,9 +74,9 @@ class IntradayReversion(Strategy):
     def get_live_trades(self, params=None):
         zLim = .5
         rfcParams = {'n_estimators':100, 'min_samples_split':75,
-                  'min_samples_leaf':20}
-        gapDownParams = {'sampleLimLow':.25, 'sampleLimHigh':.25}
-        gapUpParams = {'sampleLimLow':.25, 'sampleLimHigh':.25}
+                     'min_samples_leaf':20}
+        gapDownParams = {'gapDownSampleTrim1':.2, 'gapDownSampleTrim2':.4}
+        gapUpParams = {'gapUpSampleTrim1':.4, 'gapUpSampleTrim2':.2}
         
         datahandler = DataHandlerSQL()
         today = datetime.date.today()

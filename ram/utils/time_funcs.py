@@ -1,6 +1,6 @@
 import numpy as np
 import datetime as dt
-import dateutil.parser
+import dateutil.parser as dparser
 
 
 def check_input_date(date):
@@ -13,7 +13,7 @@ def check_input_date(date):
     if isinstance(date, dt.date):
         return dt.datetime(date.year, date.month, date.day)
     if isinstance(date, str):
-        date = dateutil.parser.parse(date).date()
+        date = dparser.parse(date).date()
         return dt.datetime(date.year, date.month, date.day)
     return date
 
