@@ -293,37 +293,3 @@ def print_strategy_meta(strategy, version):
     print('   Frequency:\t\t' + str(meta['frequency']))
     print('\n')
 
-
-if __name__ == '__main__':
-
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-ls', '--list_strategies', action='store_true',
-        help='List all strategies')
-    parser.add_argument(
-        '-lv', '--list_versions', type=str,
-        help='List all versions of prepped data for a strategy')
-    parser.add_argument(
-        '-pm', '--print_meta', type=str, nargs=2,
-        help='Print meta data. Takes two arguments for Strategy and Version')
-    parser.add_argument(
-        '-cv', '--clean_version', type=str, nargs=2,
-        help='Delete version. Takes two arguments for Strategy and Version')
-
-    args = parser.parse_args()
-
-    if args.list_strategies:
-        print_strategies()
-    elif args.list_versions:
-        strategy = get_strategy_name(args.list_versions)
-        print_strategy_versions(strategy)
-    elif args.print_meta:
-        strategy = get_strategy_name(args.print_meta[0])
-        version = get_version_name(strategy, args.print_meta[1])
-        print_strategy_meta(strategy, version)
-    elif args.clean_version:
-        strategy = get_strategy_name(args.clean_version[0])
-        version = get_version_name(strategy, args.clean_version[1])
-        clean_directory(strategy, version)

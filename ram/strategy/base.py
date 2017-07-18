@@ -240,10 +240,10 @@ def make_argument_parser(Strategy):
         help='List all versions of prepped data for a strategy')
     parser.add_argument(
         '-pm', '--print_meta', type=str,
-        help='Print meta data. Takes two arguments for Strategy and Version')
+        help='Print meta data. i.e version_0001 or Key val')
     parser.add_argument(
         '-cv', '--clean_version', type=str,
-        help='Delete version. Takes two arguments for Strategy and Version')
+        help='Delete version. i.e version_0001 or Key val')
 
     # Simulation Commands
     parser.add_argument(
@@ -285,7 +285,7 @@ def make_argument_parser(Strategy):
         if not args.data_version:
             print('Data version must be provided')
         else:
-            import pdb; pdb.set_trace()
+            import ipdb; ipdb.set_trace()
             version = get_version_name(Strategy.__name__, args.data_version)
             strategy = Strategy(version, False)
             strategy.start()
