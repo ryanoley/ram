@@ -2,9 +2,12 @@ import pypyodbc
 import numpy as np
 import pandas as pd
 import datetime as dt
+from dateutil import parser as dparser
 
 from ram.utils.time_funcs import check_input_date
 from ram.data.sql_features import sqlcmd_from_feature_list
+
+pypyodbc.connection_timeout = 8
 
 
 class DataHandlerSQL(object):
@@ -216,6 +219,33 @@ class DataHandlerSQL(object):
             "select distinct SecCode, Ticker "
             "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
         return ids[ids.Ticker.isin(tickers)]
+
+    def prior_trading_date(self, t0_dates = dt.date.today()):
+        if not isinstance(t0_dates, list):
+            t0_dates = [t0_dates]
+        if not isinstance(t0_dates[0], dt.date):
+            try:
+                t0_dates = [dparser.parse(x) for x in t0_dates]
+            except:
+                return np.nan
+        date_order = np.argsort(t0_dates)
+        input_order = np.argsort(date_order)
+
+        str_dates = ['{0}/{1}/{2}'.format(x.month, x.day, x.year) for x in t0_dates]
+        if len(str_dates) > 1:
+            sql_dates = tuple(str_dates)
+        else:
+            sql_dates = "('" + str_dates[0] + "')"
+            
+        SQLCommandDate = ("select Tm1 "
+                          "from ram.dbo.ram_trading_dates " 
+                          "where CalendarDate in {}".format(sql_dates))
+        priorDate = self.sql_execute(SQLCommandDate)
+        priorDate = [x[0].date() for x in priorDate]
+
+        if len(t0_dates) == 1:
+            return priorDate[0]
+        return np.array(priorDate)[input_order]
 
     def sql_execute(self, sqlcmd):
         try:

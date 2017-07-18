@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from gearbox import convert_date_array
+from ram.utils.time_funcs import convert_date_array
+from ram.utils.read_write import import_sql_output
 
 DDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'gvkey_mapping')
 
@@ -15,8 +16,8 @@ def create_sql_table():
     df_filtered.StartDate = convert_date_array(df_filtered.StartDate)
     df_filtered.EndDate = convert_date_array(df_filtered.EndDate)
     # Good data
-    df_good = pd.read_csv(os.path.join(DDIR, 'good_idcgvkeydata.csv'),
-                          header=0, skiprows=[1]).drop_duplicates()
+    df_good = import_sql_output('good_idcgvkeydata.txt')
+    df_good = df_good.drop_duplicates()
     df_good.columns = ['IdcCode', 'GVKey']
     df_good['StartDate'] = df_filtered.StartDate.min()
     df_good['EndDate'] = df_filtered.EndDate.max()

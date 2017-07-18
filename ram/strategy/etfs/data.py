@@ -13,9 +13,7 @@ class ETFData(object):
         elif isinstance(symbols, str):
             symbols = [symbols]
         self.symbols = symbols
-        self.data = pdr.get_data_yahoo(symbols=symbols, start=start_date)
-        # Rename adjust close column
-        data_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'AdjClose']
-        self.data.items = data_cols
-        # Make data accessible by ticker instead of data?
-        # self.data = self.data.swapaxes(0, 2)
+        
+        data = pdr.get_data_google(symbols=symbols, start=start_date)
+        self.data = data.to_frame().reset_index()
+        self.data.rename(columns={'minor': 'Ticker'}, inplace=True)

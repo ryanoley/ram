@@ -18,9 +18,9 @@ DDIR = config.ERN_PEAD_DIR
 class TestTechnicalVars1(unittest.TestCase):
 
     data1 = import_sql_output(os.path.join(
-        DDIR, 'earnings', 'technical_vars_1.csv'))
+        DDIR, 'earnings', 'technical_vars_1.txt'))
     data2 = import_sql_output(os.path.join(
-        DDIR, 'pead', 'technical_vars_1.csv'))
+        DDIR, 'pead', 'technical_vars_1.txt'))
 
     def setUp(self):
         pass

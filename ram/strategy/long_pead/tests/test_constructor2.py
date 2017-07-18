@@ -53,6 +53,11 @@ class TestConstructor2(unittest.TestCase):
             'V1': [1, 2, 1, 2, 2, 1, 100, -100, 323, 3, 3, 3]
         })
         result = outlier_rank(df, 'V1', outlier_std=.4, pad=True)
+        benchmark = df[['SecCode', 'Date', 'V1']]
+        benchmark['V1'] = [0, 1/2., 1/6., 1/3., 1/2.,
+                           1/6., 1, 0, 1, 2/3., 1, 2/3.]
+        benchmark['V1_extreme'] = [0] * 6 + [1, -1, 1, 0, 0, 0]
+        assert_frame_equal(result, benchmark)
 
     def test_make_variable_dict(self):
         data = pd.DataFrame({
@@ -70,16 +75,6 @@ class TestConstructor2(unittest.TestCase):
         self.assertFalse(np.isnan(result['2010-01-03']['b']))
         self.assertEqual(result['2010-01-03']['a'], 3.0)
         self.assertEqual(result['2010-01-03']['b'], -99.0)
-
-    def test_get_iter_dates(self):
-        data = pd.DataFrame({
-            'SecCode': ['a'] * 3 + ['b'] * 3,
-            'Date': ['2010-01-01', '2010-01-02', '2010-01-03'] * 2,
-            'TestFlag': [False, True, True] * 2,
-            'V1': range(6),
-            'V2': range(1, 7)
-        })
-        result = get_iter_dates(self.data)
 
     def tearDown(self):
         pass

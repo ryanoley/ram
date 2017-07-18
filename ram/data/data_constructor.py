@@ -3,9 +3,9 @@ import json
 import shutil
 import itertools
 import numpy as np
+from tqdm import tqdm
 import datetime as dt
-
-from gearbox import ProgBar
+from dateutil import parser as dparser
 
 from ram import config
 
@@ -17,33 +17,58 @@ class DataConstructor(object):
 
     def __init__(self, strategy):
         self.strategy_name = strategy.__class__.__name__
+        self.constructor_type = strategy.get_constructor_type()
         self.features = strategy.get_features()
-        self.date_parameters = strategy.get_date_parameters()
-        self.filter_args = strategy.get_filter_args()
         self._prepped_data_dir = os.path.join(
             config.PREPPED_DATA_DIR, self.strategy_name)
+        if self.constructor_type in ['etfs', 'ids']:
+            self.filter_args = strategy.get_ids_filter_args()
+        else:
+            self.date_parameters = strategy.get_univ_date_parameters()
+            self.filter_args = strategy.get_univ_filter_args()
 
     def run(self):
         self._check_parameters()
         self._make_output_directory()
-        self._make_date_iterator()
         self._write_archive_meta_parameters()
         datahandler = DataHandlerSQL()
-        for t1, t2, t3 in ProgBar(self._date_iterator):
-            adj_filter_date = t2 - dt.timedelta(days=1)
-            data = datahandler.get_filtered_univ_data(
-                features=self.features,
-                start_date=t1,
-                end_date=t3,
-                filter_date=adj_filter_date,
-                filter_args=self.filter_args)
+        if self.constructor_type in ['etfs', 'ids']:
+            if self.constructor_type == 'etfs':
+                data = datahandler.get_etf_data(
+                    self.filter_args['ids'],
+                    self.features,
+                    self.filter_args['start_date'],
+                    self.filter_args['end_date'])
+            else:
+                data = datahandler.get_id_data(
+                    self.filter_args['ids'],
+                    self.features,
+                    self.filter_args['start_date'],
+                    self.filter_args['end_date'])
             data = data.drop_duplicates()
             data.SecCode = data.SecCode.astype(int).astype(str)
             data = data.sort_values(['SecCode', 'Date'])
-            # Add TestFlag
-            data['TestFlag'] = data.Date > adj_filter_date
-            file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
+            start_date = dparser.parse(self.filter_args['start_date'])
+            file_name = '{}_data.csv'.format(start_date.strftime('%Y%m%d'))
             data.to_csv(os.path.join(self._output_dir, file_name), index=False)
+        else:
+            self._make_date_iterator()
+            for t1, t2, t3 in tqdm(self._date_iterator):
+                adj_filter_date = t2 - dt.timedelta(days=1)
+                data = datahandler.get_filtered_univ_data(
+                    features=self.features,
+                    start_date=t1,
+                    end_date=t3,
+                    filter_date=adj_filter_date,
+                    filter_args=self.filter_args)
+                data = data.drop_duplicates()
+                data.SecCode = data.SecCode.astype(int).astype(str)
+                data = data.sort_values(['SecCode', 'Date'])
+                # Add TestFlag
+                data['TestFlag'] = data.Date > adj_filter_date
+                file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
+                data.to_csv(os.path.join(self._output_dir, file_name),
+                            index=False)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -90,17 +115,21 @@ class DataConstructor(object):
         self._date_iterator = iterator
 
     def _check_parameters(self):
-        assert hasattr(self, 'date_parameters')
+        assert hasattr(self, 'constructor_type')
         assert hasattr(self, 'features')
+        assert hasattr(self, 'filter_args')
+        if self.constructor_type == 'universe':
+            assert hasattr(self, 'date_parameters')
+            assert set(['filter', 'univ_size']).issubset(
+                self.filter_args.keys())
+        if self.constructor_type in ['etfs', 'ids']:
+            assert set(['ids', 'start_date', 'end_date']).issubset(
+                self.filter_args.keys())
 
     def _write_archive_meta_parameters(self):
         git_branch, git_commit = get_git_branch_commit()
         meta = {
-            'frequency': self.date_parameters['frequency'],
             'filter_args': self.filter_args,
-            'train_period_len': self.date_parameters['train_period_length'],
-            'test_period_len': self.date_parameters['test_period_length'],
-            'start_year': self.date_parameters['start_year'],
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),
             'strategy_name': self.strategy_name,
@@ -108,6 +137,14 @@ class DataConstructor(object):
             'git_branch': git_branch,
             'git_commit': git_commit
         }
+        if self.constructor_type == 'universe':
+            meta.update({
+                'frequency': self.date_parameters['frequency'],
+                'train_period_len':
+                    self.date_parameters['train_period_length'],
+                'test_period_len': self.date_parameters['test_period_length'],
+                'start_year': self.date_parameters['start_year']
+                })
         # Write meta to output directory
         path = os.path.join(self._output_dir, 'meta.json')
         with open(path, 'w') as outfile:
@@ -255,38 +292,3 @@ def print_strategy_meta(strategy, version):
     print('   Test Period Length:\t' + str(meta['test_period_len']))
     print('   Frequency:\t\t' + str(meta['frequency']))
     print('\n')
-
-
-if __name__ == '__main__':
-
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-ls', '--list_strategies', action='store_true',
-        help='List all strategies')
-    parser.add_argument(
-        '-lv', '--list_versions', type=str,
-        help='List all versions of prepped data for a strategy')
-    parser.add_argument(
-        '-pm', '--print_meta', type=str, nargs=2,
-        help='Print meta data. Takes two arguments for Strategy and Version')
-    parser.add_argument(
-        '-cv', '--clean_version', type=str, nargs=2,
-        help='Delete version. Takes two arguments for Strategy and Version')
-
-    args = parser.parse_args()
-
-    if args.list_strategies:
-        print_strategies()
-    elif args.list_versions:
-        strategy = get_strategy_name(args.list_versions)
-        print_strategy_versions(strategy)
-    elif args.print_meta:
-        strategy = get_strategy_name(args.print_meta[0])
-        version = get_version_name(strategy, args.print_meta[1])
-        print_strategy_meta(strategy, version)
-    elif args.clean_version:
-        strategy = get_strategy_name(args.clean_version[0])
-        version = get_version_name(strategy, args.clean_version[1])
-        clean_directory(strategy, version)

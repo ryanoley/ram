@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from gearbox import convert_date_array
+from ram.utils.time_funcs import convert_date_array
 
 from ram import config
 from ram.analysis.statistics import get_stats
@@ -22,8 +22,8 @@ class RunManager(object):
 
     @staticmethod
     def get_strategies(path=config.SIMULATION_OUTPUT_DIR):
-        dirs = [x for x in os.listdir(path) if x.find('Strat') >= 0]
-        return dirs
+        return [x for x in os.listdir(path) if
+                os.path.isdir(os.path.join(path, x))]
 
     @staticmethod
     def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):

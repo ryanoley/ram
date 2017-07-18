@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from gearbox import convert_date_array
+from ram.utils.time_funcs import convert_date_array
 
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
