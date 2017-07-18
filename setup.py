@@ -13,6 +13,7 @@ PACKAGES = [
     'ram/strategy',
     'ram/strategy/cta',
     'ram/strategy/etfs',
+    'ram/strategy/etfs/src',
     'ram/strategy/gap',
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
