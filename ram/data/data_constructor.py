@@ -68,8 +68,7 @@ class DataConstructor(object):
                 data['TestFlag'] = data.Date > adj_filter_date
                 file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
                 data.to_csv(os.path.join(self._output_dir, file_name),
-                            index=False)            
-
+                            index=False)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -119,11 +118,11 @@ class DataConstructor(object):
         assert hasattr(self, 'constructor_type')
         assert hasattr(self, 'features')
         assert hasattr(self, 'filter_args')
-        if self.constructor_type == 'universe':  
+        if self.constructor_type == 'universe':
             assert hasattr(self, 'date_parameters')
             assert set(['filter', 'univ_size']).issubset(
                 self.filter_args.keys())
-        if self.constructor_type in ['etfs','ids']:  
+        if self.constructor_type in ['etfs', 'ids']:
             assert set(['ids', 'start_date', 'end_date']).issubset(
                 self.filter_args.keys())
 
@@ -141,7 +140,8 @@ class DataConstructor(object):
         if self.constructor_type == 'universe':
             meta.update({
                 'frequency': self.date_parameters['frequency'],
-                'train_period_len': self.date_parameters['train_period_length'],
+                'train_period_len':
+                    self.date_parameters['train_period_length'],
                 'test_period_len': self.date_parameters['test_period_length'],
                 'start_year': self.date_parameters['start_year']
                 })
@@ -292,4 +292,3 @@ def print_strategy_meta(strategy, version):
     print('   Test Period Length:\t' + str(meta['test_period_len']))
     print('   Frequency:\t\t' + str(meta['frequency']))
     print('\n')
-
