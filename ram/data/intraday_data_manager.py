@@ -1,4 +1,4 @@
-'''
+"""
 IQ FEED MESSAGE FORMAT:
 CMD,SYM,[options]\n
 
@@ -13,28 +13,29 @@ sample command for 1 min bars during trading hrs:
 
 data format returned from iqfeed:
 [YYYY-MM-DD HH:mm:SS],[HIGH],[LOW],[OPEN],[CLOSE],[VOLUME],[OPEN INTEREST]
-'''
+"""
 
-import socket
-import time
 import os
-import argparse
-import pandas as pd
-import numpy as np
-import datetime as dt
+import time
+import socket
 import pypyodbc
+import numpy as np
+import pandas as pd
+import datetime as dt
 from StringIO import StringIO
+
 from ram.data.data_handler_sql import DataHandlerSQL
 
 
 INTRADAY_DIR = os.path.join(os.getenv('DATA'), 'ram', 'intraday_src')
-IQF_COLS = ['DateTime', 'High', 'Low', 'Open', 'Close','Volume',
+
+IQF_COLS = ['DateTime', 'High', 'Low', 'Open', 'Close', 'Volume',
             'OpenInterest']
 
 
 class IntradayDataManager(object):
 
-    def __init__(self, src_dir = INTRADAY_DIR):
+    def __init__(self, src_dir=INTRADAY_DIR):
         self._src_dir = src_dir
         self.tickers = self.get_available_tickers()
 
@@ -48,7 +49,7 @@ class IntradayDataManager(object):
     def get_historical_data(self, tickers, interval=60):
         if not isinstance(tickers, list):
             tickers = [tickers]
-    
+
         # Download each symbol to disk
         for ticker in tickers:
             if ticker in self.tickers:
@@ -101,12 +102,12 @@ class IntradayDataManager(object):
     def _get_incremental_data(self, ticker, start_datetime, interval=60):
         if not isinstance(start_datetime, dt.datetime):
             start_datetime = parser.parse(start_datetime)
-        
-        if (start_datetime.time() < dt.time(16,00)):
-            iqf_date = start_datetime.strftime(format = '%Y%m%d %H%M%S')
+
+        if (start_datetime.time() < dt.time(16, 0)):
+            iqf_date = start_datetime.strftime(format='%Y%m%d %H%M%S')
         else:
             iqf_date = start_datetime + dt.timedelta(1)
-            iqf_date = iqf_date.strftime(format = '%Y%m%d  075000')
+            iqf_date = iqf_date.strftime(format='%Y%m%d  075000')
 
         # IQ Feed Message
         message = "HIT,{0},{1},{2},,,093000,160000,1\n".format(ticker,
@@ -123,14 +124,14 @@ class IntradayDataManager(object):
         # Open a streaming socket to the IQFeed server locally
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-    
+
         # Send the historical data request and buffer the data
         sock.sendall(message)
         data = self._read_from_socket(sock)
         sock.close()
         # Remove all the endlines and line-ending comma delimiter
         data = data.replace("\r", "")
-        data = data.replace(",\n","\n")[:-1]
+        data = data.replace(",\n", "\n")[:-1]
 
         # Write the data stream to output_dir
         dataIO = StringIO(data)
@@ -141,8 +142,9 @@ class IntradayDataManager(object):
         """
         Read the information from the socket, in a buffered
         fashion, receiving only 4096 bytes at a time.
-    
-        Parameters:
+
+        Parameters
+        ----------
         sock - The socket object
         recv_buffer - Amount in bytes to receive per read
         """
@@ -151,11 +153,9 @@ class IntradayDataManager(object):
         while True:
             data = sock.recv(recv_buffer)
             buffer += data
-    
             # Check if the end message string arrives
             if "!ENDMSG!" in buffer:
                 break
-       
         # Remove the end message string
         buffer = buffer[:-12]
         return buffer
@@ -173,19 +173,20 @@ class IntradayDataManager(object):
         data = pd.read_csv(fl_path)
 
         # Clean and prep for db entry
-        db_cols = ['Ticker', 'DateTime', 'High', 'Low', 'Open', 'Close','Volume',
-                   'OpenInterest']
+        db_cols = ['Ticker', 'DateTime', 'High', 'Low', 'Open', 'Close',
+                   'Volume', 'OpenInterest']
         data = data[db_cols]
         data = data.where((pd.notnull(data)), None)
         data.to_csv(fl_path, index=False)
         data = [tuple(x) for x in data.values]
-    
+
         # Create generic insert statement for new records
         fld_txt = '?,' * len(db_cols)
         SQLCommand = ("INSERT INTO ram.dbo.IntradayPricing" +
                       " VALUES (" + fld_txt[:-1] + ")")
-        connection = pypyodbc.connect('Driver={SQL Server};Server=QADIRECT;'
-                                   'Database=ram;uid=ramuser;pwd=183madison')
+        connection = pypyodbc.connect(
+            'Driver={SQL Server};Server=QADIRECT;'
+            'Database=ram;uid=ramuser;pwd=183madison')
         cursor = connection.cursor()
         cursor.executemany(SQLCommand, data)
         connection.commit()
@@ -193,27 +194,22 @@ class IntradayDataManager(object):
         return
 
 
-
 if __name__ == "__main__":
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-history', '--history', action='store_true',
-        help='Get full history')
+        '--history', type=str, default=None, nargs='+',
+        help='Get full history for ticker(s)')
     parser.add_argument(
         '-u', '--update', action='store_true',
         help='Update tickers in src_dir')
     args = parser.parse_args()
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    idm = IntradayDataManager(INTRADAY_DIR)
-    
+    idm = IntradayDataManager()
+
     if args.history:
-        idm.get_historical_data(['SPY','IWM'])
+        idm.get_historical_data(args.history)
     elif args.update:
         idm.update_data()
-
-
-
-
