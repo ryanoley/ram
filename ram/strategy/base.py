@@ -99,7 +99,8 @@ class Strategy(object):
         else:
             print('Filter variable: {}'.format(meta['filter_args']['filter']))
             print('Where filter: {}'.format(meta['filter_args']['where']))
-            print('Universe size: {}\n'.format(meta['filter_args']['univ_size']))
+            print('Universe size: {}\n'.format(
+                meta['filter_args']['univ_size']))
             print('Start Year: {}'.format(meta['start_year']))
             print('Train Period Length: {}'.format(meta['train_period_len']))
             print('Test Period Length: {}'.format(meta['test_period_len']))
@@ -258,7 +259,7 @@ def make_argument_parser(Strategy):
 
     # Data Construction Commands
     parser.add_argument(
-        '--data_prep', action='store_true',
+        '-d', '--data_prep', action='store_true',
         help='Run DataConstructor')
 
     args = parser.parse_args()
