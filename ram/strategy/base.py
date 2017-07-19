@@ -22,7 +22,7 @@ class Strategy(object):
     __metaclass__ = ABCMeta
 
     def __init__(self,
-                 prepped_data_version,
+                 prepped_data_version='NODATA',
                  write_flag=False,
                  prepped_data_dir=config.PREPPED_DATA_DIR,
                  output_dir=config.SIMULATION_OUTPUT_DIR):
