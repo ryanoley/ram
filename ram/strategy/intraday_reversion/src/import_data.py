@@ -66,7 +66,8 @@ def _format_returns(data,
 
 def _pivot_data(data, values):
     """
-    ASSUMPTION: Missing values are padded.
+    ASSUMPTION: Missing values are padded in both directions.
     """
-    return data.pivot(index='Time', columns='Date',
-                      values=values).fillna(method='pad')
+    return data.pivot(
+        index='Time', columns='Date', values=values).fillna(
+            method='pad').fillna(method='backfill')
