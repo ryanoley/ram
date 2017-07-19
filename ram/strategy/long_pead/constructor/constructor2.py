@@ -183,7 +183,7 @@ class PortfolioConstructor2(object):
         """
         # GET CACHED DATA
         if time_index == self._train_data_max_time_index:
-            return self.train_data.copy(), self.test_data.copy(), features
+            return self.train_data.copy(), self.test_data.copy(), self.features
 
         # ELSE Construct new training and test data from inputted data
         self._train_data_max_time_index = time_index
@@ -249,8 +249,9 @@ class PortfolioConstructor2(object):
         # Separate training from test data
         self.train_data = self.train_data.append(data[~data.TestFlag])
         self.test_data = data[data.TestFlag]
+        self.features = features
 
-        return self.train_data.copy(), self.test_data.copy(), features
+        return self.train_data.copy(), self.test_data.copy(), self.features
 
 
 def make_variable_dict(data, variable, fillna=np.nan):
