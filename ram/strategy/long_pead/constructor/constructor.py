@@ -1,3 +1,7 @@
+"""
+This was the original idea where you blackout around earnings announcements
+and also have an anchor price that adjusts as time moves forward.
+"""
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -54,9 +58,9 @@ class PortfolioConstructor(object):
             portfolio.update_position_sizes(
                 self._get_position_sizes(anchor_rets,
                                          logistic_spread,
-                                         self.booksize))
+                                         self.booksize), closes)
             daily_df.loc[date, 'PL'] = portfolio.get_portfolio_daily_pl()
-            daily_df.loc[date, 'Exposure'] = portfolio.get_exposure()
+            daily_df.loc[date, 'Exposure'] = portfolio.get_portfolio_exposure()
             exps = np.array([x.exposure for x in portfolio.positions.values()])
             daily_df.loc[date, 'Count'] = (exps != 0).sum()
         return daily_df
