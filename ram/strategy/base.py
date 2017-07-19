@@ -93,7 +93,7 @@ class Strategy(object):
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
                                                      meta['version']))
         if self.get_constructor_type() in ['etfs', 'ids']:
-            print('IDs variable: {}'.format(meta['filter_args']['ids']))
+            print('IDs: {}'.format(meta['filter_args']['ids']))
             print('Start Date: {}'.format(meta['filter_args']['start_date']))
             print('End Date: {}\n'.format(meta['filter_args']['end_date']))
         else:

@@ -39,8 +39,6 @@ def _get_first_time_index_by_column(data):
     tmp.columns = ['Date', 'Time', 'Bool']
     tmp = tmp[tmp.Bool]
     times = tmp.groupby('Date')['Time'].first()
-    times[:] = [dt.datetime(1950, 1, 1, t.hour, t.minute)
-                for t in times.values]
     return times
 
 
@@ -48,14 +46,16 @@ def _calculate_rets(wins, losses, ret_close, stop_slippage,
                     transaction_costs, take_perc, stop_perc):
     rets = -1 * transaction_costs.copy()
     rets.name = 'Rets'
-    rets += np.where(
-        # WINNER
-        wins < losses, take_perc, np.where(
-        # LOSER
-        wins > losses, -stop_perc - stop_slippage, np.where(
-        # MAKES IT TO THE CLOSE
-        wins == dt.datetime(1950, 1, 1, 23, 59), ret_close.iloc[-1], np.where(
-        losses == dt.datetime(1950, 1, 1, 23, 59), ret_close.iloc[-1], np.where(
-        # TIE GETS THE MEAN RETURN - DO WE WANT THIS?
-        wins == losses, (take_perc - stop_perc) / 2., 0)))))
+    # WINNER
+    rets += np.where(wins < losses, take_perc, 0) 
+    # LOSER
+    rets += np.where(wins > losses, -stop_perc - stop_slippage, 0)   
+    # MAKES IT TO THE CLOSE
+    rets += np.where((wins == losses) & (wins == dt.time(23, 59)),
+                        ret_close.iloc[-1], 0)
+    # TIE GETS THE MEAN RETURN - DO WE WANT THIS?
+    rets += np.where((wins == losses) & (wins != dt.time(23, 59)),
+                        (take_perc - stop_perc) / 2., 0)
+
     return rets
+

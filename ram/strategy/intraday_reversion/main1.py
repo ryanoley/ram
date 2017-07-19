@@ -9,6 +9,7 @@ import datetime as dt
 from ram.strategy.base import Strategy
 from ram.strategy.intraday_reversion.src.intraday_return_simulator import IntradayReturnSimulator
 from ram.strategy.intraday_reversion.src.trade_signals_1 import *
+from ram.strategy.intraday_reversion.src.format_data import *
 
 
 def make_arg_iter(variants):
@@ -53,6 +54,7 @@ class IntradayReversion(Strategy):
 
     def run_index(self, index):
         data = self.read_data_from_index(index)
+        data = format_raw_data(data)
 
         irs = IntradayReturnSimulator()
 
