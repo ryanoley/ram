@@ -11,11 +11,22 @@ def get_available_tickers(intraday_dir=INTRADAY_DIR):
     except:
         return 'No source files or directory found'
 
+def get_intraday_hlc_rets_data(ticker, intraday_dir=INTRADAY_DIR):
+    """
+    Parameters
+    ----------
+    ticker : str
+    """
+    try:
+        data = _import_data(ticker, intraday_dir)
+        return _format_hlc_returns(data)
+    except:
+        return pd.DataFrame([])
 
-def get_intraday_rets_data(ticker,
-                           slippage_in_dollars=0.02,
-                           transaction_costs_in_dollars=0.008,
-                           intraday_dir=INTRADAY_DIR):
+def get_daily_cost_data(ticker,
+                        slippage_in_dollars=0.02,
+                        transaction_costs_in_dollars=0.008,
+                        intraday_dir=INTRADAY_DIR):
     """
     Parameters
     ----------
@@ -28,11 +39,10 @@ def get_intraday_rets_data(ticker,
     """
     try:
         data = _import_data(ticker, intraday_dir)
-        return _format_returns(data, slippage_in_dollars,
-                               transaction_costs_in_dollars)
+        return _format_costs(data, slippage_in_dollars,
+                             transaction_costs_in_dollars)
     except:
         return pd.DataFrame([])
-
 
 def _import_data(ticker, intraday_dir):
     data = pd.read_csv(os.path.join(intraday_dir, '{}.csv'.format(ticker)))
@@ -44,10 +54,7 @@ def _import_data(ticker, intraday_dir):
     data = data[data.Date > data.Date.min()]
     return data
 
-
-def _format_returns(data,
-                    slippage_in_dollars,
-                    transaction_costs_in_dollars):
+def _format_hlc_returns(data):
     data_open = _pivot_data(data, 'Open')
     data_high = _pivot_data(data, 'High')
     data_low = _pivot_data(data, 'Low')
@@ -56,13 +63,16 @@ def _format_returns(data,
     ret_high = data_high / data_open.iloc[0] - 1
     ret_low = data_low / data_open.iloc[0] - 1
     ret_close = data_close / data_open.iloc[0] - 1
+    return ret_high, ret_low, ret_close
+
+def _format_costs(data, slippage_in_dollars, transaction_costs_in_dollars):
+    data_open = _pivot_data(data, 'Open')
     # COSTS - slippage and transaction costs
     slippage = slippage_in_dollars / data_open.iloc[0]
     slippage.name = 'slippage'
     tcosts = transaction_costs_in_dollars / data_open.iloc[0]
     tcosts.name = 'transaction_costs'
-    return ret_high, ret_low, ret_close, slippage, tcosts
-
+    return slippage, tcosts
 
 def _pivot_data(data, values):
     """

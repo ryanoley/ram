@@ -10,7 +10,8 @@ from ram.strategy.intraday_reversion.src.take_stop_returns import get_long_retur
 from ram.strategy.intraday_reversion.src.take_stop_returns import get_short_returns
 from ram.strategy.intraday_reversion.src.take_stop_returns import _get_first_time_index_by_column
 from ram.strategy.intraday_reversion.src.take_stop_returns import _calculate_rets
-from ram.strategy.intraday_reversion.src.import_data import _format_returns
+from ram.strategy.intraday_reversion.src.import_data import _format_hlc_returns
+from ram.strategy.intraday_reversion.src.import_data import _format_costs
 
 
 class TestTakeStopReturns(unittest.TestCase):
@@ -27,27 +28,25 @@ class TestTakeStopReturns(unittest.TestCase):
         self.data = data
 
     def test_get_first_time_index_by_column(self):
-        high_rets, low_rets, close_rets, slippage, tcosts = \
-            _format_returns(self.data, 0.02, 0.01)
+        high_rets, low_rets, close_rets = _format_hlc_returns(self.data)
+        slippage, tcosts = _format_costs(self.data, 0.02, 0.01)
         result = _get_first_time_index_by_column(high_rets > 0.1)
-        benchmark = pd.Series([dt.datetime(1950, 1, 1, 10, 1),
-                               dt.datetime(1950, 1, 1, 23, 59)])
+        benchmark = pd.Series([dt.time(10, 1), dt.time(23, 59)])
         benchmark.index = [dt.date(2010, 1, 4), dt.date(2010, 1, 5)]
         benchmark.name = 'Time'
         benchmark.index.name = 'Date'
-        assert_series_equal(pd.to_datetime(result), pd.to_datetime(benchmark))
+        assert_series_equal(result, benchmark)
         #
         result = _get_first_time_index_by_column(low_rets < -0.1)
-        benchmark = pd.Series([dt.datetime(1950, 1, 1, 10, 3),
-                               dt.datetime(1950, 1, 1, 10, 2)])
+        benchmark = pd.Series([dt.time(10, 3), dt.time(10, 2)])
         benchmark.index = [dt.date(2010, 1, 4), dt.date(2010, 1, 5)]
         benchmark.name = 'Time'
         benchmark.index.name = 'Date'
-        assert_series_equal(pd.to_datetime(result), pd.to_datetime(benchmark))
+        assert_series_equal(result, benchmark)
 
     def test_calculate_rets(self):
-        high_rets, low_rets, close_rets, slippage, tcosts = \
-            _format_returns(self.data, 0.02, 0.01)
+        high_rets, low_rets, close_rets = _format_hlc_returns(self.data)
+        slippage, tcosts = _format_costs(self.data, 0.02, 0.01)
         # Simulate a long position
         take_perc = 0.2
         stop_perc = 0.1

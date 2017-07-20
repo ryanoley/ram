@@ -7,9 +7,9 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.strategy.intraday_reversion.src.import_data import _pivot_data
-from ram.strategy.intraday_reversion.src.import_data import _format_returns
-from ram.strategy.intraday_reversion.src.import_data import \
-    get_available_tickers
+from ram.strategy.intraday_reversion.src.import_data import _format_hlc_returns
+from ram.strategy.intraday_reversion.src.import_data import _format_costs
+from ram.strategy.intraday_reversion.src.import_data import get_available_tickers
 
 
 class TestImportData(unittest.TestCase):
@@ -77,12 +77,40 @@ class TestImportData(unittest.TestCase):
         data['High'] = [10, 11, 12, 13, 14] * 2
         data['Low'] = [10, 9, 8, 7, 6] * 2
         data['Close'] = [11] * 10
-        result = _format_returns(data, 0.02, 0.01)
+        result = _format_hlc_returns(data)
         self.assertTrue(isinstance(result[0], pd.DataFrame))
-        self.assertTrue(isinstance(result[3], pd.Series))
-        self.assertTrue(isinstance(result[4], pd.Series))
-        self.assertEqual(result[3].iloc[0], 0.002)
-        self.assertEqual(result[4].iloc[0], 0.001)
+        self.assertTrue(isinstance(result[1], pd.DataFrame))
+        self.assertTrue(isinstance(result[2], pd.DataFrame))
+
+        benchmark_high_ret = np.array([0.,.1,.2,.3,.4])
+        result_high_ret = result[0][dt.date(2010,1,4)].values
+        assert_array_equal(np.round(result_high_ret, 5),
+                           np.round(benchmark_high_ret, 5))
+
+        benchmark_low_ret = np.array([0.,-.1,-.2,-.3,-.4])
+        result_low_ret = result[1][dt.date(2010,1,4)].values
+        assert_array_equal(np.round(result_low_ret, 5),
+                           np.round(benchmark_low_ret, 5))
+
+        benchmark_close_ret = np.array([.1,.1,.1,.1,.1])
+        result_close_ret = result[2][dt.date(2010,1,4)].values
+        assert_array_equal(np.round(result_close_ret, 5),
+                           np.round(benchmark_close_ret, 5))
+
+    def test_format_costs(self):
+        data = pd.DataFrame()
+        data['Ticker'] = ['SPY'] * 10
+        data['Date'] = [dt.date(2010, 1, 4)] * 5 + [dt.date(2010, 1, 5)] * 5
+        data['Time'] = [dt.time(10, i) for i in range(5)] * 2
+        data['Open'] = [10] * 10
+        data['High'] = [10, 11, 12, 13, 14] * 2
+        data['Low'] = [10, 9, 8, 7, 6] * 2
+        data['Close'] = [11] * 10
+        result = _format_costs(data, 0.02, 0.01)
+        self.assertTrue(isinstance(result[0], pd.Series))
+        self.assertTrue(isinstance(result[1], pd.Series))
+        self.assertEqual(result[0].iloc[0], 0.002)
+        self.assertEqual(result[1].iloc[0], 0.001)
 
     def tearDown(self):
         pass
