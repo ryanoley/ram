@@ -26,23 +26,28 @@ class TestConstructor2(unittest.TestCase):
         })
         self.data['Date'] = convert_date_array(self.data.Date)
 
-    def Xtest_get_position_sizes(self):
-        cons = PortfolioConstructor()
-        mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
-        result = cons._get_position_sizes(mrets, 1, 100)
-
     def Xtest_set_and_prep_data(self):
         cons = PortfolioConstructor(booksize=200,)
         cons.set_and_prep_data(self.data, time_index=0,
-                          blackout_offset1=-1,
-                          blackout_offset2=1,
-                          anchor_init_offset=1,
-                          anchor_window=2)
+                               blackout_offset1=-1,
+                               blackout_offset2=1,
+                               anchor_init_offset=1,
+                               anchor_window=2)
         result = cons.close_dict[pd.Timestamp('2015-01-01')]
         benchmark = {'AAPL': 10, 'GOOGL': 10, 'IBM': 9}
         self.assertDictEqual(result, benchmark)
         result = cons.close_dict[pd.Timestamp('2015-01-04')]
         benchmark = {'AAPL': 5, 'GOOGL': 15, 'IBM': 12}
+        self.assertDictEqual(result, benchmark)
+
+    def test_get_position_sizes(self):
+        cons = PortfolioConstructor2()
+        mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
+        result = cons._get_position_sizes(mrets, 1, 100)
+        benchmark = {'AAPL': -13.163684327956279,
+                     'IBM': 36.836315672043717,
+                     'TSLA': -36.836315672043717,
+                     'BAC': 13.163684327956279, 'GS': 0}
         self.assertDictEqual(result, benchmark)
 
     def test_outlier_rank(self):

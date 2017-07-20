@@ -1,14 +1,14 @@
-import numpy as np
-import pandas as pd
 import os
-import datetime as dt
 import sys
 import itertools
+import numpy as np
+import pandas as pd
+import datetime as dt
 
-from ram.strategy.intraday_reversion.src.intraday_return_simulator import IntradayReturnSimulator
-from ram.strategy.intraday_reversion.src.trade_signals import *
-from ram.strategy.intraday_reversion.src.format_data import *
 from ram.strategy.base import Strategy
+from ram.strategy.intraday_reversion.src.format_data import *
+from ram.strategy.intraday_reversion.src.trade_signals import *
+from ram.strategy.intraday_reversion.src.intraday_return_simulator import IntradayReturnSimulator
 
 
 def make_arg_iter(variants):
@@ -36,7 +36,9 @@ class IntradayReversion(Strategy):
         'SPY': [(0.0100, 0.0040), (0.0100, 0.0020)],
         'IWM': [(0.0100, 0.0040), (0.0100, 0.0020)],
         'QQQ': [(0.0100, 0.0040), (0.0100, 0.0020)],
-        'VXX': [(0.0100, 0.0100), (0.0100, 0.0070)]
+        'VXX': [(0.0100, 0.0100), (0.0100, 0.0070)],
+        'TLT': [(0.0100, 0.0040), (0.0100, 0.0020)],
+        'GLD': [(0.0100, 0.0040), (0.0100, 0.0020)]
     })
 
     def get_column_parameters(self):
@@ -59,20 +61,27 @@ class IntradayReversion(Strategy):
 
         # HARD-CODED PREPROCSSING TO SAVE SPACE
         irs._preprocess_returns('SPY', perc_take=0.0100, perc_stop=0.0040)
-        #irs._preprocess_returns('SPY', perc_take=0.0100, perc_stop=0.0020)
-        #
+        irs._preprocess_returns('SPY', perc_take=0.0100, perc_stop=0.0020)
+        
         irs._preprocess_returns('IWM', perc_take=0.0100, perc_stop=0.0040)
-        #irs._preprocess_returns('IWM', perc_take=0.0100, perc_stop=0.0020)
-        #
+        irs._preprocess_returns('IWM', perc_take=0.0100, perc_stop=0.0020)
+        
         irs._preprocess_returns('QQQ', perc_take=0.0100, perc_stop=0.0040)
-        #irs._preprocess_returns('QQQ', perc_take=0.0100, perc_stop=0.0020)
-        #
+        irs._preprocess_returns('QQQ', perc_take=0.0100, perc_stop=0.0020)
+        
         irs._preprocess_returns('VXX', perc_take=0.0100, perc_stop=0.0100)
-        #irs._preprocess_returns('VXX', perc_take=0.0100, perc_stop=0.0070)
+        irs._preprocess_returns('VXX', perc_take=0.0100, perc_stop=0.0070)
+
+        irs._preprocess_returns('TLT', perc_take=0.0100, perc_stop=0.0040)
+        irs._preprocess_returns('TLT', perc_take=0.0100, perc_stop=0.0020)
+
+        irs._preprocess_returns('GLD', perc_take=0.0100, perc_stop=0.0040)
+        irs._preprocess_returns('GLD', perc_take=0.0100, perc_stop=0.0020)
 
         i = 0
         for a1 in self.args1:
             predictions = get_predictions(data, irs, **a1)
+
             for a2 in self.args2:
                 signals = get_trade_signals(predictions, **a2)
                 for a3 in self.args3:
@@ -129,7 +138,7 @@ class IntradayReversion(Strategy):
         Overriden method from Strategy
         """
         return {
-            'ids': ['SPY', 'QQQ', 'IWM', 'VXX'],
+            'ids': ['SPY', 'QQQ', 'IWM', 'VXX', 'GLD', 'TLT'],
             'start_date': '2002-04-24',
             'end_date': '2017-06-07'}
 

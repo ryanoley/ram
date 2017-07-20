@@ -36,8 +36,7 @@ class PortfolioConstructor2(object):
 
     def get_iterable_args(self):
         return {
-            'logistic_spread': [.1, .5, 1, 2],
-            'open_execution': [True, False]
+            'logistic_spread': [0.1, 1, 2, 5, 10]
         }
 
     def get_data_args(self):
@@ -47,7 +46,7 @@ class PortfolioConstructor2(object):
             'model_drop': [1, 2, 3, 4]
         }
 
-    def get_daily_pl(self, arg_index, logistic_spread, open_execution):
+    def get_daily_pl(self, arg_index, logistic_spread):
         """
         Parameters
         ----------
@@ -60,7 +59,6 @@ class PortfolioConstructor2(object):
 
         for date in self.iter_dates:
 
-            opens = self.open_lead_dict[date]
             closes = self.close_dict[date]
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
@@ -70,30 +68,16 @@ class PortfolioConstructor2(object):
 
             portfolio.update_prices(closes, dividends, splits)
 
-            # WHEN DO YOU EXECUTE?
-            if open_execution:
-                if date == self.iter_dates.iloc[-1]:
-                    portfolio.close_portfolio_positions()
-                    daily_pl = portfolio.get_portfolio_daily_pl()
-                    daily_turnover = portfolio.get_portfolio_daily_turnover()
-                    daily_exposure = portfolio.get_portfolio_exposure()
-                else:
-                    daily_pl = portfolio.get_portfolio_daily_pl()
-                    daily_turnover = portfolio.get_portfolio_daily_turnover()
-                    daily_exposure = portfolio.get_portfolio_exposure()
-                    portfolio.update_position_sizes(
-                        self._get_position_sizes(scores, logistic_spread,
-                                                 self.booksize), opens)
+            if date == self.iter_dates.iloc[-1]:
+                portfolio.close_portfolio_positions()
             else:
-                if date == self.iter_dates.iloc[-1]:
-                    portfolio.close_portfolio_positions()
-                else:
-                    portfolio.update_position_sizes(
-                        self._get_position_sizes(scores, logistic_spread,
-                                                 self.booksize), closes)
-                daily_pl = portfolio.get_portfolio_daily_pl()
-                daily_turnover = portfolio.get_portfolio_daily_turnover()
-                daily_exposure = portfolio.get_portfolio_exposure()
+                sizes = self._get_position_sizes(scores, logistic_spread,
+                                                 self.booksize)
+                portfolio.update_position_sizes(sizes, closes)
+
+            daily_pl = portfolio.get_portfolio_daily_pl()
+            daily_turnover = portfolio.get_portfolio_daily_turnover()
+            daily_exposure = portfolio.get_portfolio_exposure()
 
             daily_df.loc[date, 'PL'] = daily_pl
             daily_df.loc[date, 'Turnover'] = daily_turnover
@@ -102,20 +86,31 @@ class PortfolioConstructor2(object):
         # Close everything and begin anew in new quarter
         return daily_df
 
-    def _get_position_sizes(self, mrets, logistic_spread, booksize):
-        mrets = pd.Series(mrets).to_frame()
-        mrets.columns = ['MomRet']
-        mrets = mrets.sort_values('MomRet')
+    def _get_position_sizes(self, scores, logistic_spread, booksize):
+        """
+        Position sizes are determined by the ranking, and for an
+        even number of scores the position sizes should be symmetric on
+        both the long and short sides.
+
+        The weighting scheme takes on the shape of a sigmoid function,
+        and the shape of the sigmoid is modulated by the hyperparameter
+        logistic spread.
+        """
+        scores = pd.Series(scores).to_frame()
+        scores.columns = ['score']
+        scores = scores.sort_values('score')
+
         # Simple rank
         def logistic_weight(k):
             return 2 / (1 + np.exp(-k)) - 1
-        n_good = (~mrets.MomRet.isnull()).sum()
-        n_bad = mrets.MomRet.isnull().sum()
-        mrets['weights'] = [
+
+        n_good = (~scores.score.isnull()).sum()
+        n_bad = scores.score.isnull().sum()
+        scores['weights'] = [
             logistic_weight(x) for x in np.linspace(
                 -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
-        mrets.weights = mrets.weights / mrets.weights.abs().sum() * booksize
-        return mrets.weights.to_dict()
+        scores.weights = scores.weights / scores.weights.abs().sum() * booksize
+        return scores.weights.to_dict()
 
     # ~~~~~~ Data Format ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -133,8 +128,8 @@ class PortfolioConstructor2(object):
 
         # CREATE MODELS
         clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
-                                     min_samples_leaf=60,
-                                     max_features=7)
+                                      min_samples_leaf=60,
+                                      max_features=7)
 
         clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
                                     min_samples_leaf=60,
@@ -174,7 +169,6 @@ class PortfolioConstructor2(object):
         self.iter_dates = test_data.Date.drop_duplicates()
         # Formatted for portfolio construction
         self.close_dict = make_variable_dict(data, 'RClose')
-        self.open_lead_dict = make_variable_dict(data, 'LEAD1_ROpen')
         self.dividend_dict = make_variable_dict(data, 'RCashDividend', 0)
         self.split_mult_dict = make_variable_dict(data,
                                                   'SplitMultiplier', 1)
@@ -189,7 +183,7 @@ class PortfolioConstructor2(object):
         """
         # GET CACHED DATA
         if time_index == self._train_data_max_time_index:
-            return self.train_data.copy(), self.test_data.copy(), features
+            return self.train_data.copy(), self.test_data.copy(), self.features
 
         # ELSE Construct new training and test data from inputted data
         self._train_data_max_time_index = time_index
@@ -250,14 +244,14 @@ class PortfolioConstructor2(object):
             ['blackout', 'anchor_ret_rank', 'earnings_ret']
         data = data[['SecCode', 'Date', 'TestFlag', 'AdjClose'] + features]
 
-        import pdb; pdb.set_trace()
         data = data.dropna()
 
         # Separate training from test data
         self.train_data = self.train_data.append(data[~data.TestFlag])
         self.test_data = data[data.TestFlag]
+        self.features = features
 
-        return self.train_data.copy(), self.test_data.copy(), features
+        return self.train_data.copy(), self.test_data.copy(), self.features
 
 
 def make_variable_dict(data, variable, fillna=np.nan):

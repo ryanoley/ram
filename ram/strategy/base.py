@@ -21,15 +21,32 @@ class Strategy(object):
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, prepped_data_version=None, write_flag=False):
+    def __init__(self,
+                 prepped_data_version='NODATA',
+                 write_flag=False,
+                 prepped_data_dir=config.PREPPED_DATA_DIR,
+                 output_dir=config.SIMULATION_OUTPUT_DIR):
+        """
+        Parameters
+        ----------
+        prepped_data_version : str
+            This is the name of the prepped data version, e.g.: version_0002
+        write_flag : bool
+            Whether to create an output directory and write results to file
+        prepped_data_dir : str
+            Location of the global prepped data directory, not specific to the
+            Strategy or version provided. Defaults to what is in the global
+            config file
+        output_dir : str
+            Location of where written output will go. Defaults to what is in
+            the global config file
+        """
         self._write_flag = write_flag
-        if write_flag:
-            self._output_dir = config.SIMULATION_OUTPUT_DIR
-        if prepped_data_version:
-            self._data_version = prepped_data_version
-            self._prepped_data_dir = os.path.join(
-                config.PREPPED_DATA_DIR, self.__class__.__name__,
-                prepped_data_version)
+        self._data_version = prepped_data_version
+        self._prepped_data_dir = os.path.join(prepped_data_dir,
+                                              self.__class__.__name__,
+                                              prepped_data_version)
+        self._output_dir = output_dir
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -37,6 +54,9 @@ class Strategy(object):
         self._print_prepped_data_meta()
         self._get_data_file_names()
         self._create_output_dir()
+        self._copy_source_code()
+        self._create_meta_file()
+        self._write_column_parameters_file()
         for i in ProgBar(range(len(self._data_files))):
             self.run_index(i)
 
@@ -44,10 +64,7 @@ class Strategy(object):
 
     def _create_output_dir(self):
         if self._write_flag:
-            # Collect some meta data
-            description = prompt_for_description()
-            git_branch, git_commit = get_git_branch_commit()
-            # Make directory for simulations
+            # Check if system has created folder for output
             if not os.path.exists(self._output_dir):
                 os.makedirs(self._output_dir)
             # Make directory for StrategyClass
@@ -55,37 +72,75 @@ class Strategy(object):
                                         self.__class__.__name__)
             if not os.path.exists(strategy_dir):
                 os.makedirs(strategy_dir)
-            # Get all run versions
+            # Get all run versions for increment for this run
             all_dirs = [x for x in os.listdir(strategy_dir) if x[:3] == 'run']
             if all_dirs:
                 new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
             else:
                 new_ind = 1
-            run_dir = os.path.join(strategy_dir, 'run_{0:04d}'.format(new_ind))
-            os.mkdir(run_dir)
+            self.run_dir = os.path.join(strategy_dir,
+                                        'run_{0:04d}'.format(new_ind))
+            os.mkdir(self.run_dir)
             # Output directory setup
-            self.strategy_output_dir = os.path.join(run_dir, 'index_outputs')
+            self.strategy_output_dir = os.path.join(
+                self.run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
+
+    def _copy_source_code(self):
+        if self._write_flag:
             # Copy source code for Strategy
             source_path = os.path.dirname(inspect.getabsfile(self.__class__))
-            dest_path = os.path.join(run_dir, 'strategy_source_copy')
+            dest_path = os.path.join(self.run_dir, 'strategy_source_copy')
             copytree(source_path, dest_path)
+
+    def _create_meta_file(self, user_description=True):
+        if self._write_flag:
+            # To aid unittest
+            if user_description:
+                description = prompt_for_description()
+            else:
+                description = None
+            git_branch, git_commit = get_git_branch_commit()
             # Create meta object
             run_meta = {
                 'prepped_data_version': self._data_version,
                 'latest_git_commit': git_commit,
                 'git_branch': git_branch,
-                'description': description
+                'description': description,
+                'completed': False
             }
-            with open(os.path.join(run_dir, 'meta.json'), 'w') as outfile:
+            with open(os.path.join(self.run_dir, 'meta.json'), 'w') as outfile:
                 json.dump(run_meta, outfile)
             outfile.close()
-            # Column parameters
+
+    def _write_column_parameters_file(self):
+        """
+        get_column_parameters should return a dictionary where keys represent
+        the column numbers. For example:
+        {
+            0: {'param1': 10, 'param2': 20},
+            1: {'param1': 10, 'param2': 40}
+        }
+        """
+        if self._write_flag:
             column_params = self.get_column_parameters()
-            with open(os.path.join(run_dir, 'column_params.json'),
+            assert isinstance(column_params, dict)
+            with open(os.path.join(self.run_dir, 'column_params.json'),
                       'w') as outfile:
                 json.dump(column_params, outfile)
             outfile.close()
+
+    def _shutdown_simulation(self):
+        if self._write_flag:
+            # Update meta file
+            meta = json.load(open(os.path.join(self.run_dir,
+                                               'meta.json'), 'r'))
+            meta['completed'] = True
+            with open(os.path.join(self.run_dir, 'meta.json'),
+                      'w') as outfile:
+                json.dump(meta, outfile)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _print_prepped_data_meta(self):
         meta = json.load(open(os.path.join(self._prepped_data_dir,

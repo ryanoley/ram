@@ -53,6 +53,21 @@ class TestImportData(unittest.TestCase):
         benchmark.columns.name = 'Date'
         assert_frame_equal(result, benchmark)
 
+        # Introduce NaN value
+        data = pd.DataFrame()
+        data['Date'] = [dt.date(2010, 1, 1)] * 4 + [dt.date(2010, 1, 2)] * 4
+        data['Time'] = ['09:31', '09:32', '09:33', '09:34'] * 2
+        data['Close'] = [1, 2, 3, 4, 5, 6, 7, 8.]
+        data = data.drop(0)
+        result = _pivot_data(data, 'Close')
+        benchmark = pd.DataFrame([[2, 5], [2, 6], [3, 7], [4., 8.]],
+                                 index=['09:31', '09:32', '09:33', '09:34'],
+                                 columns=[dt.date(2010, 1, 1),
+                                          dt.date(2010, 1, 2)])
+        benchmark.index.name = 'Time'
+        benchmark.columns.name = 'Date'
+        assert_frame_equal(result, benchmark)
+
     def test_format_returns(self):
         data = pd.DataFrame()
         data['Ticker'] = ['SPY'] * 10

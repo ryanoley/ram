@@ -5,11 +5,12 @@ import datetime as dt
 from ram.strategy.base import Strategy
 from ram.strategy.long_pead.constructor.constructor import PortfolioConstructor
 from ram.strategy.long_pead.constructor.constructor2 import PortfolioConstructor2
+from ram.strategy.long_pead.constructor.constructor3 import PortfolioConstructor3
 
 
 class LongPeadStrategy(Strategy):
 
-    constructor = PortfolioConstructor2()
+    constructor = PortfolioConstructor3()
 
     def get_column_parameters(self):
         """
