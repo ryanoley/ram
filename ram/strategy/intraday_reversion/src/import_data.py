@@ -19,7 +19,7 @@ def get_intraday_hlc_rets_data(ticker, intraday_dir=INTRADAY_DIR):
     """
     try:
         data = _import_data(ticker, intraday_dir)
-        return _format_returns(data)
+        return _format_hlc_returns(data)
     except:
         return pd.DataFrame([])
 
@@ -54,7 +54,7 @@ def _import_data(ticker, intraday_dir):
     data = data[data.Date > data.Date.min()]
     return data
 
-def _format_returns(data):
+def _format_hlc_returns(data):
     data_open = _pivot_data(data, 'Open')
     data_high = _pivot_data(data, 'High')
     data_low = _pivot_data(data, 'Low')
