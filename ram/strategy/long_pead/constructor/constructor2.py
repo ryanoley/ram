@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from gearbox import create_time_index
+
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 from ram.strategy.long_pead.constructor.utils import ern_date_blackout
 from ram.strategy.long_pead.constructor.utils import make_anchor_ret_rank
@@ -36,14 +38,15 @@ class PortfolioConstructor2(object):
 
     def get_iterable_args(self):
         return {
-            'logistic_spread': [0.1, 1, 2, 5, 10]
+            'logistic_spread': [0.1, 0.5, 1]
         }
 
     def get_data_args(self):
         return {
-            'response_days': [[2, 4, 6], [2], [6]],
-            'response_thresh': [.25, .45],
-            'model_drop': [1, 2, 3, 4]
+            'response_days': [[2, 4, 6]],
+            'response_thresh': [.45],
+            'model_drop': [0],
+            'training_qtrs': [-99, 12, 6]
         }
 
     def get_daily_pl(self, arg_index, logistic_spread):
@@ -114,13 +117,24 @@ class PortfolioConstructor2(object):
 
     # ~~~~~~ Data Format ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def _trim_training_data(self, data, training_qtrs):
+        if training_qtrs == -99:
+            return data
+        inds = create_time_index(data.Date)
+        max_ind = np.max(inds)
+        return data.iloc[inds > (max_ind-training_qtrs)]
+
     def set_and_prep_data(self, data, time_index,
                           response_days,
                           response_thresh,
-                          model_drop):
+                          model_drop,
+                          training_qtrs):
 
         train_data, test_data, features = self._process_train_test_data(
             data, time_index)
+
+        # Trim training data
+        train_data = self._trim_training_data(train_data, training_qtrs)
 
         train_data = train_data.merge(
             smoothed_responses(train_data, days=response_days,
@@ -139,20 +153,24 @@ class PortfolioConstructor2(object):
                                  max_samples=0.7, max_features=0.6,
                                  n_jobs=NJOBS)
 
-        clf4 = BaggingClassifier(RidgeClassifier(tol=1e-1, solver="lsqr"),
-                                 n_estimators=10,
-                                 max_samples=0.7, max_features=0.6,
-                                 n_jobs=NJOBS)
+        # clf4 = BaggingClassifier(RidgeClassifier(tol=1e-1, solver="lsqr"),
+        #                          n_estimators=10,
+        #                          max_samples=0.7, max_features=0.6,
+        #                          n_jobs=NJOBS)
+        # 
+        # clf5 = BaggingClassifier(Lasso(alpha=0.3, tol=0.0001),
+        #                          n_estimators=10,
+        #                          max_samples=0.7, max_features=0.6,
+        #                          n_jobs=NJOBS)
 
-        clf5 = BaggingClassifier(Lasso(alpha=0.3, tol=0.0001),
-                                 n_estimators=10,
-                                 max_samples=0.7, max_features=0.6,
-                                 n_jobs=NJOBS)
+        # models = [('rf', clf1), ('et', clf2), ('lc', clf3),
+        #           ('rc', clf4), ('ls', clf5)]
+        models = [('rf', clf1), ('et', clf2), ('lc', clf3)]
 
-        assert model_drop in [1, 2, 3, 4, 5]
-        models = [('rf', clf1), ('et', clf2), ('lc', clf3),
-                  ('rc', clf4), ('ls', clf5)]
-        models.pop(model_drop - 1)
+        if model_drop > 0:
+            assert model_drop in [1, 2, 3, 4, 5]
+            models.pop(model_drop - 1)
+
         clf = VotingClassifier(estimators=models, voting='soft')
 
         clf.fit(X=train_data[features], y=train_data['Response'])
@@ -175,6 +193,7 @@ class PortfolioConstructor2(object):
         self.market_cap_dict = make_variable_dict(data,
                                                   'MarketCap', 'pad')
         self.scores_dict = make_variable_dict(test_data, 'preds')
+        self.group_dict = make_variable_dict(data, 'GGROUP', 'pad')
 
     def _process_train_test_data(self, data, time_index):
         """
@@ -295,9 +314,9 @@ def outlier_rank(data, variable, outlier_std=4, pad=True):
     daily_min = pdata.median(axis=1) - outlier_std * pdata.std(axis=1)
     daily_max = pdata.median(axis=1) + outlier_std * pdata.std(axis=1)
 
-    # Make data frame with Bools for extreme values
-    extremes = pdata.gt(daily_max, axis=0).astype(int) - \
-        pdata.lt(daily_min, axis=0).astype(int)
+    # FillNans are to avoid warning
+    extremes = pdata.fillna(-99999).gt(daily_max, axis=0).astype(int) - \
+        pdata.fillna(99999).lt(daily_min, axis=0).astype(int)
 
     # Rank
     ranks = (pdata.rank(axis=1) - 1) / (pdata.shape[1] - 1)
