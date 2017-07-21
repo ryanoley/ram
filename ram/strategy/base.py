@@ -59,6 +59,7 @@ class Strategy(object):
         self._write_column_parameters_file()
         for i in ProgBar(range(len(self._data_files))):
             self.run_index(i)
+        self._shutdown_simulation()
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
