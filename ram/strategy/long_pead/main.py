@@ -6,11 +6,12 @@ from ram.strategy.base import Strategy
 from ram.strategy.long_pead.constructor.constructor import PortfolioConstructor
 from ram.strategy.long_pead.constructor.constructor2 import PortfolioConstructor2
 from ram.strategy.long_pead.constructor.constructor3 import PortfolioConstructor3
+from ram.strategy.long_pead.constructor.constructor4 import PortfolioConstructor4
 
 
 class LongPeadStrategy(Strategy):
 
-    constructor = PortfolioConstructor3()
+    constructor = PortfolioConstructor4()
 
     def get_column_parameters(self):
         """
@@ -27,6 +28,9 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
+        ### TEMP
+        data = data.loc[data.SecCode != '10902932'].reset_index(drop=True)
+        ### TEMP
         args_port = make_arg_iter(self.constructor.get_iterable_args())
         args_data = make_arg_iter(self.constructor.get_data_args())
         i = 0
