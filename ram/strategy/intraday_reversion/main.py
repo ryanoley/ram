@@ -19,26 +19,26 @@ def make_arg_iter(variants):
 class IntradayReversion(Strategy):
 
     args1 = make_arg_iter({
-        'response_perc_take': [0.008, 0.012, 0.016],
+        'response_perc_take': [0.008, 0.012],
         'response_perc_stop': [0.004, 0.008],
         'n_estimators': [100],
-        'min_samples_split': [40, 80, 120],
+        'min_samples_split': [80],
         'min_samples_leaf': [20]
     })
 
     args2 = make_arg_iter({
-        'zLim': [0.15, 0.25, 0.35, 0.50, 0.70],
+        'zLim': [0.25, 0.35, 0.50],
         'gap_down_limit': [0.25, 0.40],
-        'gap_up_limit': [0.25, 0.40],
+        'gap_up_limit': [0.25, 0.40]
     })
 
     args3 = make_arg_iter({
-        'SPY': [(0.0100, 0.0040), (0.0100, 0.0020)],
-        'IWM': [(0.0100, 0.0040), (0.0100, 0.0020)],
-        'QQQ': [(0.0100, 0.0040), (0.0100, 0.0020)],
-        'VXX': [(0.0100, 0.0100), (0.0100, 0.0070)],
-        'TLT': [(0.0100, 0.0040), (0.0100, 0.0020)],
-        'GLD': [(0.0100, 0.0040), (0.0100, 0.0020)]
+        'SPY': [(0.0100, 0.0040), (0.00700, 0.0020)],
+        'IWM': [(0.0100, 0.0040), (0.00700, 0.0020)],
+        'QQQ': [(0.0100, 0.0040), (0.00700, 0.0020)],
+        'VXX': [(0.0100, 0.0100), (0.00700, 0.0070)],
+        'TLT': [(0.0100, 0.0040), (0.00700, 0.0020)],
+        'GLD': [(0.0100, 0.0040), (0.00700, 0.0020)]
     })
 
     def get_column_parameters(self):
@@ -58,25 +58,7 @@ class IntradayReversion(Strategy):
         data = format_raw_data(data)
 
         irs = IntradayReturnSimulator()
-
-        # HARD-CODED PREPROCSSING TO SAVE SPACE
-        irs._preprocess_returns('SPY', perc_take=0.0100, perc_stop=0.0040)
-        irs._preprocess_returns('SPY', perc_take=0.0100, perc_stop=0.0020)
-        
-        irs._preprocess_returns('IWM', perc_take=0.0100, perc_stop=0.0040)
-        irs._preprocess_returns('IWM', perc_take=0.0100, perc_stop=0.0020)
-        
-        irs._preprocess_returns('QQQ', perc_take=0.0100, perc_stop=0.0040)
-        irs._preprocess_returns('QQQ', perc_take=0.0100, perc_stop=0.0020)
-        
-        irs._preprocess_returns('VXX', perc_take=0.0100, perc_stop=0.0100)
-        irs._preprocess_returns('VXX', perc_take=0.0100, perc_stop=0.0070)
-
-        irs._preprocess_returns('TLT', perc_take=0.0100, perc_stop=0.0040)
-        irs._preprocess_returns('TLT', perc_take=0.0100, perc_stop=0.0020)
-
-        irs._preprocess_returns('GLD', perc_take=0.0100, perc_stop=0.0040)
-        irs._preprocess_returns('GLD', perc_take=0.0100, perc_stop=0.0020)
+        self.preprocess_take_stop_reponses(irs)
 
         i = 0
         for a1 in self.args1:
@@ -109,6 +91,22 @@ class IntradayReversion(Strategy):
         else:
             self.output_returns = self.output_returns.join(returns, how='outer')
         self.output_stats[arg_index] = stats
+
+    def preprocess_take_stop_reponses(self, irs):
+        unique_set_ups = {}
+        for arg3 in self.args3:
+            for ticker, return_params in arg3.iteritems():
+                if ticker not in unique_set_ups:
+                    unique_set_ups[ticker] = set()
+                unique_set_ups[ticker].add(return_params)
+        
+        # HARD-CODED PREPROCSSING TO SAVE SPACE
+        for ticker, return_param_set in unique_set_ups.iteritems():
+            for return_param in return_param_set:
+                irs._preprocess_returns(ticker,
+                                        perc_take=return_param[0],
+                                        perc_stop=return_param[1])
+        return
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
