@@ -6,8 +6,7 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.intraday_reversion.src.trade_signals_1 import *
-from ram.strategy.intraday_reversion.src.trade_signals_1 import _create_ticker_binaries
+from ram.strategy.intraday_reversion.src.format_data import _create_ticker_binaries
 
 
 class TestTradeSignals1(unittest.TestCase):
@@ -22,10 +21,6 @@ class TestTradeSignals1(unittest.TestCase):
         data['Low'] = [10, 10, 10, 8, 11] + [10, 9, 8, 6, 2]
         data['Close'] = [11] * 10
         self.data = data
-
-    def test_get_trade_signals(self):
-        # import pdb; pdb.set_trace()
-        pass
 
     def test_create_ticker_binaries(self):
         data = self.data.copy()
