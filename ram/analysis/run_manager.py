@@ -113,10 +113,22 @@ def filter_classified_params(cparams, drop_params=None):
     if drop_params:
         assert isinstance(drop_params, list)
         assert isinstance(drop_params[0], tuple)
+        # Collect all columns to drop, and pop the parameter
+        # should be dropped so it isn't reported
+        drop_columns = []
         for dp in drop_params:
             if dp[0] in cparams:
                 if str(dp[1]) in cparams[dp[0]]:
-                    cparams[dp[0]].pop(str(dp[1]))
+                    drop_columns.append(cparams[dp[0]].pop(str(dp[1])))
+        # Clean out drop_columns from remaining parameters
+        drop_columns = set(sum(drop_columns, []))
+        output = {}
+        for param, pmap in cparams.items():
+            output[param] = {}
+            for val, col_list in pmap.items():
+                if len(list(set(col_list) - drop_columns)):
+                    output[param][val] = list(set(col_list) - drop_columns)
+        return output
     return cparams
 
 
