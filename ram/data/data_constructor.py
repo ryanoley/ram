@@ -11,6 +11,7 @@ from ram import config
 
 from ram.data.data_handler_sql import DataHandlerSQL
 from ram.utils.documentation import get_git_branch_commit
+from ram.utils.documentation import prompt_for_description
 
 
 class DataConstructor(object):
@@ -127,6 +128,7 @@ class DataConstructor(object):
                 self.filter_args.keys())
 
     def _write_archive_meta_parameters(self):
+        description = prompt_for_description()
         git_branch, git_commit = get_git_branch_commit()
         meta = {
             'filter_args': self.filter_args,
@@ -135,7 +137,8 @@ class DataConstructor(object):
             'strategy_name': self.strategy_name,
             'version': self.version,
             'git_branch': git_branch,
-            'git_commit': git_commit
+            'git_commit': git_commit,
+            'description': description
         }
         if self.constructor_type == 'universe':
             meta.update({
@@ -211,6 +214,8 @@ def _get_meta_data(strategy, version):
                         version, 'meta.json')
     with open(path) as data_file:
         meta = json.load(data_file)
+    if 'description' not in meta:
+        meta['description'] = None
     return meta
 
 
@@ -242,18 +247,17 @@ def _print_line_underscore(pstring):
 def print_strategy_versions(strategy):
     stats = _get_strategy_version_stats(strategy)
     _print_line_underscore('Available Verions for {}'.format(strategy))
-    print('  Key\tVersion\t\tStart Date\tEnd Date\t'
-          'File Count\tDir Creation Date')
+    print('  Key\tVersion\t\t'
+          'File Count\tDir Creation Date\tDescription')
     keys = stats.keys()
     keys.sort()
     for key in keys:
-        print('  [{}]\t{}\t{}\t{}\t{}\t\t{}'.format(
+        print('  [{}]\t{}\t{}\t\t{}\t\t{}'.format(
             key,
             stats[key]['version'],
-            stats[key]['min_date'],
-            stats[key]['max_date'],
             stats[key]['file_count'],
-            stats[key]['create_date']))
+            stats[key]['create_date'],
+            stats[key]['description']))
     print('\n')
 
 
@@ -266,10 +270,9 @@ def _get_strategy_version_stats(strategy):
         stats = _get_min_max_dates_counts(strategy, version)
         dir_stats[key] = {
             'version': version,
-            'min_date': stats[0],
-            'max_date': stats[1],
             'file_count': stats[2],
-            'create_date': meta['start_time'][:10]
+            'create_date': meta['start_time'][:10],
+            'description': meta['description']
         }
     return dir_stats
 

@@ -34,6 +34,15 @@ class TestStrategy(Strategy):
             'univ_size': 10}
 
 
+class DataConstructor2(DataConstructor):
+
+    def _write_archive_meta_parameters(self):
+        """
+        Note being tested
+        """
+        pass
+
+
 class TestDataConstructor(unittest.TestCase):
 
     def setUp(self):
@@ -62,7 +71,7 @@ class TestDataConstructor(unittest.TestCase):
 
     def test_run(self):
         # Continue with test
-        dc = DataConstructor(TestStrategy())
+        dc = DataConstructor2(TestStrategy())
         dc._prepped_data_dir = os.path.join(self.ddir, 'TestStrategy')
         if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):
             shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))

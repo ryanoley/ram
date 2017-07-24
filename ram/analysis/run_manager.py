@@ -80,7 +80,12 @@ class RunManager(object):
 
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def analyze_parameters(self):
+    def analyze_parameters(self, drop_params=None):
+        """
+        Parameters
+        ----------
+        drop_params : list of dicts
+        """
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         if not hasattr(self, 'column_params'):
@@ -88,6 +93,7 @@ class RunManager(object):
         if not hasattr(self, 'stats'):
             self.import_stats()
         cparams = classify_params(self.column_params)
+        cparams = filter_classified_params(cparams, drop_params)
         astats = aggregate_statistics(self.stats, self.start_year)
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
@@ -101,6 +107,17 @@ class RunManager(object):
             return get_stats(self.returns.loc[inds, _format_columns(columns)])
         else:
             return get_stats(self.returns.loc[inds])
+
+
+def filter_classified_params(cparams, drop_params=None):
+    if drop_params:
+        assert isinstance(drop_params, list)
+        assert isinstance(drop_params[0], tuple)
+        for dp in drop_params:
+            if dp[0] in cparams:
+                if str(dp[1]) in cparams[dp[0]]:
+                    cparams[dp[0]].pop(str(dp[1]))
+    return cparams
 
 
 ###############################################################################
@@ -121,8 +138,34 @@ def _get_date_indexes(date_index, start_year):
 ###############################################################################
 
 def aggregate_statistics(stats, start_year):
-    # Stats are organized by dates first so need to flip to aggregate
-    # for each column
+    """
+    When stats are written across multiple files, they must be combined
+    into one data point. This function takes in a dictionary that
+    has in the first layer the file name, and then the next layer a dictionary
+    that has all the stats for each column.
+
+    For example:
+    {
+        '20100101_stats.json': {
+            '0': {'stat1': 10, 'stat2': 20},
+            '1': {'stat1': 20, 'stat2': 30}
+        },
+        '20110101_stats.json': {
+            '0': {'stat1': 20, 'stat2': 40},
+            '1': {'stat1': 30, 'stat2': 50}
+        },
+    }
+
+    The routine will take the mean and standard deviation over all the stats
+    and return a dictionary that has the column in the keys and a dictionary
+    of the stat: means
+
+    For example:
+    {
+        '0': {'stat1': 15, 'stat2': 30},
+        '1': {'stat1': 25, 'stat2': 40}
+    }
+    """
     agg_stats = {k: {k: [] for k in stats.values()[0].values()[0].keys()}
                  for k in stats.values()[0].keys()}
 
@@ -144,6 +187,25 @@ def aggregate_statistics(stats, start_year):
 
 
 def classify_params(params):
+    """
+    Params is a dictionary that has the column number as a key, and
+    a dictionary of the parameters for that particular run as the value.
+
+    For example:
+    {
+        '0': {'param1': 1, 'param2': 2},
+        '1': {'param1': 1, 'param2': 3}
+    }
+
+    The output is then a dictionary with parameters in the keys, and
+    a list of columns in the values.
+
+    From the above example:
+    {
+        'param1': {1: [0, 1]},
+        'param2': {2: [0], 3: [1]}
+    }
+    """
     out = {}
     for i, p in params.iteritems():
         for k, v in p.iteritems():
@@ -157,6 +219,13 @@ def classify_params(params):
 
 
 def format_param_results(data, cparams, astats, start_year):
+    """
+    This function aggregates returns and statistics across all the different
+    parameters. For example, training_period_length could have two values
+    {10, 20}, and there are five of each. This would be represented
+    by two lines in the data frame with statistics related to the return
+    series ALONG with the statistics that are passed in `astats`.
+    """
     out = []
     stat_names = astats.values()[0].keys()
     stat_names.sort()
