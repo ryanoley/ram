@@ -53,7 +53,8 @@ class TestRunManager(unittest.TestCase):
             json.dump(stats, f)
         f.close()
         # Create a meta file
-        meta = {'description': 'Test data', 'start_time': '2010-01-01'}
+        meta = {'description': 'Test data', 'start_time': '2010-01-01',
+                'completed': True}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
         f.close()
@@ -88,7 +89,8 @@ class TestRunManager(unittest.TestCase):
     def test_import_meta(self):
         rm1 = RunManager('TestStrategy', 'run_0001')
         rm1.import_meta(self.base_path)
-        benchmark = {'start_time': '2010-01-01', 'description': 'Test data'}
+        benchmark = {'start_time': '2010-01-01', 'description': 'Test data',
+                     'completed': True}
         self.assertDictEqual(rm1.meta, benchmark)
 
     def test_import_column_params(self):
@@ -231,8 +233,10 @@ class TestRunManager(unittest.TestCase):
 
     def test_get_run_names(self):
         result = RunManager.get_run_names('TestStrategy', self.base_path)
-        benchmark = pd.DataFrame(columns=['Run', 'Description'], index=[0])
+        benchmark = pd.DataFrame(columns=['Run', 'Completed',
+                                          'Description'], index=[0])
         benchmark['Run'] = ['run_0001']
+        benchmark['Completed'] = True
         benchmark['Description'] = ['Test data']
         assert_frame_equal(result, benchmark)
 
