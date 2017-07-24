@@ -251,6 +251,14 @@ class TestRunManager(unittest.TestCase):
         benchmark['Description'] = ['Test data']
         assert_frame_equal(result, benchmark)
 
+    def test_get_quarterly_rets(self):
+        data = pd.DataFrame(index=[dt.datetime(2010, 3, 27) +
+                                   dt.timedelta(days=i) for i in range(10)])
+        data['Ret1'] = range(10)
+        data['Ret2'] = range(5, -5, -1)
+        result = get_quarterly_rets(data, 'Ret1')
+        self.assertEqual(result.values[0].tolist(), [2, 7])
+
     def tearDown(self):
         shutil.rmtree(self.base_path)
 

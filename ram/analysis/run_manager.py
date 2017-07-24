@@ -103,20 +103,21 @@ class RunManager(object):
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
 
-    def analyze_returns(self, columns=None, start_year=1950):
-        """
-        This is a half-baked implementation. Think about what this could do
-        """
+    def analyze_returns(self):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        # Get indexes from imported data
-        inds = _get_date_indexes(self.returns.index, start_year)
-        if columns:
-            return get_stats(self.returns.loc[inds, _format_columns(columns)])
-        else:
-            return get_stats(self.returns.loc[inds])
+        rets1 = self.basic_model_selection(window=100).iloc[101:]
+        rets2 = self.basic_model_selection(
+            window=100, criteria='sharpe').iloc[101:]
+        rets = pd.DataFrame(rets1)
+        rets.columns = ['ReturnOptim']
+        rets['SharpeOptim'] = rets2
+        return get_stats(rets), get_quarterly_rets(rets,
+                                                   column_name='ReturnOptim')
 
     def basic_model_selection(self, window=30, criteria='mean'):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
         # Rolling mean, offset by one day and select top
         roll_mean = self.returns.rolling(window=window).mean()
         if criteria == 'sharpe':
@@ -130,6 +131,8 @@ class RunManager(object):
         return best_rets
 
     def plot_results(self):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
         rets1 = self.basic_model_selection(window=100).iloc[101:]
         rets2 = self.basic_model_selection(
             window=100, criteria='sharpe').iloc[101:]
@@ -140,6 +143,7 @@ class RunManager(object):
         plt.plot(rets2, 'g')
         plt.show()
 
+    
 
 ###############################################################################
 
@@ -164,6 +168,14 @@ def filter_classified_params(cparams, drop_params=None):
                     output[param][val] = list(set(col_list) - drop_columns)
         return output
     return cparams
+
+
+def get_quarterly_rets(data, column_name):
+    data = data.copy()
+    data['year'] = [d.year for d in data.index]
+    data['qtr'] = [(d.month-1)/3 + 1 for d in data.index]
+    data2 = data.groupby(['year', 'qtr'])[column_name].sum().reset_index()
+    return data2.pivot(index='year', columns='qtr', values=column_name)
 
 
 ###############################################################################
