@@ -33,7 +33,11 @@ class RunManager(object):
         for i, d in enumerate(dirs):
             desc = json.load(open(os.path.join(ddir, d, 'meta.json'), 'r'))
             output.loc[i, 'Description'] = desc['description']
-        return output[['Run', 'Description']]
+            if 'completed' in desc:
+                output.loc[i, 'Completed'] = desc['completed']
+            else:
+                output.loc[i, 'Completed'] = None
+        return output[['Run', 'Completed', 'Description']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
