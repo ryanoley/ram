@@ -11,7 +11,7 @@ from ram.strategy.long_pead.constructor.constructor4 import PortfolioConstructor
 
 class LongPeadStrategy(Strategy):
 
-    constructor = PortfolioConstructor4()
+    constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):
         """
@@ -61,7 +61,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (25) ' +
+            'where': 'MarketCap >= 200 and GSECTOR in (15) ' +
             'and Close_ between 5 and 500',
             'univ_size': 500
         }

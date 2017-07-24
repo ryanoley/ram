@@ -38,15 +38,17 @@ class PortfolioConstructor2(object):
 
     def get_iterable_args(self):
         return {
-            'logistic_spread': [0.1, 0.5, 1]
+            'logistic_spread': [0.1, 1]
         }
 
     def get_data_args(self):
         return {
-            'response_days': [[2, 4, 6]],
-            'response_thresh': [.45],
+            'response_days': [[2, 4, 6], [3], [10]],
+            'response_thresh': [0.25, 0.35, 0.45],
             'model_drop': [0],
-            'training_qtrs': [-99, 12, 6]
+            'training_qtrs': [-99],
+            'drop_accounting': [False],
+            'just_extra_trees': [True, False]
         }
 
     def get_daily_pl(self, arg_index, logistic_spread):
@@ -128,10 +130,12 @@ class PortfolioConstructor2(object):
                           response_days,
                           response_thresh,
                           model_drop,
-                          training_qtrs):
+                          training_qtrs,
+                          drop_accounting,
+                          just_extra_trees):
 
         train_data, test_data, features = self._process_train_test_data(
-            data, time_index)
+            data, time_index, drop_accounting)
 
         # Trim training data
         train_data = self._trim_training_data(train_data, training_qtrs)
@@ -140,38 +144,43 @@ class PortfolioConstructor2(object):
             smoothed_responses(train_data, days=response_days,
                                thresh=response_thresh))
 
-        # CREATE MODELS
-        clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
-                                      min_samples_leaf=60,
-                                      max_features=7)
+        if just_extra_trees:
+            clf = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
+                                       min_samples_leaf=60,
+                                       max_features=7)
+        else:
+            # CREATE MODELS
+            clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
+                                          min_samples_leaf=60,
+                                          max_features=7)
 
-        clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
-                                    min_samples_leaf=60,
-                                    max_features=7)
+            clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
+                                        min_samples_leaf=60,
+                                        max_features=7)
 
-        clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
-                                 max_samples=0.7, max_features=0.6,
-                                 n_jobs=NJOBS)
+            clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
+                                     max_samples=0.7, max_features=0.6,
+                                     n_jobs=NJOBS)
 
-        # clf4 = BaggingClassifier(RidgeClassifier(tol=1e-1, solver="lsqr"),
-        #                          n_estimators=10,
-        #                          max_samples=0.7, max_features=0.6,
-        #                          n_jobs=NJOBS)
-        # 
-        # clf5 = BaggingClassifier(Lasso(alpha=0.3, tol=0.0001),
-        #                          n_estimators=10,
-        #                          max_samples=0.7, max_features=0.6,
-        #                          n_jobs=NJOBS)
+            # clf4 = BaggingClassifier(RidgeClassifier(tol=1e-1, solver="lsqr"),
+            #                          n_estimators=10,
+            #                          max_samples=0.7, max_features=0.6,
+            #                          n_jobs=NJOBS)
+            # 
+            # clf5 = BaggingClassifier(Lasso(alpha=0.3, tol=0.0001),
+            #                          n_estimators=10,
+            #                          max_samples=0.7, max_features=0.6,
+            #                          n_jobs=NJOBS)
 
-        # models = [('rf', clf1), ('et', clf2), ('lc', clf3),
-        #           ('rc', clf4), ('ls', clf5)]
-        models = [('rf', clf1), ('et', clf2), ('lc', clf3)]
+            # models = [('rf', clf1), ('et', clf2), ('lc', clf3),
+            #           ('rc', clf4), ('ls', clf5)]
+            models = [('rf', clf1), ('et', clf2), ('lc', clf3)]
 
-        if model_drop > 0:
-            assert model_drop in [1, 2, 3, 4, 5]
-            models.pop(model_drop - 1)
+            if model_drop > 0:
+                assert model_drop in [1, 2, 3, 4, 5]
+                models.pop(model_drop - 1)
 
-        clf = VotingClassifier(estimators=models, voting='soft')
+            clf = VotingClassifier(estimators=models, voting='soft')
 
         clf.fit(X=train_data[features], y=train_data['Response'])
 
@@ -195,7 +204,7 @@ class PortfolioConstructor2(object):
         self.scores_dict = make_variable_dict(test_data, 'preds')
         self.group_dict = make_variable_dict(data, 'GGROUP', 'pad')
 
-    def _process_train_test_data(self, data, time_index):
+    def _process_train_test_data(self, data, time_index, drop_accounting):
         """
         Handles raw data files that were read by Strategy base class.
         The time index is used for retrieving cached processed data.
@@ -207,33 +216,45 @@ class PortfolioConstructor2(object):
         # ELSE Construct new training and test data from inputted data
         self._train_data_max_time_index = time_index
 
-        features = [
-            'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
-            'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
-            'BOLL60_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
-            'MFI60_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose',
-            'RSI60_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
-            'VOL60_AdjClose', 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
-            'DISCOUNT252_AdjClose',
-            # Accounting Variables
-            'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM', 'ASSETS',
-            'CASHEV', 'FCFMARKETCAP',
-            'NETINCOMEGROWTHQ',
-            'NETINCOMEGROWTHTTM',
-            'OPERATINGINCOMEGROWTHQ',
-            'OPERATINGINCOMEGROWTHTTM',
-            'EBITGROWTHQ',
-            'EBITGROWTHTTM',
-            'SALESGROWTHQ',
-            'SALESGROWTHTTM',
-            'FREECASHFLOWGROWTHQ',
-            'FREECASHFLOWGROWTHTTM',
-            'GROSSPROFASSET',
-            'GROSSMARGINTTM',
-            'EBITDAMARGIN',
-            'PE',
-        ]
-
+        if drop_accounting:
+            features = [
+                'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
+                'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
+                'BOLL60_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
+                'MFI60_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose',
+                'RSI60_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
+                'VOL60_AdjClose', 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
+                'DISCOUNT252_AdjClose',
+                # Accounting Variables
+                'PE',
+            ]
+        else:
+            features = [
+                'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
+                'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
+                'BOLL60_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
+                'MFI60_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose',
+                'RSI60_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
+                'VOL60_AdjClose', 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
+                'DISCOUNT252_AdjClose',
+                # Accounting Variables
+                'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM', 'ASSETS',
+                'CASHEV', 'FCFMARKETCAP',
+                'NETINCOMEGROWTHQ',
+                'NETINCOMEGROWTHTTM',
+                'OPERATINGINCOMEGROWTHQ',
+                'OPERATINGINCOMEGROWTHTTM',
+                'EBITGROWTHQ',
+                'EBITGROWTHTTM',
+                'SALESGROWTHQ',
+                'SALESGROWTHTTM',
+                'FREECASHFLOWGROWTHQ',
+                'FREECASHFLOWGROWTHTTM',
+                'GROSSPROFASSET',
+                'GROSSMARGINTTM',
+                'EBITDAMARGIN',
+                'PE',
+            ]
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         data.AdjVwap = np.where(
             data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
