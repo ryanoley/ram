@@ -28,9 +28,6 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
         data = self.read_data_from_index(time_index)
-        ### TEMP
-        data = data.loc[data.SecCode != '10902932'].reset_index(drop=True)
-        ### TEMP
         args_port = make_arg_iter(self.constructor.get_iterable_args())
         args_data = make_arg_iter(self.constructor.get_data_args())
         i = 0
@@ -64,7 +61,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (30) ' +
+            'where': 'MarketCap >= 200 and GSECTOR in (25) ' +
             'and Close_ between 5 and 500',
             'univ_size': 500
         }
