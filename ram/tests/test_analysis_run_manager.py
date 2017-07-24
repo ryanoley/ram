@@ -106,17 +106,17 @@ class TestRunManager(unittest.TestCase):
         # Now drop some
         drop_params = [('p1', 20)]
         result = rm1.analyze_parameters(drop_params)
-        self.assertEqual(result.shape[0], 3)
-        benchmark = pd.Series(['10', '20', '30'], name='Val')
+        self.assertEqual(result.shape[0], 2)
+        benchmark = pd.Series(['10', '20'], name='Val')
         assert_series_equal(result.Val, benchmark)
 
     def test_filter_classified_params(self):
-        cparams = {'p2': {'30': [u'1'], '20': [u'0']},
-                   'p1': {'10': [u'0'], '20': [u'1']}}
-        drop = [('p2', '30'), ('p1', '10')]
+        cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
+                   'p1': {'10': ['0', '2'], '20': ['1', '3']}}
+        drop = [('p2', '30')]
         result = filter_classified_params(cparams, drop)
-        benchmark = {'p2': {'20': ['0']},
-                     'p1': {'20': ['1']}}
+        benchmark = {'p2': {'20': ['0', '3']},
+                     'p1': {'10': ['0'], '20': ['3']}}
         self.assertDictEqual(result, benchmark)
 
     def test_classify_params(self):
