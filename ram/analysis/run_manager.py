@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from ram.utils.time_funcs import convert_date_array
 
@@ -127,6 +128,17 @@ class RunManager(object):
         best_rets['Rets'] = np.choose(np.roll(inds, 1), self.returns.values.T)
         best_rets.Rets.iloc[:window] = np.nan
         return best_rets
+
+    def plot_results(self):
+        rets1 = self.basic_model_selection(window=100).iloc[101:]
+        rets2 = self.basic_model_selection(
+            window=100, criteria='sharpe').iloc[101:]
+        all_rets = self.returns.loc[rets.index]
+        plt.figure()
+        plt.plot(all_rets.cumsum(), 'b', alpha=0.3)
+        plt.plot(rets1, 'r')
+        plt.plot(rets2, 'g')
+        plt.show()
 
 
 ###############################################################################
