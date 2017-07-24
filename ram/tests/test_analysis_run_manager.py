@@ -65,52 +65,63 @@ class TestRunManager(unittest.TestCase):
         f.close()
 
     def test_import_return_frame(self):
-        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
-        rm1.import_return_frame(path=self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
+        run1.import_return_frame(path=self.base_path)
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.] * 2
         data['1'] = [6, 7, 8, 9, 10.] * 2
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
         data.index = convert_date_array(data.index)
-        assert_frame_equal(rm1.returns, data)
-        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=1)
-        rm1.import_return_frame(path=self.base_path)
+        assert_frame_equal(run1.returns, data)
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=1)
+        run1.import_return_frame(path=self.base_path)
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.] + [0] * 5
         data['1'] = [6, 7, 8, 9, 10.] + [0] * 5
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
         data.index = convert_date_array(data.index)
-        assert_frame_equal(rm1.returns, data)
+        assert_frame_equal(run1.returns, data)
 
     def test_import_stats(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_stats(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001')
+        run1.import_stats(self.base_path)
 
     def test_import_meta(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_meta(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001')
+        run1.import_meta(self.base_path)
         benchmark = {'start_time': '2010-01-01', 'description': 'Test data',
                      'completed': True}
-        self.assertDictEqual(rm1.meta, benchmark)
+        self.assertDictEqual(run1.meta, benchmark)
 
     def test_import_column_params(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_column_params(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001')
+        run1.import_column_params(self.base_path)
 
     def test_analyze_parameters(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
-        rm1.import_return_frame(path=self.base_path)
-        rm1.import_column_params(self.base_path)
-        rm1.import_meta(self.base_path)
-        rm1.import_stats(self.base_path)
-        result = rm1.analyze_parameters()
+        run1 = RunManager('TestStrategy', 'run_0001')
+        run1.import_return_frame(path=self.base_path)
+        run1.import_column_params(self.base_path)
+        run1.import_meta(self.base_path)
+        run1.import_stats(self.base_path)
+        result = run1.analyze_parameters()
         self.assertEqual(result.shape[0], 4)
         # Now drop some
         drop_params = [('p1', 20)]
-        result = rm1.analyze_parameters(drop_params)
+        result = run1.analyze_parameters(drop_params)
         self.assertEqual(result.shape[0], 2)
         benchmark = pd.Series(['10', '20'], name='Val')
         assert_series_equal(result.Val, benchmark)
+
+    def test_basic_model_selection(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
+        run1.import_return_frame(path=self.base_path)
+        run1.import_column_params(self.base_path)
+        run1.import_meta(self.base_path)
+        run1.import_stats(self.base_path)
+        result = run1.basic_model_selection(window=4)
+        benchmark = pd.DataFrame(index=run1.returns.index)
+        benchmark['Rets'] = [np.nan] * 3 + [4, 10, 6, 7, 8, 9, 10.]
+        assert_frame_equal(result, benchmark)
 
     def test_filter_classified_params(self):
         cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},

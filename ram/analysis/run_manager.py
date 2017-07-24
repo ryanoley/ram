@@ -103,6 +103,9 @@ class RunManager(object):
                                     astats, self.start_year)
 
     def analyze_returns(self, columns=None, start_year=1950):
+        """
+        This is a half-baked implementation. Think about what this could do
+        """
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         # Get indexes from imported data
@@ -112,6 +115,21 @@ class RunManager(object):
         else:
             return get_stats(self.returns.loc[inds])
 
+    def basic_model_selection(self, window=30, criteria='mean'):
+        # Rolling mean, offset by one day and select top
+        roll_mean = self.returns.rolling(window=window).mean()
+        if criteria == 'sharpe':
+            roll_sharpe = roll_mean / self.returns.rolling(window=window).std()
+            inds = np.argmax(roll_sharpe.values, axis=1)
+        else:
+            inds = np.argmax(roll_mean.values, axis=1)
+        best_rets = pd.DataFrame(index=self.returns.index)
+        best_rets['Rets'] = np.choose(np.roll(inds, 1), self.returns.values.T)
+        best_rets.Rets.iloc[:window] = np.nan
+        return best_rets
+
+
+###############################################################################
 
 def filter_classified_params(cparams, drop_params=None):
     if drop_params:
