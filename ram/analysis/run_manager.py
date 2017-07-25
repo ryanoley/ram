@@ -136,11 +136,11 @@ class RunManager(object):
         rets1 = self.basic_model_selection(window=100).iloc[101:]
         rets2 = self.basic_model_selection(
             window=100, criteria='sharpe').iloc[101:]
-        all_rets = self.returns.loc[rets.index]
+        all_rets = self.returns.loc[rets1.index]
         plt.figure()
         plt.plot(all_rets.cumsum(), 'b', alpha=0.3)
-        plt.plot(rets1, 'r')
-        plt.plot(rets2, 'g')
+        plt.plot(rets1.cumsum(), 'r')
+        plt.plot(rets2.cumsum(), 'g')
         plt.show()
 
     
