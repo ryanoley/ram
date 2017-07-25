@@ -38,7 +38,11 @@ class RunManager(object):
                 output.loc[i, 'Completed'] = desc['completed']
             else:
                 output.loc[i, 'Completed'] = None
-        return output[['Run', 'Completed', 'Description']]
+            if 'end_time' in desc:
+                output.loc[i, 'RunDate'] = desc['end_time'][:10]
+            else:
+                output.loc[i, 'RunDate'] = desc['start_time'][:10]
+        return output[['Run', 'RunDate', 'Completed', 'Description']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

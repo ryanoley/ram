@@ -120,7 +120,7 @@ class TestRunManager(unittest.TestCase):
         run1.import_stats(self.base_path)
         result = run1.basic_model_selection(window=4)
         benchmark = pd.DataFrame(index=run1.returns.index)
-        benchmark['Rets'] = [np.nan] * 3 + [4, 10, 6, 7, 8, 9, 10.]
+        benchmark['Rets'] = [np.nan] * 4 + [10, 6, 7, 8, 9, 10.]
         assert_frame_equal(result, benchmark)
 
     def test_filter_classified_params(self):
@@ -244,9 +244,9 @@ class TestRunManager(unittest.TestCase):
 
     def test_get_run_names(self):
         result = RunManager.get_run_names('TestStrategy', self.base_path)
-        benchmark = pd.DataFrame(columns=['Run', 'Completed',
-                                          'Description'], index=[0])
+        benchmark = pd.DataFrame(index=[0])
         benchmark['Run'] = ['run_0001']
+        benchmark['RunDate'] = ['2010-01-01']
         benchmark['Completed'] = True
         benchmark['Description'] = ['Test data']
         assert_frame_equal(result, benchmark)
@@ -257,7 +257,7 @@ class TestRunManager(unittest.TestCase):
         data['Ret1'] = range(10)
         data['Ret2'] = range(5, -5, -1)
         result = get_quarterly_rets(data, 'Ret1')
-        self.assertEqual(result.values[0].tolist(), [2, 7])
+        self.assertEqual(result.values[0].tolist(), [10, 35])
 
     def tearDown(self):
         shutil.rmtree(self.base_path)
