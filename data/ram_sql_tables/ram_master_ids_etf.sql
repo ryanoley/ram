@@ -13,7 +13,13 @@ insert @ETFS values (59743, 73896)		-- DIA
 insert @ETFS values (103854, 49922)		-- KRE
 insert @ETFS values (90592, 73912)		-- GLD
 insert @ETFS values (68130, 73990)		-- TLT
-
+insert @ETFS values (59816, 68914)		-- XLF
+insert @ETFS values (59817, 68915)		-- XLI
+insert @ETFS values (59818, 68916)		-- XLK
+insert @ETFS values (59819, 68911)		-- XLP
+insert @ETFS values (59820, 68917)		-- XLU
+insert @ETFS values (59821, 68910)		-- XLV
+insert @ETFS values (103857, 72958)		-- XOP
 
 -------------------------------------------------------------
 -- Create tables
