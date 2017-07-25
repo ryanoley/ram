@@ -16,60 +16,91 @@ from ram.utils.documentation import prompt_for_description
 
 class DataConstructor(object):
 
-    def __init__(self, strategy):
+    def __init__(self,
+                 strategy,
+                 prepped_data_dir=config.PREPPED_DATA_DIR):
+        self.strategy = strategy
         self.strategy_name = strategy.__class__.__name__
-        self.constructor_type = strategy.get_constructor_type()
-        self.features = strategy.get_features()
         self._prepped_data_dir = os.path.join(
-            config.PREPPED_DATA_DIR, self.strategy_name)
-        if self.constructor_type in ['etfs', 'ids']:
-            self.filter_args = strategy.get_ids_filter_args()
-        else:
-            self.date_parameters = strategy.get_univ_date_parameters()
-            self.filter_args = strategy.get_univ_filter_args()
+            prepped_data_dir, self.strategy_name)
 
-    def run(self):
-        self._check_parameters()
-        self._make_output_directory()
-        self._write_archive_meta_parameters()
-        datahandler = DataHandlerSQL()
+    def _init_new_run(self):
+        self.constructor_type = self.strategy.get_constructor_type()
+        self.features = self.strategy.get_features()
         if self.constructor_type in ['etfs', 'ids']:
-            if self.constructor_type == 'etfs':
-                data = datahandler.get_etf_data(
-                    self.filter_args['ids'],
-                    self.features,
-                    self.filter_args['start_date'],
-                    self.filter_args['end_date'])
-            else:
-                data = datahandler.get_id_data(
-                    self.filter_args['ids'],
-                    self.features,
-                    self.filter_args['start_date'],
-                    self.filter_args['end_date'])
-            data = data.drop_duplicates()
-            data.SecCode = data.SecCode.astype(int).astype(str)
-            data = data.sort_values(['SecCode', 'Date'])
-            start_date = dparser.parse(self.filter_args['start_date'])
+            self.filter_args_ids = self.strategy.get_ids_filter_args()
+        else:
+            self.filter_args_univ = self.strategy.get_univ_filter_args()
+            self.date_parameters_univ = \
+                self.strategy.get_univ_date_parameters()
+            self.version_files = []
+
+    def _init_rerun_run(self, version):
+        ddir = os.path.join(self._prepped_data_dir, version)
+        path = os.path.join(ddir, 'meta.json')
+        with open(path) as data_file:
+            meta = json.load(data_file)
+        data_file.close()
+        # Extract data to instance variables
+        self.constructor_type = meta['constructor_type']
+        self.features = meta['features']
+        if self.constructor_type == 'universe':
+            self.filter_args_univ = meta['filter_args_univ']
+            self.date_parameters_univ = meta['date_parameters_univ']
+            self.version_files = [
+                x for x in os.listdir(ddir) if x[-3:] == 'csv']
+        elif self.constructor_type in ['etfs', 'ids']:
+            self.filter_args_ids = meta['filter_args_ids']
+
+    def run(self, rerun_version=None, prompt_description=True):
+        if rerun_version:
+            self._init_rerun_run(rerun_version)
+        else:
+            self._init_new_run()
+            self._make_output_directory()
+            self._write_archive_meta_parameters(prompt_description)
+
+        self._check_parameters()
+
+        datahandler = DataHandlerSQL()
+
+        if self.constructor_type == 'etfs':
+            data = datahandler.get_etf_data(
+                self.filter_args_ids['ids'],
+                self.features,
+                self.filter_args_ids['start_date'],
+                self.filter_args_ids['end_date'])
+            start_date = dparser.parse(self.filter_args_ids['start_date'])
             file_name = '{}_data.csv'.format(start_date.strftime('%Y%m%d'))
-            data.to_csv(os.path.join(self._output_dir, file_name), index=False)
+            self._clean_write_output(data, file_name)
+
+        elif self.constructor_type == 'ids':
+            data = datahandler.get_id_data(
+                self.filter_args_ids['ids'],
+                self.features,
+                self.filter_args_ids['start_date'],
+                self.filter_args_ids['end_date'])
+            start_date = dparser.parse(self.filter_args_ids['start_date'])
+            file_name = '{}_data.csv'.format(start_date.strftime('%Y%m%d'))
+            self._clean_write_output(data, file_name)
+
         else:
             self._make_date_iterator()
             for t1, t2, t3 in tqdm(self._date_iterator):
+                # Check if file already exists in output directory
+                file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
+                if file_name in self.version_files:
+                    continue
+                # Otherwise pull and process data
                 adj_filter_date = t2 - dt.timedelta(days=1)
                 data = datahandler.get_filtered_univ_data(
                     features=self.features,
                     start_date=t1,
                     end_date=t3,
                     filter_date=adj_filter_date,
-                    filter_args=self.filter_args)
-                data = data.drop_duplicates()
-                data.SecCode = data.SecCode.astype(int).astype(str)
-                data = data.sort_values(['SecCode', 'Date'])
-                # Add TestFlag
+                    filter_args=self.filter_args_univ)
                 data['TestFlag'] = data.Date > adj_filter_date
-                file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
-                data.to_csv(os.path.join(self._output_dir, file_name),
-                            index=False)
+                self._clean_write_output(data, file_name)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -90,15 +121,15 @@ class DataConstructor(object):
             self._output_dir = os.path.join(self._prepped_data_dir,
                                             new_dir_name)
             self.version = new_dir_name
-            print('[DataConstructor] : Making {}'.format(new_dir_name))
+        print('[DataConstructor] : Making {}'.format(self.version))
         os.mkdir(self._output_dir)
 
     def _make_date_iterator(self):
         # Extract parameters
-        frequency = self.date_parameters['frequency']
-        train_period_length = self.date_parameters['train_period_length']
-        test_period_length = self.date_parameters['test_period_length']
-        start_year = self.date_parameters['start_year']
+        frequency = self.date_parameters_univ['frequency']
+        train_period_length = self.date_parameters_univ['train_period_length']
+        test_period_length = self.date_parameters_univ['test_period_length']
+        start_year = self.date_parameters_univ['start_year']
         # Create
         if frequency == 'Q':
             periods = [1, 4, 7, 10]
@@ -116,38 +147,51 @@ class DataConstructor(object):
         self._date_iterator = iterator
 
     def _check_parameters(self):
+        """
+        Checks that the correct parameters exist given the implementation
+        of Strategy, checking specifically for `universe` or `ids`
+        implementation arguments.
+        """
         assert hasattr(self, 'constructor_type')
         assert hasattr(self, 'features')
-        assert hasattr(self, 'filter_args')
-        if self.constructor_type == 'universe':
-            assert hasattr(self, 'date_parameters')
-            assert set(['filter', 'univ_size']).issubset(
-                self.filter_args.keys())
-        if self.constructor_type in ['etfs', 'ids']:
-            assert set(['ids', 'start_date', 'end_date']).issubset(
-                self.filter_args.keys())
 
-    def _write_archive_meta_parameters(self):
-        description = prompt_for_description()
+        if self.constructor_type == 'universe':
+            assert hasattr(self, 'date_parameters_univ')
+            assert hasattr(self, 'filter_args_univ')
+            assert set(['filter', 'univ_size']).issubset(
+                self.filter_args_univ.keys())
+
+        elif self.constructor_type in ['etfs', 'ids']:
+            assert hasattr(self, 'filter_args_ids')
+            assert set(['ids', 'start_date', 'end_date']).issubset(
+                self.filter_args_ids.keys())
+
+    def _write_archive_meta_parameters(self, description_prompt=True):
+        # Flag for testing purposes
+        description = prompt_for_description() if description_prompt else None
         git_branch, git_commit = get_git_branch_commit()
+
         meta = {
-            'filter_args': self.filter_args,
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),
             'strategy_name': self.strategy_name,
             'version': self.version,
             'git_branch': git_branch,
             'git_commit': git_commit,
-            'description': description
+            'description': description,
+            'constructor_type': self.constructor_type
         }
+
         if self.constructor_type == 'universe':
             meta.update({
-                'frequency': self.date_parameters['frequency'],
-                'train_period_len':
-                    self.date_parameters['train_period_length'],
-                'test_period_len': self.date_parameters['test_period_length'],
-                'start_year': self.date_parameters['start_year']
-                })
+                'date_parameters_univ': self.date_parameters_univ,
+                'filter_args_univ': self.filter_args_univ
+            })
+        elif self.constructor_type in ['ids', 'etfs']:
+            meta.update({
+                'filter_args_ids': self.filter_args_ids
+            })
+
         # Write meta to output directory
         path = os.path.join(self._output_dir, 'meta.json')
         with open(path, 'w') as outfile:
@@ -160,6 +204,12 @@ class DataConstructor(object):
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
         outfile.close()
+
+    def _clean_write_output(self, data, file_name):
+        data = data.drop_duplicates()
+        data.SecCode = data.SecCode.astype(int).astype(str)
+        data = data.sort_values(['SecCode', 'Date'])
+        data.to_csv(os.path.join(self._output_dir, file_name), index=False)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
