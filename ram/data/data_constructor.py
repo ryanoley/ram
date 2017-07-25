@@ -36,6 +36,8 @@ class DataConstructor(object):
             self.version_files = []
 
     def _init_rerun_run(self, version):
+        self.version = version
+        self._output_dir = os.path.join(self._prepped_data_dir, version)
         ddir = os.path.join(self._prepped_data_dir, version)
         path = os.path.join(ddir, 'meta.json')
         with open(path) as data_file:
