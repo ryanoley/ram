@@ -10,7 +10,9 @@ import datetime as dt
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram import config
-from ram.utils.time_funcs import convert_date_array
+
+from gearbox import convert_date_array
+
 from ram.data.data_constructor import DataConstructor
 from ram.utils.documentation import get_git_branch_commit
 from ram.utils.documentation import prompt_for_description
