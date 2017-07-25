@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from ram.utils.time_funcs import convert_date_array
+
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
@@ -65,8 +67,10 @@ class TestStrategyBase(unittest.TestCase):
         data = pd.DataFrame({
             'Date': ['2010-01-01', '2010-01-02', '2010-01-03'],
             'SecCode': [10, 20, 30], 'V1': [3, 4, 5]})
-        data.to_csv(os.path.join(data_version_dir, '20100101_data.csv'))
-        data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'))
+        data.to_csv(os.path.join(data_version_dir, '20100101_data.csv'),
+                    index=False)
+        data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'),
+                    index=False)
 
         meta = {'start_year': 2000,
                 'features': ['F1', 'F2'],
@@ -89,23 +93,28 @@ class TestStrategyBase(unittest.TestCase):
             prepped_data_version='version_001',
             write_flag=False,
             prepped_data_dir=self.prepped_data_dir,
-            output_dir=self.output_dir)
+            simulation_output_dir=self.output_dir)
 
-    def test_data_files(self):
-        self.strategy._get_data_file_names()
+    def test_get_prepped_data_files(self):
+        self.strategy._get_prepped_data_file_names()
         benchmark = ['20100101_data.csv', '20100201_data.csv']
-        self.assertListEqual(self.strategy._data_files, benchmark)
+        self.assertListEqual(self.strategy._prepped_data_files, benchmark)
 
     def Xtest_print_prepped_data_meta(self):
         self.strategy._print_prepped_data_meta()
 
     def test_read_data_from_index(self):
-        self.strategy._get_data_file_names()
         result = self.strategy.read_data_from_index(1)
+        benchmark = pd.DataFrame()
+        benchmark['Date'] = convert_date_array(
+            ['2010-01-01', '2010-01-02', '2010-01-03'])
+        benchmark['SecCode'] = ['10', '20', '30']
+        benchmark['V1'] = [3, 4, 5]
+        assert_frame_equal(result, benchmark)
 
-    def test_create_output_dir(self):
+    def test_create_run_output_dir(self):
         self.strategy._write_flag = True
-        self.strategy._create_output_dir()
+        self.strategy._create_run_output_dir()
         self.assertEqual(os.listdir(self.output_dir)[0], 'TestStrategy')
         result = os.listdir(os.path.join(self.output_dir, 'TestStrategy'))[0]
         self.assertEqual(result, 'run_0001')
@@ -115,7 +124,7 @@ class TestStrategyBase(unittest.TestCase):
 
     def test_create_meta_file(self):
         self.strategy._write_flag = True
-        self.strategy._create_output_dir()
+        self.strategy._create_run_output_dir()
         self.strategy._create_meta_file(False)
         result = json.load(open(os.path.join(self.output_dir,
                                              'TestStrategy', 'run_0001',
@@ -130,7 +139,7 @@ class TestStrategyBase(unittest.TestCase):
 
     def test_write_column_parameters_file(self):
         self.strategy._write_flag = True
-        self.strategy._create_output_dir()
+        self.strategy._create_run_output_dir()
         self.strategy._write_column_parameters_file()
         result = json.load(open(os.path.join(self.output_dir,
                                              'TestStrategy', 'run_0001',
@@ -140,7 +149,7 @@ class TestStrategyBase(unittest.TestCase):
 
     def test_shutdown_simulation(self):
         self.strategy._write_flag = True
-        self.strategy._create_output_dir()
+        self.strategy._create_run_output_dir()
         self.strategy._create_meta_file(False)
         self.strategy._shutdown_simulation()
         result = json.load(open(os.path.join(self.output_dir,

@@ -3,15 +3,14 @@ import sys
 import json
 import shutil
 import inspect
-import logging
 import pandas as pd
+from tqdm import tqdm
 import datetime as dt
-
-from gearbox import ProgBar, convert_date_array
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram import config
+from ram.utils.time_funcs import convert_date_array
 from ram.data.data_constructor import DataConstructor
 from ram.utils.documentation import get_git_branch_commit
 from ram.utils.documentation import prompt_for_description
@@ -25,7 +24,7 @@ class Strategy(object):
                  prepped_data_version='NODATA',
                  write_flag=False,
                  prepped_data_dir=config.PREPPED_DATA_DIR,
-                 output_dir=config.SIMULATION_OUTPUT_DIR):
+                 simulation_output_dir=config.SIMULATION_OUTPUT_DIR):
         """
         Parameters
         ----------
@@ -37,7 +36,7 @@ class Strategy(object):
             Location of the global prepped data directory, not specific to the
             Strategy or version provided. Defaults to what is in the global
             config file
-        output_dir : str
+        simulation_output_dir : str
             Location of where written output will go. Defaults to what is in
             the global config file
         """
@@ -46,40 +45,37 @@ class Strategy(object):
         self._prepped_data_dir = os.path.join(prepped_data_dir,
                                               self.__class__.__name__,
                                               prepped_data_version)
-        self._output_dir = output_dir
+        self._strategy_output_dir = os.path.join(simulation_output_dir,
+                                                 self.__class__.__name__)
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def start(self):
         self._print_prepped_data_meta()
-        self._get_data_file_names()
-        self._create_output_dir()
+        self._get_prepped_data_file_names()
+        self._create_run_output_dir()
         self._copy_source_code()
         self._create_meta_file()
         self._write_column_parameters_file()
-        for i in ProgBar(range(len(self._data_files))):
+        for i in tqdm(range(len(self._data_files))):
             self.run_index(i)
         self._shutdown_simulation()
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _create_output_dir(self):
+    def _create_run_output_dir(self):
         if self._write_flag:
-            # Check if system has created folder for output
-            if not os.path.exists(self._output_dir):
-                os.makedirs(self._output_dir)
-            # Make directory for StrategyClass
-            strategy_dir = os.path.join(self._output_dir,
-                                        self.__class__.__name__)
-            if not os.path.exists(strategy_dir):
-                os.makedirs(strategy_dir)
+            # Create Strategy folder if it doesn't exist
+            if not os.path.exists(self._strategy_output_dir):
+                os.makedirs(self._strategy_output_dir)
             # Get all run versions for increment for this run
-            all_dirs = [x for x in os.listdir(strategy_dir) if x[:3] == 'run']
+            all_dirs = [x for x in os.listdir(
+                self._strategy_output_dir) if x[:3] == 'run']
             if all_dirs:
                 new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
             else:
                 new_ind = 1
-            self.run_dir = os.path.join(strategy_dir,
+            self.run_dir = os.path.join(self._strategy_output_dir,
                                         'run_{0:04d}'.format(new_ind))
             os.mkdir(self.run_dir)
             # Output directory setup
@@ -97,17 +93,14 @@ class Strategy(object):
     def _create_meta_file(self, user_description=True):
         if self._write_flag:
             # To aid unittest
-            if user_description:
-                description = prompt_for_description()
-            else:
-                description = None
+            desc = prompt_for_description() if user_description else None
             git_branch, git_commit = get_git_branch_commit()
             # Create meta object
             run_meta = {
                 'prepped_data_version': self._data_version,
                 'latest_git_commit': git_commit,
                 'git_branch': git_branch,
-                'description': description,
+                'description': desc,
                 'completed': False,
                 'start_time': str(dt.datetime.utcnow())[:19]
             }
@@ -148,6 +141,7 @@ class Strategy(object):
     def _print_prepped_data_meta(self):
         meta = json.load(open(os.path.join(self._prepped_data_dir,
                                            'meta.json'), 'r'))
+
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
                                                      meta['version']))
         if self.get_constructor_type() in ['etfs', 'ids']:
@@ -164,9 +158,10 @@ class Strategy(object):
             print('Test Period Length: {}'.format(meta['test_period_len']))
             print('Universe Creation Frequency: {}'.format(meta['frequency']))
 
-    def _get_data_file_names(self):
+    def _get_prepped_data_file_names(self):
         all_files = os.listdir(self._prepped_data_dir)
-        self._data_files = [x for x in all_files if x[-8:] == 'data.csv']
+        self._prepped_data_files = [
+            x for x in all_files if x[-8:] == 'data.csv']
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -186,8 +181,18 @@ class Strategy(object):
 
     # ~~~~~~ DataConstructor Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def make_data(self):
-        DataConstructor(self).run()
+    def make_data(self, data_prep_version=None):
+        """
+        Parameters
+        ----------
+        data_prep_version : str
+            Will restart data pull if present.
+        """
+        if data_prep_version:
+            DataConstructor(self).run(
+                rerun_version=data_prep_version)
+        else:
+            DataConstructor(self).run()
 
     @abstractmethod
     def get_features(self):
@@ -237,12 +242,12 @@ class Strategy(object):
     # ~~~~~~ To Be Used by Derived Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def read_data_from_index(self, index):
-        if not hasattr(self, '_data_files'):
+        if not hasattr(self, '_prepped_data_files'):
             # This is used for interactive development so get data files
             # doesn't need to be manually called
-            self._get_data_file_names()
+            self._get_prepped_data_file_names()
         dpath = os.path.join(self._prepped_data_dir,
-                             self._data_files[index])
+                             self._prepped_data_files[index])
         data = pd.read_csv(dpath)
         data.Date = convert_date_array(data.Date)
         data.SecCode = data.SecCode.astype(int).astype(str)
@@ -252,14 +257,14 @@ class Strategy(object):
         """
         This is a wrapper function for cloud implementation.
         """
-        output_name = self._data_files[index]
+        output_name = self._prepped_data_files[index]
         output_name = output_name.replace('data', suffix)
         if self._write_flag:
             returns_df.to_csv(os.path.join(self.strategy_output_dir,
                                            output_name))
 
     def write_index_stats(self, stats, index):
-        output_name = self._data_files[index]
+        output_name = self._prepped_data_files[index]
         output_name = output_name.replace('data.csv', 'stats.json')
         if self._write_flag:
             with open(os.path.join(self.strategy_output_dir,
@@ -288,8 +293,8 @@ def make_argument_parser(Strategy):
     import argparse
     from ram.data.data_constructor import print_strategy_versions
     from ram.data.data_constructor import print_strategy_meta
-    from ram.data.data_constructor import get_version_name
     from ram.data.data_constructor import clean_directory
+    from ram.data.data_constructor import get_version_name
 
     parser = argparse.ArgumentParser()
 
@@ -317,8 +322,10 @@ def make_argument_parser(Strategy):
 
     # Data Construction Commands
     parser.add_argument(
-        '-d', '--data_prep', action='store_true',
-        help='Run DataConstructor')
+        '-d', '--data_prep', type=str,
+        help='Run DataConstructor. To create new data version, use arg '
+             '-1, else to restart use version name or key val, i.e. '
+             'version_0001 or Key val')
 
     args = parser.parse_args()
 
@@ -351,4 +358,8 @@ def make_argument_parser(Strategy):
 
     # Data Construction
     elif args.data_prep:
-        Strategy().make_data()
+        if args.data_prep != -1:
+            version = get_version_name(Strategy.__name__, args.data_prep)
+            Strategy().make_data(version)
+        else:
+            Strategy().make_data()
