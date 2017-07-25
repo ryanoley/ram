@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.utils.time_funcs import convert_date_array
+from gearbox import convert_date_array
 
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
@@ -28,6 +28,7 @@ class TestStrategy(Strategy):
     def get_date_parameters(self):
         return {
             'frequency': 'Q',
+            'test_period_length': 2,
             'train_period_length': 4,
             'start_year': 2017
         }
@@ -72,19 +73,24 @@ class TestStrategyBase(unittest.TestCase):
         data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'),
                     index=False)
 
-        meta = {'start_year': 2000,
-                'features': ['F1', 'F2'],
-                'train_period_len': 2,
-                'test_period_len': 2,
+        meta = {
+            'features': ['F1', 'F2'],
+            'date_parameters_univ': {
+                'train_period_length': 2,
+                'test_period_length': 2,
                 'frequency': 'Q',
-                'filter_args': {'filter': 'AvgDolVol',
-                                'where': 'Market Cap >= 200',
-                                'univ_size': 10},
-                'strategy_name': 'TestStrategy',
-                'version': 'version_0001',
-                'git_branch': 'master',
-                'git_commit': 'adfad14324213',
-                }
+                'start_year': 2000
+            },
+            'filter_args_univ': {
+                'filter': 'AvgDolVol',
+                'where': 'Market Cap >= 200',
+                'univ_size': 10
+            },
+            'strategy_name': 'TestStrategy',
+            'version': 'version_0001',
+            'git_branch': 'master',
+            'git_commit': 'adfad14324213',
+        }
         with open(os.path.join(data_version_dir, 'meta.json'), 'w') as outfile:
             json.dump(meta, outfile)
         outfile.close()
@@ -100,7 +106,7 @@ class TestStrategyBase(unittest.TestCase):
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(self.strategy._prepped_data_files, benchmark)
 
-    def Xtest_print_prepped_data_meta(self):
+    def test_print_prepped_data_meta(self):
         self.strategy._print_prepped_data_meta()
 
     def test_read_data_from_index(self):

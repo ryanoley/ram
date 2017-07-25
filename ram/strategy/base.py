@@ -147,18 +147,27 @@ class Strategy(object):
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
                                                      meta['version']))
         if self.get_constructor_type() in ['etfs', 'ids']:
-            print('IDs: {}'.format(meta['filter_args']['ids']))
-            print('Start Date: {}'.format(meta['filter_args']['start_date']))
-            print('End Date: {}\n'.format(meta['filter_args']['end_date']))
+            print('IDs: {}'.format(
+                meta['filter_args_ids']['ids']))
+            print('Start Date: {}'.format(
+                meta['filter_args_ids']['start_date']))
+            print('End Date: {}\n'.format(
+                meta['filter_args_ids']['end_date']))
         else:
-            print('Filter variable: {}'.format(meta['filter_args']['filter']))
-            print('Where filter: {}'.format(meta['filter_args']['where']))
+            print('Filter variable: {}'.format(
+                meta['filter_args_univ']['filter']))
+            print('Where filter: {}'.format(
+                meta['filter_args_univ']['where']))
             print('Universe size: {}\n'.format(
-                meta['filter_args']['univ_size']))
-            print('Start Year: {}'.format(meta['start_year']))
-            print('Train Period Length: {}'.format(meta['train_period_len']))
-            print('Test Period Length: {}'.format(meta['test_period_len']))
-            print('Universe Creation Frequency: {}'.format(meta['frequency']))
+                meta['filter_args_univ']['univ_size']))
+            print('Start Year: {}'.format(
+                meta['date_parameters_univ']['start_year']))
+            print('Train Period Length: {}'.format(
+                meta['date_parameters_univ']['train_period_length']))
+            print('Test Period Length: {}'.format(
+                meta['date_parameters_univ']['test_period_length']))
+            print('Universe Creation Frequency: {}'.format(
+                meta['date_parameters_univ']['frequency']))
 
     def _get_prepped_data_file_names(self):
         all_files = os.listdir(self._prepped_data_dir)
