@@ -108,7 +108,8 @@ class Strategy(object):
                 'latest_git_commit': git_commit,
                 'git_branch': git_branch,
                 'description': description,
-                'completed': False
+                'completed': False,
+                'start_time': str(dt.datetime.utcnow())[:19]
             }
             with open(os.path.join(self.run_dir, 'meta.json'), 'w') as outfile:
                 json.dump(run_meta, outfile)
@@ -137,6 +138,7 @@ class Strategy(object):
             meta = json.load(open(os.path.join(self.run_dir,
                                                'meta.json'), 'r'))
             meta['completed'] = True
+            meta['end_time'] = str(dt.datetime.utcnow())[:19]
             with open(os.path.join(self.run_dir, 'meta.json'),
                       'w') as outfile:
                 json.dump(meta, outfile)

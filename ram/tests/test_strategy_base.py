@@ -125,7 +125,8 @@ class TestStrategyBase(unittest.TestCase):
         self.assertTrue('prepped_data_version' in result)
         self.assertTrue('description' in result)
         self.assertTrue('git_branch' in result)
-        self.assertEqual(len(result), 5)
+        self.assertTrue('start_time' in result)
+        self.assertEqual(len(result), 6)
 
     def test_write_column_parameters_file(self):
         self.strategy._write_flag = True
