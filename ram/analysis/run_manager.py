@@ -132,7 +132,8 @@ class RunManager(object):
         else:
             inds = np.argmax(roll_mean.values, axis=1)
         best_rets = pd.DataFrame(index=self.returns.index)
-        best_rets['Rets'] = np.choose(np.roll(inds, 1), self.returns.values.T)
+        best_rets['Rets'] = self.returns.values[range(len(self.returns)),
+                                                np.roll(inds, 1)]
         best_rets.Rets.iloc[:window] = np.nan
         return best_rets
 
