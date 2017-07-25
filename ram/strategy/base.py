@@ -57,7 +57,7 @@ class Strategy(object):
         self._copy_source_code()
         self._create_meta_file()
         self._write_column_parameters_file()
-        for i in tqdm(range(len(self._data_files))):
+        for i in tqdm(range(len(self._prepped_data_files))):
             self.run_index(i)
         self._shutdown_simulation()
 
