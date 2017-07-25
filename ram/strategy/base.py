@@ -358,8 +358,8 @@ def make_argument_parser(Strategy):
 
     # Data Construction
     elif args.data_prep:
-        if args.data_prep != -1:
+        if args.data_prep != '-1':
             version = get_version_name(Strategy.__name__, args.data_prep)
-            Strategy().make_data(version)
+            Strategy(prepped_data_version=version).make_data(version)
         else:
             Strategy().make_data()
