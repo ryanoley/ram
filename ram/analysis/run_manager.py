@@ -40,8 +40,10 @@ class RunManager(object):
                 output.loc[i, 'Completed'] = None
             if 'end_time' in desc:
                 output.loc[i, 'RunDate'] = desc['end_time'][:10]
-            else:
+            elif 'start_time' in desc:
                 output.loc[i, 'RunDate'] = desc['start_time'][:10]
+            else:
+                output.loc[i, 'RunDate'] = None
         return output[['Run', 'RunDate', 'Completed', 'Description']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,7 +149,6 @@ class RunManager(object):
         plt.plot(rets2.cumsum(), 'g')
         plt.show()
 
-    
 
 ###############################################################################
 
