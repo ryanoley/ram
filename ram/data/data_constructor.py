@@ -208,10 +208,11 @@ class DataConstructor(object):
         outfile.close()
 
     def _clean_write_output(self, data, file_name):
-        data = data.drop_duplicates()
-        data.SecCode = data.SecCode.astype(int).astype(str)
-        data = data.sort_values(['SecCode', 'Date'])
-        data.to_csv(os.path.join(self._output_dir, file_name), index=False)
+        if len(data) > 0:
+            data = data.drop_duplicates()
+            data.SecCode = data.SecCode.astype(int).astype(str)
+            data = data.sort_values(['SecCode', 'Date'])
+            data.to_csv(os.path.join(self._output_dir, file_name), index=False)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

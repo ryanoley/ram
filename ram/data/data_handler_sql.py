@@ -42,7 +42,6 @@ class DataHandlerSQL(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Data Interface
-
     def get_filtered_univ_data(self,
                                features,
                                start_date,
@@ -79,24 +78,22 @@ class DataHandlerSQL(object):
         else:
             ids = []
 
+        output = pd.DataFrame(columns=['SecCode', 'Date'])
         # With large numbers of IDs and Features, there is not enough
-        # memory to perform a query
-        batches = range(0, 3001, 500)
-        univ_df_out = pd.DataFrame(columns=['SecCode', 'Date'] + features)
+        # memory to perform a query. Break up by features
+        batches = range(0, 301, 10)
         for i1, i2 in zip(batches[:-1], batches[1:]):
-            batch_ids = ids[i1:i2]
-            if len(batch_ids) == 0:
+            batch_features = features[i1:i2]
+            if len(batch_features) == 0:
                 break
             # Get features, and strings for cte and regular query
-            sqlcmd, features = sqlcmd_from_feature_list(
-                features, batch_ids, d1, d3, self._table)
+            sqlcmd, batch_features = sqlcmd_from_feature_list(
+                batch_features, ids, d1, d3, self._table)
             univ = self.sql_execute(sqlcmd)
-            univ_df = pd.DataFrame(univ,
-                                   columns=['SecCode', 'Date'] + features)
-            univ_df_out = univ_df_out.append(univ_df)
-
-        univ_df_out = univ_df_out.sort_values(['SecCode', 'Date'])
-        return univ_df_out
+            univ_df = pd.DataFrame(
+                univ, columns=['SecCode', 'Date'] + batch_features)
+            output = output.merge(univ_df, how='outer')
+        return output
 
     def get_id_data(self,
                     ids,
@@ -220,7 +217,7 @@ class DataHandlerSQL(object):
             "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
         return ids[ids.Ticker.isin(tickers)]
 
-    def prior_trading_date(self, t0_dates = dt.date.today()):
+    def prior_trading_date(self, t0_dates=dt.date.today()):
         if not isinstance(t0_dates, list):
             t0_dates = [t0_dates]
         if not isinstance(t0_dates[0], dt.date):
@@ -231,21 +228,22 @@ class DataHandlerSQL(object):
         date_order = np.argsort(t0_dates)
         input_order = np.argsort(date_order)
 
-        str_dates = ['{0}/{1}/{2}'.format(x.month, x.day, x.year) for x in t0_dates]
+        str_dates = ['{0}/{1}/{2}'.format(x.month, x.day, x.year)
+                     for x in t0_dates]
         if len(str_dates) > 1:
             sql_dates = tuple(str_dates)
         else:
             sql_dates = "('" + str_dates[0] + "')"
-            
-        SQLCommandDate = ("select Tm1 "
-                          "from ram.dbo.ram_trading_dates " 
-                          "where CalendarDate in {}".format(sql_dates))
-        priorDate = self.sql_execute(SQLCommandDate)
-        priorDate = [x[0].date() for x in priorDate]
+
+        sql_cmd = ("select Tm1 "
+                   "from ram.dbo.ram_trading_dates "
+                   "where CalendarDate in {}".format(sql_dates))
+        prior_date = self.sql_execute(sql_cmd)
+        prior_date = [x[0].date() for x in prior_date]
 
         if len(t0_dates) == 1:
-            return priorDate[0]
-        return np.array(priorDate)[input_order]
+            return prior_date[0]
+        return np.array(prior_date)[input_order]
 
     def sql_execute(self, sqlcmd):
         try:
