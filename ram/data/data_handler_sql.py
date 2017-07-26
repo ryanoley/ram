@@ -31,6 +31,7 @@ class DataHandlerSQL(object):
         self._connect()
 
     def _connect(self):
+        self._test_time_constraint()
         try:
             connection = pypyodbc.connect('Driver={SQL Server};'
                                           'Server=QADIRECT;'
@@ -54,6 +55,11 @@ class DataHandlerSQL(object):
             pass
         self._cursor = None
         self._connection = None
+
+    def _test_time_constraint(self):
+        if (dt.datetime.now().time() >= dt.time(5, 0)) & \
+                (dt.datetime.now().time() < dt.time(6, 30)):
+            raise Exception('No Queries between 5:00 AM and 6:30 AM')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Data Interface
@@ -274,6 +280,7 @@ class DataHandlerSQL(object):
         return np.array(prior_date)[input_order]
 
     def sql_execute(self, sqlcmd):
+        self._test_time_constraint()
         try:
             if self._connection is None:
                 self._connect()
