@@ -75,16 +75,18 @@ def _create_response(tickers, intraday_simulator, perc_take, perc_stop):
 
 def get_trade_signals(predictions,
                       zLim=.5,
-                      gap_down_limit=0.25,
-                      gap_up_limit=0.25):
+                      gap_down_limit_1=0.25,
+                      gap_down_limit_2=0.25,
+                      gap_up_limit_1=0.25,
+                      gap_up_limit_2=0.25):
     ## prediction_thresh_optim
     predictions['signal'] = prediction_thresh_optim(
         predictions,
         zLim,
-        gap_down_limit,
-        gap_down_limit,
-        gap_up_limit,
-        gap_up_limit)
+        gap_down_limit_1,
+        gap_down_limit_2,
+        gap_up_limit_1,
+        gap_up_limit_2)
     return predictions[['Ticker', 'Date', 'signal']].copy()
 
 

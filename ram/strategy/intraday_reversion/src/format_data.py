@@ -10,7 +10,15 @@ seccode_ticker_map = {
     '19753': 'DIA',
     '72954': 'KRE',
     '37569': 'TLT',
-    '72946': 'GLD'
+    '72946': 'GLD',
+
+    '68914': 'XLF',
+    '68915': 'XLI',
+    '68916': 'XLK',
+    '68911': 'XLP',
+    '68917': 'XLU',
+    '68910': 'XLV',
+    '72958': 'XOP'
 }
 
 def format_raw_data(data):
