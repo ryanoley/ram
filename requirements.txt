@@ -1,3 +1,11 @@
+scipy
+numpy
+pandas
+scikit-learn
 pypyodbc
 quandl
 tqdm
+matplotlib
+pandas_datareader
+numba
+ipdb
