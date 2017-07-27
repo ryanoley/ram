@@ -5,19 +5,13 @@ import datetime as dt
 from gearbox import create_time_index
 
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
-from ram.strategy.long_pead.constructor.utils import ern_date_blackout
-from ram.strategy.long_pead.constructor.utils import make_anchor_ret_rank
-from ram.strategy.long_pead.constructor.utils import ern_return
 
 from sklearn.preprocessing import RobustScaler
 
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import BaggingClassifier
-from sklearn.linear_model import RidgeClassifier
 from sklearn.ensemble import VotingClassifier
-from sklearn.linear_model import Lasso
 
 NJOBS = 2
 
@@ -38,17 +32,18 @@ class PortfolioConstructor2(object):
 
     def get_iterable_args(self):
         return {
-            'logistic_spread': [0.1, 1]
+            'logistic_spread': [0.1, 0.5, 1]
         }
 
     def get_data_args(self):
         return {
-            'response_days': [[2, 4, 6], [3], [10]],
-            'response_thresh': [0.25, 0.35, 0.45],
-            'model_drop': [0],
+            'response_days': [[2, 4, 6], [3]],
+            'response_thresh': [0.25, 0.35],
+            'model_type': [0, 1, 2],
             'training_qtrs': [-99],
-            'drop_accounting': [False],
-            'just_extra_trees': [True, False]
+            'drop_accounting': [True],
+            'max_features': [0.5, 0.7, 0.9],
+            'tree_min_samples_leaf': [40]
         }
 
     def get_daily_pl(self, arg_index, logistic_spread):
@@ -68,6 +63,7 @@ class PortfolioConstructor2(object):
             dividends = self.dividend_dict[date]
             splits = self.split_mult_dict[date]
             scores = self.scores_dict[date]
+
             # Could this be just a simple "Group"
             mcaps = self.market_cap_dict[date]
 
@@ -119,23 +115,23 @@ class PortfolioConstructor2(object):
 
     # ~~~~~~ Data Format ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _trim_training_data(self, data, training_qtrs):
-        if training_qtrs == -99:
-            return data
-        inds = create_time_index(data.Date)
-        max_ind = np.max(inds)
-        return data.iloc[inds > (max_ind-training_qtrs)]
-
-    def set_and_prep_data(self, data, time_index,
+    def set_and_prep_data(self,
+                          data,
+                          time_index,
                           response_days,
                           response_thresh,
-                          model_drop,
+                          model_type,
                           training_qtrs,
                           drop_accounting,
-                          just_extra_trees):
+                          just_extra_trees,
+                          tree_max_features,
+                          tree_min_samples_leaf):
 
         train_data, test_data, features = self._process_train_test_data(
             data, time_index, drop_accounting)
+
+        if time_index < 30:
+            return
 
         # Trim training data
         train_data = self._trim_training_data(train_data, training_qtrs)
@@ -144,41 +140,26 @@ class PortfolioConstructor2(object):
             smoothed_responses(train_data, days=response_days,
                                thresh=response_thresh))
 
-        if just_extra_trees:
-            clf = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
-                                       min_samples_leaf=60,
-                                       max_features=7)
-        else:
-            # CREATE MODELS
-            clf1 = RandomForestClassifier(n_estimators=100, n_jobs=NJOBS,
-                                          min_samples_leaf=60,
-                                          max_features=7)
+        if model_type == 0:
+            clf = ExtraTreesClassifier(n_estimators=50, n_jobs=NJOBS,
+                                       min_samples_leaf=tree_min_samples_leaf,
+                                       max_features=tree_max_features)
 
-            clf2 = ExtraTreesClassifier(n_estimators=100, n_jobs=NJOBS,
+        elif model_type == 1:
+            clf = BaggingClassifier(LogisticRegression(), n_estimators=50,
+                                    max_samples=0.7, max_features=0.6,
+                                    n_jobs=NJOBS)
+
+        elif model_type == 2:
+            clf1 = ExtraTreesClassifier(n_estimators=50, n_jobs=NJOBS,
                                         min_samples_leaf=60,
-                                        max_features=7)
+                                        max_features=tree_max_features)
 
-            clf3 = BaggingClassifier(LogisticRegression(), n_estimators=10,
+            clf2 = BaggingClassifier(LogisticRegression(), n_estimators=50,
                                      max_samples=0.7, max_features=0.6,
                                      n_jobs=NJOBS)
 
-            # clf4 = BaggingClassifier(RidgeClassifier(tol=1e-1, solver="lsqr"),
-            #                          n_estimators=10,
-            #                          max_samples=0.7, max_features=0.6,
-            #                          n_jobs=NJOBS)
-            # 
-            # clf5 = BaggingClassifier(Lasso(alpha=0.3, tol=0.0001),
-            #                          n_estimators=10,
-            #                          max_samples=0.7, max_features=0.6,
-            #                          n_jobs=NJOBS)
-
-            # models = [('rf', clf1), ('et', clf2), ('lc', clf3),
-            #           ('rc', clf4), ('ls', clf5)]
-            models = [('rf', clf1), ('et', clf2), ('lc', clf3)]
-
-            if model_drop > 0:
-                assert model_drop in [1, 2, 3, 4, 5]
-                models.pop(model_drop - 1)
+            models = [('et', clf1), ('lc', clf2)]
 
             clf = VotingClassifier(estimators=models, voting='soft')
 
@@ -193,16 +174,8 @@ class PortfolioConstructor2(object):
         preds = clf.predict_proba(test_data[features])
         test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
 
-        self.iter_dates = test_data.Date.drop_duplicates()
-        # Formatted for portfolio construction
-        self.close_dict = make_variable_dict(data, 'RClose')
-        self.dividend_dict = make_variable_dict(data, 'RCashDividend', 0)
-        self.split_mult_dict = make_variable_dict(data,
-                                                  'SplitMultiplier', 1)
-        self.market_cap_dict = make_variable_dict(data,
-                                                  'MarketCap', 'pad')
-        self.scores_dict = make_variable_dict(test_data, 'preds')
-        self.group_dict = make_variable_dict(data, 'GGROUP', 'pad')
+
+
 
     def _process_train_test_data(self, data, time_index, drop_accounting):
         """
@@ -294,6 +267,8 @@ class PortfolioConstructor2(object):
         return self.train_data.copy(), self.test_data.copy(), self.features
 
 
+
+
 def make_variable_dict(data, variable, fillna=np.nan):
     data_pivot = data.pivot(index='Date', columns='SecCode', values=variable)
     if fillna == 'pad':
@@ -303,52 +278,11 @@ def make_variable_dict(data, variable, fillna=np.nan):
     return data_pivot.T.to_dict()
 
 
-def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
-    if not isinstance(days, list):
-        days = [days]
-    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
-    for i in days:
-        if i == days[0]:
-            rank = rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
-        else:
-            rank += rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
-    final_ranks = rank.rank(axis=1, pct=True)
-    output = final_ranks.copy()
-    output[:] = (final_ranks >= (1 - thresh)).astype(int) - \
-        (final_ranks <= thresh).astype(int)
-    output = output.unstack().reset_index()
-    output.columns = ['SecCode', 'Date', 'Response']
-    return output
 
 
-def outlier_rank(data, variable, outlier_std=4, pad=True):
-    """
-    Will create two columns, and if the variable is an extreme outlier will
-    code it as a 1 or -1 depending on side and force rank to median for
-    the date.
-    """
-    pdata = data.pivot(index='Date', columns='SecCode', values=variable)
-    if pad:
-        pdata = pdata.fillna(method='pad')
-
-    # Get extreme value cutoffs
-    daily_min = pdata.median(axis=1) - outlier_std * pdata.std(axis=1)
-    daily_max = pdata.median(axis=1) + outlier_std * pdata.std(axis=1)
-
-    # FillNans are to avoid warning
-    extremes = pdata.fillna(-99999).gt(daily_max, axis=0).astype(int) - \
-        pdata.fillna(99999).lt(daily_min, axis=0).astype(int)
-
-    # Rank
-    ranks = (pdata.rank(axis=1) - 1) / (pdata.shape[1] - 1)
-
-    # Combine
-    extremes = extremes.unstack().reset_index()
-    extremes.columns = ['SecCode', 'Date', variable + '_extreme']
-    ranks = ranks.unstack().reset_index()
-    ranks.columns = ['SecCode', 'Date', variable]
-    return ranks.merge(extremes)
 
 
 def _duplicate(series, shape):
     return series.repeat(shape[1]).values.reshape(shape)
+
+

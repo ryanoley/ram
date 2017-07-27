@@ -79,3 +79,50 @@ def make_anchor_ret_rank(data, init_offset=1,
     ranks = ranks.unstack().reset_index()
     ranks.columns = ['SecCode', 'Date', 'anchor_ret_rank']
     return data.merge(ranks)
+
+
+def outlier_rank(data, variable, outlier_std=4, pad=True):
+    """
+    Will create two columns, and if the variable is an extreme outlier will
+    code it as a 1 or -1 depending on side and force rank to median for
+    the date.
+    """
+    pdata = data.pivot(index='Date', columns='SecCode', values=variable)
+    if pad:
+        pdata = pdata.fillna(method='pad')
+
+    # Get extreme value cutoffs
+    daily_min = pdata.median(axis=1) - outlier_std * pdata.std(axis=1)
+    daily_max = pdata.median(axis=1) + outlier_std * pdata.std(axis=1)
+
+    # FillNans are to avoid warning
+    extremes = pdata.fillna(-99999).gt(daily_max, axis=0).astype(int) - \
+        pdata.fillna(99999).lt(daily_min, axis=0).astype(int)
+
+    # Rank
+    ranks = (pdata.rank(axis=1) - 1) / (pdata.shape[1] - 1)
+
+    # Combine
+    extremes = extremes.unstack().reset_index()
+    extremes.columns = ['SecCode', 'Date', variable + '_extreme']
+    ranks = ranks.unstack().reset_index()
+    ranks.columns = ['SecCode', 'Date', variable]
+    return ranks.merge(extremes)
+
+
+def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
+    if not isinstance(days, list):
+        days = [days]
+    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+    for i in days:
+        if i == days[0]:
+            rank = rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+        else:
+            rank += rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+    final_ranks = rank.rank(axis=1, pct=True)
+    output = final_ranks.copy()
+    output[:] = (final_ranks >= (1 - thresh)).astype(int) - \
+        (final_ranks <= thresh).astype(int)
+    output = output.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'Response']
+    return output
