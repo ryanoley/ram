@@ -126,3 +126,12 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
     return output
+
+
+def make_variable_dict(data, variable, fillna=np.nan):
+    data_pivot = data.pivot(index='Date', columns='SecCode', values=variable)
+    if fillna == 'pad':
+        data_pivot = data_pivot.fillna(method='pad')
+    else:
+        data_pivot = data_pivot.fillna(fillna)
+    return data_pivot.T.to_dict()

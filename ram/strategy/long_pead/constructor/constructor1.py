@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from gearbox import create_time_index
-
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 
 
@@ -34,11 +32,7 @@ class PortfolioConstructor1(object):
             data_container.test_data, 'RCashDividend', 0)
         split_mult_dict = make_variable_dict(
             data_container.test_data, 'SplitMultiplier', 1)
-        market_cap_dict = make_variable_dict(
-            data_container.test_data, 'MarketCap', 'pad')
         scores_dict = make_variable_dict(data_container.test_data, 'preds')
-        group_dict = make_variable_dict(
-            data_container.test_data, 'GGROUP', 'pad')
 
         portfolio = Portfolio()
 
@@ -104,12 +98,3 @@ class PortfolioConstructor1(object):
                 -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
         scores.weights = scores.weights / scores.weights.abs().sum() * booksize
         return scores.weights.to_dict()
-
-
-def make_variable_dict(data, variable, fillna=np.nan):
-    data_pivot = data.pivot(index='Date', columns='SecCode', values=variable)
-    if fillna == 'pad':
-        data_pivot = data_pivot.fillna(method='pad')
-    else:
-        data_pivot = data_pivot.fillna(fillna)
-    return data_pivot.T.to_dict()

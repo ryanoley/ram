@@ -7,10 +7,10 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.utils.time_funcs import convert_date_array
-from ram.strategy.long_pead.constructor.constructor3 import *
+from ram.strategy.long_pead.constructor.constructor2 import *
 
 
-class TestConstructor3(unittest.TestCase):
+class TestConstructor2(unittest.TestCase):
 
     def setUp(self):
         dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04']
@@ -27,7 +27,7 @@ class TestConstructor3(unittest.TestCase):
         self.data['Date'] = convert_date_array(self.data.Date)
 
     def test_get_position_sizes_with_mcaps(self):
-        cons = PortfolioConstructor3()
+        cons = PortfolioConstructor2()
         mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
         mcaps = {'AAPL': 100, 'IBM': 100, 'TSLA': 200, 'BAC': 200, 'GS': 30}
         result = cons._get_position_sizes_with_mcaps(mrets, mcaps, 1, 100)

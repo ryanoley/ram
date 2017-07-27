@@ -34,6 +34,24 @@ class SignalModel1(object):
                                    max_features=max_features,
                                    n_jobs=NJOBS)
 
+        # elif model_type == 1:
+        #     clf = BaggingClassifier(LogisticRegression(), n_estimators=50,
+        #                             max_samples=0.7, max_features=0.6,
+        #                             n_jobs=NJOBS)
+        # 
+        # elif model_type == 2:
+        #     clf1 = ExtraTreesClassifier(n_estimators=50, n_jobs=NJOBS,
+        #                                 min_samples_leaf=60,
+        #                                 max_features=tree_max_features)
+        # 
+        #     clf2 = BaggingClassifier(LogisticRegression(), n_estimators=50,
+        #                              max_samples=0.7, max_features=0.6,
+        #                              n_jobs=NJOBS)
+        # 
+        #     models = [('et', clf1), ('lc', clf2)]
+        # 
+        #     clf = VotingClassifier(estimators=models, voting='soft')
+
         clf.fit(X=train_data[features],
                 y=train_data['Response'])
 

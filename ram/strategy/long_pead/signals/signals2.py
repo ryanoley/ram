@@ -17,22 +17,23 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': ['log2', 'sqrt'],
-            'n_estimators': [40, 80],
-            'min_samples_leaf': [30, 80, 140]
+            'max_features': [0.2, 0.5],
+            'n_estimators': [10, 20],
+            'max_samples': [30, 80, 140]
         }
 
     def generate_signals(self, data_container, max_features,
-                         min_samples_leaf, n_estimators):
+                         max_samples, n_estimators):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
 
-        clf = ExtraTreesClassifier(n_estimators=n_estimators,
-                                   min_samples_leaf=min_samples_leaf,
-                                   max_features=max_features,
-                                   n_jobs=NJOBS)
+        clf = BaggingClassifier(LogisticRegression(),
+                                n_estimators=n_estimators,
+                                max_samples=max_samples,
+                                max_features=max_features,
+                                n_jobs=NJOBS)
 
         clf.fit(X=train_data[features],
                 y=train_data['Response'])

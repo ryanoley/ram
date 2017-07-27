@@ -4,34 +4,60 @@ import datetime as dt
 
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 
-from ram.strategy.long_pead.constructor.constructor2 import PortfolioConstructor2
 
+class PortfolioConstructor2(object):
 
-class PortfolioConstructor3(PortfolioConstructor2):
+    def __init__(self, booksize=10e6):
+        """
+        Parameters
+        ----------
+        booksize : numeric
+            Size of gross position
+        """
+        self.booksize = booksize
 
-    def get_daily_pl(self, arg_index, logistic_spread):
+    def get_args(self):
+        return {
+            'logistic_spread': [0.1, 0.5, 1]
+        }
+
+    def get_daily_pl(self, data_container, signals, logistic_spread):
         """
         Parameters
         ----------
         """
+        close_dict = make_variable_dict(
+            data_container.test_data, 'RClose')
+        dividend_dict = make_variable_dict(
+            data_container.test_data, 'RCashDividend', 0)
+        split_mult_dict = make_variable_dict(
+            data_container.test_data, 'SplitMultiplier', 1)
+        market_cap_dict = make_variable_dict(
+            data_container.test_data, 'MarketCap', 'pad')
+        scores_dict = make_variable_dict(data_container.test_data, 'preds')
+
         portfolio = Portfolio()
+
+        unique_test_dates = data_container.test_data.Date.unique()
+
         # Output object
-        daily_df = pd.DataFrame(index=self.iter_dates,
+        daily_df = pd.DataFrame(index=unique_test_dates,
                                 columns=['PL', 'Exposure', 'Turnover'],
                                 dtype=float)
 
-        for date in self.iter_dates:
+        for date in unique_test_dates:
 
-            closes = self.close_dict[date]
-            dividends = self.dividend_dict[date]
-            splits = self.split_mult_dict[date]
-            scores = self.scores_dict[date]
+            closes = close_dict[date]
+            dividends = dividend_dict[date]
+            splits = split_mult_dict[date]
+            scores = scores_dict[date]
             # Could this be just a simple "Group"
-            mcaps = self.market_cap_dict[date]
+            mcaps = market_cap_dict[date]
 
+            # Accounting
             portfolio.update_prices(closes, dividends, splits)
 
-            if date == self.iter_dates.iloc[-1]:
+            if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
                 sizes = self._get_position_sizes_with_mcaps(
@@ -46,6 +72,7 @@ class PortfolioConstructor3(PortfolioConstructor2):
             daily_df.loc[date, 'Turnover'] = daily_turnover
             daily_df.loc[date, 'Exposure'] = daily_exposure
 
+        # Close everything and begin anew in new quarter
         return daily_df
 
     def _get_position_sizes_with_mcaps(self, scores, mcaps,
