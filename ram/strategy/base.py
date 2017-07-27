@@ -52,12 +52,12 @@ class Strategy(object):
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def start(self):
+    def start(self, description=None):
         self._print_prepped_data_meta()
         self._get_prepped_data_file_names()
         self._create_run_output_dir()
         self._copy_source_code()
-        self._create_meta_file()
+        self._create_meta_file(description)
         self._write_column_parameters_file()
         for i in tqdm(range(len(self._prepped_data_files))):
             self.run_index(i)
@@ -92,10 +92,10 @@ class Strategy(object):
             dest_path = os.path.join(self.run_dir, 'strategy_source_copy')
             copytree(source_path, dest_path)
 
-    def _create_meta_file(self, user_description=True):
+    def _create_meta_file(self, user_description=None):
         if self._write_flag:
             # To aid unittest
-            desc = prompt_for_description() if user_description else None
+            desc = user_description if user_description else prompt_for_description()
             git_branch, git_commit = get_git_branch_commit()
             # Create meta object
             run_meta = {
@@ -330,6 +330,9 @@ def make_argument_parser(Strategy):
     parser.add_argument(
         '-s', '--simulation', action='store_true',
         help='Run simulation for debugging')
+    parser.add_argument(
+        '--description', default=None,
+        help='Run description. Used namely in a batch file')
 
     # Data Construction Commands
     parser.add_argument(
@@ -357,7 +360,7 @@ def make_argument_parser(Strategy):
         else:
             version = get_version_name(Strategy.__name__, args.data_version)
             strategy = Strategy(version, True)
-            strategy.start()
+            strategy.start(args.description)
     elif args.simulation:
         if not args.data_version:
             print('Data version must be provided')

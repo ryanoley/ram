@@ -131,7 +131,7 @@ class TestStrategyBase(unittest.TestCase):
     def test_create_meta_file(self):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file(False)
+        self.strategy._create_meta_file('Test')
         result = json.load(open(os.path.join(self.output_dir,
                                              'TestStrategy', 'run_0001',
                                              'meta.json'), 'r'))
@@ -156,7 +156,7 @@ class TestStrategyBase(unittest.TestCase):
     def test_shutdown_simulation(self):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file(False)
+        self.strategy._create_meta_file('Test')
         self.strategy._shutdown_simulation()
         result = json.load(open(os.path.join(self.output_dir,
                                              'TestStrategy', 'run_0001',
