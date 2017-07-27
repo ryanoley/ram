@@ -33,19 +33,23 @@ class DataHandlerSQL(object):
     def _connect(self):
         self._test_time_constraint()
         try:
-            connection = pypyodbc.connect('Driver={SQL Server};'
-                                          'Server=QADIRECT;'
-                                          'Database=ram;'
-                                          'uid=ramuser;pwd=183madison')
+            try:
+                connection = pypyodbc.connect('Driver={SQL Server};'
+                                              'Server=QADIRECT;'
+                                              'Database=ram;'
+                                              'uid=ramuser;pwd=183madison')
+            except:
+                # Mac/Linux implementation. unixODBC and FreeTDS works
+                # https://github.com/mkleehammer/pyodbc/wiki/Connecting-to-SQL-Server-from-Mac-OSX
+                connect_str = "DSN=qadirectdb;UID=ramuser;PWD=183madison"
+                connection = pypyodbc.connect(connect_str)
+            assert connection.connected == 1
+            self._connection = connection
+            self._cursor = connection.cursor()
+            self._cursor.autocommit = True
         except:
-            # Mac/Linux implementation. unixODBC and FreeTDS works
-            # https://github.com/mkleehammer/pyodbc/wiki/Connecting-to-SQL-Server-from-Mac-OSX
-            connect_str = "DSN=qadirectdb;UID=ramuser;PWD=183madison"
-            connection = pypyodbc.connect(connect_str)
-        assert connection.connected == 1
-        self._connection = connection
-        self._cursor = connection.cursor()
-        self._cursor.autocommit = True
+            self._connection = None
+            self._cursor = None
 
     def _disconnect(self):
         try:
