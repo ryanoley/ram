@@ -5,9 +5,11 @@ import datetime as dt
 from ram.strategy.base import Strategy
 
 from ram.strategy.long_pead.data.data_container1 import DataContainer1
-from ram.strategy.long_pead.signals.signals1 import SignalModel1
 from ram.strategy.long_pead.constructor.constructor1 import \
     PortfolioConstructor1
+
+from ram.strategy.long_pead.signals.signals1 import SignalModel1
+from ram.strategy.long_pead.signals.signals2 import SignalModel2
 
 
 class LongPeadStrategy(Strategy):
@@ -25,11 +27,12 @@ class LongPeadStrategy(Strategy):
         args3 = make_arg_iter(self.constructor.get_args())
 
         output_params = {}
-        for col_ind, (x, y) in enumerate(itertools.product(args1,
-                                                           args2,
-                                                           args3)):
+        for col_ind, (x, y, z) in enumerate(itertools.product(args1,
+                                                              args2,
+                                                              args3)):
             params = dict(x)
             params.update(y)
+            params.update(z)
             output_params[col_ind] = params
         return output_params
 
@@ -84,7 +87,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (40) ' +
+            'where': 'MarketCap >= 200 and GSECTOR in (45) ' +
             'and Close_ between 5 and 500',
             'univ_size': 500
         }

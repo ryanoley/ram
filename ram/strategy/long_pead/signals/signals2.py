@@ -10,7 +10,7 @@ from ram import config
 NJOBS = config.SKLEARN_NJOBS
 
 
-class SignalModel1(object):
+class SignalModel2(object):
 
     def __init__(self):
         pass
@@ -18,7 +18,7 @@ class SignalModel1(object):
     def get_args(self):
         return {
             'max_features': [0.2, 0.5],
-            'n_estimators': [10, 20],
+            'n_estimators': [5, 10, 20],
             'max_samples': [30, 80, 140]
         }
 

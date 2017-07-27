@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from ram.strategy.long_pead.utils import make_variable_dict
+
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 
 
@@ -38,7 +40,7 @@ class PortfolioConstructor2(object):
 
         portfolio = Portfolio()
 
-        unique_test_dates = data_container.test_data.Date.unique()
+        unique_test_dates = np.unique(data_container.test_data.Date)
 
         # Output object
         daily_df = pd.DataFrame(index=unique_test_dates,

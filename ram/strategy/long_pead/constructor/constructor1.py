@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from ram.strategy.long_pead.utils import make_variable_dict
+
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 
 
@@ -36,7 +38,7 @@ class PortfolioConstructor1(object):
 
         portfolio = Portfolio()
 
-        unique_test_dates = data_container.test_data.Date.unique()
+        unique_test_dates = np.unique(data_container.test_data.Date)
 
         # Output object
         daily_df = pd.DataFrame(index=unique_test_dates,
@@ -49,8 +51,6 @@ class PortfolioConstructor1(object):
             dividends = dividend_dict[date]
             splits = split_mult_dict[date]
             scores = scores_dict[date]
-            # Could this be just a simple "Group"
-            mcaps = market_cap_dict[date]
 
             # Accounting
             portfolio.update_prices(closes, dividends, splits)
