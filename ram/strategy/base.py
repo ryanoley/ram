@@ -154,7 +154,12 @@ class Strategy(object):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _print_prepped_data_meta(self):
-        meta = json.load(open(os.path.join(self._prepped_data_dir,
+        if self._gcp_implementation:
+            blob = self._bucket.get_blob(
+                os.path.join(self._prepped_data_dir, 'meta.json'))
+            meta = json.loads(blob.download_as_string())
+        else:
+            meta = json.load(open(os.path.join(self._prepped_data_dir,
                                            'meta.json'), 'r'))
 
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
