@@ -7,6 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 
+from StringIO import StringIO
 from google.cloud import storage
 
 from abc import ABCMeta, abstractmethod, abstractproperty
@@ -283,7 +284,7 @@ class Strategy(object):
             # doesn't need to be manually called
             self._get_prepped_data_file_names()
         if self._gcp_implementation:
-            blob = bucket.get_blob(self._prepped_data_files[index])
+            blob = self._bucket.get_blob(self._prepped_data_files[index])
             data = pd.read_csv(StringIO(blob.download_as_string()))
         else:
             dpath = os.path.join(self._prepped_data_dir,
