@@ -56,7 +56,8 @@ class Strategy(object):
             self._prepped_data_dir = os.path.join('prepped_data',
                                                   self.__class__.__name__,
                                                   prepped_data_version)
-            self._strategy_output_dir = os.path.join('simulations',
+            ## CURRENTLY WRITING TO LOCAL MACHINE
+            self._strategy_output_dir = os.path.join('~/data/simulations',
                                                      self.__class__.__name__)
         else:
             self._prepped_data_dir = os.path.join(prepped_data_dir,
