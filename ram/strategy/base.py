@@ -7,6 +7,8 @@ import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 
+from google.cloud import storage
+
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram import config
@@ -26,7 +28,8 @@ class Strategy(object):
                  prepped_data_version='NODATA',
                  write_flag=False,
                  prepped_data_dir=config.PREPPED_DATA_DIR,
-                 simulation_output_dir=config.SIMULATION_OUTPUT_DIR):
+                 simulation_output_dir=config.SIMULATION_OUTPUT_DIR,
+                 gcp_implementation=False):
         """
         Parameters
         ----------
@@ -44,11 +47,20 @@ class Strategy(object):
         """
         self._write_flag = write_flag
         self._data_version = prepped_data_version
-        self._prepped_data_dir = os.path.join(prepped_data_dir,
-                                              self.__class__.__name__,
-                                              prepped_data_version)
-        self._strategy_output_dir = os.path.join(simulation_output_dir,
-                                                 self.__class__.__name__)
+        self._gcp_implementation = gcp_implementation
+        if self._gcp_implementation:
+            self._gcp_client = storage.Client()
+            self._bucket = self._gcp_client.get_bucket(
+                config.GCP_STORAGE_BUCKET_NAME)
+            self._prepped_data_dir = os.path.join(self.__class__.__name__,
+                                                  prepped_data_version)
+            self._strategy_output_dir = None
+        else:
+            self._prepped_data_dir = os.path.join(prepped_data_dir,
+                                                  self.__class__.__name__,
+                                                  prepped_data_version)
+            self._strategy_output_dir = os.path.join(simulation_output_dir,
+                                                     self.__class__.__name__)
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -95,7 +107,8 @@ class Strategy(object):
     def _create_meta_file(self, user_description=None):
         if self._write_flag:
             # To aid unittest
-            desc = user_description if user_description else prompt_for_description()
+            desc = user_description if user_description else \
+                prompt_for_description()
             git_branch, git_commit = get_git_branch_commit()
             # Create meta object
             run_meta = {
@@ -170,9 +183,16 @@ class Strategy(object):
                 meta['date_parameters_univ']['frequency']))
 
     def _get_prepped_data_file_names(self):
-        all_files = os.listdir(self._prepped_data_dir)
-        self._prepped_data_files = [
-            x for x in all_files if x[-8:] == 'data.csv']
+
+        if self._gcp_implementation:
+            all_files = [x.name for x in self._bucket.list_blobs()]
+            self._prepped_data_files = [
+                x for x in all_files if x.startswith(
+                    self._prepped_data_dir)]
+        else:
+            all_files = os.listdir(self._prepped_data_dir)
+            self._prepped_data_files = [
+                x for x in all_files if x[-8:] == 'data.csv']
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -257,9 +277,13 @@ class Strategy(object):
             # This is used for interactive development so get data files
             # doesn't need to be manually called
             self._get_prepped_data_file_names()
-        dpath = os.path.join(self._prepped_data_dir,
-                             self._prepped_data_files[index])
-        data = pd.read_csv(dpath)
+        if self._gcp_implementation:
+            blob = bucket.get_blob(self._prepped_data_files[index])
+            data = pd.read_csv(StringIO(blob.download_as_string()))
+        else:
+            dpath = os.path.join(self._prepped_data_dir,
+                                 self._prepped_data_files[index])
+            data = pd.read_csv(dpath)
         data.Date = convert_date_array(data.Date)
         data.SecCode = data.SecCode.astype(int).astype(str)
         return data
@@ -333,6 +357,9 @@ def make_argument_parser(Strategy):
     parser.add_argument(
         '--description', default=None,
         help='Run description. Used namely in a batch file')
+    parser.add_argument(
+        '--cloud', default=False,
+        help='Tag must be added for GCP implementation')
 
     # Data Construction Commands
     parser.add_argument(
@@ -359,7 +386,7 @@ def make_argument_parser(Strategy):
             print('Data version must be provided')
         else:
             version = get_version_name(Strategy.__name__, args.data_version)
-            strategy = Strategy(version, True)
+            strategy = Strategy(version, True, gcp_implementation=args.cloud)
             strategy.start(args.description)
     elif args.simulation:
         if not args.data_version:
@@ -367,7 +394,7 @@ def make_argument_parser(Strategy):
         else:
             import ipdb; ipdb.set_trace()
             version = get_version_name(Strategy.__name__, args.data_version)
-            strategy = Strategy(version, False)
+            strategy = Strategy(version, False, gcp_implementation=args.cloud)
             strategy.start()
 
     # Data Construction

@@ -10,3 +10,4 @@ pandas_datareader
 numba
 ipdb
 ipython
+google-cloud
