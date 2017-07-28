@@ -358,7 +358,7 @@ def make_argument_parser(Strategy):
         '--description', default=None,
         help='Run description. Used namely in a batch file')
     parser.add_argument(
-        '--cloud', default=False,
+        '--cloud', action='store_true',
         help='Tag must be added for GCP implementation')
 
     # Data Construction Commands
