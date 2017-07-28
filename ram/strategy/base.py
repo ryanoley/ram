@@ -53,9 +53,11 @@ class Strategy(object):
             self._gcp_client = storage.Client()
             self._bucket = self._gcp_client.get_bucket(
                 config.GCP_STORAGE_BUCKET_NAME)
-            self._prepped_data_dir = os.path.join(self.__class__.__name__,
+            self._prepped_data_dir = os.path.join('prepped_data',
+                                                  self.__class__.__name__,
                                                   prepped_data_version)
-            self._strategy_output_dir = None
+            self._strategy_output_dir = os.path.join('simulations',
+                                                     self.__class__.__name__)
         else:
             self._prepped_data_dir = os.path.join(prepped_data_dir,
                                                   self.__class__.__name__,
