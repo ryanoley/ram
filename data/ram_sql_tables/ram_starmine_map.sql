@@ -34,13 +34,26 @@ group by		SecId
 
 
 , starmine_cusip_map_x as (
+select distinct SecId, Cusip from qai.dbo.SM2DInfo
+where Cusip is not null
+union
 select distinct SecId, then_cusip_sedol as Cusip from ram.dbo.sm_SmartEstimate_eps
 where then_cusip_sedol is not null
 union
 select distinct SecId, cusip_sedol as Cusip from ram.dbo.sm_SmartEstimate_eps
 where cusip_sedol is not null
 union
-select distinct SecId, Cusip from qai.dbo.SM2DInfo
+select distinct SecId, then_cusip_sedol as Cusip from ram.dbo.sm_ARM
+where then_cusip_sedol is not null
+union
+select distinct SecId, cusip_sedol as Cusip from ram.dbo.sm_ARM
+where cusip_sedol is not null
+union
+select distinct SecId, then_cusip_sedol as Cusip from ram.dbo.sm_ShortInterest
+where then_cusip_sedol is not null
+union
+select distinct SecId, cusip_sedol as Cusip from ram.dbo.sm_ShortInterest
+where cusip_sedol is not null
 )
 
 
