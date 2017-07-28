@@ -302,7 +302,10 @@ class Strategy(object):
         """
         This is a wrapper function for cloud implementation.
         """
-        output_name = self._prepped_data_files[index]
+        if self._gcp_implementation:
+            output_name = self._prepped_data_files[index].split('/')[-1]
+        else:
+            output_name = self._prepped_data_files[index]
         output_name = output_name.replace('data', suffix)
         if self._write_flag:
             returns_df.to_csv(os.path.join(self.strategy_output_dir,
