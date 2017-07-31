@@ -239,37 +239,37 @@ from ram.dbo.ShortInterest
 )
 
 -- Starmine ARM
-, sm_arm as (
+, starmine_arm as (
 select 
     @StatusDateTime as StatusDateTime,
-    'sm_ARM' as TableName,
+    'ram_starmine_arm' as TableName,
     min(AsOfDate) as MinTableDate,
     max(AsOfDate) as MaxTableDate,
     count(*) as Count_
-from ram.dbo.sm_ARM
+from ram.dbo.ram_starmine_arm
 )
 
 -- Starmine ShortInterest
-, sm_si as (
+, starmine_si as (
 select 
     @StatusDateTime as StatusDateTime,
-    'sm_ShortInterest' as TableName,
+    'ram_starmine_short_interest' as TableName,
     min(AsOfDate) as MinTableDate,
     max(AsOfDate) as MaxTableDate,
     count(*) as Count_
-from ram.dbo.sm_ShortInterest
+from ram.dbo.ram_starmine_short_interest
 )
 
 
 -- Starmine SmartEstimate
-, sm_se_eps as (
+, starmine_smart_estimate as (
 select 
     @StatusDateTime as StatusDateTime,
-    'sm_SmartEstimate_eps' as TableName,
+    'ram_starmine_smart_estimate' as TableName,
     min(AsOfDate) as MinTableDate,
     max(AsOfDate) as MaxTableDate,
     count(*) as Count_
-from ram.dbo.sm_SmartEstimate_eps
+from ram.dbo.ram_starmine_smart_estimate
 )
 
 
@@ -319,8 +319,8 @@ select * from report_dates
 union
 select * from short_int
 union
-select * from sm_arm
+select * from starmine_arm
 union
-select * from sm_si
+select * from starmine_si
 union
-select * from sm_se_eps
+select * from starmine_smart_estimate

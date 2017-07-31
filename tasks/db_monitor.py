@@ -210,7 +210,8 @@ def main():
     # RAM Tables
     if args.check_ram:
         check_tables = ['univ_filter_data_etf', 'univ_filter_data',
-                        'sm_SmartEstimate_eps', 'sm_ShortInterest', 'sm_ARM',
+                        'ram_starmine_smart_estimate',
+                        'ram_starmine_short_interest', 'ram_starmine_arm',
                         'pead_event_dates_live', 'ern_event_dates_live', 
                         'ram_compustat_sector', 'ram_equity_pricing',
                         'ram_etf_pricing', ]
