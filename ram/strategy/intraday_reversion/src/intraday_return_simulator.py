@@ -200,3 +200,83 @@ class IntradayReturnSimulator(object):
         output.update(win_percent)
         output.update(total_returns)
         return output
+
+
+    def get_optimal_take_stops(self, signals):
+        signals = signals.copy()
+        signals.index = signals.Date
+        
+        for ticker in signals.Ticker.unique():
+            all_ts_returns = self._return_data[ticker].copy()
+            signal_ts_returns = pd.merge(signals[signals.Ticker==ticker],
+                                         all_ts_returns)
+            signal_ts_returns['ts'] = ['{0}_{1}'.format(x,y) for x,y in
+                                    zip(signal_ts_returns.perc_take,
+                                        signal_ts_returns.perc_stop)]
+            long_returns = signal_ts_returns[signal_ts_returns.signal == 1].pivot(
+                index='Date', columns='ts', values='Return')
+            short_returns = signal_ts_returns[signal_ts_returns.signal == -1].pivot(
+                index='Date', columns='ts', values='Return')
+            long_returns = long_returns.expanding().mean()
+            short_returns = short_returns.expanding().mean()
+            param_max_long = long_returns.idxmax(axis=1)
+            param_max_long = param_max_long.shift(1)
+            param_max_long.iloc[0] = param_max_long.iloc[1]
+            param_min_short = short_returns.idxmin(axis=1)
+            param_min_short = param_min_short.shift(1)
+            param_min_short.iloc[0] = param_min_short.iloc[1]
+            signals.loc[signals.Ticker == ticker,
+                        'ParamLong'] = param_max_long
+            signals.loc[signals.Ticker == ticker,
+                        'ParamShort'] = param_min_short
+
+        signals.reset_index(drop=True, inplace=True)
+        signals['OptimalTS'] = np.where(signals.signal == 1, signals.ParamLong,
+                                np.where(signals.signal == -1, signals.ParamShort,
+                                         '0.0_0.0'))
+        signals.OptimalTS.fillna('0.0_0.0', inplace=True)
+        signals['perc_take'] = [float(x.split('_')[0]) for x in signals.OptimalTS]
+        signals['perc_stop'] = [float(x.split('_')[1]) for x in signals.OptimalTS]
+        signals.drop(['ParamLong', 'ParamShort', 'OptimalTS'], axis=1,
+            inplace=True)
+
+        return signals
+
+    def get_optimal_take_stops2(self, signals):
+        signals = signals.copy()
+        signals.index = signals.Date
+        return_df = pd.DataFrame([])
+        
+        ts_cols = [x for x in signals.columns if x.find('s_') > -1]
+        out_cols = [x.replace('s_','') for x in signals.columns if x.find('s_') > -1]
+        
+        for ticker in signals.Ticker.unique():
+            all_ts_returns = self._return_data[ticker].copy()
+            ticker_signals = signals[signals.Ticker==ticker].copy()
+            
+            for ts in ts_cols:
+                _, take, stop = ts.split('_')
+                rets = all_ts_returns[(all_ts_returns.perc_take == float(take)) & (all_ts_returns.perc_stop == float(stop))]
+                ticker_signals['signal'] = ticker_signals[ts].copy()
+                
+                ticker_signals = ticker_signals.merge(rets[['Date','signal','Return']], how='left')
+                ticker_signals.Return.fillna(0., inplace=True)
+                ticker_signals.rename(columns={'Return':'{0}_{1}'.format(take,stop)}, inplace=True)
+
+            ticker_signals[out_cols] = ticker_signals[out_cols].cumsum()
+            ticker_signals['MaxParam'] = ticker_signals[out_cols].idxmax(axis=1).shift(1)
+            ticker_signals.loc[0, 'MaxParam'] = ticker_signals.loc[1, 'MaxParam']
+            ticker_signals['perc_take'] = [float(x.split('_')[0]) for x in ticker_signals.MaxParam]
+            ticker_signals['perc_stop'] = [float(x.split('_')[1]) for x in ticker_signals.MaxParam]
+            
+            signal_arr = np.array(ticker_signals[ts_cols])
+            cum_ret_arr = np.array(ticker_signals[out_cols])
+            max_col = cum_ret_arr.argmax(axis=1)
+            sel_signal = signal_arr[np.arange(len(signal_arr)), max_col]
+            ticker_signals['signal'] = sel_signal
+            ticker_signals.loc[0, 'signal'] = 0
+            return_df = return_df.append(ticker_signals[['Ticker','Date','perc_take',
+                                                         'perc_stop', 'signal']])
+        
+        return return_df.reset_index(drop=True)
+    

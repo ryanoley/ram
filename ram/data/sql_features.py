@@ -848,7 +848,6 @@ def VIX(data_column, feature_name, arg2, table):
     return clean_sql_cmd(sqlcmd)
 
 
-
 # ~~~~~ STARMINE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 def _STARMINE_ARM(feature, feature_name, table):
     sqlcmd = \
@@ -860,8 +859,7 @@ def _STARMINE_ARM(feature, feature_name, table):
         join        ram.dbo.ram_starmine_map M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
-        left join   ram.dbo.sm_ARM B
+        left join   ram.dbo.ram_starmine_arm B
             on      M.SecId = B.SecId
             and     B.AsOfDate = A.Date_
         """.format(table, feature_name, feature)
@@ -877,8 +875,7 @@ def _STARMINE_SMART_ESTIMATE(feature, feature_name, table):
         join        ram.dbo.ram_starmine_map M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
-        left join   ram.dbo.sm_SmartEstimate_eps B
+        left join   ram.dbo.ram_starmine_smart_estimate B
             on      M.SecId = B.SecId
             and     B.AsOfDate = (select max(d.AsOfDate)
                         from ram.dbo.sm_SmartEstimate_eps d
@@ -897,8 +894,7 @@ def _STARMINE_SI(feature, feature_name, table):
         join        ram.dbo.ram_starmine_map M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
-        left join   ram.dbo.sm_ShortInterest B
+        left join   ram.dbo.ram_starmine_short_interest B
             on      M.SecId = B.SecId
             and     B.AsOfDate = A.Date_
         """.format(table, feature_name, feature)
