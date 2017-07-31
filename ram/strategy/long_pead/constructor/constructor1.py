@@ -20,7 +20,7 @@ class PortfolioConstructor1(object):
 
     def get_args(self):
         return {
-            'logistic_spread': [0.1, 0.5, 1]
+            'logistic_spread': [0.01, 0.1, 0.5, 1]
         }
 
     def get_daily_pl(self, data_container, signals, logistic_spread):
@@ -69,6 +69,9 @@ class PortfolioConstructor1(object):
             daily_df.loc[date, 'PL'] = daily_pl
             daily_df.loc[date, 'Turnover'] = daily_turnover
             daily_df.loc[date, 'Exposure'] = daily_exposure
+            daily_df.loc[date, 'OpenPositions'] = sum([
+                1 if x.shares != 0 else 0
+                for x in portfolio.positions.values()])
 
         # Close everything and begin anew in new quarter
         return daily_df

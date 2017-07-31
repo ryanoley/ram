@@ -19,8 +19,8 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [[2, 4, 6], [3]],
-            'response_thresh': [0.25, 0.35],
+            'response_days': [[2, 4, 6], [2], [6]],
+            'response_thresh': [0.30],
             'training_qtrs': [-99]
         }
 

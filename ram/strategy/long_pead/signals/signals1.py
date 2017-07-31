@@ -17,9 +17,9 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': ['log2', 'sqrt'],
-            'n_estimators': [40, 80],
-            'min_samples_leaf': [30, 80, 140]
+            'max_features': ['log2', 'sqrt', 0.8],
+            'n_estimators': [80, 160],
+            'min_samples_leaf': [140, 300]
         }
 
     def generate_signals(self, data_container, max_features,

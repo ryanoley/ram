@@ -16,7 +16,7 @@ class Position(object):
             Commissions
         """
         self.symbol = symbol
-        self.current_price = float(price)
+        self.current_price = 0 if np.isnan(price) else float(price)
         self.comm = comm
         self.open_position = True
         self.shares = 0

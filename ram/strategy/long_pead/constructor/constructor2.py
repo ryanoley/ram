@@ -73,6 +73,9 @@ class PortfolioConstructor2(object):
             daily_df.loc[date, 'PL'] = daily_pl
             daily_df.loc[date, 'Turnover'] = daily_turnover
             daily_df.loc[date, 'Exposure'] = daily_exposure
+            daily_df.loc[date, 'OpenPositions'] = sum([
+                1 if x.shares != 0 else 0
+                for x in portfolio.positions.values()])
 
         # Close everything and begin anew in new quarter
         return daily_df
