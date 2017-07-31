@@ -39,7 +39,7 @@ def get_predictions(data,
     data = data.reindex(columns=list(data.columns) + pred_columns)
 
     print('\nTraining Predictive Models: ')
-    for qtr in tqdm(qtrIdxs):
+    for qtr in tqdm(qtr_indexes):
         train_X = data.loc[data.QIndex < qtr, features]
         train_y = data.loc[data.QIndex < qtr, response_columns]
         test_X = data.loc[data.QIndex == qtr, features]
@@ -49,9 +49,7 @@ def get_predictions(data,
         probs = clf.predict_proba(test_X)
         long_ind = np.where(clf.classes_[0] == 1)[0][0]
         short_ind = np.where(clf.classes_[0] == -1)[0][0]
-
         preds = np.array([x[:,long_ind] - x[:,short_ind] for x in probs]).transpose()
-
         data.loc[data.QIndex == qtr, pred_columns] = preds
 
     downstream_features = ['zOpen']+ list(response_columns)
