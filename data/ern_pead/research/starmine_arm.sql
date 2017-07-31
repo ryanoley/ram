@@ -86,10 +86,10 @@ from			report_dates D
 
 , starmine_cusip_map as (
 -- Stack columns cusip_sedol and then_cusip_sedol as Cusip
-select distinct SecId, then_cusip_sedol as Cusip from ram.dbo.sm_SmartEstimate_eps
+select distinct SecId, then_cusip_sedol as Cusip from ram.dbo.ram_starmine_smart_estimate
 where then_cusip_sedol is not null
 union
-select distinct SecId, cusip_sedol as Cusip from ram.dbo.sm_SmartEstimate_eps
+select distinct SecId, cusip_sedol as Cusip from ram.dbo.ram_starmine_smart_estimate
 where cusip_sedol is not null
 )
 
@@ -138,7 +138,7 @@ select				D.*,
 					S.SE_EPS as HistEps,
 					S.SE_EPS_Surprise as HistEpsSurprise
 from				matched_ids_report_dates D
-	left join		ram.dbo.sm_SmartEstimate_eps S
+	left join		ram.dbo.ram_starmine_smart_estimate S
 	on				D.SecId = S.SecId
 	and				D.FilterDate = S.AsOfDate
 )

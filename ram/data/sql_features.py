@@ -841,6 +841,99 @@ def VIX(data_column, feature_name, arg2, table):
         """.format(feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
+# ~~~~~ STARMINE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def _STARMINE_ARM(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{2} as {1}
+        from        {0} A
+        join        ram.dbo.ram_starmine_map M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_starmine_arm B
+            on      M.SecId = B.SecId
+            and     B.AsOfDate = A.Date_
+        """.format(table, feature_name, feature)
+    return clean_sql_cmd(sqlcmd)
+
+def _STARMINE_SMART_ESTIMATE(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{2} as {1}
+        from        {0} A
+        join        ram.dbo.ram_starmine_map M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_starmine_smart_estimate B
+            on      M.SecId = B.SecId
+            and     B.AsOfDate = (select max(d.AsOfDate)
+                        from ram.dbo.sm_SmartEstimate_eps d
+                        where d.SecId = M.SecId and d.AsOfDate < A.Date_)
+        """.format(table, feature_name, feature)
+    return clean_sql_cmd(sqlcmd)
+
+
+def _STARMINE_SI(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{2} as {1}
+        from        {0} A
+        join        ram.dbo.ram_starmine_map M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+
+        left join   ram.dbo.ram_starmine_short_interest B
+            on      M.SecId = B.SecId
+            and     B.AsOfDate = A.Date_
+        """.format(table, feature_name, feature)
+    return clean_sql_cmd(sqlcmd)
+
+def ARM(arg0, feature_name, arg2, table):
+    return _STARMINE_ARM('ARMScore', feature_name, table)
+
+def ARMREVENUE(arg0, feature_name, arg2, table):
+    return _STARMINE_ARM('ARMRevComp', feature_name, table)
+
+def ARMRECS(arg0, feature_name, arg2, table):
+    return _STARMINE_ARM('ARMRecsComp', feature_name, table)
+
+def ARMEARNINGS(arg0, feature_name, arg2, table):
+    return _STARMINE_ARM('ARMPrefErnComp', feature_name, table)
+
+def ARMEXRECS(arg0, feature_name, arg2, table):
+    return _STARMINE_ARM('ARMScoreExRecs', feature_name, table)
+
+def SMARTESTIMATEEPS(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EPS', feature_name, table)
+
+def SIRANK(arg0, feature_name, arg2, table):
+    return _STARMINE_SI('SI_Rank', feature_name, table)
+
+def SIMARKETCAPRANK(arg0, feature_name, arg2, table):
+    return _STARMINE_SI('SI_MarketCapRank', feature_name, table)
+
+def SISECTORRANK(arg0, feature_name, arg2, table):
+    return _STARMINE_SI('SI_SectorRank', feature_name, table)
+
+def SIUNADJRANK(arg0, feature_name, arg2, table):
+    return _STARMINE_SI('SI_UnAdjRank', feature_name, table)
+
+def SISHORTSQUEEZE(arg0, feature_name, arg2, table):
+    return _STARMINE_SI('SI_ShortSqueeze', feature_name, table)
+
+def SIINSTOWNERSHIP(arg0, feature_name, arg2, table):
+    return _STARMINE_SI('SI_InstOwnership', feature_name, table)
+
+
 # ~~~~~~ Utility ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def clean_sql_cmd(sqlcmd):
