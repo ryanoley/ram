@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
-import datetime
 from tqdm import tqdm
-from gearbox import create_time_index
+
 from sklearn.ensemble import RandomForestClassifier
+from ram.strategy.intraday_reversion.src.intraday_return_simulator import *
+from ram.strategy.intraday_reversion.src.prediction_thresh_optim import prediction_thresh_optim
 
 
-# ~~~~~~ Modeling ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+# ~~~~~~~~~~~ Model predictions ~~~~~~~~~~~~~~~~
 def get_predictions(data,
                     intraday_simulator,
                     n_estimators=100,
@@ -23,17 +23,18 @@ def get_predictions(data,
     qtr_indexes = np.unique(data.QIndex)[6:]
 
     features = list(data.columns.difference([
-        'SecCode', 'Date', 'AdjOpen','AdjClose', 'LAG1_AdjVolume',
-        'LAG1_AdjOpen','LAG1_AdjHigh','LAG1_AdjLow','LAG1_AdjClose',
+        'SecCode', 'Date', 'AdjOpen', 'AdjClose', 'LAG1_AdjVolume',
+        'LAG1_AdjOpen', 'LAG1_AdjHigh', 'LAG1_AdjLow', 'LAG1_AdjClose',
         'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose', 'Ticker', 'QIndex',
         'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day', 'Month', 'Qtr'] +
         list(responses.columns)))
+
 
     clf = RandomForestClassifier(n_estimators=n_estimators,
                                  min_samples_split=min_samples_split,
                                  min_samples_leaf=min_samples_leaf,
                                  random_state=123, n_jobs=-1)
-    
+
     pred_columns = ['p_{}'.format(col) for col in response_columns]
     data = data.reindex(columns=list(data.columns) + pred_columns)
 
@@ -46,7 +47,6 @@ def get_predictions(data,
         clf.fit(X=train_X, y=train_y)
         # ASSUMPTION: prediction = Long Prob - Short Prob
         probs = clf.predict_proba(test_X)
-
         long_ind = np.where(clf.classes_[0] == 1)[0][0]
         short_ind = np.where(clf.classes_[0] == -1)[0][0]
 
@@ -73,7 +73,7 @@ def _create_response(tickers, intraday_simulator):
 
     return responses.reset_index()
     
-
+    
 # ~~~~~~~~~~~ Trade signals / Thresh optim ~~~~~~~~~~~~~~~~
 
 def get_trade_signals(predictions,
@@ -99,7 +99,6 @@ def get_trade_signals(predictions,
     signal_cols = [x for x in predictions.columns if x.find('s_') > -1]
         
     return predictions[['Ticker', 'Date'] + signal_cols].copy()
-
 
 def prediction_thresh_optim(data,
                             zLim=0.5,

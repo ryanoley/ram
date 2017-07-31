@@ -13,6 +13,7 @@ class IntradayReturnSimulator(object):
     def __init__(self):
         self.tickers = get_available_tickers()
         self._hlc_rets_data = {}
+        self._cost_data = {}
         self._response_data = {}
         self._return_data = {}
 
@@ -98,6 +99,8 @@ class IntradayReturnSimulator(object):
         if ticker in self._response_data:
             if response_label in self._response_data[ticker]:
                 return self._response_data[ticker][response_label]
+        else:
+            self._response_data[ticker] = {}
 
         # Calculate responses
         long_rets, short_rets = self._get_long_short_rets(
@@ -113,13 +116,50 @@ class IntradayReturnSimulator(object):
             short_rets == perc_take, -1, 0))
 
         # Cache processed data
-        if not ticker in self._response_data:
-            self._response_data[ticker] = {}
         self._response_data[ticker][response_label] = output
 
         return output
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    def _get_long_short_rets(self, ticker, perc_take, perc_stop,
+                             costs_flag=True):
+        hlc_ret_data = self._retrieve_hlc_return_data(ticker)
+        cost_data = self._retrieve_cost_data(ticker)
+        if costs_flag:
+            long_rets = get_long_returns(hlc_ret_data[0], hlc_ret_data[1],
+                                         hlc_ret_data[2], cost_data[0],
+                                         cost_data[1],  perc_take, perc_stop)
+            short_rets = get_short_returns(hlc_ret_data[0], hlc_ret_data[1],
+                                           hlc_ret_data[2], cost_data[0],
+                                           cost_data[1], perc_take, perc_stop)
+        else:
+            # For response calculation with no costs taken out
+            long_rets = get_long_returns(hlc_ret_data[0], hlc_ret_data[1],
+                                         hlc_ret_data[2],
+                                         cost_data[0] * 0,
+                                         cost_data[1] * 0,
+                                         perc_take, perc_stop)
+            short_rets = get_short_returns(hlc_ret_data[0], hlc_ret_data[1],
+                                           hlc_ret_data[2], cost_data[0] * 0,
+                                           cost_data[1] * 0,
+                                           perc_take, perc_stop)
+        return long_rets, short_rets
+
+    def _retrieve_hlc_return_data(self, ticker):
+        """
+        Creates a cache of open/high/low return data
+        """
+        if ticker not in self._hlc_rets_data:
+            self._hlc_rets_data[ticker] = get_intraday_hlc_rets_data(ticker)
+        return self._hlc_rets_data[ticker]
+
+    def _retrieve_cost_data(self, ticker):
+        """
+        Creates a cache of cost data (slippage & transaction)
+        """
+        if ticker not in self._cost_data:
+            self._cost_data[ticker] = get_daily_cost_data(ticker)
+        return self._cost_data[ticker]
 
     def _get_returns_from_signals(self, signals, longs, shorts):
         longs = longs.reset_index()
@@ -133,35 +173,6 @@ class IntradayReturnSimulator(object):
         signals2 = signals2[['Date', 'rets']].fillna(0).set_index('Date')['rets']
         signals2.name = signals.Ticker.iloc[0]
         return signals2
-
-    def _retrieve_return_data(self, ticker):
-        """
-        Creates a cache of open/high/low return data
-        """
-        if ticker not in self._hlc_rets_data:
-            self._hlc_rets_data[ticker] = get_intraday_rets_data(ticker)
-        return self._hlc_rets_data[ticker]
-
-    def _get_long_short_rets(self, ticker, perc_take, perc_stop,
-                             costs_flag=True):
-        ret_data = self._retrieve_return_data(ticker)
-        if costs_flag:
-            long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
-                                         ret_data[3], ret_data[4],
-                                         perc_take, perc_stop)
-            short_rets = get_short_returns(ret_data[0], ret_data[1],
-                                           ret_data[2], ret_data[3],
-                                           ret_data[4], perc_take, perc_stop)
-        else:
-            # For response calculation with no costs taken out
-            long_rets = get_long_returns(ret_data[0], ret_data[1], ret_data[2],
-                                         ret_data[3] * 0, ret_data[4] * 0,
-                                         perc_take, perc_stop)
-            short_rets = get_short_returns(ret_data[0], ret_data[1],
-                                           ret_data[2], ret_data[3] * 0,
-                                           ret_data[4] * 0,
-                                           perc_take, perc_stop)
-        return long_rets, short_rets
 
     # ~~~~~~ Stats ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

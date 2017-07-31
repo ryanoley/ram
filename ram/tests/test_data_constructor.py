@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import unittest
 import datetime as dt
@@ -23,7 +24,7 @@ class TestStrategy(Strategy):
             'frequency': 'Q',
             'train_period_length': 4,
             'test_period_length': 2,
-            'start_year': 2016
+            'start_year': 2017
         }
 
     def get_filter_args(self):
@@ -34,47 +35,59 @@ class TestStrategy(Strategy):
             'univ_size': 10}
 
 
+class DataConstructor2(DataConstructor):
+
+    def _write_archive_meta_parameters(self):
+        """
+        Note being tested
+        """
+        pass
+
+
 class TestDataConstructor(unittest.TestCase):
 
     def setUp(self):
-        self.ddir = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'tests')
+        self.prepped_data_dir = os.path.join(os.getenv('GITHUB'), 'ram',
+                                             'ram', 'tests')
+        self.data_constructor = DataConstructor(
+            TestStrategy(),
+            prepped_data_dir=self.prepped_data_dir)
+        if os.path.isdir(os.path.join(self.prepped_data_dir, 'TestStrategy')):
+            shutil.rmtree(os.path.join(self.prepped_data_dir, 'TestStrategy'))
 
     def test_make_output_directory(self):
-        dc = DataConstructor(TestStrategy())
-        # Manually override write directory
-        dc._prepped_data_dir = os.path.join(self.ddir, 'TestStrategy')
-        if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):
-            shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
-        dc._make_output_directory()
-        dc._make_output_directory()
-        results = os.listdir(os.path.join(self.ddir, 'TestStrategy'))
+        self.data_constructor._make_output_directory()
+        self.data_constructor._make_output_directory()
+        results = os.listdir(os.path.join(self.prepped_data_dir,
+                                          'TestStrategy'))
         self.assertListEqual(results, ['archive', 'version_0001',
                                        'version_0002'])
-        shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
 
     def test_make_date_iterator(self):
-        dc = DataConstructor(TestStrategy())
+        dc = self.data_constructor
+        dc._init_new_run()
         dc._make_date_iterator()
         result = dc._date_iterator[0]
-        self.assertEqual(result[0], dt.datetime(2015, 1, 1))
-        self.assertEqual(result[1], dt.datetime(2016, 1, 1))
-        self.assertEqual(result[2], dt.datetime(2016, 6, 30))
+        self.assertEqual(result[0], dt.datetime(2016, 1, 1))
+        self.assertEqual(result[1], dt.datetime(2017, 1, 1))
+        self.assertEqual(result[2], dt.datetime(2017, 6, 30))
 
     def test_run(self):
-        # Continue with test
-        dc = DataConstructor(TestStrategy())
-        dc._prepped_data_dir = os.path.join(self.ddir, 'TestStrategy')
-        if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):
-            shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
-        dc.run()
-        result = os.listdir(os.path.join(self.ddir, 'TestStrategy',
+        self.data_constructor.run(prompt_description=False)
+        result = os.listdir(os.path.join(self.prepped_data_dir,
+                                         'TestStrategy',
                                          'version_0001'))
-        self.assertEquals(result[0], '20160101_data.csv')
-        shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
+        self.assertEquals(result[0], '20170101_data.csv')
+
+    def test_restart_run(self):
+        self.data_constructor._init_new_run()
+        self.data_constructor._make_output_directory()
+        self.data_constructor._write_archive_meta_parameters(False)
+        self.data_constructor.run(rerun_version='version_0001')
 
     def tearDown(self):
-        if os.path.isdir(os.path.join(self.ddir, 'TestStrategy')):
-            shutil.rmtree(os.path.join(self.ddir, 'TestStrategy'))
+        if os.path.isdir(os.path.join(self.prepped_data_dir, 'TestStrategy')):
+            shutil.rmtree(os.path.join(self.prepped_data_dir, 'TestStrategy'))
 
 
 if __name__ == '__main__':

@@ -43,7 +43,13 @@ FUNCS = [
 
     # RATIOS
     'EBITDAMARGIN', 'CASHEV', 'PE',
-    'FCFMARKETCAP'
+    'FCFMARKETCAP',
+    
+    # STARMINE
+    'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
+    'SMARTESTIMATEEPS', 'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
+    'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
+  
 ]
 
 
@@ -853,7 +859,6 @@ def _STARMINE_ARM(feature, feature_name, table):
         join        ram.dbo.ram_starmine_map M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
         left join   ram.dbo.ram_starmine_arm B
             on      M.SecId = B.SecId
             and     B.AsOfDate = A.Date_
@@ -870,7 +875,6 @@ def _STARMINE_SMART_ESTIMATE(feature, feature_name, table):
         join        ram.dbo.ram_starmine_map M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
         left join   ram.dbo.ram_starmine_smart_estimate B
             on      M.SecId = B.SecId
             and     B.AsOfDate = (select max(d.AsOfDate)
@@ -890,7 +894,6 @@ def _STARMINE_SI(feature, feature_name, table):
         join        ram.dbo.ram_starmine_map M
             on      A.SecCode = M.SecCode
             and     A.Date_ between M.StartDate and M.EndDate
-
         left join   ram.dbo.ram_starmine_short_interest B
             on      M.SecId = B.SecId
             and     B.AsOfDate = A.Date_

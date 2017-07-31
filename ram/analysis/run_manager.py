@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from ram.utils.time_funcs import convert_date_array
 
@@ -33,7 +34,17 @@ class RunManager(object):
         for i, d in enumerate(dirs):
             desc = json.load(open(os.path.join(ddir, d, 'meta.json'), 'r'))
             output.loc[i, 'Description'] = desc['description']
-        return output[['Run', 'Description']]
+            if 'completed' in desc:
+                output.loc[i, 'Completed'] = desc['completed']
+            else:
+                output.loc[i, 'Completed'] = None
+            if 'end_time' in desc:
+                output.loc[i, 'RunDate'] = desc['end_time'][:10]
+            elif 'start_time' in desc:
+                output.loc[i, 'RunDate'] = desc['start_time'][:10]
+            else:
+                output.loc[i, 'RunDate'] = None
+        return output[['Run', 'RunDate', 'Completed', 'Description']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -80,7 +91,12 @@ class RunManager(object):
 
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def analyze_parameters(self):
+    def analyze_parameters(self, drop_params=None):
+        """
+        Parameters
+        ----------
+        drop_params : list of dicts
+        """
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         if not hasattr(self, 'column_params'):
@@ -88,19 +104,84 @@ class RunManager(object):
         if not hasattr(self, 'stats'):
             self.import_stats()
         cparams = classify_params(self.column_params)
+        cparams = filter_classified_params(cparams, drop_params)
         astats = aggregate_statistics(self.stats, self.start_year)
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
 
-    def analyze_returns(self, columns=None, start_year=1950):
+    def analyze_returns(self):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        # Get indexes from imported data
-        inds = _get_date_indexes(self.returns.index, start_year)
-        if columns:
-            return get_stats(self.returns.loc[inds, _format_columns(columns)])
+        rets1 = self.basic_model_selection(window=100).iloc[101:]
+        rets2 = self.basic_model_selection(
+            window=100, criteria='sharpe').iloc[101:]
+        rets = pd.DataFrame(rets1)
+        rets.columns = ['ReturnOptim']
+        rets['SharpeOptim'] = rets2
+        return get_stats(rets), get_quarterly_rets(rets,
+                                                   column_name='ReturnOptim')
+
+    def basic_model_selection(self, window=30, criteria='mean'):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
+        # Rolling mean, offset by one day and select top
+        roll_mean = self.returns.rolling(window=window).mean()
+        if criteria == 'sharpe':
+            roll_sharpe = roll_mean / self.returns.rolling(window=window).std()
+            inds = np.argmax(roll_sharpe.values, axis=1)
         else:
-            return get_stats(self.returns.loc[inds])
+            inds = np.argmax(roll_mean.values, axis=1)
+        best_rets = pd.DataFrame(index=self.returns.index)
+        best_rets['Rets'] = self.returns.values[range(len(self.returns)),
+                                                np.roll(inds, 1)]
+        best_rets.Rets.iloc[:window] = np.nan
+        return best_rets
+
+    def plot_results(self):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
+        rets1 = self.basic_model_selection(window=100).iloc[101:]
+        rets2 = self.basic_model_selection(
+            window=100, criteria='sharpe').iloc[101:]
+        all_rets = self.returns.loc[rets1.index]
+        plt.figure()
+        plt.plot(all_rets.cumsum(), 'b', alpha=0.3)
+        plt.plot(rets1.cumsum(), 'r')
+        plt.plot(rets2.cumsum(), 'g')
+        plt.show()
+
+
+###############################################################################
+
+def filter_classified_params(cparams, drop_params=None):
+    if drop_params:
+        assert isinstance(drop_params, list)
+        assert isinstance(drop_params[0], tuple)
+        # Collect all columns to drop, and pop the parameter
+        # should be dropped so it isn't reported
+        drop_columns = []
+        for dp in drop_params:
+            if dp[0] in cparams:
+                if str(dp[1]) in cparams[dp[0]]:
+                    drop_columns.append(cparams[dp[0]].pop(str(dp[1])))
+        # Clean out drop_columns from remaining parameters
+        drop_columns = set(sum(drop_columns, []))
+        output = {}
+        for param, pmap in cparams.items():
+            output[param] = {}
+            for val, col_list in pmap.items():
+                if len(list(set(col_list) - drop_columns)):
+                    output[param][val] = list(set(col_list) - drop_columns)
+        return output
+    return cparams
+
+
+def get_quarterly_rets(data, column_name):
+    data = data.copy()
+    data['year'] = [d.year for d in data.index]
+    data['qtr'] = [(d.month-1)/3 + 1 for d in data.index]
+    data2 = data.groupby(['year', 'qtr'])[column_name].sum().reset_index()
+    return data2.pivot(index='year', columns='qtr', values=column_name)
 
 
 ###############################################################################
@@ -121,8 +202,34 @@ def _get_date_indexes(date_index, start_year):
 ###############################################################################
 
 def aggregate_statistics(stats, start_year):
-    # Stats are organized by dates first so need to flip to aggregate
-    # for each column
+    """
+    When stats are written across multiple files, they must be combined
+    into one data point. This function takes in a dictionary that
+    has in the first layer the file name, and then the next layer a dictionary
+    that has all the stats for each column.
+
+    For example:
+    {
+        '20100101_stats.json': {
+            '0': {'stat1': 10, 'stat2': 20},
+            '1': {'stat1': 20, 'stat2': 30}
+        },
+        '20110101_stats.json': {
+            '0': {'stat1': 20, 'stat2': 40},
+            '1': {'stat1': 30, 'stat2': 50}
+        },
+    }
+
+    The routine will take the mean and standard deviation over all the stats
+    and return a dictionary that has the column in the keys and a dictionary
+    of the stat: means
+
+    For example:
+    {
+        '0': {'stat1': 15, 'stat2': 30},
+        '1': {'stat1': 25, 'stat2': 40}
+    }
+    """
     agg_stats = {k: {k: [] for k in stats.values()[0].values()[0].keys()}
                  for k in stats.values()[0].keys()}
 
@@ -144,6 +251,25 @@ def aggregate_statistics(stats, start_year):
 
 
 def classify_params(params):
+    """
+    Params is a dictionary that has the column number as a key, and
+    a dictionary of the parameters for that particular run as the value.
+
+    For example:
+    {
+        '0': {'param1': 1, 'param2': 2},
+        '1': {'param1': 1, 'param2': 3}
+    }
+
+    The output is then a dictionary with parameters in the keys, and
+    a list of columns in the values.
+
+    From the above example:
+    {
+        'param1': {1: [0, 1]},
+        'param2': {2: [0], 3: [1]}
+    }
+    """
     out = {}
     for i, p in params.iteritems():
         for k, v in p.iteritems():
@@ -157,6 +283,13 @@ def classify_params(params):
 
 
 def format_param_results(data, cparams, astats, start_year):
+    """
+    This function aggregates returns and statistics across all the different
+    parameters. For example, training_period_length could have two values
+    {10, 20}, and there are five of each. This would be represented
+    by two lines in the data frame with statistics related to the return
+    series ALONG with the statistics that are passed in `astats`.
+    """
     out = []
     stat_names = astats.values()[0].keys()
     stat_names.sort()

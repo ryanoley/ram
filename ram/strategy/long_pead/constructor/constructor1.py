@@ -7,7 +7,7 @@ from ram.strategy.long_pead.utils import make_variable_dict
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 
 
-class PortfolioConstructor2(object):
+class PortfolioConstructor1(object):
 
     def __init__(self, booksize=10e6):
         """
@@ -34,8 +34,6 @@ class PortfolioConstructor2(object):
             data_container.test_data, 'RCashDividend', 0)
         split_mult_dict = make_variable_dict(
             data_container.test_data, 'SplitMultiplier', 1)
-        market_cap_dict = make_variable_dict(
-            data_container.test_data, 'MarketCap', 'pad')
         scores_dict = make_variable_dict(data_container.test_data, 'preds')
 
         portfolio = Portfolio()
@@ -53,8 +51,6 @@ class PortfolioConstructor2(object):
             dividends = dividend_dict[date]
             splits = split_mult_dict[date]
             scores = scores_dict[date]
-            # Could this be just a simple "Group"
-            mcaps = market_cap_dict[date]
 
             # Accounting
             portfolio.update_prices(closes, dividends, splits)
@@ -62,8 +58,8 @@ class PortfolioConstructor2(object):
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                sizes = self._get_position_sizes_with_mcaps(
-                    scores, mcaps, logistic_spread, self.booksize)
+                sizes = self._get_position_sizes(scores, logistic_spread,
+                                                 self.booksize)
                 portfolio.update_position_sizes(sizes, closes)
 
             daily_pl = portfolio.get_portfolio_daily_pl()
@@ -77,8 +73,7 @@ class PortfolioConstructor2(object):
         # Close everything and begin anew in new quarter
         return daily_df
 
-    def _get_position_sizes_with_mcaps(self, scores, mcaps,
-                                       logistic_spread, booksize):
+    def _get_position_sizes(self, scores, logistic_spread, booksize):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -88,28 +83,18 @@ class PortfolioConstructor2(object):
         and the shape of the sigmoid is modulated by the hyperparameter
         logistic spread.
         """
-        scoresA = pd.DataFrame({'scores': scores, 'mcaps': mcaps}).dropna()
-        scoresA = scoresA.sort_values('mcaps')
-        scores1 = scoresA.iloc[:len(scoresA)/2].copy()
-        scores2 = scoresA.iloc[len(scoresA)/2:].copy()
-
-        scores1.sort_values('scores', inplace=True)
-        scores2.sort_values('scores', inplace=True)
+        scores = pd.Series(scores).to_frame()
+        scores.columns = ['score']
+        scores = scores.sort_values('score')
 
         # Simple rank
         def logistic_weight(k):
             return 2 / (1 + np.exp(-k)) - 1
 
-        scores1['weights'] = [
+        n_good = (~scores.score.isnull()).sum()
+        n_bad = scores.score.isnull().sum()
+        scores['weights'] = [
             logistic_weight(x) for x in np.linspace(
-                -logistic_spread, logistic_spread, len(scores1))]
-
-        scores2['weights'] = [
-            logistic_weight(x) for x in np.linspace(
-                -logistic_spread, logistic_spread, len(scores2))]
-
-        weights = scores1.append(scores2).weights
-        allocations = (weights / weights.abs().sum() * booksize).to_dict()
-        output = {x: 0 for x in scores.keys()}
-        output.update(allocations)
-        return output
+                -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
+        scores.weights = scores.weights / scores.weights.abs().sum() * booksize
+        return scores.weights.to_dict()
