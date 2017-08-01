@@ -4,6 +4,24 @@ import pandas as pd
 import datetime as dt
 
 
+def basic_model_selection(return_data, window=30, criteria='mean'):
+    # Rolling mean, offset by one day and select top
+    roll_mean = return_data.rolling(window=window).mean()
+    if criteria == 'sharpe':
+        roll_sharpe = roll_mean / return_data.rolling(window=window).std()
+        inds = np.argmax(roll_sharpe.values, axis=1)
+    else:
+        inds = np.argmax(roll_mean.values, axis=1)
+    best_rets = pd.DataFrame(index=return_data.index)
+    best_rets['Rets'] = return_data.values[range(len(return_data)),
+                                           np.roll(inds, 1)]
+    best_rets.Rets.iloc[:window] = np.nan
+    return best_rets
+
+"""
+###############################################################################
+###############################################################################
+
 # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _unpivot(data, value_name='Value'):
@@ -23,9 +41,12 @@ def _get_ranks(return_data, n_days=20, thresh=10):
 
 def Xmake_responses(return_data, n_days):
     out = _unpivot(_get_ranks(return_data, n_days, 5), 'Response_5')
-    out = out.merge(_unpivot(_get_ranks(return_data, n_days, 10), 'Response_10'))
-    out = out.merge(_unpivot(_get_ranks(return_data, n_days, 20), 'Response_20'))
-    out = out.merge(_unpivot(_get_ranks(return_data, n_days, 30), 'Response_30'))
+    out = out.merge(_unpivot(_get_ranks(return_data, n_days, 10),
+        'Response_10'))
+    out = out.merge(_unpivot(_get_ranks(return_data, n_days, 20),
+        'Response_20'))
+    out = out.merge(_unpivot(_get_ranks(return_data, n_days, 30),
+        'Response_30'))
     return out
 
 
@@ -47,9 +68,12 @@ def _get_returns(return_data, n_days):
 # ~~~~~~ Features ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def make_features_from_rets(return_data):
-    out = _unpivot(return_data.rolling(10).mean() / return_data.rolling(10).std(), 'Sharpe10')
-    out = out.merge(_unpivot(return_data.rolling(20).mean() / return_data.rolling(20).std(), 'Sharpe20'))
-    out = out.merge(_unpivot(return_data.rolling(60).mean() / return_data.rolling(60).std(), 'Sharpe60'))
+    out = _unpivot(return_data.rolling(10).mean() / \
+        return_data.rolling(10).std(), 'Sharpe10')
+    out = out.merge(_unpivot(return_data.rolling(20).mean() / \
+        return_data.rolling(20).std(), 'Sharpe20'))
+    out = out.merge(_unpivot(return_data.rolling(60).mean() / \
+        return_data.rolling(60).std(), 'Sharpe60'))
     out = out.merge(_unpivot(return_data.rolling(20).min(), 'Min20'))
     out = out.merge(_unpivot(return_data.rolling(60).min(), 'Min60'))
     out = out.merge(_unpivot(return_data.rolling(5).mean(), 'Mean5'))
@@ -75,7 +99,8 @@ def _get_some_spy_data():
     spy_data['SpyRet1'] = spy_data.AdjClose / spy_data.LAG5_AdjClose
     spy_data['SpyRet2'] = spy_data.AdjClose / spy_data.LAG10_AdjClose
     spy_data['SpyRet3'] = spy_data.AdjClose / spy_data.LAG30_AdjClose
-    spy_data = spy_data.drop(['SecCode', 'AdjClose', 'LAG5_AdjClose', 'LAG10_AdjClose', 'LAG30_AdjClose'], axis=1)
+    spy_data = spy_data.drop(['SecCode', 'AdjClose', 'LAG5_AdjClose',
+        'LAG10_AdjClose', 'LAG30_AdjClose'], axis=1)
     spy_data['Date'] = spy_data.Date.apply(lambda z: z.to_pydatetime().date())
     return spy_data
 
@@ -100,7 +125,7 @@ if __name__ == '__main__':
     for sf in spy_features:
         features.append(sf)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     dates = []
     for y in range(2010, 2018):
@@ -140,9 +165,12 @@ if __name__ == '__main__':
 
         for resp, preds in zip(responses, predictions):
             # Top 5
-            top_inds = predictions_data.ColumnName.iloc[np.argsort(preds)[-top_params:]].values
+            top_inds = predictions_data.ColumnName.iloc[
+            np.argsort(preds)[-top_params:]].values
             last_date = d2 - dt.timedelta(days=1)
-            top_rets = pd.DataFrame(rm1.returns.loc[d1:last_date, top_inds].mean(axis=1), columns=[resp])
+            top_rets = pd.DataFrame(
+            rm1.returns.loc[d1:last_date, top_inds].mean(axis=1),
+            columns=[resp])
             temp = temp.join(top_rets, how='outer')
 
         out = out.append(temp)
@@ -160,4 +188,4 @@ if __name__ == '__main__':
     #plt.plot(out.cumsum(), 'b')
     #plt.show()
 
-
+"""

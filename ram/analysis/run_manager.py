@@ -8,6 +8,7 @@ from ram.utils.time_funcs import convert_date_array
 
 from ram import config
 from ram.analysis.statistics import get_stats
+from ram.analysis.selection import basic_model_selection
 
 
 class RunManager(object):
@@ -112,9 +113,9 @@ class RunManager(object):
     def analyze_returns(self):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        rets1 = self.basic_model_selection(window=100).iloc[101:]
-        rets2 = self.basic_model_selection(
-            window=100, criteria='sharpe').iloc[101:]
+        rets1 = basic_model_selection(self.returns, window=100).iloc[101:]
+        rets2 = basic_model_selection(self.returns, window=100,
+                                      criteria='sharpe').iloc[101:]
         rets = pd.DataFrame(rets1)
         rets.columns = ['ReturnOptim']
         rets['SharpeOptim'] = rets2
@@ -124,18 +125,8 @@ class RunManager(object):
     def basic_model_selection(self, window=30, criteria='mean'):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        # Rolling mean, offset by one day and select top
-        roll_mean = self.returns.rolling(window=window).mean()
-        if criteria == 'sharpe':
-            roll_sharpe = roll_mean / self.returns.rolling(window=window).std()
-            inds = np.argmax(roll_sharpe.values, axis=1)
-        else:
-            inds = np.argmax(roll_mean.values, axis=1)
-        best_rets = pd.DataFrame(index=self.returns.index)
-        best_rets['Rets'] = self.returns.values[range(len(self.returns)),
-                                                np.roll(inds, 1)]
-        best_rets.Rets.iloc[:window] = np.nan
-        return best_rets
+        return basic_model_selection(self.returns, window=window,
+                                     criteria=criteria)
 
     def plot_results(self):
         if not hasattr(self, 'returns'):

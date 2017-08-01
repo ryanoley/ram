@@ -14,10 +14,15 @@ class TestSelection(unittest.TestCase):
     def setUp(self):
         pass
 
-    def Xtest_lower_partial_moment(self):
-        #result = stats._lower_partial_moment(self.returns)
-        benchmark = pd.DataFrame(
-            [8.6167, 0.2333], index=['V1', 'V2'], columns=['LPM_2'])
+    def test_basic_model_selection(self):
+        data = pd.DataFrame(
+            index=[dt.date(2010, 1, i) for i in range(1, 11)]
+        )
+        data['0'] = [1, 2, 3, 4, 5.] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        result = basic_model_selection(data, window=4)
+        benchmark = pd.DataFrame(index=data.index)
+        benchmark['Rets'] = [np.nan] * 4 + [10, 6, 7, 8, 9, 10.]
         assert_frame_equal(result, benchmark)
 
     def tearDown(self):
