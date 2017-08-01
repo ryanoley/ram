@@ -25,6 +25,20 @@ class TestSelection(unittest.TestCase):
         benchmark['Rets'] = [np.nan] * 4 + [10, 6, 7, 8, 9, 10.]
         assert_frame_equal(result, benchmark)
 
+        data = pd.DataFrame(
+            index=[dt.date(2010, 1, i) for i in range(1, 11)]
+        )
+        data['0'] = [1, 2, 3, np.nan, np.nan] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        data['2'] = [0] * 10
+        result = basic_model_selection(data, window=4)
+        benchmark = pd.DataFrame(index=data.index)
+        benchmark['Rets'] = [np.nan] * 4 + [10, 6, 7, 8, 9, 10.]
+        assert_frame_equal(result, benchmark)
+        import pdb; pdb.set_trace()
+        result = basic_model_selection(data, window=4, criteria='sharpe')
+
+
     def tearDown(self):
         pass
 
