@@ -49,6 +49,7 @@ class Strategy(object):
         self._write_flag = write_flag
         self._data_version = prepped_data_version
         self._gcp_implementation = gcp_implementation
+        self._max_run_time_index = -1  # This is for restart functionality
         if self._gcp_implementation:
             self._gcp_client = storage.Client()
             self._bucket = self._gcp_client.get_bucket(
@@ -56,7 +57,7 @@ class Strategy(object):
             self._prepped_data_dir = os.path.join('prepped_data',
                                                   self.__class__.__name__,
                                                   prepped_data_version)
-            ## CURRENTLY WRITING TO LOCAL MACHINE
+            # CURRENTLY WRITING TO LOCAL MACHINE
             self._strategy_output_dir = os.path.join(os.getenv('DATA'),
                                                      'simulations',
                                                      self.__class__.__name__)
@@ -76,6 +77,15 @@ class Strategy(object):
         self._copy_source_code()
         self._create_meta_file(description)
         self._write_column_parameters_file()
+        for i in tqdm(range(len(self._prepped_data_files))):
+            self.run_index(i)
+        self._shutdown_simulation()
+
+    def restart(self, run_name):
+        self._import_run_meta_for_restart(run_name)
+        self._print_prepped_data_meta()
+        self._get_prepped_data_file_names()
+        self._get_max_run_time_index_for_restart()
         for i in tqdm(range(len(self._prepped_data_files))):
             self.run_index(i)
         self._shutdown_simulation()
@@ -156,6 +166,25 @@ class Strategy(object):
                       'w') as outfile:
                 json.dump(meta, outfile)
 
+    def _import_run_meta_for_restart(self, run_name):
+        self.run_dir = os.path.join(self._strategy_output_dir, run_name)
+        assert os.path.isdir(self.run_dir), \
+            '[{}] not available'.format(run_name)
+        meta = json.load(open(os.path.join(self.run_dir,
+                                           'meta.json'), 'r'))
+        assert not meta['completed'], '[{}] completed'.format(run_name)
+        # Set prepped_data_version
+        self._prepped_data_dir = os.path.join(
+            os.path.dirname(self._prepped_data_dir),
+            meta['prepped_data_version'])
+        self.strategy_output_dir = os.path.join(
+                self.run_dir, 'index_outputs')
+
+    def _get_max_run_time_index_for_restart(self):
+        all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
+        all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
+        self._max_run_time_index = len(all_files) - 1
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _print_prepped_data_meta(self):
@@ -165,7 +194,7 @@ class Strategy(object):
             meta = json.loads(blob.download_as_string())
         else:
             meta = json.load(open(os.path.join(self._prepped_data_dir,
-                                           'meta.json'), 'r'))
+                                               'meta.json'), 'r'))
 
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
                                                      meta['version']))
@@ -343,6 +372,7 @@ def make_argument_parser(Strategy):
     from ram.data.data_constructor import print_strategy_meta
     from ram.data.data_constructor import clean_directory
     from ram.data.data_constructor import get_version_name
+    from ram.analysis.run_manager import RunManager
 
     parser = argparse.ArgumentParser()
 
@@ -350,6 +380,9 @@ def make_argument_parser(Strategy):
     parser.add_argument(
         '-lv', '--list_versions', action='store_true',
         help='List all versions of prepped data for a strategy')
+    parser.add_argument(
+        '-lr', '--list_runs', action='store_true',
+        help='List all simulations for a strategy')
     parser.add_argument(
         '-pm', '--print_meta', type=str,
         help='Print meta data. i.e version_0001 or Key val')
@@ -373,6 +406,10 @@ def make_argument_parser(Strategy):
     parser.add_argument(
         '--cloud', action='store_true',
         help='Tag must be added for GCP implementation')
+    parser.add_argument(
+        '--restart_run', type=str, default=None,
+        help='If something craps out, use this tag. Send in run name'
+    )
 
     # Data Construction Commands
     parser.add_argument(
@@ -386,6 +423,11 @@ def make_argument_parser(Strategy):
     # Data Exploration
     if args.list_versions:
         print_strategy_versions(Strategy.__name__)
+    elif args.list_runs:
+        runs = RunManager.get_run_names(Strategy.__name__)
+        # Adjust column width
+        runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
+        print(runs)
     elif args.print_meta:
         version = get_version_name(Strategy.__name__, args.print_meta)
         print_strategy_meta(Strategy.__name__, version)
@@ -394,6 +436,9 @@ def make_argument_parser(Strategy):
         clean_directory(Strategy.__name__, version)
 
     # Simulation Commands
+    elif args.restart_run:
+        strategy = Strategy(gcp_implementation=args.cloud)
+        strategy.restart(args.restart_run)
     elif args.write_simulation:
         if not args.data_version:
             print('Data version must be provided')

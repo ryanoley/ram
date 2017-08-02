@@ -163,6 +163,41 @@ class TestStrategyBase(unittest.TestCase):
                                              'meta.json'), 'r'))
         self.assertEqual(result['completed'], True)
 
+    def test_import_run_meta_for_restart(self):
+        self.strategy._write_flag = True
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test')
+        # New Strategy
+        strategy = TestStrategy(
+            write_flag=True,
+            prepped_data_dir=self.prepped_data_dir,
+            simulation_output_dir=self.output_dir)
+        strategy._import_run_meta_for_restart('run_0001')
+        benchmark = os.path.join(self.output_dir, 'TestStrategy',
+                                 'run_0001', 'index_outputs')
+        self.assertEqual(strategy.strategy_output_dir, benchmark)
+        strategy._get_prepped_data_file_names()
+        result = strategy._prepped_data_files
+        benchmark = ['20100101_data.csv', '20100201_data.csv']
+        self.assertListEqual(result, benchmark)
+
+    def test_get_max_run_time_index_for_restart(self):
+        self.strategy._write_flag = True
+        self.strategy._get_prepped_data_file_names()
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test')
+        df = pd.DataFrame({'V1': [1, 2, 3, 4]})
+        self.strategy.write_index_results(df, 0)
+        # New Strategy
+        strategy = TestStrategy(
+            write_flag=True,
+            prepped_data_dir=self.prepped_data_dir,
+            simulation_output_dir=self.output_dir)
+        strategy._import_run_meta_for_restart('run_0001')
+        strategy._get_prepped_data_file_names()
+        strategy._get_max_run_time_index_for_restart()
+        self.assertEqual(strategy._max_run_time_index, 0)
+
     def tearDown(self):
         shutil.rmtree(self.prepped_data_dir)
         if os.path.exists(self.output_dir):

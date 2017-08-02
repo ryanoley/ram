@@ -38,7 +38,12 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
 
+        # Import, process, and stack data
         self.data.add_data(self.read_data_from_index(time_index))
+
+        # Restart Functionality: check if file already run.
+        if time_index <= self._max_run_time_index:
+            return
 
         args_data = make_arg_iter(self.data.get_args())
         args_signals = make_arg_iter(self.signals.get_args())

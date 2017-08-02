@@ -35,7 +35,6 @@ class TestSelection(unittest.TestCase):
         benchmark = pd.DataFrame(index=data.index)
         benchmark['Rets'] = [np.nan] * 4 + [10, 6, 7, 8, 9, 10.]
         assert_frame_equal(result, benchmark)
-        import pdb; pdb.set_trace()
         result = basic_model_selection(data, window=4, criteria='sharpe')
 
 
