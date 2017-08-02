@@ -58,8 +58,7 @@ class Strategy(object):
                                                   self.__class__.__name__,
                                                   prepped_data_version)
             # CURRENTLY WRITING TO LOCAL MACHINE
-            self._strategy_output_dir = os.path.join(os.getenv('DATA'),
-                                                     'simulations',
+            self._strategy_output_dir = os.path.join(simulation_output_dir,
                                                      self.__class__.__name__)
         else:
             self._prepped_data_dir = os.path.join(prepped_data_dir,
