@@ -54,16 +54,14 @@ class RunManager(object):
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('returns') > 0]
         # Trim files for test periods
-        test_index = max([0, len(files) - self.test_periods])
-        test_mult = 1
+        if self.test_periods > 0:
+            files = files[:-self.test_periods]
         returns = pd.DataFrame()
         for i, f in enumerate(files):
             if int(f[:4]) < self.start_year:
                 continue
-            if i >= test_index:
-                test_mult = 0
             returns = returns.add(
-                test_mult * pd.read_csv(os.path.join(ddir, f), index_col=0),
+                pd.read_csv(os.path.join(ddir, f), index_col=0),
                 fill_value=0)
         returns.index = convert_date_array(returns.index)
         self.returns = returns

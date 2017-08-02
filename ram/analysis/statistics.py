@@ -61,6 +61,34 @@ def get_stats(results):
     return out.T
 
 
+def rollup_returns(data, column_num=0, agg_func='sum'):
+    """
+    Parameters
+    ----------
+    data : pd.DataFrame
+        With Datetime-like object type in index
+    column_num : int
+        The iloc column
+    agg_func : {'sum', 'mean'}
+    """
+    data = data.copy()
+    column = data.columns[column_num]
+    data['Year'] = [x.year for x in data.index]
+    data['Qtr'] = [(x.month-1)/3+1 for x in data.index]
+    data['QIndex'] = ['{}_{}'.format(i, j) for i, j
+                      in zip(data.Year, data.Qtr)]
+    if agg_func == 'sum':
+        agg_data = data.groupby('QIndex')[column].sum().reset_index()
+    elif agg_func == 'mean':
+        agg_data = data.groupby('QIndex')[column].mean().reset_index()
+    else:
+        raise Exception('Aggregatation function not available')
+    agg_data.columns = ['QIndex', 'values']
+    agg_data['Year'] = [int(x.split('_')[0]) for x in agg_data.QIndex]
+    agg_data['Qtr'] = [int(x.split('_')[1]) for x in agg_data.QIndex]
+    return agg_data.pivot(index='Year', columns='Qtr', values='values')
+
+
 ###############################################################################
 #  Stats implementations
 
@@ -126,7 +154,7 @@ def _c_value_at_risk(returns):
     """
     # Calculate the index associated with alpha
     alpha = 0.05
-    index = int(alpha * len(returns))
+    index = max(int(alpha * len(returns)), 1)
     # Iterate through each column
     out = pd.DataFrame(index=returns.columns, columns=['CVaR_5perc'])
     for column in returns:

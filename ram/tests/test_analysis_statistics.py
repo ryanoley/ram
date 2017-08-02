@@ -61,6 +61,20 @@ class TestPairs(unittest.TestCase):
             [8.6167, 0.2333], index=['V1', 'V2'], columns=['LPM_2'])
         assert_frame_equal(result, benchmark)
 
+    def test_rollup_returns(self):
+        data = pd.DataFrame(index=[dt.datetime(2010, 1, 1),
+                                   dt.datetime(2010, 1, 2),
+                                   dt.datetime(2010, 4, 1),
+                                   dt.datetime(2010, 10, 1)])
+        data['Rets'] = [10, 20, 30, 40]
+        result = stats.rollup_returns(data)
+        benchmark = pd.DataFrame(columns=[1, 2, 4],
+                                 index=[2010])
+        benchmark.iloc[0] = [30, 30, 40]
+        benchmark.columns.name = 'Qtr'
+        benchmark.index.name = 'Year'
+        assert_frame_equal(result, benchmark)
+
     def tearDown(self):
         pass
 

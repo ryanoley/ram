@@ -76,9 +76,9 @@ class TestRunManager(unittest.TestCase):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=1)
         run1.import_return_frame(path=self.base_path)
         data = pd.DataFrame()
-        data['0'] = [1, 2, 3, 4, 5.] + [0] * 5
-        data['1'] = [6, 7, 8, 9, 10.] + [0] * 5
-        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data['0'] = [1, 2, 3, 4, 5.]
+        data['1'] = [6, 7, 8, 9, 10.]
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
 
@@ -98,7 +98,7 @@ class TestRunManager(unittest.TestCase):
         run1.import_column_params(self.base_path)
 
     def test_analyze_parameters(self):
-        run1 = RunManager('TestStrategy', 'run_0001')
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
         run1.import_return_frame(path=self.base_path)
         run1.import_column_params(self.base_path)
         run1.import_meta(self.base_path)
