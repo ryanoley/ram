@@ -26,11 +26,12 @@ class TestCombinationSearch(unittest.TestCase):
         self.run1.returns = data1
         self.run2.returns = data2
 
-    def Xtest_start(self):
+    def test_start(self):
         comb = CombinationSearch()
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
         comb.add_run(self.run2)
+        comb.start(criteria='sharpe')
 
     def test_create_training_indexes(self):
         comb = CombinationSearch()

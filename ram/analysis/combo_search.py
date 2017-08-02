@@ -24,15 +24,15 @@ class CombinationSearch(object):
 
     def start(self, epochs=50, criteria='mean'):
         # Merge
-        returns = self.runs.aggregate_returns()
-        self._create_results_objects(returns)
-        self._create_training_indexes(returns)
+        self.runs.aggregate_returns()
+        self._create_results_objects(self.runs.returns)
+        self._create_training_indexes(self.runs.returns)
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
-                train_data = returns.iloc[t1:t2].copy()
+                train_data = self.runs.returns.iloc[t1:t2].copy()
                 # Drop any column that has an na. DO WE WANT TO DO THIS?
                 train_data = train_data.T.dropna().T
-                test_data = returns.iloc[t2:t3].copy()
+                test_data = self.runs.returns.iloc[t2:t3].copy()
                 # Search
                 test_results, train_scores, combs = \
                     self._fit_top_combinations(
