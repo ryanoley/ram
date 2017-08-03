@@ -47,7 +47,9 @@ FUNCS = [
     
     # STARMINE
     'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-    'SMARTESTIMATEEPS', 'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
+    'EPSESTIMATE', 'EPSSURPRISE', 'EBITDAESTIMATE', 'EBITDASURPRISE',
+    'REVENUEESTIMATE', 'REVENUESURPRISE',
+    'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
     'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
   
 ]
@@ -877,9 +879,7 @@ def _STARMINE_SMART_ESTIMATE(feature, feature_name, table):
             and     A.Date_ between M.StartDate and M.EndDate
         left join   ram.dbo.ram_starmine_smart_estimate B
             on      M.SecId = B.SecId
-            and     B.AsOfDate = (select max(d.AsOfDate)
-                        from ram.dbo.sm_SmartEstimate_eps d
-                        where d.SecId = M.SecId and d.AsOfDate < A.Date_)
+            and     B.AsOfDate = A.Date_
         """.format(table, feature_name, feature)
     return clean_sql_cmd(sqlcmd)
 
@@ -900,6 +900,7 @@ def _STARMINE_SI(feature, feature_name, table):
         """.format(table, feature_name, feature)
     return clean_sql_cmd(sqlcmd)
 
+
 def ARM(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMScore', feature_name, table)
 
@@ -915,8 +916,23 @@ def ARMEARNINGS(arg0, feature_name, arg2, table):
 def ARMEXRECS(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMScoreExRecs', feature_name, table)
 
-def SMARTESTIMATEEPS(arg0, feature_name, arg2, table):
+def EPSESTIMATE(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_EPS', feature_name, table)
+
+def EPSSURPRISE(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EPS_Surprise', feature_name, table)
+
+def EBITDAESTIMATE(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EBITDA', feature_name, table)
+
+def EBITDASURPRISE(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EBITDA_Surprise', feature_name, table)
+
+def REVENUEESTIMATE(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_REV', feature_name, table)
+
+def REVENUESURPRISE(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_REV_Surprise', feature_name, table)
 
 def SIRANK(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_Rank', feature_name, table)
