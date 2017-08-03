@@ -4,7 +4,6 @@ from tqdm import tqdm
 
 from sklearn.ensemble import RandomForestClassifier
 from ram.strategy.intraday_reversion.src.intraday_return_simulator import *
-from ram.strategy.intraday_reversion.src.prediction_thresh_optim import prediction_thresh_optim
 
 
 # ~~~~~~~~~~~ Model predictions ~~~~~~~~~~~~~~~~
@@ -16,7 +15,7 @@ def get_predictions(data,
 
     data = data.copy()
     responses = _create_response(data.Ticker.unique(), intraday_simulator)
-    response_columns = responses.columns.difference(['Date','Ticker'])
+    response_columns = responses.columns.difference(['Date', 'Ticker'])
     data = data.merge(responses)
 
     # HARD-CODED TRAINING PERIOD LENGTH
@@ -28,7 +27,6 @@ def get_predictions(data,
         'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose', 'Ticker', 'QIndex',
         'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day', 'Month', 'Qtr'] +
         list(responses.columns)))
-
 
     clf = RandomForestClassifier(n_estimators=n_estimators,
                                  min_samples_split=min_samples_split,
@@ -49,10 +47,11 @@ def get_predictions(data,
         probs = clf.predict_proba(test_X)
         long_ind = np.where(clf.classes_[0] == 1)[0][0]
         short_ind = np.where(clf.classes_[0] == -1)[0][0]
-        preds = np.array([x[:,long_ind] - x[:,short_ind] for x in probs]).transpose()
+        preds = np.array(
+            [x[:, long_ind] - x[:, short_ind] for x in probs]).transpose()
         data.loc[data.QIndex == qtr, pred_columns] = preds
 
-    downstream_features = ['zOpen']+ list(response_columns)
+    downstream_features = ['zOpen'] + list(response_columns)
     return data[['Ticker', 'Date'] + pred_columns + downstream_features]
 
 
@@ -63,15 +62,17 @@ def _create_response(tickers, intraday_simulator):
     responses = pd.DataFrame([])
     for ticker in tickers:
         ticker_response = pd.DataFrame([])
-        for take_stop, response in intraday_simulator._response_data[ticker].items():
-            response = response.rename(columns = {'response':take_stop})
-            ticker_response = pd.concat([ticker_response, response[take_stop]], axis=1)
+        for take_stop, response in \
+                intraday_simulator._response_data[ticker].items():
+            response = response.rename(columns={'response': take_stop})
+            ticker_response = pd.concat([ticker_response,
+                                         response[take_stop]], axis=1)
         ticker_response['Ticker'] = ticker
         responses = responses.append(ticker_response)
 
     return responses.reset_index()
-    
-    
+
+
 # ~~~~~~~~~~~ Trade signals / Thresh optim ~~~~~~~~~~~~~~~~
 
 def get_trade_signals(predictions,
@@ -84,10 +85,9 @@ def get_trade_signals(predictions,
     pred_cols = [x for x in predictions.columns if x.find('p_') > -1]
     for col in pred_cols:
         predictions['prediction'] = predictions[col].copy()
-        predictions['response'] = predictions[col.replace('p_','')].copy()
-        
-        ## prediction_thresh_optim
-        predictions[col.replace('p_','s_')] = prediction_thresh_optim(
+        predictions['response'] = predictions[col.replace('p_', '')].copy()
+        # prediction_thresh_optim
+        predictions[col.replace('p_', 's_')] = prediction_thresh_optim(
             predictions,
             zLim,
             gap_down_limit_1,
@@ -95,8 +95,8 @@ def get_trade_signals(predictions,
             gap_up_limit_1,
             gap_up_limit_2)
     signal_cols = [x for x in predictions.columns if x.find('s_') > -1]
-        
     return predictions[['Ticker', 'Date'] + signal_cols].copy()
+
 
 def prediction_thresh_optim(data,
                             zLim=0.5,
