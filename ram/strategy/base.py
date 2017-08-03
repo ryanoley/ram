@@ -436,7 +436,7 @@ def make_argument_parser(Strategy):
 
     # Simulation Commands
     elif args.restart_run:
-        strategy = Strategy(gcp_implementation=args.cloud)
+        strategy = Strategy(gcp_implementation=args.cloud, write_flag=True)
         strategy.restart(args.restart_run)
     elif args.write_simulation:
         if not args.data_version:
