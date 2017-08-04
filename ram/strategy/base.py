@@ -353,14 +353,13 @@ class Strategy(object):
         """
         This is a wrapper function for cloud implementation.
         """
-        if self._gcp_implementation:
-            output_name = self._prepped_data_files[index].split('/')[-1]
+        import ipdb; ipdb.set_trace()
+        output_name = self._prepped_data_files[index].replace('data', suffix)
+        output_path = os.path.join(self.strategy_output_dir, output_name)
+        if self._write_flag and self._gcp_implementation:
+            to_csv_cloud(returns_df, output_path, self._bucket)
         else:
-            output_name = self._prepped_data_files[index]
-        output_name = output_name.replace('data', suffix)
-        if self._write_flag:
-            returns_df.to_csv(os.path.join(self.strategy_output_dir,
-                                           output_name))
+            returns_df.to_csv(output_path)
 
     def write_index_stats(self, stats, index):
         output_name = self._prepped_data_files[index]
