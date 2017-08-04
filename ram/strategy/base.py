@@ -397,7 +397,7 @@ def write_json_cloud(out_dictionary, path, bucket):
 
 def read_json_cloud(path, bucket):
     blob = bucket.get_blob(path)
-    return json.loads(StringIO(blob.download_as_string()))
+    return json.loads(blob.download_as_string())
 
 
 def read_csv_cloud(path, bucket):
