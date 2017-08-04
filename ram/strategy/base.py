@@ -96,12 +96,19 @@ class Strategy(object):
         sets the run_dir. This implementation has been reworked for gcp.
         """
         # Get run names
-        if os.path.isdir(self._strategy_output_dir):
+        if self._gcp_implementation:
+            all_files = [x.name for x in self._bucket.list_blobs()]
+            all_files = [x for x in all_files if x.startswith(
+                self._strategy_output_dir)]
+            strip_str = self._strategy_output_dir + '/'
+            all_files = [x.replace(strip_str, '') for x in all_files]
+            all_files = [x for x in all_files if x.find('run') >= 0]
+            new_ind = int(max(all_files).split('_')[1]) if all_files else 1
+        elif os.path.isdir(self._strategy_output_dir):
             all_dirs = [x for x in os.listdir(
                 self._strategy_output_dir) if x[:3] == 'run']
             new_ind = int(max(all_dirs).split('_')[1]) if all_dirs else 1
         elif self._write_flag:
-            # Create directory since it doesn't exist
             os.makedirs(self._strategy_output_dir)
             new_ind = 1
         else:
