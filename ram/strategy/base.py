@@ -241,8 +241,8 @@ class Strategy(object):
         if self._gcp_implementation:
             all_files = [x.name for x in self._bucket.list_blobs()]
             self._prepped_data_files = [
-                x for x in all_files if x.startswith(
-                    self._prepped_data_dir)]
+                x.strip(self._prepped_data_dir) for x in all_files
+                if x.startswith(self._prepped_data_dir)]
         else:
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
