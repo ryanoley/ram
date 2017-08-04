@@ -36,6 +36,18 @@ class TestConstructor(unittest.TestCase):
                      'BAC': 13.163684327956279, 'GS': 0}
         self.assertDictEqual(result, benchmark)
 
+    def test_filter_seccodes(self):
+        data = {
+            dt.date(2010, 1, 1): {'1': 4, '2': 5, '3': 0.1},
+            dt.date(2010, 1, 2): {'1': 1, '2': 1, '3': 10}
+        }
+        date = dt.date(2010, 1, 1)
+        result = filter_seccodes(data[date], 3)
+        self.assertListEqual(result, ['3'])
+        date = dt.date(2010, 1, 2)
+        result = filter_seccodes(data[date], 3)
+        self.assertListEqual(result, ['1', '2'])
+
     def tearDown(self):
         pass
 

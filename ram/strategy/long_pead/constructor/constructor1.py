@@ -6,6 +6,9 @@ from ram.strategy.long_pead.utils import make_variable_dict
 
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
 
+LOW_PRICE_FILTER = 7
+LOW_LIQUIDITY_FILTER = 3
+
 
 class PortfolioConstructor1(object):
 
@@ -36,6 +39,9 @@ class PortfolioConstructor1(object):
             data_container.test_data, 'SplitMultiplier', 1)
         scores_dict = make_variable_dict(data_container.test_data, 'preds')
 
+        liquidity_dict = make_variable_dict(
+            data_container.test_data, 'AvgDolVol')
+
         portfolio = Portfolio()
 
         unique_test_dates = np.unique(data_container.test_data.Date)
@@ -45,12 +51,23 @@ class PortfolioConstructor1(object):
                                 columns=['PL', 'Exposure', 'Turnover'],
                                 dtype=float)
 
-        for date in unique_test_dates:
+        for i, date in enumerate(unique_test_dates):
 
             closes = close_dict[date]
             dividends = dividend_dict[date]
             splits = split_mult_dict[date]
             scores = scores_dict[date]
+
+            # If a low liquidity value, set score to nan
+            # Update every five days
+            if i % 5 == 0:
+                low_liquidity_seccodes = filter_seccodes(
+                    liquidity_dict[date], LOW_LIQUIDITY_FILTER)
+            # If close is very low
+            low_price_seccodes = filter_seccodes(closes, LOW_PRICE_FILTER)
+
+            for seccode in set(low_liquidity_seccodes+low_price_seccodes):
+                scores[seccode] = np.nan
 
             # Accounting
             portfolio.update_prices(closes, dividends, splits)
@@ -101,3 +118,11 @@ class PortfolioConstructor1(object):
                 -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
         scores.weights = scores.weights / scores.weights.abs().sum() * booksize
         return scores.weights.to_dict()
+
+
+def filter_seccodes(data_dict, min_value):
+    bad_seccodes = []
+    for key, value in data_dict.iteritems():
+        if value < min_value:
+            bad_seccodes.append(key)
+    return bad_seccodes
