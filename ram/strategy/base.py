@@ -354,7 +354,6 @@ class Strategy(object):
         """
         This is a wrapper function for cloud implementation.
         """
-        import ipdb; ipdb.set_trace()
         output_name = self._prepped_data_files[index].replace('data', suffix)
         output_path = os.path.join(self.strategy_output_dir, output_name)
         if self._write_flag and self._gcp_implementation:
@@ -415,7 +414,8 @@ def read_csv_cloud(path, bucket):
 
 
 def to_csv_cloud(data, path, bucket):
-    pass
+    blob = bucket.blob(path)
+    blob.upload_from_string(data.to_csv())
 
 
 # ~~~~~~  Make ArgParser  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
