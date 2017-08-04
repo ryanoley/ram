@@ -103,7 +103,7 @@ class Strategy(object):
             strip_str = self._strategy_output_dir + '/'
             all_files = [x.replace(strip_str, '') for x in all_files]
             all_files = [x for x in all_files if x.find('run') >= 0]
-            new_inds = int(max(all_files).split('/')[0].split('_')[1]) \
+            new_ind = int(max(all_files).split('/')[0].split('_')[1]) \
                 if all_files else 1
         elif os.path.isdir(self._strategy_output_dir):
             all_dirs = [x for x in os.listdir(
