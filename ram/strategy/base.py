@@ -339,12 +339,11 @@ class Strategy(object):
     def read_data_from_index(self, index):
         if not hasattr(self, '_prepped_data_files'):
             self._get_prepped_data_file_names()
+        dpath = os.path.join(self._prepped_data_dir,
+                             self._prepped_data_files[index])
         if self._gcp_implementation:
-            data = read_csv_cloud(self._prepped_data_files[index],
-                                  self._bucket)
+            data = read_csv_cloud(dpath, self._bucket)
         else:
-            dpath = os.path.join(self._prepped_data_dir,
-                                 self._prepped_data_files[index])
             data = pd.read_csv(dpath)
         data.Date = convert_date_array(data.Date)
         data.SecCode = data.SecCode.astype(int).astype(str)
