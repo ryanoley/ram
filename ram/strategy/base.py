@@ -240,9 +240,12 @@ class Strategy(object):
     def _get_prepped_data_file_names(self):
         if self._gcp_implementation:
             all_files = [x.name for x in self._bucket.list_blobs()]
-            all_files = [x for x in all_files if x.startswith(self._prepped_data_dir)]
+            all_files = [x for x in all_files
+                         if x.startswith(self._prepped_data_dir)]
             strip_str = self._prepped_data_dir + '/'
-            self._prepped_data_files = [x.strip(strip_str) for x in all_files]
+            all_files = [x.replace(strip_str, '') for x in all_files]
+            self._prepped_data_files = [x for x in all_files
+                                        if x.find('_data.csv') > 0]
         else:
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
