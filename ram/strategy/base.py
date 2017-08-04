@@ -242,7 +242,7 @@ class Strategy(object):
             all_files = [x.name for x in self._bucket.list_blobs()]
             all_files = [x for x in all_files if x.startswith(self._prepped_data_dir)]
             strip_str = self._prepped_data_dir + '/'
-            self._prepped_data_dir = [x.strip(strip_str) for x in all_files]
+            self._prepped_data_files = [x.strip(strip_str) for x in all_files]
         else:
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
