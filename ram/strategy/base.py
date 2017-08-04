@@ -57,8 +57,7 @@ class Strategy(object):
             self._prepped_data_dir = os.path.join('prepped_data',
                                                   self.__class__.__name__,
                                                   prepped_data_version)
-            # CURRENTLY WRITING TO LOCAL MACHINE
-            self._strategy_output_dir = os.path.join(simulation_output_dir,
+            self._strategy_output_dir = os.path.join('simulations',
                                                      self.__class__.__name__)
         else:
             self._prepped_data_dir = os.path.join(prepped_data_dir,
@@ -92,31 +91,50 @@ class Strategy(object):
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _create_run_output_dir(self):
-        if self._write_flag:
-            # Create Strategy folder if it doesn't exist
-            if not os.path.exists(self._strategy_output_dir):
-                os.makedirs(self._strategy_output_dir)
-            # Get all run versions for increment for this run
+        """
+        Creates the directory structure for the output AND CRUCIALLY
+        sets the run_dir. This implementation has been reworked for gcp.
+        """
+        # Get run names
+        if self._gcp_implementation:
+            all_files = [x.name for x in self._bucket.list_blobs()]
+            all_files = [x for x in all_files if x.startswith(
+                self._strategy_output_dir)]
+            strip_str = self._strategy_output_dir + '/'
+            all_files = [x.replace(strip_str, '') for x in all_files]
+            all_files = [x for x in all_files if x.find('run') >= 0]
+            new_ind = int(max(all_files).split('/')[0].split('_')[1]) + 1 \
+                if all_files else 1
+        elif os.path.isdir(self._strategy_output_dir):
             all_dirs = [x for x in os.listdir(
                 self._strategy_output_dir) if x[:3] == 'run']
-            if all_dirs:
-                new_ind = max([int(x.split('_')[1]) for x in all_dirs]) + 1
-            else:
-                new_ind = 1
-            self.run_dir = os.path.join(self._strategy_output_dir,
-                                        'run_{0:04d}'.format(new_ind))
+            new_ind = int(max(all_dirs).split('_')[1]) + 1 if all_dirs else 1
+        elif self._write_flag:
+            os.makedirs(self._strategy_output_dir)
+            new_ind = 1
+        else:
+            new_ind = 1
+        # Get all run versions for increment for this run
+        self.run_dir = os.path.join(self._strategy_output_dir,
+                                    'run_{0:04d}'.format(new_ind))
+        # Output directory setup
+        self.strategy_output_dir = os.path.join(self.run_dir, 'index_outputs')
+        if self._write_flag and not self._gcp_implementation:
             os.mkdir(self.run_dir)
-            # Output directory setup
-            self.strategy_output_dir = os.path.join(
-                self.run_dir, 'index_outputs')
             os.makedirs(self.strategy_output_dir)
 
     def _copy_source_code(self):
-        if self._write_flag:
+        if self._write_flag and not self._gcp_implementation:
             # Copy source code for Strategy
             source_path = os.path.dirname(inspect.getabsfile(self.__class__))
             dest_path = os.path.join(self.run_dir, 'strategy_source_copy')
             copytree(source_path, dest_path)
+        elif self._write_flag and self._gcp_implementation:
+            source_path = os.path.dirname(inspect.getabsfile(self.__class__))
+            dest_path = os.path.join(self.run_dir, 'strategy_source_copy')
+            copy_string = 'gsutil -q -m cp -r {} gs://{}/{}'.format(
+                source_path, config.GCP_STORAGE_BUCKET_NAME, dest_path)
+            os.system(copy_string)
 
     def _create_meta_file(self, user_description=None):
         if self._write_flag:
@@ -125,7 +143,7 @@ class Strategy(object):
                 prompt_for_description()
             git_branch, git_commit = get_git_branch_commit()
             # Create meta object
-            run_meta = {
+            meta = {
                 'prepped_data_version': self._data_version,
                 'latest_git_commit': git_commit,
                 'git_branch': git_branch,
@@ -133,9 +151,11 @@ class Strategy(object):
                 'completed': False,
                 'start_time': str(dt.datetime.utcnow())[:19]
             }
-            with open(os.path.join(self.run_dir, 'meta.json'), 'w') as outfile:
-                json.dump(run_meta, outfile)
-            outfile.close()
+            out_path = os.path.join(self.run_dir, 'meta.json')
+            if self._gcp_implementation:
+                write_json_cloud(meta, out_path, self._bucket)
+            else:
+                write_json(meta, out_path)
 
     def _write_column_parameters_file(self):
         """
@@ -148,29 +168,36 @@ class Strategy(object):
         """
         if self._write_flag:
             column_params = self.get_column_parameters()
-            assert isinstance(column_params, dict)
-            with open(os.path.join(self.run_dir, 'column_params.json'),
-                      'w') as outfile:
-                json.dump(column_params, outfile)
-            outfile.close()
+            out_path = os.path.join(self.run_dir, 'column_params.json')
+            if self._gcp_implementation:
+                write_json_cloud(column_params, out_path, self._bucket)
+            else:
+                write_json(column_params, out_path)
 
     def _shutdown_simulation(self):
         if self._write_flag:
             # Update meta file
-            meta = json.load(open(os.path.join(self.run_dir,
-                                               'meta.json'), 'r'))
+            meta_file_path = os.path.join(self.run_dir, 'meta.json')
+            if self._gcp_implementation:
+                meta = read_json_cloud(meta_file_path, self._bucket)
+            else:
+                meta = read_json(meta_file_path)
             meta['completed'] = True
             meta['end_time'] = str(dt.datetime.utcnow())[:19]
-            with open(os.path.join(self.run_dir, 'meta.json'),
-                      'w') as outfile:
-                json.dump(meta, outfile)
+            if self._gcp_implementation:
+                write_json_cloud(meta, meta_file_path, self._bucket)
+            else:
+                write_json(meta, meta_file_path)
 
     def _import_run_meta_for_restart(self, run_name):
         self.run_dir = os.path.join(self._strategy_output_dir, run_name)
         assert os.path.isdir(self.run_dir), \
             '[{}] not available'.format(run_name)
-        meta = json.load(open(os.path.join(self.run_dir,
-                                           'meta.json'), 'r'))
+        meta_file_path = os.path.join(self.run_dir, 'meta.json')
+        if self._gcp_implementation:
+            meta = read_json_cloud(meta_file_path, self._bucket)
+        else:
+            meta = read_json(meta_file_path)
         assert not meta['completed'], '[{}] completed'.format(run_name)
         # Set prepped_data_version
         self._prepped_data_dir = os.path.join(
@@ -187,13 +214,11 @@ class Strategy(object):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _print_prepped_data_meta(self):
+        meta_path = os.path.join(self._prepped_data_dir, 'meta.json')
         if self._gcp_implementation:
-            blob = self._bucket.get_blob(
-                os.path.join(self._prepped_data_dir, 'meta.json'))
-            meta = json.loads(blob.download_as_string())
+            meta = read_json_cloud(meta_path, self._bucket)
         else:
-            meta = json.load(open(os.path.join(self._prepped_data_dir,
-                                               'meta.json'), 'r'))
+            meta = read_json(meta_path)
 
         print('\n## Meta data for {} - {} ##'.format(meta['strategy_name'],
                                                      meta['version']))
@@ -221,12 +246,14 @@ class Strategy(object):
                 meta['date_parameters_univ']['frequency']))
 
     def _get_prepped_data_file_names(self):
-
         if self._gcp_implementation:
             all_files = [x.name for x in self._bucket.list_blobs()]
-            self._prepped_data_files = [
-                x for x in all_files if x.startswith(
-                    self._prepped_data_dir)]
+            all_files = [x for x in all_files
+                         if x.startswith(self._prepped_data_dir)]
+            strip_str = self._prepped_data_dir + '/'
+            all_files = [x.replace(strip_str, '') for x in all_files]
+            self._prepped_data_files = [x for x in all_files
+                                        if x.find('_data.csv') > 0]
         else:
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
@@ -312,15 +339,12 @@ class Strategy(object):
 
     def read_data_from_index(self, index):
         if not hasattr(self, '_prepped_data_files'):
-            # This is used for interactive development so get data files
-            # doesn't need to be manually called
             self._get_prepped_data_file_names()
+        dpath = os.path.join(self._prepped_data_dir,
+                             self._prepped_data_files[index])
         if self._gcp_implementation:
-            blob = self._bucket.get_blob(self._prepped_data_files[index])
-            data = pd.read_csv(StringIO(blob.download_as_string()))
+            data = read_csv_cloud(dpath, self._bucket)
         else:
-            dpath = os.path.join(self._prepped_data_dir,
-                                 self._prepped_data_files[index])
             data = pd.read_csv(dpath)
         data.Date = convert_date_array(data.Date)
         data.SecCode = data.SecCode.astype(int).astype(str)
@@ -330,14 +354,12 @@ class Strategy(object):
         """
         This is a wrapper function for cloud implementation.
         """
-        if self._gcp_implementation:
-            output_name = self._prepped_data_files[index].split('/')[-1]
+        output_name = self._prepped_data_files[index].replace('data', suffix)
+        output_path = os.path.join(self.strategy_output_dir, output_name)
+        if self._write_flag and self._gcp_implementation:
+            to_csv_cloud(returns_df, output_path, self._bucket)
         else:
-            output_name = self._prepped_data_files[index]
-        output_name = output_name.replace('data', suffix)
-        if self._write_flag:
-            returns_df.to_csv(os.path.join(self.strategy_output_dir,
-                                           output_name))
+            returns_df.to_csv(output_path)
 
     def write_index_stats(self, stats, index):
         output_name = self._prepped_data_files[index]
@@ -360,6 +382,40 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
+
+
+# ~~~~~~ Read/Write functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def write_json(out_dictionary, path):
+    assert isinstance(out_dictionary, dict)
+    with open(path, 'w') as outfile:
+        json.dump(out_dictionary, outfile)
+    outfile.close()
+
+
+def read_json(path):
+    return json.load(open(path, 'r'))
+
+
+def write_json_cloud(out_dictionary, path, bucket):
+    assert isinstance(out_dictionary, dict)
+    blob = bucket.blob(path)
+    blob.upload_from_string(json.dumps(out_dictionary))
+
+
+def read_json_cloud(path, bucket):
+    blob = bucket.get_blob(path)
+    return json.loads(blob.download_as_string())
+
+
+def read_csv_cloud(path, bucket):
+    blob = bucket.get_blob(path)
+    return pd.read_csv(StringIO(blob.download_as_string()))
+
+
+def to_csv_cloud(data, path, bucket):
+    blob = bucket.blob(path)
+    blob.upload_from_string(data.to_csv())
 
 
 # ~~~~~~  Make ArgParser  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

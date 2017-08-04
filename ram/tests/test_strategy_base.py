@@ -11,7 +11,7 @@ from gearbox import convert_date_array
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.base import Strategy
+from ram.strategy.base import *
 
 
 class TestStrategy(Strategy):
@@ -169,7 +169,6 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._create_meta_file('Test')
         # New Strategy
         strategy = TestStrategy(
-            write_flag=True,
             prepped_data_dir=self.prepped_data_dir,
             simulation_output_dir=self.output_dir)
         strategy._import_run_meta_for_restart('run_0001')
@@ -180,6 +179,7 @@ class TestStrategyBase(unittest.TestCase):
         result = strategy._prepped_data_files
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(result, benchmark)
+        strategy.restart('run_0001')
 
     def test_get_max_run_time_index_for_restart(self):
         self.strategy._write_flag = True
@@ -197,6 +197,16 @@ class TestStrategyBase(unittest.TestCase):
         strategy._get_prepped_data_file_names()
         strategy._get_max_run_time_index_for_restart()
         self.assertEqual(strategy._max_run_time_index, 0)
+
+    def test_read_write_json(self):
+        meta = {'V1': 2, 'V2': 4}
+        out_path = os.path.join(self.prepped_data_dir, 'meta.json')
+        write_json(meta, out_path)
+        result = read_json(out_path)
+        self.assertDictEqual(meta, result)
+
+    def test_read_write_json_cloud(self):
+        pass
 
     def tearDown(self):
         shutil.rmtree(self.prepped_data_dir)
