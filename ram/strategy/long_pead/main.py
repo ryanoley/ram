@@ -45,6 +45,10 @@ class LongPeadStrategy(Strategy):
         if time_index <= self._max_run_time_index:
             return
 
+        # HACK FOR CLOUD
+        if self._gcp_implementation:
+            self.signals.NJOBS = -1
+
         args_data = make_arg_iter(self.data.get_args())
         args_signals = make_arg_iter(self.signals.get_args())
         args_constructor = make_arg_iter(self.constructor.get_args())

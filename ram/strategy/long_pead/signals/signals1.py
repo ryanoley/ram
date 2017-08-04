@@ -7,13 +7,11 @@ from sklearn.linear_model import LogisticRegression
 
 from ram import config
 
-NJOBS = config.SKLEARN_NJOBS
-
 
 class SignalModel1(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, njobs=config.SKLEARN_NJOBS):
+        self.NJOBS = njobs
 
     def get_args(self):
         return {
@@ -32,7 +30,7 @@ class SignalModel1(object):
         clf = ExtraTreesClassifier(n_estimators=n_estimators,
                                    min_samples_leaf=min_samples_leaf,
                                    max_features=max_features,
-                                   n_jobs=NJOBS)
+                                   n_jobs=self.NJOBS)
 
         clf.fit(X=train_data[features],
                 y=train_data['Response'])
