@@ -391,11 +391,13 @@ def read_json(path):
 
 def write_json_cloud(out_dictionary, path, bucket):
     assert isinstance(out_dictionary, dict)
-    bucket.blob(path).upload_from_string(json.dumps(out_dictionary))
+    blob = bucket.blob(path)
+    blob.upload_from_string(json.dumps(out_dictionary))
 
 
 def read_json_cloud(path, bucket):
-    return json.loads(StringIO(bucket.get_blob(path).download_as_string()))
+    blob = bucket.get_blob(path)
+    return json.loads(StringIO(blob.download_as_string()))
 
 
 def read_csv_cloud(path, bucket):
