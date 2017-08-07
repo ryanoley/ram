@@ -2,7 +2,10 @@ import os
 import json
 import numpy as np
 import pandas as pd
+from StringIO import StringIO
 import matplotlib.pyplot as plt
+
+from google.cloud import storage
 
 from ram.utils.time_funcs import convert_date_array
 
@@ -138,6 +141,101 @@ class RunManager(object):
         plt.plot(rets1.cumsum(), 'r')
         plt.plot(rets2.cumsum(), 'g')
         plt.show()
+
+
+###############################################################################
+
+class RunManagerGCP(RunManager):
+
+    def __init__(self, strategy_class, run_name, start_year=1950,
+                 test_periods=6):
+        super(RunManagerGCP, self).__init__(
+            strategy_class, run_name, start_year, test_periods)
+        self._gcp_client = storage.Client()
+        self._bucket = self._gcp_client.get_bucket(
+            config.GCP_STORAGE_BUCKET_NAME)
+
+    # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_strategies():
+        all_files = list(self._bucket.list_blobs())
+        all_simulation_files = [x for x in all_files if x.name[:5] == 'simul']
+        all_simulations = set([x.name.split('/')[1]
+                               for x in all_simulation_files])
+        return [x for x in all_simulations if len(x) > 0]
+
+    def get_run_names(strategy_class):
+        all_files = list(self._bucket.list_blobs())
+        # Get unique runs from StrategyClass blobs
+        all_simulation_files = [x.name for x in all_files if x.name.find(
+            'simulations/{}'.format(strategy_class)) >= 0]
+        all_runs = set([x.split('/')[2] for x in all_simulation_files])
+        output = pd.DataFrame({'Run': dirs, 'Description': np.nan})
+        for run in all_runs:
+            path = 'simulations/{}/{}/meta.json'.format(strategy_class, run)
+            blob = bucket.get_blob(path)
+            desc = json.loads(blob.download_as_string())
+            output.loc[i, 'Description'] = desc['description']
+            if 'completed' in desc:
+                output.loc[i, 'Completed'] = desc['completed']
+            else:
+                output.loc[i, 'Completed'] = None
+            if 'end_time' in desc:
+                output.loc[i, 'RunDate'] = desc['end_time'][:10]
+            elif 'start_time' in desc:
+                output.loc[i, 'RunDate'] = desc['start_time'][:10]
+            else:
+                output.loc[i, 'RunDate'] = None
+        return output[['Run', 'RunDate', 'Completed', 'Description']]
+
+    # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _get_storage_run_files(self, filter_text):
+        base_path = os.path.join('simulations',
+                                 self.strategy_class,
+                                 self.run_name,
+                                 filter_text)
+        all_files = [x.name for x in list(self._bucket.list_blobs())]
+        all_files = [x for x in all_files if x.find(base_path) >= 0]
+        all_files.sort()
+        return all_files
+
+    def import_return_frame(self):
+        all_files = self._get_storage_run_files('index_outputs/returns')
+        # Trim files for test periods
+        if self.test_periods > 0:
+            files = files[:-self.test_periods]
+        returns = pd.DataFrame()
+        for i, f in enumerate(all_files):
+            if int(f[:4]) < self.start_year:
+                continue
+            blob = bucket.get_blob(f)
+            returns = returns.add(
+                pd.read_csv(StringIO(blob.download_as_string())),
+                fill_value=0)
+        returns.index = convert_date_array(returns.index)
+        self.returns = returns
+
+    def import_stats(self):
+        files = self._get_storage_run_files('index_outputs/stats.json')
+        self.stats = {}
+        if files:
+            for f in files:
+                blob = bucket.get_blob(f)
+                self.stats[f] = json.loads(blob.download_as_string())
+        else:
+            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
+                                             in self.column_params}
+
+    def import_column_params(self):
+        file_path = self._get_storage_run_files('column_params.json')[0]
+        blob = bucket.get_blob(file_path)
+        self.column_params = json.loads(blob.download_as_string())
+
+    def import_meta(self):
+        file_path = self._get_storage_run_files('meta.json')[0]
+        blob = bucket.get_blob(file_path)
+        self.meta = json.loads(blob.download_as_string())
 
 
 ###############################################################################
