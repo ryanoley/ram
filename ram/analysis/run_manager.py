@@ -175,9 +175,9 @@ class RunManagerGCP(RunManager):
         # Get unique runs from StrategyClass blobs
         all_simulation_files = [x.name for x in all_files if x.name.find(
             'simulations/{}'.format(strategy_class)) >= 0]
-        all_runs = set([x.split('/')[2] for x in all_simulation_files])
+        all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
         output = pd.DataFrame({'Run': all_runs, 'Description': np.nan})
-        for run in all_runs:
+        for i, run in enumerate(all_runs):
             path = 'simulations/{}/{}/meta.json'.format(strategy_class, run)
             blob = bucket.get_blob(path)
             desc = json.loads(blob.download_as_string())
@@ -199,35 +199,34 @@ class RunManagerGCP(RunManager):
     def _get_storage_run_files(self, filter_text):
         base_path = os.path.join('simulations',
                                  self.strategy_class,
-                                 self.run_name,
-                                 filter_text)
+                                 self.run_name)
         all_files = [x.name for x in list(self._bucket.list_blobs())]
         all_files = [x for x in all_files if x.find(base_path) >= 0]
+        all_files = [x for x in all_files if x.find(filter_text) >= 0]
         all_files.sort()
         return all_files
 
     def import_return_frame(self):
-        all_files = self._get_storage_run_files('index_outputs/returns')
+        all_files = self._get_storage_run_files('returns.csv')
         # Trim files for test periods
         if self.test_periods > 0:
-            files = files[:-self.test_periods]
+            all_files = all_files[:-self.test_periods]
         returns = pd.DataFrame()
         for i, f in enumerate(all_files):
-            if int(f[:4]) < self.start_year:
+            if int(f.split('/')[-1][:4]) < self.start_year:
                 continue
-            blob = bucket.get_blob(f)
-            returns = returns.add(
-                pd.read_csv(StringIO(blob.download_as_string())),
-                fill_value=0)
+            blob = self._bucket.get_blob(f)
+            data = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+            returns = returns.add(data, fill_value=0)
         returns.index = convert_date_array(returns.index)
         self.returns = returns
 
     def import_stats(self):
-        files = self._get_storage_run_files('index_outputs/stats.json')
+        files = self._get_storage_run_files('stats.json')
         self.stats = {}
         if files:
             for f in files:
-                blob = bucket.get_blob(f)
+                blob = self._bucket.get_blob(f)
                 self.stats[f] = json.loads(blob.download_as_string())
         else:
             self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
@@ -235,12 +234,12 @@ class RunManagerGCP(RunManager):
 
     def import_column_params(self):
         file_path = self._get_storage_run_files('column_params.json')[0]
-        blob = bucket.get_blob(file_path)
+        blob = self._bucket.get_blob(file_path)
         self.column_params = json.loads(blob.download_as_string())
 
     def import_meta(self):
         file_path = self._get_storage_run_files('meta.json')[0]
-        blob = bucket.get_blob(file_path)
+        blob = self._bucket.get_blob(file_path)
         self.meta = json.loads(blob.download_as_string())
 
 
