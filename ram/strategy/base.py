@@ -427,7 +427,7 @@ def make_argument_parser(Strategy):
     from ram.data.data_constructor import print_strategy_meta
     from ram.data.data_constructor import clean_directory
     from ram.data.data_constructor import get_version_name
-    from ram.analysis.run_manager import RunManager
+    from ram.analysis.run_manager import RunManager, RunManagerGCP
 
     parser = argparse.ArgumentParser()
 
@@ -479,7 +479,10 @@ def make_argument_parser(Strategy):
     if args.list_versions:
         print_strategy_versions(Strategy.__name__)
     elif args.list_runs:
-        runs = RunManager.get_run_names(Strategy.__name__)
+        try:
+            runs = RunManager.get_run_names(Strategy.__name__)
+        except:
+            runs = RunManagerGCP.get_run_names(Strategy.__name__)
         # Adjust column width
         runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
         print(runs)
