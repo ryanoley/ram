@@ -168,7 +168,7 @@ class RunManagerGCP(RunManager):
         return [x for x in all_simulations if len(x) > 0]
 
     @staticmethod
-    def get_run_names(self, strategy_class):
+    def get_run_names(strategy_class):
         gcp_client = storage.Client()
         bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
         all_files = list(bucket.list_blobs())
