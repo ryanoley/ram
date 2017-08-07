@@ -157,15 +157,21 @@ class RunManagerGCP(RunManager):
 
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    @staticmethod
     def get_strategies():
-        all_files = list(self._bucket.list_blobs())
+        gcp_client = storage.Client()
+        bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+        all_files = list(bucket.list_blobs())
         all_simulation_files = [x for x in all_files if x.name[:5] == 'simul']
         all_simulations = set([x.name.split('/')[1]
                                for x in all_simulation_files])
         return [x for x in all_simulations if len(x) > 0]
 
-    def get_run_names(strategy_class):
-        all_files = list(self._bucket.list_blobs())
+    @staticmethod
+    def get_run_names(self, strategy_class):
+        gcp_client = storage.Client()
+        bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+        all_files = list(bucket.list_blobs())
         # Get unique runs from StrategyClass blobs
         all_simulation_files = [x.name for x in all_files if x.name.find(
             'simulations/{}'.format(strategy_class)) >= 0]
