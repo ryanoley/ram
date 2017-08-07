@@ -48,7 +48,7 @@ FUNCS = [
     # STARMINE
     'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
     'EPSESTIMATE', 'EPSSURPRISE', 'EBITDAESTIMATE', 'EBITDASURPRISE',
-    'REVENUEESTIMATE', 'REVENUESURPRISE',
+    'REVENUEESTIMATE', 'REVENUESURPRISE', 'SESPLITFACTOR',
     'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
     'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
   
@@ -915,6 +915,9 @@ def ARMEARNINGS(arg0, feature_name, arg2, table):
 
 def ARMEXRECS(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMScoreExRecs', feature_name, table)
+
+def SESPLITFACTOR(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SplitFactor', feature_name, table)
 
 def EPSESTIMATE(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_EPS', feature_name, table)
