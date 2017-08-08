@@ -468,8 +468,8 @@ from				unique_gvkeys_dates T
 , ebit_data_0 as (
 select				D1.GVKey,
 					D1.ReportDate as AsOfDate,
-					D1.ValueQ - D2.ValueQ - D3.ValueQ - D4.ValueQ as ebit,
-					D1.ValueTTM - D2.ValueTTM - D3.ValueTTM - D4.ValueTTM as ebit_ttm
+					coalesce(D1.ValueQ, 0) - coalesce(D2.ValueQ, 0) - coalesce(D3.ValueQ, 0) - coalesce(D4.ValueQ, 0) as ebit,
+					coalesce(D1.ValueTTM, 0) - coalesce(D2.ValueTTM, 0) - coalesce(D3.ValueTTM, 0) - coalesce(D4.ValueTTM, 0) as ebit_ttm
 
 from				sales_data_0 D1
 
