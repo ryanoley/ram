@@ -176,6 +176,7 @@ class RunManagerGCP(RunManager):
         all_simulation_files = [x.name for x in all_files if x.name.find(
             'simulations/{}'.format(strategy_class)) >= 0]
         all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
+        all_runs.sort()
         output = pd.DataFrame({'Run': all_runs, 'Description': np.nan})
         for i, run in enumerate(all_runs):
             path = 'simulations/{}/{}/meta.json'.format(strategy_class, run)
