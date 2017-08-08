@@ -6,8 +6,8 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.utils.time_funcs import convert_date_array
-from ram.strategy.long_pead.constructor.constructor import PortfolioConstructor
+from gearbox import convert_date_array
+from ram.strategy.long_pead.constructor.constructor1 import *
 
 
 class TestConstructor(unittest.TestCase):
@@ -27,23 +27,26 @@ class TestConstructor(unittest.TestCase):
         self.data['Date'] = convert_date_array(self.data.Date)
 
     def test_get_position_sizes(self):
-        cons = PortfolioConstructor()
+        cons = PortfolioConstructor1()
         mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
         result = cons._get_position_sizes(mrets, 1, 100)
+        benchmark = {'AAPL': -13.163684327956279,
+                     'IBM': 36.836315672043717,
+                     'TSLA': -36.836315672043717,
+                     'BAC': 13.163684327956279, 'GS': 0}
+        self.assertDictEqual(result, benchmark)
 
-    def test_set_and_prep_data(self):
-        cons = PortfolioConstructor(booksize=200)
-        cons.set_and_prep_data(self.data, time_index=0,
-                          blackout_offset1=-1,
-                          blackout_offset2=1,
-                          anchor_init_offset=1,
-                          anchor_window=2)
-        result = cons.close_dict[pd.Timestamp('2015-01-01')]
-        benchmark = {'AAPL': 10, 'GOOGL': 10, 'IBM': 9}
-        self.assertDictEqual(result, benchmark)
-        result = cons.close_dict[pd.Timestamp('2015-01-04')]
-        benchmark = {'AAPL': 5, 'GOOGL': 15, 'IBM': 12}
-        self.assertDictEqual(result, benchmark)
+    def test_filter_seccodes(self):
+        data = {
+            dt.date(2010, 1, 1): {'1': 4, '2': 5, '3': 0.1},
+            dt.date(2010, 1, 2): {'1': 1, '2': 1, '3': 10}
+        }
+        date = dt.date(2010, 1, 1)
+        result = filter_seccodes(data[date], 3)
+        self.assertListEqual(result, ['3'])
+        date = dt.date(2010, 1, 2)
+        result = filter_seccodes(data[date], 3)
+        self.assertListEqual(result, ['1', '2'])
 
     def tearDown(self):
         pass

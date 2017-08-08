@@ -82,14 +82,16 @@ class TestIntradayReturnSimulator(unittest.TestCase):
         slippage = pd.Series([0.001, 0.001, 0.001],
             index=[dt.date(2010, 1, i) for i in range(1, 4)])
         tcost = slippage.copy()
-        irs._hlc_rets_data['SPY'] = (self.data2, self.data2, self.data2,
-                                     slippage, tcost)
+        irs._hlc_rets_data['SPY'] = (self.data2, self.data2, self.data2)
+        irs._cost_data['SPY'] = (slippage, tcost)
         result = irs.get_responses('SPY', 1, .3)
         benchmark = pd.DataFrame(index=[dt.date(2010, 1, 1),
                                         dt.date(2010, 1, 2),
                                         dt.date(2010, 1, 3)])
         benchmark['Ticker'] = 'SPY'
         benchmark['response'] = [1, -1, 0]
+        benchmark.response = benchmark.response.astype(int)
+        result.response = result.response.astype(int)
         assert_frame_equal(result, benchmark)
 
     def Xtest_preprocess_returns(self):

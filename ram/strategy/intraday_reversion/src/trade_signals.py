@@ -1,235 +1,184 @@
 import numpy as np
 import pandas as pd
-import datetime
 from tqdm import tqdm
-from gearbox import create_time_index
+
 from sklearn.ensemble import RandomForestClassifier
+from ram.strategy.intraday_reversion.src.intraday_return_simulator import *
 
 
-# ~~~~~~ Modeling ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+# ~~~~~~~~~~~ Model predictions ~~~~~~~~~~~~~~~~
 def get_predictions(data,
-                    n_estimators = 100,
-                    min_samples_split = 75,
-                    min_samples_leaf = 20):
+                    intraday_simulator,
+                    n_estimators=100,
+                    min_samples_split=75,
+                    min_samples_leaf=20):
 
     data = data.copy()
-    qtrIdxs = data.QIndex.sort_values().unique()[6:]
+    responses = _create_response(data.Ticker.unique(), intraday_simulator)
+    response_columns = responses.columns.difference(['Date', 'Ticker'])
+    data = data.merge(responses)
+
+    # HARD-CODED TRAINING PERIOD LENGTH
+    qtr_indexes = np.unique(data.QIndex)[6:]
+
     features = list(data.columns.difference([
-        'SecCode', 'Date', 'AdjOpen','AdjClose', 'LAG1_AdjVolume',
-        'LAG1_AdjOpen','LAG1_AdjHigh','LAG1_AdjLow','LAG1_AdjClose',
+        'SecCode', 'Date', 'AdjOpen', 'AdjClose', 'LAG1_AdjVolume',
+        'LAG1_AdjOpen', 'LAG1_AdjHigh', 'LAG1_AdjLow', 'LAG1_AdjClose',
         'LAG1_VOL90_AdjClose', 'LAG1_VOL10_AdjClose', 'Ticker', 'QIndex',
-        'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day','Month','Qtr',
-        'pred', 'Signal']))
+        'OpenRet', 'DayRet', 'zOpen', 'DoW', 'Day', 'Month', 'Qtr'] +
+        list(responses.columns)))
 
-    rfc = RandomForestClassifier(n_estimators = n_estimators,
-                                 min_samples_split = min_samples_split,
-                                 min_samples_leaf= min_samples_leaf,
-                                 random_state=123)
+    clf = RandomForestClassifier(n_estimators=n_estimators,
+                                 min_samples_split=min_samples_split,
+                                 min_samples_leaf=min_samples_leaf,
+                                 random_state=123, n_jobs=-1)
 
-    for qtr in tqdm(qtrIdxs):
+    pred_columns = ['p_{}'.format(col) for col in response_columns]
+    data = data.reindex(columns=list(data.columns) + pred_columns)
+
+    print('\nTraining Predictive Models: ')
+    for qtr in tqdm(qtr_indexes):
         train_X = data.loc[data.QIndex < qtr, features]
-        train_y = data.loc[data.QIndex < qtr, 'DayRet'] > 0
+        train_y = data.loc[data.QIndex < qtr, response_columns]
         test_X = data.loc[data.QIndex == qtr, features]
-        
-        rfc.fit(train_X, train_y)
-        testPreds = rfc.predict_proba(test_X)[:, 1]
-        data.loc[data.QIndex == qtr, 'Est'] = testPreds
 
-    return data[['Ticker', 'Date', 'Est', 'zOpen', 'DayRet']].copy()
+        clf.fit(X=train_X, y=train_y)
+        # ASSUMPTION: prediction = Long Prob - Short Prob
+        probs = clf.predict_proba(test_X)
+        long_ind = np.where(clf.classes_[0] == 1)[0][0]
+        short_ind = np.where(clf.classes_[0] == -1)[0][0]
+        preds = np.array(
+            [x[:, long_ind] - x[:, short_ind] for x in probs]).transpose()
+        data.loc[data.QIndex == qtr, pred_columns] = preds
 
-
-# ~~~~~~ Trade Signals ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-def get_trade_signals(predictions, zLim=.5,
-                      gapDownSampleTrim1 = .25, gapDownSampleTrim2 = .25,
-                      gapUpSampleTrim1 = .25, gapUpSampleTrim2 = .25):
-
-    # HARDCODED START DATE TIED TO START OF INTRADAY DATA
-    start_dt = datetime.date(2007, 4, 25)
-
-    data = predictions.dropna()
-    signalDates = data.loc[(data.Date >= start_dt) &
-                            (np.abs(data.zOpen) > zLim), 'Date']
-
-    for dt in tqdm(signalDates.sort_values().unique()):
-        # GAP DOWN
-        train = data.loc[(data.zOpen < 0) & (data.Date < dt),
-                            ['Est', 'DayRet']].copy()
-        threshLim = thresh_optim(train, gapDownSampleTrim1, gapDownSampleTrim2)
-        predictions.loc[predictions.Date == dt, 'threshLimDown'] = threshLim
-        # GAP UP
-        train = data.loc[(data.zOpen > 0) & (data.Date < dt),
-                            ['Est', 'DayRet']].copy()
-        threshLim = thresh_optim(train, gapUpSampleTrim1, gapUpSampleTrim2)
-        predictions.loc[predictions.Date == dt, 'threshLimUp'] = threshLim
-
-    gapDwnRev = ((predictions.zOpen <= -zLim) &
-                        (predictions.Est  >= predictions.threshLimDown))
-    gapDwnMo = ((predictions.zOpen <= -zLim) &
-                        (predictions.Est < predictions.threshLimDown))
-    gapUpRev = ((predictions.zOpen >= zLim) &
-                        (predictions.Est  <= predictions.threshLimUp))
-    gapUpMo = ((predictions.zOpen >= zLim) &
-                        (predictions.Est  > predictions.threshLimUp))
-    
-    predictions['signal'] = np.where((gapUpRev) | (gapDwnMo), -1,
-                                np.where((gapDwnRev) | (gapUpMo), 1, 0))
-
-    return predictions[['Ticker', 'Date', 'DayRet', 'zOpen', 'signal']]
-
-def thresh_optim(trainData, sampleLimLow, sampleLimHigh):
-    trainData.sort_values(by='Est', inplace=True)
-    obsN = np.arange(1, len(trainData) + 1)
-    trainData['pctDwnBlw'] = ((trainData.DayRet < 0).cumsum() / obsN)
-    trainData['pctUpAbv'] = ((trainData.DayRet[::-1] > 0).cumsum()[::-1] /
-        (obsN[::-1]))
-    trainData['winPctSum'] = trainData.pctDwnBlw + trainData.pctUpAbv
-    nTrimL = np.round(len(trainData) * sampleLimLow, 0).astype(int)
-    nTrimH = np.round(len(trainData) * sampleLimHigh, 0).astype(int)
-    maxRow = trainData[nTrimL : -nTrimH].sort_values(
-        'winPctSum', ascending=False).iloc[0]
-    return maxRow.Est
+    downstream_features = ['zOpen'] + list(response_columns)
+    return data[['Ticker', 'Date'] + pred_columns + downstream_features]
 
 
+def _create_response(tickers, intraday_simulator):
+    if isinstance(tickers, str):
+        tickers = [tickers]
+    # Create responses
+    responses = pd.DataFrame([])
+    for ticker in tickers:
+        ticker_response = pd.DataFrame([])
+        for take_stop, response in \
+                intraday_simulator._response_data[ticker].items():
+            response = response.rename(columns={'response': take_stop})
+            ticker_response = pd.concat([ticker_response,
+                                         response[take_stop]], axis=1)
+        ticker_response['Ticker'] = ticker
+        responses = responses.append(ticker_response)
 
-# ~~~~~~ Data Processing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return responses.reset_index()
 
-seccode_ticker_map = {
-    '37591': 'IWM',
-    '49234': 'QQQ',
-    '61494': 'SPY',
-    '10902726': 'VXX',
-    '19753': 'DIA',
-    '72954': 'KRE'
-}
 
-def format_raw_data(data):
-    data = data.merge(pd.DataFrame(seccode_ticker_map.items(),
-                                   columns=['SecCode', 'Ticker']))
+# ~~~~~~~~~~~ Trade signals / Thresh optim ~~~~~~~~~~~~~~~~
 
-    data['OpenRet'] = ((data.AdjOpen - data.LAG1_AdjClose) /
-                        data.LAG1_AdjClose)
-    data['DayRet'] = (data.AdjClose - data.AdjOpen) / data.AdjOpen
-    data['zOpen'] = data.OpenRet / data.LAG1_VOL90_AdjClose
+def get_trade_signals(predictions,
+                      zLim=.5,
+                      gap_down_limit_1=0.25,
+                      gap_down_limit_2=0.25,
+                      gap_up_limit_1=0.25,
+                      gap_up_limit_2=0.25):
+    predictions = predictions.copy()
+    pred_cols = [x for x in predictions.columns if x.find('p_') > -1]
+    for col in pred_cols:
+        predictions['prediction'] = predictions[col].copy()
+        predictions['response'] = predictions[col.replace('p_', '')].copy()
+        # prediction_thresh_optim
+        predictions[col.replace('p_', 's_')] = prediction_thresh_optim(
+            predictions,
+            zLim,
+            gap_down_limit_1,
+            gap_down_limit_2,
+            gap_up_limit_1,
+            gap_up_limit_2)
+    signal_cols = [x for x in predictions.columns if x.find('s_') > -1]
+    return predictions[['Ticker', 'Date'] + signal_cols].copy()
 
-    data['QIndex'] = create_time_index(data.Date)
-    data = _create_seasonal_vars(data)
-    data = _create_pricing_vars(data)
-    data = _get_momentum_indicator(data)
 
-    tickers = data.Ticker.unique()
-    for tkr in tickers:
-        data['b{}'.format(tkr)] = np.where(data.Ticker == tkr, 1, 0)
+def prediction_thresh_optim(data,
+                            zLim=0.5,
+                            gap_down_limit_1=0.25,
+                            gap_down_limit_2=0.25,
+                            gap_up_limit_1=0.25,
+                            gap_up_limit_2=0.25):
+    assert 'Date' in data
+    assert 'prediction' in data
+    assert 'response' in data
+    assert 'zOpen' in data
 
-    data = data.dropna()
-    data.reset_index(drop=True, inplace=True)
-    return data
+    # Format for fast computation
+    data_gap_down = data.loc[data.zOpen < -zLim].copy()
+    data_gap_down.sort_values('prediction', inplace=True)
+    data_gap_down = data_gap_down.dropna()
 
-def _create_seasonal_vars(data):
-    data['DoW'] = [x.weekday() for x in data.Date]
-    data['Day'] = [x.day for x in data.Date]
-    data['Month'] = [x.month for x in data.Date]
-    data['Qtr'] = np.array([(m - 1) / 3 + 1 for m in data.Month])
+    data_gap_up = data.loc[data.zOpen > zLim].copy()
+    data_gap_up.sort_values('prediction', inplace=True)
+    data_gap_up = data_gap_up.dropna()
 
-    data['Q1'] = data.Qtr == 1
-    data['Q2'] = data.Qtr == 2
-    data['Q3'] = data.Qtr == 3
-    data['Q4'] = data.Qtr == 4
+    eval_dates = np.unique(data.Date)
+    eval_dates = eval_dates[eval_dates >= data_gap_down.Date.min()]
+    eval_dates = eval_dates[eval_dates >= data_gap_up.Date.min()]
 
-    data['DoW0'] = data.DoW == 0
-    data['DoW1'] = data.DoW == 1
-    data['DoW2'] = data.DoW == 2
-    data['DoW3'] = data.DoW == 3
-    data['DoW4'] = data.DoW == 4
+    # Ensure sufficient number of days of training data
+    print('\nFitting prediction thresholds:')
+    for date in tqdm(eval_dates[50:]):
+        inds = data.Date == date
 
-    return data
+        data.loc[inds, 'gap_down_inflection'] = \
+            _get_prediction_thresh(
+                data_gap_down.loc[data_gap_down.Date < date],
+                gap_down_limit_1, gap_down_limit_2)
 
-def _create_pricing_vars(data):
-    out = pd.DataFrame([])
-    for tkr in data.Ticker.unique():
-        tdata = data[data.Ticker == tkr].copy()
-        tdata['Min5'] = (tdata.LAG1_AdjClose ==
-                         tdata.LAG1_AdjClose.rolling(window=5).min())
-        tdata['Min10'] = (tdata.LAG1_AdjClose ==
-                          tdata.LAG1_AdjClose.rolling(window=10).min())
-        tdata['Min20'] = (tdata.LAG1_AdjClose ==
-                          tdata.LAG1_AdjClose.rolling(window=20).min())
+        data.loc[inds, 'gap_up_inflection'] = \
+            _get_prediction_thresh(
+                data_gap_up.loc[data_gap_up.Date < date],
+                gap_up_limit_1, gap_up_limit_2)
 
-        tdata['Max5'] = (tdata.LAG1_AdjClose ==
-                         tdata.LAG1_AdjClose.rolling(window=5).max())
-        tdata['Max10'] = (tdata.LAG1_AdjClose ==
-                          tdata.LAG1_AdjClose.rolling(window=10).max())
-        tdata['Max20'] = (tdata.LAG1_AdjClose ==
-                          tdata.LAG1_AdjClose.rolling(window=20).max())
+    return _get_trade_signals(data, zLim)
 
-        tdata['AbvPRMA10'] = tdata.LAG1_PRMA10_AdjClose > 0.
-        tdata['BlwPRMA10'] = tdata.LAG1_PRMA10_AdjClose < 0.
-        tdata['AbvPRMA20'] = tdata.LAG1_PRMA20_AdjClose > 0.
-        tdata['BlwPRMA20'] = tdata.LAG1_PRMA20_AdjClose < 0.
-        tdata['AbvPRMA50'] = tdata.LAG1_PRMA50_AdjClose > 0.
-        tdata['BlwPRMA50'] = tdata.LAG1_PRMA50_AdjClose < 0.
-        tdata['AbvPRMA200'] = tdata.LAG1_PRMA200_AdjClose > 0.
-        tdata['BlwPRMA200'] = tdata.LAG1_PRMA200_AdjClose < 0.
 
-        tdata['Spread'] = ((tdata.LAG1_AdjHigh - tdata.LAG1_AdjLow) /
-                           tdata.LAG1_AdjOpen)
-        tdata['MaxSpread5'] = (tdata.Spread ==
-                               tdata.Spread.rolling(window=5).max())
-        tdata['MaxSpread10'] = (tdata.Spread ==
-                                tdata.Spread.rolling(window=10).max())
-        tdata['MinSpread5'] = (tdata.Spread ==
-                               tdata.Spread.rolling(window=5).min())
-        tdata['MinSpread10'] = (tdata.Spread ==
-                                tdata.Spread.rolling(window=10).min())
-        tdata['SRMA20'] = (tdata.Spread /
-                           tdata.Spread.rolling(window=20).mean())
-        tdata['AbvSRMA20'] = tdata.SRMA20 > 1.
-        tdata['BlwSRMA20'] = tdata.SRMA20 < 1.
+def _get_prediction_thresh(data,
+                           gap_limit_low_side,
+                           gap_limit_high_side):
+    """
+    DATA MUST BE PRE-SORTED BY PREDICTION COLUMN!!
+    """
+    n_obs = np.arange(1, len(data) + 1, dtype=np.float_)
 
-        tdata['MinVolume5'] = (
-            tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
-                window=5).min())
-        tdata['MinVolume10'] = (
-            tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
-                window=10).min())
-        tdata['MinVolume20'] = (
-            tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
-                window=20).min())
-        tdata['MaxVolume5'] = (
-            tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
-                window=5).max())
-        tdata['MaxVolume10'] = (
-            tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
-                window=10).max())
-        tdata['MaxVolume20'] = (
-            tdata.LAG1_AdjVolume == tdata.LAG1_AdjVolume.rolling(
-                window=20).max())
-        tdata['VRMA5'] = (
-            tdata.LAG1_AdjVolume / tdata.LAG1_AdjVolume.rolling(
-                window=5).mean())
-        tdata['VRMA10'] = (
-            tdata.LAG1_AdjVolume / tdata.LAG1_AdjVolume.rolling(
-                window=10).mean())
+    win_row_and_below = np.cumsum((data.response == -1).values) / n_obs
 
-        tdata['zScore5'] = (
-            (tdata.LAG1_AdjClose - tdata.LAG5_AdjClose) /
-            tdata.LAG5_AdjClose) / tdata.LAG1_VOL90_AdjClose
-        out = out.append(tdata)
+    win_above = (np.cumsum((data.response == 1).values[::-1]) / n_obs)[::-1]
+    win_above = np.roll(win_above, -1)
+    win_above[-1] = np.nan
 
-    return out
+    wins = win_row_and_below + win_above
 
-def _get_momentum_indicator(data):
-    momInd = np.zeros(data.shape[0])
-    for i in range(10, 0, -1):
-        posMo = ((data['LAG{}_AdjClose'.format(i+1)] <= data['LAG{}_AdjOpen'.format(i)]) &
-                 (data['LAG{}_AdjOpen'.format(i)] <= data['LAG{}_AdjClose'.format(i)]))
-        negMo = ((data['LAG{}_AdjClose'.format(i+1)] >= data['LAG{}_AdjOpen'.format(i)]) &
-                 (data['LAG{}_AdjOpen'.format(i)] >= data['LAG{}_AdjClose'.format(i)]))
-        momInd += np.where(
-            (posMo) | (negMo),
-            np.abs((data['LAG{}_AdjClose'.format(i)] - data['LAG{}_AdjOpen'.format(i)]) / data['LAG{}_AdjOpen'.format(i)]),
-            -np.abs((data['LAG{}_AdjClose'.format(i)] - data['LAG{}_AdjOpen'.format(i)]) / data['LAG{}_AdjOpen'.format(i)]))
-        data.drop(labels=['LAG{}_AdjClose'.format(i+1),
-                          'LAG{}_AdjOpen'.format(i+1)], axis=1, inplace=True)
-    data['momInd'] = momInd
-    return data
+    # Trim values from extremes to control odd behavior
+    trim_low = int(len(data) * gap_limit_low_side)
+    trim_high = int(len(data) * gap_limit_high_side)
+
+    max_ind = np.argmax(wins[trim_low:-trim_high])
+    data_ind = data.index[trim_low:-trim_high][max_ind]
+
+    return data.prediction.loc[data_ind]
+
+
+def _get_trade_signals(data, zLim):
+    return np.where(
+        # GAP DOWN SHORTS
+        (data.prediction <= data.gap_down_inflection) &
+        (data.zOpen < -zLim), -1, np.where(
+        # GAP DOWN LONGS
+        (data.prediction > data.gap_down_inflection) &
+        (data.zOpen < -zLim), 1, np.where(
+        # GAP UP SHORTS
+        (data.prediction <= data.gap_up_inflection) &
+        (data.zOpen > zLim), -1, np.where(
+        # GAP UP LONGS
+        (data.prediction > data.gap_up_inflection) &
+        (data.zOpen > zLim), 1,
+        # ELSE ZERO
+        0))))

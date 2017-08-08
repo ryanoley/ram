@@ -6,9 +6,9 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.intraday_reversion.src.prediction_thresh_optim import prediction_thresh_optim
-from ram.strategy.intraday_reversion.src.prediction_thresh_optim import _get_prediction_thresh
-from ram.strategy.intraday_reversion.src.prediction_thresh_optim import _get_trade_signals
+from ram.strategy.intraday_reversion.src.trade_signals import prediction_thresh_optim
+from ram.strategy.intraday_reversion.src.trade_signals import _get_prediction_thresh
+from ram.strategy.intraday_reversion.src.trade_signals import _get_trade_signals
 
 class TestPredictionThreshOptim(unittest.TestCase):
 

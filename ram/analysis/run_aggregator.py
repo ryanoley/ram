@@ -1,6 +1,7 @@
 import pandas as pd
 
 from ram.analysis.run_manager import RunManager
+from ram.analysis.selection import basic_model_selection
 
 
 class RunAggregator(object):
@@ -25,4 +26,9 @@ class RunAggregator(object):
             agg_returns = agg_returns.join(tmp, how='outer')
         if agg_returns.index.value_counts().max() > 1:
             raise 'Merged return series have duplicated dates'
-        return agg_returns
+        self.returns = agg_returns
+
+    def basic_model_selection(self, window=30, criteria='mean'):
+        if not hasattr(self, 'returns'):
+            self.aggregate_returns()
+        return basic_model_selection(self.returns, window, criteria)

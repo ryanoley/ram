@@ -10,39 +10,64 @@ from ram.data.sql_features import sqlcmd_from_feature_list
 pypyodbc.connection_timeout = 8
 
 
+def connection_error_handling(f):
+    """Decorator"""
+    def new_f(self, *args, **kwargs):
+        try:
+            return f(self, *args, **kwargs)
+        except Exception as e:
+            getattr(self, '_disconnect')()
+            print('Decorator Exception')
+            raise Exception(e)
+    new_f.__name__ = f.__name__
+    new_f.__doc__ = f.__doc__
+    return new_f
+
+
 class DataHandlerSQL(object):
 
     def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
-
-        try:
-            connection = pypyodbc.connect('Driver={SQL Server};'
-                                          'Server=QADIRECT;'
-                                          'Database=ram;'
-                                          'uid=ramuser;pwd=183madison')
-        except:
-            # Mac/Linux implementation. unixODBC and FreeTDS works
-            connect_str = "DSN=qadirectdb;UID=ramuser;PWD=183madison"
-            connection = pypyodbc.connect(connect_str)
-
-        assert connection.connected == 1
-
-        self._connection = connection
-        self._cursor = connection.cursor()
         self._table = table
+        self._connect()
 
-        # Get all dates available in master database
-        self._dates = np.unique(self.sql_execute(
-            """
-            select distinct Date_ from {0} order by Date_;
-            """.format(table)
-        )).flatten()
+    def _connect(self):
+        self._test_time_constraint()
+        try:
+            try:
+                connection = pypyodbc.connect('Driver={SQL Server};'
+                                              'Server=QADIRECT;'
+                                              'Database=ram;'
+                                              'uid=ramuser;pwd=183madison')
+            except:
+                # Mac/Linux implementation. unixODBC and FreeTDS works
+                # https://github.com/mkleehammer/pyodbc/wiki/Connecting-to-SQL-Server-from-Mac-OSX
+                connect_str = "DSN=qadirectdb;UID=ramuser;PWD=183madison"
+                connection = pypyodbc.connect(connect_str)
+            assert connection.connected == 1
+            self._connection = connection
+            self._cursor = connection.cursor()
+            self._cursor.autocommit = True
+        except:
+            self._connection = None
+            self._cursor = None
 
-    def get_all_dates(self):
-        return self._dates
+    def _disconnect(self):
+        try:
+            self._cursor.close()
+            self._connection.close()
+        except:
+            pass
+        self._cursor = None
+        self._connection = None
+
+    def _test_time_constraint(self):
+        if (dt.datetime.now().time() >= dt.time(5, 0)) & \
+                (dt.datetime.now().time() < dt.time(6, 30)):
+            raise Exception('No Queries between 5:00 AM and 6:30 AM')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Data Interface
-
+    @connection_error_handling
     def get_filtered_univ_data(self,
                                features,
                                start_date,
@@ -79,25 +104,24 @@ class DataHandlerSQL(object):
         else:
             ids = []
 
+        output = pd.DataFrame(columns=['SecCode', 'Date'])
         # With large numbers of IDs and Features, there is not enough
-        # memory to perform a query
-        batches = range(0, 3001, 500)
-        univ_df_out = pd.DataFrame(columns=['SecCode', 'Date'] + features)
+        # memory to perform a query. Break up by features
+        batches = range(0, 301, 10)
         for i1, i2 in zip(batches[:-1], batches[1:]):
-            batch_ids = ids[i1:i2]
-            if len(batch_ids) == 0:
+            batch_features = features[i1:i2]
+            if len(batch_features) == 0:
                 break
             # Get features, and strings for cte and regular query
-            sqlcmd, features = sqlcmd_from_feature_list(
-                features, batch_ids, d1, d3, self._table)
+            sqlcmd, batch_features = sqlcmd_from_feature_list(
+                batch_features, ids, d1, d3, self._table)
             univ = self.sql_execute(sqlcmd)
-            univ_df = pd.DataFrame(univ,
-                                   columns=['SecCode', 'Date'] + features)
-            univ_df_out = univ_df_out.append(univ_df)
+            univ_df = pd.DataFrame(
+                univ, columns=['SecCode', 'Date'] + batch_features)
+            output = output.merge(univ_df, how='outer')
+        return output
 
-        univ_df_out = univ_df_out.sort_values(['SecCode', 'Date'])
-        return univ_df_out
-
+    @connection_error_handling
     def get_id_data(self,
                     ids,
                     features,
@@ -131,6 +155,7 @@ class DataHandlerSQL(object):
         univ_df.columns = ['ID', 'Date'] + features
         return univ_df
 
+    @connection_error_handling
     def get_etf_data(self,
                      tickers,
                      features,
@@ -168,6 +193,17 @@ class DataHandlerSQL(object):
         univ_df = univ_df.drop('Ticker', axis=1)
         return univ_df
 
+    @connection_error_handling
+    def get_all_dates(self):
+        if not hasattr(self, '_dates'):
+            # Get all dates available in master database
+            self._dates = np.unique(self.sql_execute(
+                """
+                select distinct Date_ from {0} order by Date_;
+                """.format(self._table)
+            )).flatten()
+        return self._dates
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _get_filtered_ids(self, filter_date, args, table):
@@ -175,8 +211,6 @@ class DataHandlerSQL(object):
         filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
         where = 'and {0}'.format(args['where']) if 'where' in args else ''
         # Get exact filter date
-        fdate = self._dates[self._dates <= filter_date][-1]
-
         all_dates = self.get_all_dates()
         filter_date = all_dates[all_dates <= filter_date][-1]
 
@@ -207,7 +241,7 @@ class DataHandlerSQL(object):
             select top {0} SecCode from tempdata
             where rank_val = 1
             order by {3} desc;
-            """.format(univ_size, fdate, where, filter_col, table)
+            """.format(univ_size, filter_date, where, filter_col, table)
         )).flatten()
         return ids
 
@@ -220,7 +254,8 @@ class DataHandlerSQL(object):
             "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
         return ids[ids.Ticker.isin(tickers)]
 
-    def prior_trading_date(self, t0_dates = dt.date.today()):
+    @connection_error_handling
+    def prior_trading_date(self, t0_dates=dt.date.today()):
         if not isinstance(t0_dates, list):
             t0_dates = [t0_dates]
         if not isinstance(t0_dates[0], dt.date):
@@ -231,33 +266,37 @@ class DataHandlerSQL(object):
         date_order = np.argsort(t0_dates)
         input_order = np.argsort(date_order)
 
-        str_dates = ['{0}/{1}/{2}'.format(x.month, x.day, x.year) for x in t0_dates]
+        str_dates = ['{0}/{1}/{2}'.format(x.month, x.day, x.year)
+                     for x in t0_dates]
         if len(str_dates) > 1:
             sql_dates = tuple(str_dates)
         else:
             sql_dates = "('" + str_dates[0] + "')"
-            
-        SQLCommandDate = ("select Tm1 "
-                          "from ram.dbo.ram_trading_dates " 
-                          "where CalendarDate in {}".format(sql_dates))
-        priorDate = self.sql_execute(SQLCommandDate)
-        priorDate = [x[0].date() for x in priorDate]
+
+        sql_cmd = ("select Tm1 "
+                   "from ram.dbo.ram_trading_dates "
+                   "where CalendarDate in {}".format(sql_dates))
+        prior_date = self.sql_execute(sql_cmd)
+        prior_date = [x[0].date() for x in prior_date]
 
         if len(t0_dates) == 1:
-            return priorDate[0]
-        return np.array(priorDate)[input_order]
+            return prior_date[0]
+        return np.array(prior_date)[input_order]
 
     def sql_execute(self, sqlcmd):
+        self._test_time_constraint()
         try:
+            if self._connection is None:
+                self._connect()
             self._cursor.execute(sqlcmd)
             return self._cursor.fetchall()
         except Exception as e:
+            self._disconnect()
             print('error running sqlcmd: ' + str(e))
             return []
 
     def close_connections(self):
-        self._cursor.close()
-        self._connection.close()
+        self._disconnect()
 
 
 def _format_dates(start_date, filter_date, end_date):

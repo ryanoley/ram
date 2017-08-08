@@ -65,7 +65,7 @@ class TestRunAggregator(unittest.TestCase):
         f.close()
 
     def test_add_run(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
         rm1.import_return_frame(path=self.base_path)
         ra1 = RunAggregator()
         self.assertEqual(len(ra1.runs), 0)
@@ -73,23 +73,39 @@ class TestRunAggregator(unittest.TestCase):
         self.assertEqual(len(ra1.runs), 1)
 
     def test_aggregate_returns(self):
-        rm1 = RunManager('TestStrategy', 'run_0001')
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
         rm1.import_return_frame(path=self.base_path)
         # Fake a new strategy by just changing the class name
-        rm2 = RunManager('TestStrategy', 'run_0001')
+        rm2 = RunManager('TestStrategy', 'run_0001', test_periods=0)
         rm2.import_return_frame(path=self.base_path)
         rm2.strategy_class = 'TestStrategy2'
         ra1 = RunAggregator()
         ra1.add_run(rm1)
         ra1.add_run(rm2)
-        results = ra1.aggregate_returns()
-        self.assertEqual(results.shape[0], 10)
-        self.assertEqual(results.shape[1], 4)
+        ra1.aggregate_returns()
+        self.assertEqual(ra1.returns.shape[0], 10)
+        self.assertEqual(ra1.returns.shape[1], 4)
         benchmark = ['TestStrategy_run_0001_0',
                      'TestStrategy_run_0001_1',
                      'TestStrategy2_run_0001_0',
                      'TestStrategy2_run_0001_1']
-        self.assertListEqual(results.columns.tolist(), benchmark)
+        self.assertListEqual(ra1.returns.columns.tolist(), benchmark)
+
+    def test_basic_model_selection(self):
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
+        rm1.import_return_frame(path=self.base_path)
+        # Fake a new strategy by just changing the class name
+        rm2 = RunManager('TestStrategy', 'run_0001', test_periods=0)
+        rm2.import_return_frame(path=self.base_path)
+        rm2.returns *= 4
+        rm2.strategy_class = 'TestStrategy2'
+        ra1 = RunAggregator()
+        ra1.add_run(rm1)
+        ra1.add_run(rm2)
+        result = ra1.basic_model_selection(window=4)
+        benchmark = pd.DataFrame(index=rm1.returns.index)
+        benchmark['Rets'] = [np.nan] * 4 + [40, 24, 28, 32, 36, 40.]
+        assert_frame_equal(result, benchmark)
 
     def tearDown(self):
         shutil.rmtree(self.base_path)

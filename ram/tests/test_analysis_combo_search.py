@@ -26,18 +26,19 @@ class TestCombinationSearch(unittest.TestCase):
         self.run1.returns = data1
         self.run2.returns = data2
 
-    def Xtest_start(self):
+    def test_start(self):
         comb = CombinationSearch()
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
         comb.add_run(self.run2)
-        #comb.start(10)
+        comb.start(criteria='sharpe')
 
     def test_create_training_indexes(self):
         comb = CombinationSearch()
         comb.params['n_periods'] = 2
         comb.add_run(self.run1)
-        returns = comb.runs.aggregate_returns()
+        comb.runs.aggregate_returns()
+        returns = comb.runs.returns
         comb._create_training_indexes(returns)
         result = comb._time_indexes
         benchmark = [(0, 59, 90), (31, 90, 120), (59, 120, 150)]
@@ -68,7 +69,8 @@ class TestCombinationSearch(unittest.TestCase):
         comb.params['n_best_ports'] = 1
         comb.add_run(run1)
         comb.add_run(run2)
-        returns = comb.runs.aggregate_returns()
+        comb.runs.aggregate_returns()
+        returns = comb.runs.returns
         comb._create_results_objects(returns)
         dates = [dt.datetime(2015, 1, i) for i in range(1, 3)]
         test_rets = pd.DataFrame({0: [1, 2.]}, index=dates)
@@ -77,7 +79,7 @@ class TestCombinationSearch(unittest.TestCase):
         comb._process_results(999, test_rets, scores, combs)
         dates = [dt.datetime(2015, 1, i) for i in range(1, 6)]
         benchmark = pd.DataFrame({0: [1, 2, np.nan, np.nan, np.nan]},
-            index=dates)
+                                 index=dates)
         assert_frame_equal(comb.best_results_rets, benchmark)
         assert_array_equal(comb.best_results_combs[999], np.array([[1, 2]]))
         assert_array_equal(comb.best_results_scores[999], np.array([5]))
@@ -97,7 +99,7 @@ class TestCombinationSearch(unittest.TestCase):
         combs = [(0, 1), (0, 2), (1, 2)]
         comb = CombinationSearch()
         results = comb._get_sharpes(df, combs)
-        benchmark = np.array([ 1.76776695,  2.12132034,  2.47487373])
+        benchmark = np.array([1.76776695, 2.12132034, 2.47487373])
         assert_array_equal(results.round(5), benchmark.round(5))
 
     def tearDown(self):

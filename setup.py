@@ -19,6 +19,8 @@ PACKAGES = [
     'ram/strategy/intraday_reversion/src',
     'ram/strategy/long_pead',
     'ram/strategy/long_pead/constructor',
+    'ram/strategy/long_pead/data',
+    'ram/strategy/long_pead/signals',
     'ram/strategy/momentum',
     'ram/strategy/reversion',
     'ram/strategy/statarb',
