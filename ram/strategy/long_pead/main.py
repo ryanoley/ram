@@ -96,9 +96,9 @@ class LongPeadStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (45) ' +
+            'where': 'MarketCap >= 200 ' +
             'and Close_ between 5 and 500',
-            'univ_size': 500
+            'univ_size': 800
         }
 
     def get_univ_date_parameters(self):
@@ -150,6 +150,11 @@ class LongPeadStrategy(Strategy):
             'EBITDAMARGIN',
 
             'PE', 'FCFMARKETCAP', 'CASHEV',
+
+            # StarMine
+            'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
+            'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK', 'SIUNADJRANK',
+            'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
         ]
 
 
