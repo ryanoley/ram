@@ -59,8 +59,9 @@ class DataContainer1(object):
             'NETINCOMEGROWTHTTM',
             'OPERATINGINCOMEGROWTHQ',
             'OPERATINGINCOMEGROWTHTTM',
-            'EBITGROWTHQ',
-            'EBITGROWTHTTM',
+            # BUGGY so dropping for now. The new database should have better data
+            # 'EBITGROWTHQ',
+            # 'EBITGROWTHTTM',
             'SALESGROWTHQ',
             'SALESGROWTHTTM',
             'FREECASHFLOWGROWTHQ',
