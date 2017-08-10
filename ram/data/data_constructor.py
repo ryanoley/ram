@@ -289,6 +289,8 @@ def _get_meta_data(strategy, version):
 
 def _get_meta_data_cloud(strategy, version):
     path = os.path.join('prepped_data', strategy, version, 'meta.json')
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     blob = bucket.get_blob(path)
     meta = json.loads(blob.download_as_string())
     if 'description' not in meta:
