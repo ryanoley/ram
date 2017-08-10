@@ -137,7 +137,8 @@ class DataContainer1(object):
 def _clean_impute_data_with_train_test(data, features):
     data = data.copy()
     # Handle all nan columns
-    feature_all_nan_perc = data[features].isnull().mean() == 1
+    feature_all_nan_perc = data.loc[~data.TestFlag,
+                                    features].isnull().mean() == 1
     replace_columns = feature_all_nan_perc.index[feature_all_nan_perc]
     data.loc[:, replace_columns] = 0
     # Impute values to median
