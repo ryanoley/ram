@@ -191,8 +191,6 @@ class Strategy(object):
 
     def _import_run_meta_for_restart(self, run_name):
         self.run_dir = os.path.join(self._strategy_output_dir, run_name)
-        assert os.path.isdir(self.run_dir), \
-            '[{}] not available'.format(run_name)
         meta_file_path = os.path.join(self.run_dir, 'meta.json')
         if self._gcp_implementation:
             meta = read_json_cloud(meta_file_path, self._bucket)
