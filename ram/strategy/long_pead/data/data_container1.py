@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from sklearn.preprocessing import Imputer
+
 from ram.strategy.long_pead.utils import ern_date_blackout
 from ram.strategy.long_pead.utils import make_anchor_ret_rank
 from ram.strategy.long_pead.utils import ern_return
@@ -59,9 +61,8 @@ class DataContainer1(object):
             'NETINCOMEGROWTHTTM',
             'OPERATINGINCOMEGROWTHQ',
             'OPERATINGINCOMEGROWTHTTM',
-            # BUGGY so dropping for now. The new database should have better data
-            # 'EBITGROWTHQ',
-            # 'EBITGROWTHTTM',
+            'EBITGROWTHQ',
+            'EBITGROWTHTTM',
             'SALESGROWTHQ',
             'SALESGROWTHTTM',
             'FREECASHFLOWGROWTHQ',
@@ -70,6 +71,10 @@ class DataContainer1(object):
             'GROSSMARGINTTM',
             'EBITDAMARGIN',
             'PE',
+            # StarMine variables
+            'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS',
+            'ARMEXRECS', 'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
+            'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
         ]
 
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,6 +87,8 @@ class DataContainer1(object):
         # This is necessary for the updating of positions and prices downstream
         data.loc[:, 'SplitMultiplier'] = \
             data.SplitFactor.pct_change().fillna(0) + 1
+
+        data = _clean_impute_data_with_train_test(data, features)
 
         # NEW FEATURES
         # Blackout flags and anchor returns
@@ -99,9 +106,6 @@ class DataContainer1(object):
         data = data.merge(data2)
         features = features + [f + '_extreme' for f in features] + \
             ['blackout', 'anchor_ret_rank', 'earnings_ret']
-
-        keep_inds = data[features].isnull().sum(axis=1) == 0
-        data = data.loc[keep_inds]
 
         # Separate training from test data
         self._processed_train_data = \
@@ -128,3 +132,16 @@ class DataContainer1(object):
     def _add_response_variables(self, data, response_days, response_thresh):
         return data.merge(smoothed_responses(data, days=response_days,
                                              thresh=response_thresh))
+
+
+def _clean_impute_data_with_train_test(data, features):
+    data = data.copy()
+    # Handle all nan columns
+    feature_all_nan_perc = data[features].isnull().mean() == 1
+    replace_columns = feature_all_nan_perc.index[feature_all_nan_perc]
+    data.loc[:, replace_columns] = 0
+    # Impute values to median
+    imputer = Imputer(missing_values='NaN', strategy='median')
+    imputer.fit(data.loc[~data.TestFlag, features])
+    data[features] = imputer.transform(data[features])
+    return data
