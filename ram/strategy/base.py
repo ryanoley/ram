@@ -206,10 +206,10 @@ class Strategy(object):
 
     def _get_max_run_time_index_for_restart(self):
         if self._gcp_implementation:
-            all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
-        else:
             all_files = [x.name for x in self._bucket.list_blobs()]
             all_files = [x for x in all_files if x.find(self.run_dir) >= 0]
+        else:
+            all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
         all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
         self._max_run_time_index = len(all_files) - 1
 
