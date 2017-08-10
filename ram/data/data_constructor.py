@@ -7,6 +7,8 @@ from tqdm import tqdm
 import datetime as dt
 from dateutil import parser as dparser
 
+from google.cloud import storage
+
 from ram import config
 
 from ram.data.data_handler_sql import DataHandlerSQL
@@ -262,11 +264,33 @@ def _get_versions(strategy):
     return {i: d for i, d in enumerate(dirs)}
 
 
+def _get_versions_cloud(strategy):
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    all_files = [x.name for x in bucket.list_blobs()]
+    all_files = [x for x in all_files if x.find('prepped_data') >= 0]
+    all_files = [x for x in all_files if x.find('version') >= 0]
+    all_files = [x for x in all_files if x.find(strategy) >= 0]
+    all_files = list(set([x.split('/')[2] for x in all_files]))
+    all_files = [x for x in all_files if x.find('archive') == -1]
+    all_files.sort()
+    return {i: d for i, d in enumerate(all_files)}
+
+
 def _get_meta_data(strategy, version):
     path = os.path.join(config.PREPPED_DATA_DIR, strategy,
                         version, 'meta.json')
     with open(path) as data_file:
         meta = json.load(data_file)
+    if 'description' not in meta:
+        meta['description'] = None
+    return meta
+
+
+def _get_meta_data_cloud(strategy, version):
+    path = os.path.join('prepped_data', strategy, version, 'meta.json')
+    blob = bucket.get_blob(path)
+    meta = json.loads(blob.download_as_string())
     if 'description' not in meta:
         meta['description'] = None
     return meta
@@ -278,6 +302,24 @@ def _get_min_max_dates_counts(strategy, version):
     files = [f for f in files if f.find('_data.csv') > 1]
     if len(files):
         dates = [f.split('_')[0] for f in files]
+        dates.sort()
+        return dates[0], dates[-1], len(dates)
+    else:
+        return 'No Files', 'No Files', 0
+
+
+def _get_min_max_dates_counts_cloud(strategy, version):
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    all_files = [x.name for x in bucket.list_blobs()]
+    all_files = [x for x in all_files if x.find('prepped_data') >= 0]
+    all_files = [x for x in all_files if x.find(version) >= 0]
+    all_files = [x for x in all_files if x.find(strategy) >= 0]
+    all_files = [x for x in all_files if x.find('_data.csv') >= 0]
+    all_files = list(set([x.split('/')[-1] for x in all_files]))
+    all_files.sort()
+    if len(all_files):
+        dates = [f.split('_')[0] for f in all_files]
         dates.sort()
         return dates[0], dates[-1], len(dates)
     else:
@@ -315,12 +357,19 @@ def print_strategy_versions(strategy):
 
 
 def _get_strategy_version_stats(strategy):
-    versions = _get_versions(strategy)
+    try:
+        versions = _get_versions(strategy)
+    except:
+        versions = _get_versions_cloud(strategy)
     # Get MinMax dates for files
     dir_stats = {}
     for key, version in versions.items():
-        meta = _get_meta_data(strategy, version)
-        stats = _get_min_max_dates_counts(strategy, version)
+        try:
+            meta = _get_meta_data(strategy, version)
+            stats = _get_min_max_dates_counts(strategy, version)
+        except:
+            meta = _get_meta_data_cloud(strategy, version)
+            stats = _get_min_max_dates_counts_cloud(strategy, version)
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
