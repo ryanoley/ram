@@ -38,8 +38,12 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
 
+        if time_index < 30:
+            return None
+        import pdb; pdb.set_trace()
+
         # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index))
+        self.data.add_data(self.read_data_from_index(time_index), time_index)
 
         # Restart Functionality: check if file already run.
         if time_index <= self._max_run_time_index:
@@ -56,7 +60,7 @@ class LongPeadStrategy(Strategy):
         i = 0
         for ad in args_data:
 
-            self.data.prep_data(**ad)
+            self.data.prep_data(time_index, **ad)
 
             for as_ in args_signals:
 

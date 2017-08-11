@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from sklearn.preprocessing import Imputer
-
 from ram.strategy.long_pead.utils import ern_date_blackout
 from ram.strategy.long_pead.utils import make_anchor_ret_rank
 from ram.strategy.long_pead.utils import ern_return
@@ -16,35 +14,58 @@ from gearbox import create_time_index
 class DataContainer1(object):
 
     def __init__(self):
+        self._time_index_data_for_responses = {}
+        self._time_index_response_data = {}
+        # Deliverable
         self._processed_train_data = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
+        self._features = []
 
     def get_args(self):
         return {
-            'response_days': [[2, 4, 6], [2], [6]],
+            'response_days': [[2, 4, 6], [2]],
             'response_thresh': [0.30],
-            'training_qtrs': [-99]
+            'training_qtrs': [-99, 12]
         }
 
-    def prep_data(self, response_days, response_thresh, training_qtrs):
+    def prep_data(self, time_index,
+                  response_days, response_thresh, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
         train/test_data and features objects.
         """
+        # Get (and process if needed) response data
+        response_data = self._get_response_data(time_index, response_days,
+                                                response_thresh)
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
-        train_data = self._add_response_variables(train_data, response_days,
-                                                  response_thresh)
+        # Merge response data
+        train_data = train_data.merge(response_data)
+        # Create data for downstream
         self.train_data = train_data
         self.test_data = test_data
         self.features = features
 
-    def add_data(self, data):
+    def add_data(self, data, time_index):
         """
         Takes in raw data, processes it and caches it
+        """
+        # Separated for testing ease
+        data, features = self._process_data(data)
+        # Separate training from test data
+        self._processed_train_data = \
+            self._processed_train_data.append(data[~data.TestFlag])
+        self._processed_test_data = data[data.TestFlag]
+        self.features = features
+        self._time_index_data_for_responses[time_index] = \
+            data[['SecCode', 'Date', 'AdjClose', 'TestFlag']]
+
+    def _process_data(self, data):
+        """
+        Separated from add data for testing purposes
         """
         features = [
             'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
@@ -88,8 +109,6 @@ class DataContainer1(object):
         data.loc[:, 'SplitMultiplier'] = \
             data.SplitFactor.pct_change().fillna(0) + 1
 
-        data = _clean_impute_data_with_train_test(data, features)
-
         # NEW FEATURES
         # Blackout flags and anchor returns
         data = ern_date_blackout(data, offset1=-2, offset2=4)
@@ -98,7 +117,7 @@ class DataContainer1(object):
 
         data = ern_return(data)
 
-        # Rank and create binaries for extreme values
+        # Handle nan values, rank and create binaries for extreme values
         data2 = outlier_rank(data, features[0])
         for f in features[1:]:
             data2 = data2.merge(outlier_rank(data, f))
@@ -106,12 +125,7 @@ class DataContainer1(object):
         data = data.merge(data2)
         features = features + [f + '_extreme' for f in features] + \
             ['blackout', 'anchor_ret_rank', 'earnings_ret']
-
-        # Separate training from test data
-        self._processed_train_data = \
-            self._processed_train_data.append(data[~data.TestFlag])
-        self._processed_test_data = data[data.TestFlag]
-        self.features = features
+        return data, features
 
     ###########################################################################
 
@@ -129,20 +143,23 @@ class DataContainer1(object):
         max_ind = np.max(inds)
         return data.iloc[inds > (max_ind-training_qtrs)]
 
-    def _add_response_variables(self, data, response_days, response_thresh):
-        return data.merge(smoothed_responses(data, days=response_days,
-                                             thresh=response_thresh))
-
-
-def _clean_impute_data_with_train_test(data, features):
-    data = data.copy()
-    # Handle all nan columns
-    feature_all_nan_perc = data.loc[~data.TestFlag,
-                                    features].isnull().mean() == 1
-    replace_columns = feature_all_nan_perc.index[feature_all_nan_perc]
-    data.loc[:, replace_columns] = 0
-    # Impute values to median
-    imputer = Imputer(missing_values='NaN', strategy='median')
-    imputer.fit(data.loc[~data.TestFlag, features])
-    data[features] = imputer.transform(data[features])
-    return data
+    def _get_response_data(self, time_index, response_days, response_thresh):
+        # Process input
+        if not isinstance(response_days, list):
+            response_days = [response_days]
+        resp_dict = self._time_index_response_data
+        # Cached data exist for this particular quarter?
+        if time_index not in resp_dict:
+            resp_dict[time_index] = {}
+        data_name = str((response_days, response_thresh))
+        if data_name not in resp_dict[time_index]:
+            resp_dict[time_index][data_name] = smoothed_responses(
+                self._time_index_data_for_responses[time_index],
+                days=response_days, thresh=response_thresh)
+        # Stack time indexes
+        time_indexes = resp_dict.keys()
+        time_indexes.sort()
+        responses = pd.DataFrame()
+        for t in time_indexes:
+            responses = responses.append(resp_dict[t][data_name])
+        return responses.reset_index(drop=True)
