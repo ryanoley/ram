@@ -97,6 +97,8 @@ def outlier_rank(data, variable, outlier_std=4):
     fill_df = pd.concat([daily_median] * pdata.shape[1], axis=1)
     fill_df.columns = pdata.columns
     pdata = pdata.fillna(fill_df)
+    # For cases where everything is nan
+    pdata = pdata.fillna(-999)
 
     # Get extreme value cutoffs
     daily_min = daily_median - outlier_std * pdata.std(axis=1)
