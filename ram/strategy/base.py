@@ -370,7 +370,6 @@ class Strategy(object):
             with open(os.path.join(self.strategy_output_dir,
                                    output_name), 'w') as outfile:
                 json.dump(stats, outfile)
-            outfile.close()
 
 
 def copytree(src, dst, symlinks=False, ignore=None):

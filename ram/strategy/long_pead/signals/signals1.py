@@ -34,8 +34,7 @@ class SignalModel1(object):
                 'SALESGROWTHQ', 'SALESGROWTHTTM', 'FREECASHFLOWGROWTHQ',
                 'FREECASHFLOWGROWTHTTM', 'GROSSPROFASSET', 'GROSSMARGINTTM',
                 'EBITDAMARGIN', 'PE']
-            for av in accounting_vars:
-                features = [x for x in features if x.find(av) == -1]
+            features = [x for x in features if x not in accounting_vars]
         if drop_extremes:
             features = [x for x in features if x.find('extreme') == -1]
 

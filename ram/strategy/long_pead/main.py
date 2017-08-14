@@ -64,19 +64,21 @@ class LongPeadStrategy(Strategy):
 
                 for ac in args_constructor:
 
-                    result = self.constructor.get_daily_pl(
+                    result, stats = self.constructor.get_daily_pl(
                         self.data, self.signals, **ac)
 
-                    self._capture_output(result, i)
+                    self._capture_output(result, stats, i)
                     i += 1
 
         self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_statistics, time_index,
+        self.write_index_results(self.output_all_output,
+                                 time_index,
                                  'all_output')
+        self.write_index_stats(self.output_stats, time_index)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _capture_output(self, results, arg_index):
+    def _capture_output(self, results, stats, arg_index):
         returns = pd.DataFrame(results.PL / self.constructor.booksize)
         returns.columns = [arg_index]
         # Rename columns
@@ -84,12 +86,14 @@ class LongPeadStrategy(Strategy):
                            for x in results.columns]
         if arg_index == 0:
             self.output_returns = returns
-            self.output_statistics = results
+            self.output_all_output = results
+            self.output_stats = {}
         else:
             self.output_returns = self.output_returns.join(returns,
                                                            how='outer')
-            self.output_statistics = self.output_statistics.join(
+            self.output_all_output = self.output_all_output.join(
                 results, how='outer')
+        self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
