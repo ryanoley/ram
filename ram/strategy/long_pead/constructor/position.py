@@ -35,7 +35,7 @@ class Position(object):
         or a 700% change. So sp1 will be 7, and the shares should be
         multiplied by 7 and the entry price divided by 7.
         """
-        if np.isnan(price) | (not self.open_position):
+        if np.isnan(price) | (not self.open_position) | (price == 0):
             self.close_position()
             return
         # Handle splits
