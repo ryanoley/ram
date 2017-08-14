@@ -13,31 +13,14 @@ from ram.strategy.long_pead.constructor.constructor2 import *
 class TestConstructor2(unittest.TestCase):
 
     def setUp(self):
-        dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04']
-        self.data = pd.DataFrame({
-            'SecCode': ['AAPL'] * 4 + ['GOOGL'] * 4 + ['IBM'] * 4,
-            'Date': dates * 3,
-            'AdjClose': [10, 9, 5, 5] + [10, 20, 18, 15] + [9, 10, 11, 12],
-            'RClose': [10, 9, 5, 5] + [10, 20, 18, 15] + [9, 10, 11, 12],
-            'RCashDividend': [0] * 12,
-            'SplitFactor': [1] * 12,
-            'EARNINGSFLAG': [0, 0, 0, 1] + [1, 0, 0, 0] + [0, 1, 0, 0],
-            'TestFlag': [True] * 12,
-            'MarketCap': [100] * 12
-        })
-        self.data['Date'] = convert_date_array(self.data.Date)
+        pass
 
     def test_get_position_sizes(self):
         cons = PortfolioConstructor2()
-        mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
-        mcaps = {'AAPL': 100, 'IBM': 100, 'TSLA': 200, 'BAC': 200, 'GS': 30}
-
-        result = cons.get_position_sizes(mrets, mcaps, 1, 100)
-        benchmark = {'AAPL': -25.0,
-                     'IBM': 25.0,
-                     'TSLA': -25.0,
-                     'BAC': 25.0, 'GS': 0}
-        self.assertDictEqual(result, benchmark)
+        cons.market_cap = {'AAPL': 10, 'IBM': 20, 'BAC': 30, 'GS': 50}
+        scores = {'AAPL': 4, 'IBM': 10, 'BAC': 4, 'GS': -10}
+        import pdb; pdb.set_trace()
+        result = cons.get_position_sizes(scores, 0.1, 2)
 
     def tearDown(self):
         pass
