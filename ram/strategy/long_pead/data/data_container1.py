@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -14,6 +15,7 @@ from gearbox import create_time_index
 class DataContainer1(object):
 
     def __init__(self):
+        self._import_market_data()
         self._time_index_data_for_responses = {}
         self._time_index_response_data = {}
         # Deliverable
@@ -55,6 +57,12 @@ class DataContainer1(object):
         """
         # Separated for testing ease
         data, features = self._process_data(data)
+        # Add market data
+        if np.any(self._market_data):
+            data = data.merge(self._market_data, how='left')
+            features_mkt = self._market_data.columns.tolist()
+            features_mkt.remove('Date')
+            features += features_mkt
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(data[~data.TestFlag])
@@ -128,6 +136,25 @@ class DataContainer1(object):
         return data, features
 
     ###########################################################################
+
+    def _import_market_data(self):
+        try:
+            path = os.path.join(os.getenv('DATA'), 'ram',
+                                'temp', 'market_data.csv')
+            data = pd.read_csv(path, index_col=0)
+
+            spy_data = data[data.SecCode == 61494].drop('SecCode', axis=1)
+            spy_data = spy_data.set_index('Date')
+            spy_data.columns = ['{}_spy'.format(x) for x in spy_data.columns]
+
+            vxx_data = data[data.SecCode == 10902726].drop('SecCode', axis=1)
+            vxx_data = vxx_data.set_index('Date')
+            vxx_data.columns = ['{}_vxx'.format(x) for x in vxx_data.columns]
+
+            self._market_data = spy_data.join(
+                vxx_data, how='outer').fillna(0).reset_index()
+        except:
+            self._market_data = None
 
     def _get_train_test_features(self):
         return (

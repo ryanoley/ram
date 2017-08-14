@@ -17,11 +17,13 @@ class SignalModel1(object):
         return {
             'min_samples_leaf': [140, 300],
             'drop_accounting': [True, False],
-            'drop_extremes': [True, False]
+            'drop_extremes': [True, False],
+            'drop_market_variables': [True, False]
         }
 
     def generate_signals(self, data_container, min_samples_leaf,
-                         drop_accounting, drop_extremes):
+                         drop_accounting, drop_extremes,
+                         drop_market_variables):
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
@@ -37,6 +39,9 @@ class SignalModel1(object):
             features = [x for x in features if x not in accounting_vars]
         if drop_extremes:
             features = [x for x in features if x.find('extreme') == -1]
+        if drop_market_variables:
+            features = [x for x in features if x.find('spy') == -1]
+            features = [x for x in features if x.find('vxx') == -1]
 
         clf = ExtraTreesClassifier(n_estimators=80,
                                    min_samples_leaf=min_samples_leaf,
