@@ -9,7 +9,7 @@ from ram.strategy.long_pead.utils import ern_return
 from ram.strategy.long_pead.utils import outlier_rank
 from ram.strategy.long_pead.utils import smoothed_responses
 
-from gearbox import create_time_index
+from gearbox import create_time_index, convert_date_array
 
 
 class DataContainer1(object):
@@ -59,7 +59,7 @@ class DataContainer1(object):
         data, features = self._process_data(data)
         # Add market data
         if np.any(self._market_data):
-            data = data.merge(self._market_data, how='left')
+            data = data.merge(self._market_data, how='left').fillna(0)
             features_mkt = self._market_data.columns.tolist()
             features_mkt.remove('Date')
             features += features_mkt
@@ -142,6 +142,7 @@ class DataContainer1(object):
             path = os.path.join(os.getenv('DATA'), 'ram',
                                 'temp', 'market_data.csv')
             data = pd.read_csv(path, index_col=0)
+            data['Date'] = convert_date_array(data.Date)
 
             spy_data = data[data.SecCode == 61494].drop('SecCode', axis=1)
             spy_data = spy_data.set_index('Date')
