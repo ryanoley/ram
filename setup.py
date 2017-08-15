@@ -29,7 +29,12 @@ PACKAGES = [
     'ram/strategy/statarb/responses',
     'ram/strategy/vxx',
     'ram/strategy/yearend',
-    'ram/utils'
+    'ram/utils',
+    
+    'ram/strategy/starmine',
+    'ram/strategy/starmine/constructor',
+    'ram/strategy/starmine/data',
+    'ram/strategy/starmine/signals',
 ]
 
 setup(
