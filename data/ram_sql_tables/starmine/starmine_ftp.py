@@ -307,6 +307,7 @@ def main():
         help='Load historical data')
     parser.add_argument(
         '-daily_load', '--daily_load', action='store_true',
+        help='Load daily data')
     args = parser.parse_args()
 
     ###########################################################################
