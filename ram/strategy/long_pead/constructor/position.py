@@ -16,13 +16,16 @@ class Position(object):
             Commissions
         """
         self.symbol = symbol
-        self.current_price = 0 if np.isnan(price) else float(price)
-        self.comm = comm
-        self.open_position = True
         self.shares = 0
         self.exposure = 0
         self.daily_pl = 0
         self.daily_turnover = 0
+        self.comm = comm
+        self.open_position = True
+        self.current_price = float(price)
+        # Check if position should even be opened
+        if np.isnan(price) | (price == 0):
+            self.open_position = False
         # Stats
         self.min_ticket_charge_achieved = np.nan
 
