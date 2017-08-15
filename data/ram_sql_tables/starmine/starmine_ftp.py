@@ -132,7 +132,7 @@ class StarmineDataManager(object):
                       " VALUES (" + fld_txt[:-1] + ")")
 
         # Get Files to load
-        sub_dir = self.ftp_hist_subdirs[data_type]
+        sub_dir = self.ftp_hist_subdirs[data_type][0]
         local_path = os.path.join(self._src_dir, 'history', sub_dir)
         zip_files = os.listdir(local_path)
         zip_files = [x for x in zip_files if x.find('.zip') > -1]
