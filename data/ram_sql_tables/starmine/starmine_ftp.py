@@ -124,6 +124,7 @@ class StarmineDataManager(object):
         with open(table_sql_path, 'r') as inp:
             table_sql_script = inp.read()
         self.cursor.execute(table_sql_script)
+        self.cursor.commit()
 
         # Create generic insert statement for new records
         fld_txt = '?,' * len(sel_inds)
@@ -159,6 +160,7 @@ class StarmineDataManager(object):
         with open(table_sql_path, 'r') as inp:
             table_sql_script = inp.read()
         self.cursor.execute(table_sql_script)
+        self.cursor.commit()
 
         # Create generic insert statement for new records
         fld_txt = '?,' * 12
