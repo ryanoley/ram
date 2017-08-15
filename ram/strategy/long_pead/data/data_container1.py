@@ -117,6 +117,10 @@ class DataContainer1(object):
         data.loc[:, 'SplitMultiplier'] = \
             data.SplitFactor.pct_change().fillna(0) + 1
 
+        # Process gics and Sector
+        data['GGROUP'] = data.GGROUP.fillna(0).astype(int).astype(str)
+        data['GSECTOR'] = data.GGROUP.apply(lambda x: x[:2])
+
         # NEW FEATURES
         # Blackout flags and anchor returns
         data = ern_date_blackout(data, offset1=-2, offset2=4)

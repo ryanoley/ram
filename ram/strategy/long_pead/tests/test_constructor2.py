@@ -19,9 +19,15 @@ class TestConstructor2(unittest.TestCase):
         cons = PortfolioConstructor2()
         cons.market_cap = {'AAPL': 10, 'IBM': 20, 'BAC': 30, 'GS': 50}
         scores = {'AAPL': 4, 'IBM': 10, 'BAC': 4, 'GS': -10}
-        result = cons.get_position_sizes(scores, 0.1, 2)
+        result = cons.get_position_sizes(scores, 0.1, 'MarketCap', 2)
         benchmark = {'AAPL': -0.25, 'GS': -0.25, 'IBM': 0.25, 'BAC': 0.25}
         self.assertDictEqual(result, benchmark)
+        cons.sector = {'AAPL': '10', 'IBM': '20', 'BAC': '20', 'GS': '10'}
+        result = cons.get_position_sizes(scores, 0.1, 'Sector', 2)
+        benchmark = {'AAPL': 0.25, 'GS': -0.25, 'IBM': 0.25, 'BAC': -0.25}
+        self.assertDictEqual(result, benchmark)
+        scores = {'AAPL': 4, 'IBM': 10, 'BAC': 4, 'GS': np.nan}
+        result = cons.get_position_sizes(scores, 0.1, 'MarketCap', 1)
 
     def test_weight_group(self):
         data = pd.DataFrame({'score': [4, 2, 3]}, index=['AAPL', 'GS', 'IBM'])
