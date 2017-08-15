@@ -305,6 +305,8 @@ def main():
     parser.add_argument(
         '-hist_load', '--hist_load', action='store_true',
         help='Load historical data')
+    parser.add_argument(
+        '-daily_load', '--daily_load', action='store_true',
     args = parser.parse_args()
 
     ###########################################################################
@@ -332,7 +334,8 @@ def main():
                 sel_inds = [0, 1, 2, 3, 5, 10, 12, 13, 14, 17]
                 na_inds = [0, 1, 14]
             sdm.write_history(args.data_type, table_name, sel_inds, na_inds)
-    else:
+
+    if args.daily_load:
         # Download new files from ftp directory
         sdm.download_ftp_daily()
 
