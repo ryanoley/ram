@@ -24,7 +24,7 @@ set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 
 %SQLCMD% -i %SQLDIR%\ram_index_pricing.sql
 
-%SQLCMD% -i %SQLDIR%\ram_starmine_map.sql
+%SQLCMD% -i %SQLDIR%\starmine\ram_starmine_map.sql
 
 :: Call GVKEY Mapping Batch File
 call %SQLDIR%\gvkey_idc_mapping\get_map_data.bat
