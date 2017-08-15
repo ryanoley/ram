@@ -12,7 +12,7 @@ class PortfolioConstructor2(Constructor):
 
     def get_args(self):
         return {
-            'logistic_spread': [0.01, 0.1, 0.5, 1],
+            'logistic_spread': [0.01, 1],
             'group_variable': ['MarketCap', 'Liquidity', 'Sector']
         }
 
