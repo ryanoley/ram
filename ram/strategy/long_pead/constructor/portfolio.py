@@ -35,16 +35,29 @@ class Portfolio(object):
         return sum([abs(pos.exposure) for pos in self.positions.itervalues()])
 
     def get_portfolio_daily_pl(self):
-        port_daily_pl = 0
+        port_daily_pl_long = 0
+        port_daily_pl_short = 0
         for position in self.positions.values():
-            port_daily_pl += position.get_daily_pl()
-        return port_daily_pl
+            if position.shares >= 0:
+                port_daily_pl_long += position.get_daily_pl()
+            else:
+                port_daily_pl_short += position.get_daily_pl()
+        return port_daily_pl_long, port_daily_pl_short
 
     def get_portfolio_daily_turnover(self):
         port_turnover = 0
         for position in self.positions.values():
             port_turnover += position.get_daily_turnover()
         return port_turnover
+
+    def get_portfolio_stats(self):
+        counts = [x.min_ticket_charge_achieved
+                  for x in self.positions.values()]
+        counts = [x for x in counts if ~np.isnan(x)]
+        min_ticket_charge_prc = sum(counts) / float(len(counts))
+        return {
+            'min_ticket_charge_prc': min_ticket_charge_prc
+        }
 
     def close_portfolio_positions(self):
         for position in self.positions.values():

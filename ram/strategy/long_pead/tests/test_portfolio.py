@@ -23,6 +23,18 @@ class TestPortfolio(unittest.TestCase):
         splits = {'AAPL': 1, 'IBM': 1}
         portfolio.update_prices(closes, dividends, splits)
 
+    def test_get_portfolio_stats(self):
+        portfolio = Portfolio()
+        closes = {'AAPL': 10, 'IBM': 20, 'TSLA': 20}
+        dividends = {'AAPL': 0, 'IBM': 0, 'TSLA': 0}
+        splits = {'AAPL': 1, 'IBM': 1, 'TSLA': 1}
+        sizes = {'AAPL': 1000000, 'IBM': 400, 'TSLA': 0}
+        portfolio.update_prices(closes, dividends, splits)
+        portfolio.update_position_sizes(sizes, closes)
+        result = portfolio.get_portfolio_stats()
+        benchmark = {'min_ticket_charge_prc': 0.5}
+        self.assertDictEqual(result, benchmark)
+
     def tearDown(self):
         pass
 

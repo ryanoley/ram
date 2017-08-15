@@ -29,24 +29,12 @@ class TestConstructor(unittest.TestCase):
     def test_get_position_sizes(self):
         cons = PortfolioConstructor1()
         mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
-        result = cons._get_position_sizes(mrets, 1, 100)
-        benchmark = {'AAPL': -13.163684327956279,
-                     'IBM': 36.836315672043717,
-                     'TSLA': -36.836315672043717,
-                     'BAC': 13.163684327956279, 'GS': 0}
+        result = cons.get_position_sizes(mrets, 1)
+        benchmark = {'AAPL': -0.13163684327956279,
+                     'IBM': 0.36836315672043717,
+                     'TSLA': -0.36836315672043717,
+                     'BAC': 0.13163684327956279, 'GS': 0}
         self.assertDictEqual(result, benchmark)
-
-    def test_filter_seccodes(self):
-        data = {
-            dt.date(2010, 1, 1): {'1': 4, '2': 5, '3': 0.1},
-            dt.date(2010, 1, 2): {'1': 1, '2': 1, '3': 10}
-        }
-        date = dt.date(2010, 1, 1)
-        result = filter_seccodes(data[date], 3)
-        self.assertListEqual(result, ['3'])
-        date = dt.date(2010, 1, 2)
-        result = filter_seccodes(data[date], 3)
-        self.assertListEqual(result, ['1', '2'])
 
     def tearDown(self):
         pass
