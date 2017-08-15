@@ -35,8 +35,10 @@ class Position(object):
         or a 700% change. So sp1 will be 7, and the shares should be
         multiplied by 7 and the entry price divided by 7.
         """
-        if np.isnan(price) | (not self.open_position) | (price == 0):
+        if np.isnan(price) | (price == 0):
             self.close_position()
+            return
+        elif not self.open_position:
             return
         # Handle splits
         if split != 1:
@@ -50,8 +52,10 @@ class Position(object):
         return
 
     def update_position_size(self, new_size, exec_price):
-        if np.isnan(exec_price) | (not self.open_position):
+        if np.isnan(exec_price) | (exec_price == 0):
             self.close_position()
+            return
+        elif not self.open_position:
             return
         new_shares = int(new_size / self.current_price)
         d_shares = new_shares - self.shares
