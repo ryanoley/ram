@@ -117,8 +117,10 @@ class LongPeadStrategy(Strategy):
 
     def get_features(self):
         return [
-            'AdjClose', 'AdjVwap',
-            'LEAD1_ROpen', 'RClose', 'RCashDividend', 'SplitFactor',
+            'AdjClose', 'AdjVwap', 'RClose', 'RCashDividend', 'SplitFactor',
+
+            # Return variables
+            'LAG1_AdjClose', 'LAG2_AdjClose',
 
             # Descriptive
             'GGROUP', 'EARNINGSFLAG', 'MarketCap', 'AvgDolVol',
@@ -158,9 +160,10 @@ class LongPeadStrategy(Strategy):
             'PE', 'FCFMARKETCAP', 'CASHEV',
 
             # StarMine
-            'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-            'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK', 'SIUNADJRANK',
-            'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
+            'LAG1_ARM', 'LAG1_ARMREVENUE', 'LAG1_ARMRECS',
+            'LAG1_ARMEARNINGS', 'LAG1_ARMEXRECS',
+            'LAG1_SIRANK', 'LAG1_SIMARKETCAPRANK', 'LAG1_SISECTORRANK',
+            'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE', 'LAG1_SIINSTOWNERSHIP'
         ]
 
 
