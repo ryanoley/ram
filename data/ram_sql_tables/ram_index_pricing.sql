@@ -1,10 +1,29 @@
 /*
 Equity Indexes
---------------
-27002 : S&P 500 Index
-202	   : RUSSELL 1000 INDEX
-6590   : RUSSELL 2000 INDEX
-206	   : RUSSELL 3000 INDEX
+
+SP500
+-----
+Index (SPX): 27002
+Growth (SGX): 32795
+Value (SVX): 32796
+
+RUSSELL 1000
+------------
+Index (RUI): 202
+Growth (RLG): 205
+Value (RLV): 204
+
+RUSSELL 2000
+------------
+Index (RUT): 6590
+Growth (RUO): 87
+Value (RUJ): 89
+
+RUSSELL 3000
+------------
+Index (RUA): 206
+Growth (RAG): 80115
+Value (RAV): 80116
 
 Volatility
 ----------
@@ -31,4 +50,4 @@ insert into ram.dbo.ram_index_pricing
 select A.*, B.Issuer from qai.prc.PrcIdx A
 join qai.prc.PrcInfo B
 on A.Code = B.Code
-where A.Code in (27002, 202, 6590, 206, 101506, 238623, 143557)
+where A.Code in (27002, 32795, 32796, 202, 205, 204, 6590, 87, 89, 206, 80115, 80116, 101506, 238623, 143557)
