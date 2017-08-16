@@ -1,7 +1,29 @@
 /*
 Equity Indexes
---------------
-27002 : S&P 500 Index
+
+SP500
+-----
+Index (SPX): 27002
+Growth (SGX): 32795
+Value (SVX): 32796
+
+RUSSELL 1000
+------------
+Index (RUI): 202
+Growth (RLG): 205
+Value (RLV): 204
+
+RUSSELL 2000
+------------
+Index (RUT): 6590
+Growth (RUO): 87
+Value (RUJ): 89
+
+RUSSELL 3000
+------------
+Index (RUA): 206
+Growth (RAG): 80115
+Value (RAV): 80116
 
 Volatility
 ----------
@@ -24,5 +46,7 @@ create table ram.dbo.ram_index_pricing (
 
 
 insert into ram.dbo.ram_index_pricing
-select * from qai.prc.PrcIdx
-where Code in (27002, 101506, 238623, 143557)
+select A.*, B.Issuer from qai.prc.PrcIdx A
+join qai.prc.PrcInfo B
+on A.Code = B.Code
+where A.Code in (27002, 32795, 32796, 202, 205, 204, 6590, 87, 89, 206, 80115, 80116, 101506, 238623, 143557)
