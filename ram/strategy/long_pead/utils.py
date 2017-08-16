@@ -89,14 +89,18 @@ def outlier_rank(data, variable, outlier_std=4):
     """
     pdata = data.pivot(index='Date', columns='SecCode', values=variable)
 
-    # Handle missing data
-    pdata = pdata.fillna(method='pad')
-    # Fill missing values with median values not considering
-
+    # Clean
     daily_median = pdata.median(axis=1)
+
+    # Allow to fill up to five days of missing data if there was a
+    # previous
+    pdata = pdata.fillna(method='pad', limit=5)
+
+    # Fill missing values with median values if there is no data at all
     fill_df = pd.concat([daily_median] * pdata.shape[1], axis=1)
     fill_df.columns = pdata.columns
     pdata = pdata.fillna(fill_df)
+
     # For cases where everything is nan
     pdata = pdata.fillna(-999)
 

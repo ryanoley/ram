@@ -17,7 +17,7 @@ class SignalModel1(object):
         return {
             'min_samples_leaf': [140, 300],
             'drop_accounting': [False],
-            'drop_extremes': [False],
+            'drop_extremes': [True],
             'drop_market_variables': [True, False]
         }
 
