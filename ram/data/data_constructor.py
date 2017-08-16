@@ -106,6 +106,17 @@ class DataConstructor(object):
                 data['TestFlag'] = data.Date > adj_filter_date
                 self._clean_write_output(data, file_name)
 
+    def run_index_data(self, version_directory):
+        args = self.strategy.get_index_data_arguments()
+        dh = DataHandlerSQL()
+        data = dh.get_index_data(seccodes=args['seccodes'],
+                                 features=args['features'],
+                                 start_date='1990-01-01',
+                                 end_date='2050-04-01')
+        self._output_dir = os.path.join(
+            self._prepped_data_dir, version_directory)
+        self._clean_write_output(data, 'market_index_data.csv')
+
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _make_output_directory(self):

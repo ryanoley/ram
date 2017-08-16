@@ -292,9 +292,29 @@ class Strategy(object):
         else:
             DataConstructor(self).run()
 
+    def make_market_index_data(self, data_prep_version):
+        """
+        Parameters
+        ----------
+        data_prep_version : str
+            Will restart data pull if present.
+        """
+        DataConstructor(self).run_index_data(data_prep_version)
+
     @abstractmethod
     def get_features(self):
         raise NotImplementedError('Strategy.get_features')
+
+    def get_index_data_arguments(self):
+        return {
+            'features': ['PRMA10_AdjClose', 'PRMA20_AdjClose',
+                         'VOL10_AdjClose', 'VOL20_AdjClose',
+                         'RSI10_AdjClose', 'RSI20_AdjClose',
+                         'BOLL10_AdjClose', 'BOLL20_AdjClose'],
+            'seccodes': [50311, 61258, 61259, 11097, 11099, 11100, 10955,
+                         11101, 11102, 11096, 11103, 11104, 11113,
+                         11132814, 10922530]
+        }
 
     def get_constructor_type(self):
         return 'universe'
@@ -474,6 +494,11 @@ def make_argument_parser(Strategy):
              '-1, else to restart use version name or key val, i.e. '
              'version_0001 or Key val')
 
+    parser.add_argument(
+        '-md', '--market_data', type=str,
+        help='Market data added to directory for version. Input version '
+             'or Key val')
+
     args = parser.parse_args()
 
     # Data Exploration
@@ -521,3 +546,6 @@ def make_argument_parser(Strategy):
             Strategy(prepped_data_version=version).make_data(version)
         else:
             Strategy().make_data()
+    elif args.market_data:
+        version = get_version_name(Strategy.__name__, args.market_data)
+        Strategy().make_market_index_data(version)

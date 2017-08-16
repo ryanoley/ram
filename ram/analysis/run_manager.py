@@ -266,7 +266,8 @@ class RunManagerGCP(RunManager):
         if files:
             for f in files:
                 blob = self._bucket.get_blob(f)
-                self.stats[f] = json.loads(blob.download_as_string())
+                f_name = f.split('/')[-1]
+                self.stats[f_name] = json.loads(blob.download_as_string())
         else:
             self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
                                              in self.column_params}
