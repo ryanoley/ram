@@ -99,25 +99,11 @@ class TestUtils(unittest.TestCase):
             'Date': [1, 2, 3] * 4,
             'V1': [1, 2, 1, 2, 2, 1, 100, -100, 323, 3, 3, 3]
         })
-        result = outlier_rank(df, 'V1', outlier_std=.4)
+        result = outlier_rank(df, 'V1', outlier_std=.4, pad=True)
         benchmark = df[['SecCode', 'Date', 'V1']]
         benchmark['V1'] = [0, 1/2., 1/6., 1/3., 1/2.,
                            1/6., 1, 0, 1, 2/3., 1, 2/3.]
         benchmark['V1_extreme'] = [0] * 6 + [1, -1, 1, 0, 0, 0]
-        assert_frame_equal(result, benchmark)
-        df = pd.DataFrame({
-            'SecCode': ['a', 'a', 'a', 'b', 'b', 'b',
-                        'c', 'c', 'c', 'd', 'd', 'd',
-                        'e', 'e', 'e'],
-            'Date': [1, 2, 3] * 5,
-            'V1': [1, 2, 1, 2, 2, 1, 100, -100,
-                   323, 3, 3, 3, np.nan, np.nan, 2]
-        })
-        result = outlier_rank(df, 'V1', outlier_std=.4)
-        benchmark = df[['SecCode', 'Date', 'V1']]
-        benchmark['V1'] = [0, 0.5, 0.125, 0.25, 0.5, 0.125,
-                           1, 0, 1, 0.75, 1, 0.75, 0.5, 0.5, 0.5]
-        benchmark['V1_extreme'] = [0] * 6 + [1, -1, 1] + [0] * 6
         assert_frame_equal(result, benchmark)
 
     def test_make_variable_dict(self):

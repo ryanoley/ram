@@ -81,47 +81,7 @@ def make_anchor_ret_rank(data, init_offset=1,
     return data.merge(ranks)
 
 
-def outlier_rank(data, variable, outlier_std=4):
-    """
-    Will create two columns, and if the variable is an extreme outlier will
-    code it as a 1 or -1 depending on side and force rank to median for
-    the date.
-    """
-    pdata = data.pivot(index='Date', columns='SecCode', values=variable)
-
-    # Handle missing data
-    pdata = pdata.fillna(method='pad')
-    # Fill missing values with median values not considering
-
-    daily_median = pdata.median(axis=1)
-    fill_df = pd.concat([daily_median] * pdata.shape[1], axis=1)
-    fill_df.columns = pdata.columns
-    pdata = pdata.fillna(fill_df)
-    # For cases where everything is nan
-    pdata = pdata.fillna(-999)
-
-    # Get extreme value cutoffs
-    daily_min = daily_median - outlier_std * pdata.std(axis=1)
-    daily_max = daily_median + outlier_std * pdata.std(axis=1)
-
-    # FillNans are to avoid warning
-    extremes = pdata.fillna(-99999).gt(daily_max, axis=0).astype(int) - \
-        pdata.fillna(99999).lt(daily_min, axis=0).astype(int)
-
-    # Rank
-    ranks = (pdata.rank(axis=1) - 1) / (pdata.shape[1] - 1)
-
-    # Combine
-    extremes = extremes.unstack().reset_index()
-    extremes.columns = ['SecCode', 'Date', variable + '_extreme']
-    ranks = ranks.unstack().reset_index()
-    ranks.columns = ['SecCode', 'Date', variable]
-    return ranks.merge(extremes)
-
-
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
-    # Training dates
-    train_dates = data.Date[~data.TestFlag].unique()
     if not isinstance(days, list):
         days = [days]
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
@@ -136,7 +96,6 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
         (final_ranks <= thresh).astype(int)
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
-    output = output[output.Date.isin(train_dates)].reset_index(drop=True)
     return output
 
 
