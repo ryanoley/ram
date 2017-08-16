@@ -2,10 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.starmine.utils import ern_date_blackout
-from ram.strategy.starmine.utils import make_anchor_ret_rank
-from ram.strategy.starmine.utils import ern_return
-from ram.strategy.starmine.utils import smoothed_responses
+from ram.strategy.starmine.utils import *
 
 from gearbox import create_time_index
 
@@ -18,11 +15,12 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [[2, 4], [2], [3]],
-            'training_qtrs': [-99]
+            'response_days': [5],
+            'training_qtrs': [-99],
+            'thresh': [.25]
         }
 
-    def prep_data(self, response_days, training_qtrs):
+    def prep_data(self, response_days, training_qtrs, thresh=.25):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -32,7 +30,8 @@ class DataContainer1(object):
         train_data, test_data, features = self._get_train_test_features()
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
-        train_data = self._add_response_variables(train_data, response_days)
+        train_data = self._add_response_variables(train_data, response_days,
+                                                  thresh)
 
         self.train_data = train_data
         self.test_data = test_data
@@ -43,14 +42,14 @@ class DataContainer1(object):
         Takes in raw data, processes it and caches it
         """
         features = [
-            'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-            'EPSESTIMATE',
+            #'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
+            #'EPSESTIMATE',
             
             #'EPSSURPRISE', 'EBITDAESTIMATE', 'EBITDASURPRISE',
             #'REVENUEESTIMATE', 'REVENUESURPRISE', 'SESPLITFACTOR',
             
-            #'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-            #'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
+            'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
+            'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
             
             # Additional Pricing Cols
             'PRMA120_AvgDolVol', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
@@ -109,6 +108,6 @@ class DataContainer1(object):
         max_ind = np.max(inds)
         return data.iloc[inds > (max_ind-training_qtrs)]
 
-    def _add_response_variables(self, data, response_days, response_thresh=.3):
-        return data.merge(smoothed_responses(data, days=response_days,
-                                             thresh=response_thresh))
+    def _add_response_variables(self, data, response_days, response_thresh):
+        return data.merge(smoothed_responses2(data, thresh=response_thresh,
+                                              days=response_days))

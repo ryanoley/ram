@@ -17,9 +17,9 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': ['log2', 'sqrt', 0.8],
-            'n_estimators': [80, 160],
-            'min_samples_leaf': [140, 300]
+            'max_features': [0.8],
+            'n_estimators': [50],
+            'min_samples_leaf': [100]
         }
 
     def generate_signals(self, data_container, max_features,
@@ -46,3 +46,9 @@ class SignalModel1(object):
         preds = clf.predict_proba(test_data[features])
         data_container.test_data['preds'] = \
             preds[:, long_ind] - preds[:, short_ind]
+
+
+    def generate_signals2(self, data_container, max_features,
+                         min_samples_leaf, n_estimators):
+
+        data_container.test_data['preds'] = data_container.test_data['SISHORTSQUEEZE']

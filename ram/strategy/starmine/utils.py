@@ -81,7 +81,7 @@ def make_anchor_ret_rank(data, init_offset=1,
     return data.merge(ranks)
 
 
-def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
+def smoothed_responses(data, thresh=.25, days=[2, 3]):
     if not isinstance(days, list):
         days = [days]
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
@@ -95,6 +95,32 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
     output[:] = (final_ranks >= (1 - thresh)).astype(int) - \
         (final_ranks <= thresh).astype(int)
     output = output.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'Response']
+    return output
+
+
+def smoothed_responses2(data, thresh=.25, days=[2, 3]):
+    if not isinstance(days, list):
+        days = [days]
+    vwaps = data.pivot(index='Date', columns='SecCode', values='AdjVwap')
+    for i in days:
+        if i == days[0]:
+            rank = vwaps.pct_change(i).shift(-(i + 1)).rank(axis=1, pct=True)
+        else:
+            rank += vwaps.pct_change(i).shift(-(i + 1)).rank(axis=1, pct=True)
+    final_ranks = rank.rank(axis=1, pct=True)
+    output = final_ranks.copy()
+    output[:] = (final_ranks >= (1 - thresh)).astype(int) - \
+        (final_ranks <= thresh).astype(int)
+    output = output.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'Response']
+    return output
+
+
+def daily_response(data, days=2):
+    vwaps = data.pivot(index='Date', columns='SecCode', values='AdjVwap')
+    rets = vwaps.pct_change(days).shift(-(days + 1))
+    output = rets.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
     return output
 
