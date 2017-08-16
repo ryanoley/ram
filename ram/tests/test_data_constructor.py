@@ -85,6 +85,11 @@ class TestDataConstructor(unittest.TestCase):
         self.data_constructor._write_archive_meta_parameters(False)
         self.data_constructor.run(rerun_version='version_0001')
 
+    def Xtest_run_index_data(self):
+        self.data_constructor._make_output_directory()
+        self.data_constructor._make_output_directory()
+        self.data_constructor.run_index_data('version_0002')
+
     def tearDown(self):
         if os.path.isdir(os.path.join(self.prepped_data_dir, 'TestStrategy')):
             shutil.rmtree(os.path.join(self.prepped_data_dir, 'TestStrategy'))

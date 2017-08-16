@@ -381,7 +381,7 @@ if __name__ == '__main__':
 
     data = dh.get_index_data(
         seccodes=[50311],
-        features=['PRMA10_RClose'],
+        features=['PRMA10_AdjClose'],
         start_date='2000-01-01',
         end_date='2001-04-01')
 
