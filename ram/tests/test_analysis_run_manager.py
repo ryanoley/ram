@@ -38,10 +38,10 @@ class TestRunManager(unittest.TestCase):
         data = pd.DataFrame()
         data['LongPL_0'] = [1, 2, 3, 4, 5]
         data['ShortPL_0'] = [6, 7, 8, 9, 10]
-        data['Exposure_0'] = [10, 10, 10, 10, 10]
+        data['Exposure_0'] = [10, 10, 10, 10, 0]
         data['LongPL_1'] = [5, 4, 3, 2, 1]
         data['ShortPL_1'] = [25, 24, 23, 22, 21]
-        data['Exposure_1'] = [40, 40, 40, 40, 40]
+        data['Exposure_1'] = [40, 40, 40, 40, 0]
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
         data.to_csv(os.path.join(results_path, '20100101_all_output.csv'))
         # More returns
@@ -95,7 +95,6 @@ class TestRunManager(unittest.TestCase):
 
     def test_import_long_short_returns(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
-        import pdb; pdb.set_trace()
         run1.import_long_short_returns(path=self.base_path)
 
     def test_import_stats(self):

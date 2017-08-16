@@ -107,6 +107,11 @@ class RunManager(object):
             if int(f[:4]) < self.start_year:
                 continue
             temp = pd.read_csv(os.path.join(ddir, f), index_col=0)
+            # Adjustment for zero exposures on final day if present
+            exposure_columns = [x for x in temp.columns
+                                if x.find('Exposure') > -1]
+            temp.loc[temp.index.max(), exposure_columns] = np.nan
+            temp.fillna(method='pad', inplace=True)
             # Keep just long and shorts and combine
             unique_columns = set([int(x.split('_')[1]) for x in temp.columns])
             for cn in unique_columns:
