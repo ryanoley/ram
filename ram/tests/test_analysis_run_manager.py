@@ -34,6 +34,17 @@ class TestRunManager(unittest.TestCase):
         data[1] = [6, 7, 8, 9, 10]
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
         data.to_csv(os.path.join(results_path, '20100101_returns.csv'))
+        # All output files
+        data = pd.DataFrame()
+        data['LongPL_0'] = [1, 2, 3, 4, 5]
+        data['ShortPL_0'] = [6, 7, 8, 9, 10]
+        data['Exposure_0'] = [10, 10, 10, 10, 10]
+        data['LongPL_1'] = [5, 4, 3, 2, 1]
+        data['ShortPL_1'] = [25, 24, 23, 22, 21]
+        data['Exposure_1'] = [40, 40, 40, 40, 40]
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
+        data.to_csv(os.path.join(results_path, '20100101_all_output.csv'))
+        # More returns
         data = pd.DataFrame()
         data[0] = [1, 2, 3, 4, 5]
         data[1] = [6, 7, 8, 9, 10]
@@ -81,6 +92,11 @@ class TestRunManager(unittest.TestCase):
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
+
+    def test_import_long_short_returns(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
+        import pdb; pdb.set_trace()
+        run1.import_long_short_returns(path=self.base_path)
 
     def test_import_stats(self):
         run1 = RunManager('TestStrategy', 'run_0001')

@@ -42,7 +42,8 @@ def ern_price_anchor(data, init_offset=1, window=20):
         closes.shift(window).fillna(0)
     init_anchor2 = (init_anchor + end_anchor).cumsum()
     output = closes.copy()
-    output[:] = np.where(init_anchor2 == 0, closes.shift(window-1), init_anchor2)
+    output[:] = np.where(init_anchor2 == 0,
+                         closes.shift(window-1), init_anchor2)
     output[:] = np.where(blackout, np.nan, output)
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'anchor_price']
