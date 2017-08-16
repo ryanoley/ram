@@ -38,16 +38,21 @@ if object_id('ram.dbo.ram_index_pricing', 'U') is not null
 
 
 create table ram.dbo.ram_index_pricing (
+		SecCode int,
 		IdcCode int,
 		Date_ smalldatetime,
 		Close_ real,
 		Issuer varchar(60)
-		primary key (IdcCode, Date_)
+		primary key (SecCode, Date_)
 )
 
 
 insert into ram.dbo.ram_index_pricing
-select A.*, B.Issuer from qai.prc.PrcIdx A
+select M.SecCode, A.*, B.Issuer from qai.prc.PrcIdx A
 join qai.prc.PrcInfo B
 on A.Code = B.Code
+join qai.dbo.SecMapX M
+on M.VenCode = A.Code
+and M.VenType = 1
+and M.Exchange = 1
 where A.Code in (27002, 32795, 32796, 202, 205, 204, 6590, 87, 89, 206, 80115, 80116, 101506, 238623, 143557)
