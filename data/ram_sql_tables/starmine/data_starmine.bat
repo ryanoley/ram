@@ -16,7 +16,7 @@ set LOGFILE=%LOGDIR%\starmine.log
 echo -------------------------
 echo DATA - StarMine - %date%_!time! - Start
 
-python "%SCRIPTDIR%\starmine_ftp.py"
+python "%SCRIPTDIR%\starmine_ftp.py" -daily_load
 
 echo DATA - StarMine - %date%_!time! - Complete
 echo:
