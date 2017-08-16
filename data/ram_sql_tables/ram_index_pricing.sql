@@ -41,7 +41,7 @@ create table ram.dbo.ram_index_pricing (
 		SecCode int,
 		IdcCode int,
 		Date_ smalldatetime,
-		Close_ real,
+		AdjClose real,
 		Issuer varchar(60)
 		primary key (SecCode, Date_)
 )
