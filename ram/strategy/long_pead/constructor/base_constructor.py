@@ -25,7 +25,7 @@ class Constructor(object):
     def get_args(self):
         raise NotImplementedError('Constructor.get_args')
 
-    def __init__(self, booksize=100e6):
+    def __init__(self, booksize=30e6):
         """
         Parameters
         ----------
@@ -42,8 +42,6 @@ class Constructor(object):
         signals
         kwargs
         """
-        # Make available to instance - specifically to get_position_sizes
-        self.data = data_container
         # Process implementation details
         close_dict = make_variable_dict(
             data_container.test_data, 'RClose')
@@ -55,6 +53,10 @@ class Constructor(object):
 
         liquidity_dict = make_variable_dict(
             data_container.test_data, 'AvgDolVol')
+        market_cap_dict = make_variable_dict(
+            data_container.test_data, 'MarketCap')
+        sector_dict = make_variable_dict(
+            data_container.test_data, 'GSECTOR')
 
         portfolio = Portfolio()
 
@@ -71,6 +73,11 @@ class Constructor(object):
             dividends = dividend_dict[date]
             splits = split_mult_dict[date]
             scores = scores_dict[date]
+
+            # HACK to get into get_position_sizes
+            self.liquidity = liquidity_dict[date]
+            self.market_cap = market_cap_dict[date]
+            self.sector = sector_dict[date]
 
             # If a low liquidity value, set score to nan
             # Update every five days

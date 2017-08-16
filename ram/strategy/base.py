@@ -380,16 +380,17 @@ class Strategy(object):
         output_path = os.path.join(self.strategy_output_dir, output_name)
         if self._write_flag and self._gcp_implementation:
             to_csv_cloud(returns_df, output_path, self._bucket)
-        else:
+        elif self._write_flag:
             returns_df.to_csv(output_path)
 
     def write_index_stats(self, stats, index):
-        output_name = self._prepped_data_files[index]
-        output_name = output_name.replace('data.csv', 'stats.json')
-        if self._write_flag:
-            with open(os.path.join(self.strategy_output_dir,
-                                   output_name), 'w') as outfile:
-                json.dump(stats, outfile)
+        output_name = self._prepped_data_files[index].replace(
+            'data.csv', 'stats.json')
+        output_path = os.path.join(self.strategy_output_dir, output_name)
+        if self._write_flag and self._gcp_implementation:
+            write_json_cloud(stats, output_path, self._bucket)
+        elif self._write_flag:
+            write_json(stats)
 
 
 def copytree(src, dst, symlinks=False, ignore=None):
@@ -411,7 +412,6 @@ def write_json(out_dictionary, path):
     assert isinstance(out_dictionary, dict)
     with open(path, 'w') as outfile:
         json.dump(out_dictionary, outfile)
-    outfile.close()
 
 
 def read_json(path):

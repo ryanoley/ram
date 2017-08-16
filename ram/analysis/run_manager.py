@@ -91,6 +91,43 @@ class RunManager(object):
                              'meta.json')
         self.meta = json.load(open(ppath, 'r'))
 
+    # TEMP??
+    def import_long_short_returns(self, path=config.SIMULATION_OUTPUT_DIR):
+        ddir = os.path.join(path, self.strategy_class, self.run_name,
+                            'index_outputs')
+        files = [x for x in os.listdir(ddir) if x.find('all_output') > 0]
+        if len(files) == 0:
+            print('No `all_output` files available to analyze')
+            self.returns = None
+        # Trim files for test periods
+        if self.test_periods > 0:
+            files = files[:-self.test_periods]
+        returns = pd.DataFrame()
+        for i, f in enumerate(files):
+            if int(f[:4]) < self.start_year:
+                continue
+            temp = pd.read_csv(os.path.join(ddir, f), index_col=0)
+            # Adjustment for zero exposures on final day if present
+            exposure_columns = [x for x in temp.columns
+                                if x.find('Exposure') > -1]
+            temp.loc[temp.index.max(), exposure_columns] = np.nan
+            temp.fillna(method='pad', inplace=True)
+            # Keep just long and shorts and combine
+            unique_columns = set([int(x.split('_')[1]) for x in temp.columns])
+            for cn in unique_columns:
+                temp['LongRet_{}'.format(cn)] = \
+                    temp['LongPL_{}'.format(cn)] / \
+                    temp['Exposure_{}'.format(cn)]
+                temp['ShortRet_{}'.format(cn)] = \
+                    temp['ShortPL_{}'.format(cn)] / \
+                    temp['Exposure_{}'.format(cn)]
+            ret_columns = [x for x in temp.columns if x.find('Ret') > 0]
+            temp = temp.loc[:, ret_columns]
+            # Add to returns
+            returns = returns.add(temp, fill_value=0)
+        returns.index = convert_date_array(returns.index)
+        self.long_short_returns = returns
+
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def analyze_parameters(self, drop_params=None):
@@ -121,7 +158,7 @@ class RunManager(object):
         rets.columns = ['ReturnOptim']
         rets['SharpeOptim'] = rets2
         return get_stats(rets), get_quarterly_rets(rets,
-                                                   column_name='ReturnOptim')
+                                                   column_name='SharpeOptim')
 
     def basic_model_selection(self, window=30, criteria='mean'):
         if not hasattr(self, 'returns'):
@@ -217,7 +254,8 @@ class RunManagerGCP(RunManager):
             if int(f.split('/')[-1][:4]) < self.start_year:
                 continue
             blob = self._bucket.get_blob(f)
-            data = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+            data = pd.read_csv(StringIO(blob.download_as_string()),
+                               index_col=0)
             returns = returns.add(data, fill_value=0)
         returns.index = convert_date_array(returns.index)
         self.returns = returns

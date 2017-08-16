@@ -16,13 +16,16 @@ class Position(object):
             Commissions
         """
         self.symbol = symbol
-        self.current_price = 0 if np.isnan(price) else float(price)
-        self.comm = comm
-        self.open_position = True
         self.shares = 0
         self.exposure = 0
         self.daily_pl = 0
         self.daily_turnover = 0
+        self.comm = comm
+        self.open_position = True
+        self.current_price = float(price)
+        # Check if position should even be opened
+        if np.isnan(price) | (price == 0):
+            self.open_position = False
         # Stats
         self.min_ticket_charge_achieved = np.nan
 
@@ -35,8 +38,10 @@ class Position(object):
         or a 700% change. So sp1 will be 7, and the shares should be
         multiplied by 7 and the entry price divided by 7.
         """
-        if np.isnan(price) | (not self.open_position):
+        if np.isnan(price) | (price == 0):
             self.close_position()
+            return
+        elif not self.open_position:
             return
         # Handle splits
         if split != 1:
@@ -50,8 +55,10 @@ class Position(object):
         return
 
     def update_position_size(self, new_size, exec_price):
-        if np.isnan(exec_price) | (not self.open_position):
+        if np.isnan(exec_price) | (exec_price == 0):
             self.close_position()
+            return
+        elif not self.open_position:
             return
         new_shares = int(new_size / self.current_price)
         d_shares = new_shares - self.shares
