@@ -191,8 +191,6 @@ class Strategy(object):
 
     def _import_run_meta_for_restart(self, run_name):
         self.run_dir = os.path.join(self._strategy_output_dir, run_name)
-        assert os.path.isdir(self.run_dir), \
-            '[{}] not available'.format(run_name)
         meta_file_path = os.path.join(self.run_dir, 'meta.json')
         if self._gcp_implementation:
             meta = read_json_cloud(meta_file_path, self._bucket)
@@ -207,7 +205,11 @@ class Strategy(object):
                 self.run_dir, 'index_outputs')
 
     def _get_max_run_time_index_for_restart(self):
-        all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
+        if self._gcp_implementation:
+            all_files = [x.name for x in self._bucket.list_blobs()]
+            all_files = [x for x in all_files if x.find(self.run_dir) >= 0]
+        else:
+            all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
         all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
         self._max_run_time_index = len(all_files) - 1
 
@@ -368,7 +370,6 @@ class Strategy(object):
             with open(os.path.join(self.strategy_output_dir,
                                    output_name), 'w') as outfile:
                 json.dump(stats, outfile)
-            outfile.close()
 
 
 def copytree(src, dst, symlinks=False, ignore=None):

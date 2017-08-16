@@ -6,11 +6,11 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.utils.time_funcs import convert_date_array
-from ram.strategy.long_pead.constructor.constructor2 import *
+from gearbox import convert_date_array
+from ram.strategy.long_pead.constructor.constructor1 import *
 
 
-class TestConstructor2(unittest.TestCase):
+class TestConstructor(unittest.TestCase):
 
     def setUp(self):
         dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04']
@@ -22,21 +22,18 @@ class TestConstructor2(unittest.TestCase):
             'RCashDividend': [0] * 12,
             'SplitFactor': [1] * 12,
             'EARNINGSFLAG': [0, 0, 0, 1] + [1, 0, 0, 0] + [0, 1, 0, 0],
-            'TestFlag': [True] * 12,
-            'MarketCap': [100] * 12
+            'TestFlag': [True] * 12
         })
         self.data['Date'] = convert_date_array(self.data.Date)
 
     def test_get_position_sizes(self):
-        cons = PortfolioConstructor2()
+        cons = PortfolioConstructor1()
         mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
-        mcaps = {'AAPL': 100, 'IBM': 100, 'TSLA': 200, 'BAC': 200, 'GS': 30}
-
-        result = cons.get_position_sizes(mrets, mcaps, 1, 100)
-        benchmark = {'AAPL': -25.0,
-                     'IBM': 25.0,
-                     'TSLA': -25.0,
-                     'BAC': 25.0, 'GS': 0}
+        result = cons._get_position_sizes(mrets, 1, 100)
+        benchmark = {'AAPL': -13.163684327956279,
+                     'IBM': 36.836315672043717,
+                     'TSLA': -36.836315672043717,
+                     'BAC': 13.163684327956279, 'GS': 0}
         self.assertDictEqual(result, benchmark)
 
     def tearDown(self):

@@ -10,30 +10,29 @@ from ram import config
 NJOBS = config.SKLEARN_NJOBS
 
 
-class SignalModel2(object):
+class SignalModel1(object):
 
     def __init__(self):
         pass
 
     def get_args(self):
         return {
-            'max_features': [0.2, 0.5],
-            'n_estimators': [5, 10, 20],
-            'max_samples': [30, 80, 140]
+            'max_features': ['log2', 'sqrt', 0.8],
+            'n_estimators': [80, 160],
+            'min_samples_leaf': [140, 300]
         }
 
     def generate_signals(self, data_container, max_features,
-                         max_samples, n_estimators):
+                         min_samples_leaf, n_estimators):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
 
-        clf = BaggingClassifier(LogisticRegression(),
-                                n_estimators=n_estimators,
-                                max_samples=max_samples,
-                                max_features=max_features,
-                                n_jobs=NJOBS)
+        clf = ExtraTreesClassifier(n_estimators=n_estimators,
+                                   min_samples_leaf=min_samples_leaf,
+                                   max_features=max_features,
+                                   n_jobs=NJOBS)
 
         clf.fit(X=train_data[features],
                 y=train_data['Response'])

@@ -40,7 +40,8 @@ if object_id('ram.dbo.ram_index_pricing', 'U') is not null
 create table ram.dbo.ram_index_pricing (
 		IdcCode int,
 		Date_ smalldatetime,
-		Close_ real
+		Close_ real,
+		Issuer varchar(60)
 		primary key (IdcCode, Date_)
 )
 
