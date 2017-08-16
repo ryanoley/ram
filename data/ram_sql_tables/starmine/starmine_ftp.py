@@ -162,8 +162,13 @@ class StarmineDataManager(object):
         self.cursor.execute(table_sql_script)
         self.cursor.commit()
 
-        # Create generic insert statement for new records
-        fld_txt = '?,' * 12
+        # Get number of columns - can't be determined from sel_inds
+        n_column_script = ("select count(*) from information_schema.COLUMNS " +
+                           "where table_name = '{}'".format(table_name))
+        self.cursor.execute(n_column_script)
+        n_cols = self.cursor.fetchall()[0][0]
+        
+        fld_txt = '?,' * n_cols
         SQLCommand = ("INSERT INTO " + table_name +
                       " VALUES (" + fld_txt[:-1] + ")")
 
