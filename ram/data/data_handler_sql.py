@@ -128,9 +128,6 @@ class DataHandlerSQL(object):
                     start_date,
                     end_date):
         """
-        Purpose of this class is to provide an interface to get a filtered
-        universe.
-
         Parameters
         ----------
         ids : list
@@ -153,6 +150,67 @@ class DataHandlerSQL(object):
 
         univ_df = pd.DataFrame(univ)
         univ_df.columns = ['ID', 'Date'] + features
+        return univ_df
+
+    @connection_error_handling
+    def get_index_data(self,
+                       seccodes,
+                       features,
+                       start_date,
+                       end_date):
+        """
+        SP500
+        -----
+        Index (SPX): 50311
+        Growth (SGX): 61258
+        Value (SVX): 61259
+
+        RUSSELL 1000
+        ------------
+        Index (RUI): 11097
+        Growth (RLG): 11099
+        Value (RLV): 11100
+
+        RUSSELL 2000
+        ------------
+        Index (RUT): 10955
+        Growth (RUO): 11101
+        Value (RUJ): 11102
+
+        RUSSELL 3000
+        ------------
+        Index (RUA): 11096
+        Growth (RAG): 11103
+        Value (RAV): 11104
+
+        Volatility
+        ----------
+        CBOE SP500 Volatility, 30 day (VIX): 11113
+        CBOE SP500 Short Term Volatility, 9 day (VXST): 11132814
+        CBOE SP500 3 Month Volatility, 93 day (XVX): 10922530
+
+        Parameters
+        ----------
+        ids : list
+        features : list
+        start_date/end_date : datetime
+
+        Returns
+        -------
+        data : pandas.DataFrame
+            With columns ID, Date representing a unique observation.
+        """
+        # Check user input
+        d1, _, d3 = _format_dates(start_date, None, end_date)
+
+        # Get features, and strings for cte and regular query
+        sqlcmd, features = sqlcmd_from_feature_list(
+            features, seccodes, d1, d3, 'ram.dbo.ram_index_pricing')
+
+        univ = self.sql_execute(sqlcmd)
+
+        univ_df = pd.DataFrame(univ)
+        univ_df.columns = ['SecCode', 'Date'] + features
         return univ_df
 
     @connection_error_handling
@@ -292,8 +350,7 @@ class DataHandlerSQL(object):
             return self._cursor.fetchall()
         except Exception as e:
             self._disconnect()
-            print('error running sqlcmd: ' + str(e))
-            return []
+            raise Exception(e)
 
     def close_connections(self):
         self._disconnect()
@@ -312,7 +369,7 @@ if __name__ == '__main__':
 
     filter_args = {'filter': 'AvgDolVol',
                    'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
-                   'univ_size': 1000}
+                   'univ_size': 10}
 
     univ = dh.get_filtered_univ_data(
         features=['MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
@@ -321,6 +378,12 @@ if __name__ == '__main__':
         end_date='2001-04-01',
         filter_date='2001-01-01',
         filter_args=filter_args)
+
+    data = dh.get_index_data(
+        seccodes=[50311],
+        features=['PRMA10_RClose'],
+        start_date='2000-01-01',
+        end_date='2001-04-01')
 
     univ = dh.get_id_data(
         ids=[4760, 78331, 58973],
