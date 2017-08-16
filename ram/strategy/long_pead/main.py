@@ -110,13 +110,14 @@ class LongPeadStrategy(Strategy):
             'frequency': 'Q',
             'train_period_length': 1,
             'test_period_length': 1,
-            'start_year': 2002
+            'start_year': 2001
         }
 
     def get_features(self):
         return [
-            'AdjClose', 'AdjVwap',
-            'LEAD1_ROpen', 'RClose', 'RCashDividend', 'SplitFactor',
+            # Pricing
+            'AdjClose', 'AdjVwap', 'RClose', 'RCashDividend', 'SplitFactor',
+            'LAG1_AdjClose', 'LAG2_AdjClose', 'LAG3_AdjClose',
 
             # Descriptive
             'GGROUP', 'EARNINGSFLAG', 'MarketCap', 'AvgDolVol',
@@ -131,7 +132,8 @@ class LongPeadStrategy(Strategy):
             'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
             'DISCOUNT252_AdjClose',
 
-            # Accounting Features
+            # Accounting Features - No lag because new data points are
+            # recorded at (T+1)
             'NETINCOMEQ', 'NETINCOMETTM',
             'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
 
@@ -155,10 +157,11 @@ class LongPeadStrategy(Strategy):
 
             'PE', 'FCFMARKETCAP', 'CASHEV',
 
-            # StarMine
-            'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-            'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK', 'SIUNADJRANK',
-            'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
+            # StarMine - Lag because data for (T) isn't available until (T+1)
+            'LAG1_ARM', 'LAG1_ARMREVENUE', 'LAG1_ARMRECS',
+            'LAG1_ARMEARNINGS', 'LAG1_ARMEXRECS', 'LAG1_SIRANK',
+            'LAG1_SIMARKETCAPRANK', 'LAG1_SISECTORRANK',
+            'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE', 'LAG1_SIINSTOWNERSHIP'
         ]
 
 
