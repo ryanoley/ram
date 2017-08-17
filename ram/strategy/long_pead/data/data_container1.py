@@ -8,6 +8,7 @@ from ram.strategy.long_pead.utils import make_anchor_ret_rank
 from ram.strategy.long_pead.utils import ern_return
 from ram.strategy.long_pead.utils import outlier_rank
 from ram.strategy.long_pead.utils import smoothed_responses
+from ram.strategy.long_pead.utils import make_variable_dict
 
 from gearbox import create_time_index, convert_date_array
 
@@ -49,6 +50,20 @@ class DataContainer1(object):
         self.train_data = train_data
         self.test_data = test_data
         self.features = features
+
+        # Process implementation details
+        self.close_dict = make_variable_dict(
+            test_data, 'RClose')
+        self.dividend_dict = make_variable_dict(
+            test_data, 'RCashDividend', 0)
+        self.split_mult_dict = make_variable_dict(
+            test_data, 'SplitMultiplier', 1)
+        self.liquidity_dict = make_variable_dict(
+            test_data, 'AvgDolVol')
+        self.market_cap_dict = make_variable_dict(
+            test_data, 'MarketCap')
+        self.sector_dict = make_variable_dict(
+            test_data, 'GSECTOR')
 
     def add_data(self, data, time_index):
         """

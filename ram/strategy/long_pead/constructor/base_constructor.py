@@ -42,21 +42,7 @@ class Constructor(object):
         signals
         kwargs
         """
-        # Process implementation details
-        close_dict = make_variable_dict(
-            data_container.test_data, 'RClose')
-        dividend_dict = make_variable_dict(
-            data_container.test_data, 'RCashDividend', 0)
-        split_mult_dict = make_variable_dict(
-            data_container.test_data, 'SplitMultiplier', 1)
         scores_dict = make_variable_dict(data_container.test_data, 'preds')
-
-        liquidity_dict = make_variable_dict(
-            data_container.test_data, 'AvgDolVol')
-        market_cap_dict = make_variable_dict(
-            data_container.test_data, 'MarketCap')
-        sector_dict = make_variable_dict(
-            data_container.test_data, 'GSECTOR')
 
         portfolio = Portfolio()
 
@@ -69,21 +55,22 @@ class Constructor(object):
 
         for i, date in enumerate(unique_test_dates):
 
-            closes = close_dict[date]
-            dividends = dividend_dict[date]
-            splits = split_mult_dict[date]
             scores = scores_dict[date]
 
+            closes = data_container.close_dict[date]
+            dividends = data_container.dividend_dict[date]
+            splits = data_container.split_mult_dict[date]
+
             # HACK to get into get_position_sizes
-            self.liquidity = liquidity_dict[date]
-            self.market_cap = market_cap_dict[date]
-            self.sector = sector_dict[date]
+            self.liquidity = data_container.liquidity_dict[date]
+            self.market_cap = data_container.market_cap_dict[date]
+            self.sector = data_container.sector_dict[date]
 
             # If a low liquidity value, set score to nan
             # Update every five days
             if i % 5 == 0:
                 low_liquidity_seccodes = filter_seccodes(
-                    liquidity_dict[date], LOW_LIQUIDITY_FILTER)
+                    self.liquidity, LOW_LIQUIDITY_FILTER)
             # If close is very low, drop as well
             low_price_seccodes = filter_seccodes(closes, LOW_PRICE_FILTER)
 
