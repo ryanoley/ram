@@ -118,15 +118,10 @@ class DataHandlerSQL(object):
             univ = self.sql_execute(sqlcmd)
             univ_df = pd.DataFrame(
                 univ, columns=['SecCode', 'Date'] + batch_features)
-            # Check if duplicates exist, if so raise Error
-            if univ_df.duplicated(subset=['SecCode','Date']).sum() > 0:
-                duplicates = univ_df.loc[
-                    univ_df.duplicated(subset=['SecCode','Date']),
-                    ['SecCode','Date']]
-                raise ValueError('Duplicate rows in SQL query:\n {}'.format(
-                    duplicates.to_string()))
-            
-            output = output.merge(univ_df, how='outer')
+            _check_for_duplicates(univ_df, ['SecCode', 'Date'])
+            output = output.merge(univ_df, on=['SecCode', 'Date'],
+                                  how='outer')
+            _check_for_duplicates(output, ['SecCode', 'Date'])
         return output
 
     @connection_error_handling
@@ -368,6 +363,17 @@ def _format_dates(start_date, filter_date, end_date):
         return check_input_date(start_date), \
             check_input_date(filter_date), \
             check_input_date(end_date)
+
+def _check_for_duplicates(dataFrame, columns = ['SecCode', 'Date']):
+    if type(columns) is str:
+        columns = [columns]
+    # Check if duplicates exist, if so raise Error
+    if dataFrame.duplicated(subset=columns).sum() > 0:
+        duplicates = dataFrame.loc[dataFrame.duplicated(subset=columns),
+                                   columns]
+        raise ValueError('Duplicate rows in data frame:\n {}'.format(
+            duplicates.to_string()))
+    return
 
 
 if __name__ == '__main__':
