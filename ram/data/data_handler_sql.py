@@ -364,7 +364,8 @@ def _format_dates(start_date, filter_date, end_date):
             check_input_date(filter_date), \
             check_input_date(end_date)
 
-def _check_for_duplicates(dataFrame, columns = ['SecCode', 'Date']):
+
+def _check_for_duplicates(dataFrame, columns=['SecCode', 'Date']):
     if type(columns) is str:
         columns = [columns]
     # Check if duplicates exist, if so raise Error
