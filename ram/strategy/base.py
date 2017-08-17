@@ -305,9 +305,9 @@ class Strategy(object):
     def get_features(self):
         raise NotImplementedError('Strategy.get_features')
 
-    def get_index_data_arguments(self):
+    def get_market_index_data_arguments(self):
         return {
-            'features': ['PRMA10_AdjClose', 'PRMA20_AdjClose',
+            'features': ['AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
                          'VOL10_AdjClose', 'VOL20_AdjClose',
                          'RSI10_AdjClose', 'RSI20_AdjClose',
                          'BOLL10_AdjClose', 'BOLL20_AdjClose'],

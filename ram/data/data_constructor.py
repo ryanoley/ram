@@ -107,7 +107,7 @@ class DataConstructor(object):
                 self._clean_write_output(data, file_name)
 
     def run_index_data(self, version_directory):
-        args = self.strategy.get_index_data_arguments()
+        args = self.strategy.get_market_index_data_arguments()
         dh = DataHandlerSQL()
         data = dh.get_index_data(seccodes=args['seccodes'],
                                  features=args['features'],
