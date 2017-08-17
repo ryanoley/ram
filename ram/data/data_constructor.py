@@ -230,7 +230,10 @@ class DataConstructor(object):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def clean_directory(strategy, version):
+def clean_directory(strategy, version, cloud_flag):
+    if cloud_flag:
+        print('This functionality not setup. Must delete from GCP Dashboard.')
+        return
     dir_path = os.path.join(config.PREPPED_DATA_DIR, strategy, version)
     print('\n Are you sure you want to delete the following path:')
     print('   ' + dir_path)
@@ -253,6 +256,13 @@ def get_strategy_name(name):
 def get_version_name(strategy, name):
     try:
         return _get_versions(strategy)[int(name)]
+    except:
+        return name
+
+
+def get_version_name_cloud(strategy, name):
+    try:
+        return _get_versions_cloud(strategy)[int(name)]
     except:
         return name
 
@@ -291,11 +301,14 @@ def _get_versions_cloud(strategy):
 def _get_meta_data(strategy, version):
     path = os.path.join(config.PREPPED_DATA_DIR, strategy,
                         version, 'meta.json')
-    with open(path) as data_file:
-        meta = json.load(data_file)
-    if 'description' not in meta:
-        meta['description'] = None
-    return meta
+    try:
+        with open(path) as data_file:
+            meta = json.load(data_file)
+        if 'description' not in meta:
+            meta['description'] = None
+        return meta
+    except:
+        return {}
 
 
 def _get_meta_data_cloud(strategy, version):
@@ -352,8 +365,8 @@ def _print_line_underscore(pstring):
     print(' ' + '-' * len(pstring))
 
 
-def print_strategy_versions(strategy):
-    stats = _get_strategy_version_stats(strategy)
+def print_strategy_versions(strategy, cloud_flag=False):
+    stats = _get_strategy_version_stats(strategy, cloud_flag)
     _print_line_underscore('Available Verions for {}'.format(strategy))
     print('  Key\tVersion\t\t'
           'File Count\tDir Creation Date\tDescription')
@@ -369,20 +382,24 @@ def print_strategy_versions(strategy):
     print('\n')
 
 
-def _get_strategy_version_stats(strategy):
-    try:
-        versions = _get_versions(strategy)
-    except:
+def _get_strategy_version_stats(strategy, cloud_flag=False):
+
+    if cloud_flag:
         versions = _get_versions_cloud(strategy)
+    else:
+        versions = _get_versions(strategy)
+
     # Get MinMax dates for files
     dir_stats = {}
     for key, version in versions.items():
-        try:
-            meta = _get_meta_data(strategy, version)
-            stats = _get_min_max_dates_counts(strategy, version)
-        except:
+
+        if cloud_flag:
             meta = _get_meta_data_cloud(strategy, version)
             stats = _get_min_max_dates_counts_cloud(strategy, version)
+        else:
+            meta = _get_meta_data(strategy, version)
+            stats = _get_min_max_dates_counts(strategy, version)
+
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
@@ -392,8 +409,14 @@ def _get_strategy_version_stats(strategy):
     return dir_stats
 
 
-def print_strategy_meta(strategy, version):
-    meta = _get_meta_data(strategy, version)
+def print_strategy_meta(strategy, version, cloud_flag):
+    if cloud_flag:
+        version = get_version_name_cloud(strategy, version)
+        meta = _get_meta_data_cloud(strategy, version)
+    else:
+        version = get_version_name(strategy, version)
+        meta = _get_meta_data(strategy, version)
+    # Print outputs
     _print_line_underscore('Meta data for {} / {}'.format(strategy, version))
     print('   Git Branch:\t' + str(meta['git_branch']))
     print('   Features:\t' + meta['features'][0])
@@ -401,12 +424,13 @@ def print_strategy_meta(strategy, version):
         print('\t\t{}'.format(feature))
     print('\n')
     print('   Filter Arguments: ')
-    print('\tUniverse Size:\t' + str(meta['filter_args']['univ_size']))
-    print('\tFilter:\t\t' + meta['filter_args']['filter'])
-    print('\tWhere:\t\t' + meta['filter_args']['where'])
+    print('\tUniverse Size:\t' + str(meta['filter_args_univ']['univ_size']))
+    print('\tFilter:\t\t' + meta['filter_args_univ']['filter'])
+    print('\tWhere:\t\t' + meta['filter_args_univ']['where'])
     print('\n')
-    print('   Start Year:\t\t' + str(meta['start_year']))
-    print('   Train Period Length:\t' + str(meta['train_period_len']))
-    print('   Test Period Length:\t' + str(meta['test_period_len']))
-    print('   Frequency:\t\t' + str(meta['frequency']))
+    meta_t = meta['date_parameters_univ']
+    print('   Start Year:\t\t' + str(meta_t['start_year']))
+    print('   Train Period Length:\t' + str(meta_t['train_period_length']))
+    print('   Test Period Length:\t' + str(meta_t['test_period_length']))
+    print('   Frequency:\t\t' + str(meta_t['frequency']))
     print('\n')

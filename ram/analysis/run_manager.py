@@ -447,3 +447,10 @@ def format_param_results(data, cparams, astats, start_year):
                        stat_names)
     out = out.sort_values(['Param', 'Val']).reset_index(drop=True)
     return out
+
+
+def get_run_data(strategy_name, cloud_flag):
+    if cloud_flag:
+        return RunManagerGCP.get_run_names(strategy_name)
+    else:
+        return RunManager.get_run_names(strategy_name)
