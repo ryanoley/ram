@@ -118,6 +118,14 @@ class DataHandlerSQL(object):
             univ = self.sql_execute(sqlcmd)
             univ_df = pd.DataFrame(
                 univ, columns=['SecCode', 'Date'] + batch_features)
+            # Check if duplicates exist, if so raise Error
+            if univ_df.duplicated(subset=['SecCode','Date']).sum() > 0:
+                duplicates = univ_df.loc[
+                    univ_df.duplicated(subset=['SecCode','Date']),
+                    ['SecCode','Date']]
+                raise ValueError('Duplicate rows in SQL query:\n {}'.format(
+                    duplicates.to_string()))
+            
             output = output.merge(univ_df, how='outer')
         return output
 
