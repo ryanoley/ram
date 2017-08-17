@@ -372,6 +372,17 @@ class Strategy(object):
         data.SecCode = data.SecCode.astype(int).astype(str)
         return data
 
+    def read_market_index_data(self):
+        dpath = os.path.join(self._prepped_data_dir,
+                             'market_index_data.csv')
+        if self._gcp_implementation:
+            data = read_csv_cloud(dpath, self._bucket)
+        else:
+            data = pd.read_csv(dpath)
+        data.Date = convert_date_array(data.Date)
+        data.SecCode = data.SecCode.astype(int).astype(str)
+        return data
+
     def write_index_results(self, returns_df, index, suffix='returns'):
         """
         This is a wrapper function for cloud implementation.

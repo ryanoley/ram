@@ -15,7 +15,6 @@ from gearbox import create_time_index, convert_date_array
 class DataContainer1(object):
 
     def __init__(self):
-        self._import_market_data()
         self._time_index_data_for_responses = {}
         self._time_index_response_data = {}
         # Deliverable
@@ -101,9 +100,10 @@ class DataContainer1(object):
             'EBITDAMARGIN',
             'PE',
             # StarMine variables
-            'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS',
-            'ARMEXRECS', 'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-            'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
+            'LAG1_ARM', 'LAG1_ARMREVENUE', 'LAG1_ARMRECS', 'LAG1_ARMEARNINGS',
+            'LAG1_ARMEXRECS', 'LAG1_SIRANK', 'LAG1_SIMARKETCAPRANK',
+            'LAG1_SISECTORRANK', 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
+            'LAG1_SIINSTOWNERSHIP',
         ]
 
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -139,27 +139,53 @@ class DataContainer1(object):
             ['blackout', 'anchor_ret_rank', 'earnings_ret']
         return data, features
 
+    def add_market_data(self, data):
+        if hasattr(self, '_market_data'):
+            return
+
+        name_map = pd.DataFrame([
+            ('11132814', 'ShortVIX'),
+            ('11113', 'VIX'),
+            ('10922530', 'LongVIX'),
+
+            ('11097', 'R1000Index'),
+            ('11099', 'R1000Growth'),
+            ('11100', 'R1000Value'),
+
+            ('10955',  'R2000Index'),
+            ('11101', 'R2000Growth'),
+            ('11102', 'R2000Value'),
+
+            ('11096', 'R3000Index'),
+            ('11103', 'R3000Growth'),
+            ('11104', 'R3000Value'),
+
+            ('50311', 'SP500Index'),
+            ('61258', 'SP500Growth'),
+            ('61259', 'SP500Value'),
+        ], columns=['SecCode', 'IndexName'])
+        data = data.merge(name_map)
+
+        features = [
+            'AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose', 
+            'VOL10_AdjClose', 'VOL20_AdjClose', 'RSI10_AdjClose',
+            'RSI20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose'
+        ]
+
+        market_data = pd.DataFrame()
+        for f in features:
+            pdata = data.pivot(index='Date', columns='IndexName', values=f)
+            # Only keep levels (AdjClose) for VIX indexes
+            if f == 'AdjClose':
+                pdata = pdata[['ShortVIX', 'VIX', 'LongVIX']]
+            pdata.columns = ['{}_{}'.format(col, f.replace('_AdjClose', ''))
+                             for col in pdata.columns]
+            market_data = market_data.join(pdata, how='outer')
+        # Nan Values set to medians of rows
+        market_data = market_data.fillna(market_data.median())
+        self._market_data = market_data.reset_index()
+
     ###########################################################################
-
-    def _import_market_data(self):
-        try:
-            path = os.path.join(os.getenv('DATA'), 'ram',
-                                'temp', 'market_data.csv')
-            data = pd.read_csv(path, index_col=0)
-            data['Date'] = convert_date_array(data.Date)
-
-            spy_data = data[data.SecCode == 61494].drop('SecCode', axis=1)
-            spy_data = spy_data.set_index('Date')
-            spy_data.columns = ['{}_spy'.format(x) for x in spy_data.columns]
-
-            vxx_data = data[data.SecCode == 10902726].drop('SecCode', axis=1)
-            vxx_data = vxx_data.set_index('Date')
-            vxx_data.columns = ['{}_vxx'.format(x) for x in vxx_data.columns]
-
-            self._market_data = spy_data.join(
-                vxx_data, how='outer').fillna(0).reset_index()
-        except:
-            self._market_data = None
 
     def _get_train_test_features(self):
         return (

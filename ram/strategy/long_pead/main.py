@@ -40,6 +40,8 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
 
+        # Attach market data first since it is merged with equity data
+        self.data.add_market_data(self.read_market_index_data())
         # Import, process, and stack data
         self.data.add_data(self.read_data_from_index(time_index), time_index)
 
