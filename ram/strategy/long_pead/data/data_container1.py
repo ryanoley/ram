@@ -193,7 +193,7 @@ class DataContainer1(object):
             # Only keep levels (AdjClose) for VIX indexes
             if f == 'AdjClose':
                 pdata = pdata[['ShortVIX', 'VIX', 'LongVIX']]
-            pdata.columns = ['{}_{}'.format(col, f.replace('_AdjClose', ''))
+            pdata.columns = ['Mkt_{}_{}'.format(col, f.replace('_AdjClose', ''))
                              for col in pdata.columns]
             market_data = market_data.join(pdata, how='outer')
         # Nan Values set to medians of rows

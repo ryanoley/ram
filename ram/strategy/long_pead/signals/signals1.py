@@ -40,8 +40,7 @@ class SignalModel1(object):
         if drop_extremes:
             features = [x for x in features if x.find('extreme') == -1]
         if drop_market_variables:
-            features = [x for x in features if x.find('spy') == -1]
-            features = [x for x in features if x.find('vxx') == -1]
+            features = [x for x in features if x.find('Mkt_') == -1]
 
         clf = ExtraTreesClassifier(n_estimators=80,
                                    min_samples_leaf=min_samples_leaf,
