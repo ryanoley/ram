@@ -536,11 +536,13 @@ def make_argument_parser(Strategy):
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
         if args.cloud:
-            version = get_version_name_cloud(args.restart_run)
+            version = get_version_name_cloud(Strategy.__name__,
+                                             args.restart_run)
             strategy = Strategy(gcp_implementation=True, write_flag=True)
             strategy.restart(version)
         else:
-            version = get_version_name(args.restart_run)
+            version = get_version_name(Strategy.__name__,
+                                       args.restart_run)
             strategy = Strategy(write_flag=True)
             strategy.restart(version)
 
