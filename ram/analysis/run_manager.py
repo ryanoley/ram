@@ -282,6 +282,42 @@ class RunManagerGCP(RunManager):
         blob = self._bucket.get_blob(file_path)
         self.meta = json.loads(blob.download_as_string())
 
+    def import_long_short_returns(self):
+        files = self._get_storage_run_files('all_output.csv')
+        if len(files) == 0:
+            print('No `all_output` files available to analyze')
+            self.returns = None
+        # Trim files for test periods
+        if self.test_periods > 0:
+            files = files[:-self.test_periods]
+        returns = pd.DataFrame()
+        for i, f in enumerate(files):
+            if int(f[:4]) < self.start_year:
+                continue
+            blob = self._bucket.get_blob(f)
+            temp = pd.read_csv(StringIO(blob.download_as_string()),
+                               index_col=0)
+            # Adjustment for zero exposures on final day if present
+            exposure_columns = [x for x in temp.columns
+                                if x.find('Exposure') > -1]
+            temp.loc[temp.index.max(), exposure_columns] = np.nan
+            temp.fillna(method='pad', inplace=True)
+            # Keep just long and shorts and combine
+            unique_columns = set([int(x.split('_')[1]) for x in temp.columns])
+            for cn in unique_columns:
+                temp['LongRet_{}'.format(cn)] = \
+                    temp['LongPL_{}'.format(cn)] / \
+                    temp['Exposure_{}'.format(cn)]
+                temp['ShortRet_{}'.format(cn)] = \
+                    temp['ShortPL_{}'.format(cn)] / \
+                    temp['Exposure_{}'.format(cn)]
+            ret_columns = [x for x in temp.columns if x.find('Ret') > 0]
+            temp = temp.loc[:, ret_columns]
+            # Add to returns
+            returns = returns.add(temp, fill_value=0)
+        returns.index = convert_date_array(returns.index)
+        self.long_short_returns = returns
+
 
 ###############################################################################
 
