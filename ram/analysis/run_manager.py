@@ -148,11 +148,23 @@ class RunManager(object):
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
 
-    def analyze_returns(self):
+    def analyze_returns(self, drop_params=None):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        rets1 = basic_model_selection(self.returns, window=100).iloc[101:]
-        rets2 = basic_model_selection(self.returns, window=100,
+        if drop_params and (not hasattr(self, 'column_params')):
+            self.import_column_params()
+
+        if drop_params:
+            cparams = classify_params(self.column_params)
+            cparams = filter_classified_params(cparams, drop_params)
+            # Get unique column names
+            cols = get_columns(cparams)
+            temp_returns = self.returns[cols]
+        else:
+            temp_returns = self.returns
+
+        rets1 = basic_model_selection(temp_returns, window=100).iloc[101:]
+        rets2 = basic_model_selection(temp_returns, window=100,
                                       criteria='sharpe').iloc[101:]
         rets = pd.DataFrame(rets1)
         rets.columns = ['ReturnOptim']
@@ -166,7 +178,7 @@ class RunManager(object):
         return basic_model_selection(self.returns, window=window,
                                      criteria=criteria)
 
-    def plot_results(self):
+    def plot_results(self, drop_params=None):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         rets1 = self.basic_model_selection(window=100).iloc[101:]
@@ -490,3 +502,13 @@ def get_run_data(strategy_name, cloud_flag):
         return RunManagerGCP.get_run_names(strategy_name)
     else:
         return RunManager.get_run_names(strategy_name)
+
+
+def get_columns(param_dict):
+    cols = []
+    for vals1 in param_dict.values():
+        for vals2 in vals1.values():
+            cols.append(vals2)
+    cols = list(set(sum(cols, [])))
+    cols.sort()
+    return cols

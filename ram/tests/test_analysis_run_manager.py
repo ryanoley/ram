@@ -114,6 +114,12 @@ class TestRunManager(unittest.TestCase):
         run1 = RunManager('TestStrategy', 'run_0001')
         run1.import_column_params(self.base_path)
 
+    def Xtest_analyze_returns(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
+        run1.import_return_frame(path=self.base_path)
+        run1.import_column_params(self.base_path)
+        run1.analyze_returns(drop_params=[('p1', 20)])
+
     def test_analyze_parameters(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
         run1.import_return_frame(path=self.base_path)
