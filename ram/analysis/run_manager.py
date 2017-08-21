@@ -292,7 +292,7 @@ class RunManagerGCP(RunManager):
             files = files[:-self.test_periods]
         returns = pd.DataFrame()
         for i, f in enumerate(files):
-            if int(f[:4]) < self.start_year:
+            if int(f.split('/')[-1][:4]) < self.start_year:
                 continue
             blob = self._bucket.get_blob(f)
             temp = pd.read_csv(StringIO(blob.download_as_string()),
