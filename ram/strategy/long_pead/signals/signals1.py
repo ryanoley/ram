@@ -15,13 +15,17 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'min_samples_leaf': [140, 300],
+            'min_samples_leaf': [50, 140, 300],
+            'n_estimators': [100],
+            'max_features': [None, 'log2'],
             'drop_accounting': [False],
             'drop_extremes': [True],
-            'drop_market_variables': [True, False]
+            'drop_market_variables': [True, False],
         }
 
-    def generate_signals(self, data_container, min_samples_leaf,
+    def generate_signals(self, data_container, n_estimators,
+                         max_features,
+                         min_samples_leaf,
                          drop_accounting, drop_extremes,
                          drop_market_variables):
         train_data = data_container.train_data
@@ -42,9 +46,9 @@ class SignalModel1(object):
         if drop_market_variables:
             features = [x for x in features if x.find('Mkt_') == -1]
 
-        clf = ExtraTreesClassifier(n_estimators=80,
+        clf = ExtraTreesClassifier(n_estimators=n_estimators,
                                    min_samples_leaf=min_samples_leaf,
-                                   max_features='log2',
+                                   max_features=max_features,
                                    n_jobs=self.NJOBS)
 
         clf.fit(X=train_data[features],
