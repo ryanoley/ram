@@ -118,13 +118,8 @@ class StarmineDataManager(object):
         zip files in sub_dir, filter using sel_inds and na_inds,
         and load into db. Files added to db are printed to console.
         '''
-        # Clear out existing history
         self.db_connect()
-        table_sql_path = os.path.join(STARMINE_SQL, table_name + '.sql' )
-        with open(table_sql_path, 'r') as inp:
-            table_sql_script = inp.read()
-        self.cursor.execute(table_sql_script)
-        self.cursor.commit()
+        self.recreate_db_table(table_name)
 
         # Create generic insert statement for new records
         fld_txt = '?,' * len(sel_inds)
@@ -154,21 +149,12 @@ class StarmineDataManager(object):
         Loading SmartEstimate history specifically.  Deletes all records in
         table_name and loads in all files from historical dir.
         '''
-        # Clear out existing history
-        self.db_connect()
-        table_sql_path = os.path.join(STARMINE_SQL, table_name + '.sql' )
-        with open(table_sql_path, 'r') as inp:
-            table_sql_script = inp.read()
-        self.cursor.execute(table_sql_script)
-        self.cursor.commit()
+        self.recreate_db_table(table_name)
 
-        # Get number of columns - can't be determined from sel_inds
-        n_column_script = ("select count(*) from information_schema.COLUMNS " +
-                           "where table_name = '{}'".format(table_name))
-        self.cursor.execute(n_column_script)
-        n_cols = self.cursor.fetchall()[0][0]
-        
-        fld_txt = '?,' * n_cols
+        # Build Insert Statement
+        db_cols = self.get_db_table_cols(table_name)
+        db_data_cols = [col for col in db_cols if col.find('SE_') > -1]  
+        fld_txt = '?,' * len(db_cols)
         SQLCommand = ("INSERT INTO " + table_name +
                       " VALUES (" + fld_txt[:-1] + ")")
 
@@ -179,53 +165,57 @@ class StarmineDataManager(object):
         fl_paths = []
         for sub_dir in sub_dirs:
             list_dir = os.listdir(os.path.join(local_path, sub_dir))
-            fl_names += list_dir
+            fl_names += [fl for fl in list_dir if fl.find('.zip') > -1]
             fl_paths += [os.path.join(local_path, sub_dir, fl) for fl
-                         in list_dir]
-
-        fl_names = np.array([fl for fl in fl_names if fl.find('.zip') > -1])
-        fl_paths = np.array([fl for fl in fl_paths if fl.find('.zip') > -1])
+                         in list_dir if fl.find('.zip') > -1]
 
         years = [re.search(r'_(\d\d\d\d)_', fl).groups()[0] for fl in fl_names]
-        years = np.array(years, dtype=int)
-
         dtypes = [re.search(r'_(\w*?)_\d', fl).groups()[0] for fl in fl_names]
+
+        years = np.array(years, dtype=int)
         dtypes = np.array(dtypes, dtype=str)
+        fl_paths = np.array(fl_paths, dtype=str)
 
         key_columns = ['Data-through Date', 'StarMine Security ID']
 
         for year in np.unique(years):
             year_paths = fl_paths[np.where(years == year)]
             year_dtypes = dtypes[np.where(years == year)]
-
             meta_df = pd.DataFrame([])
-            out_df = pd.DataFrame([])
+
             for fl_path, dtype in zip(year_paths, year_dtypes):
                 df = read_starmine_zip(fl_path, sel_inds, na_inds, sep='\t')
                 df.rename(
-                    columns={'FQ1 SmartEstimate': 'SE_{}'.format(dtype),
-                             'FQ1 Predicted Surprise Pct':
-                             'SE_{}_Surprise'.format(dtype)}, inplace=True)
-                data_columns = df.columns[-2:].tolist()
-                
-                if len(out_df) == 0:
+                    columns=
+                    {   'FQ1 SmartEstimate':
+                            'SE_{}_FQ1'.format(dtype.upper()),
+                        'FQ1 Predicted Surprise Pct':
+                            'SE_{}_Surprise_FQ1'.format(dtype.upper()),
+                        'FQ2 SmartEstimate':
+                            'SE_{}_FQ2'.format(dtype.upper()),
+                        'FQ2 Predicted Surprise Pct':
+                            'SE_{}_Surprise_FQ2'.format(dtype.upper())
+                    }, inplace=True)
+
+                data_columns = df.columns[-4:].tolist()
+                if len(meta_df) == 0:
                     out_df = df[key_columns + data_columns].copy()
                 else:
                     out_df = out_df.merge(df[key_columns + data_columns],
                                           how='outer')
-                meta_df = meta_df.append(df[df.columns[:-2]])
+                meta_df = meta_df.append(df[df.columns[:-4]])
 
             meta_df.drop_duplicates(subset=key_columns, inplace=True)
-            data_columns = out_df.columns[2:].tolist()
             out_df = pd.merge(out_df, meta_df)
-            out_df = out_df[meta_df.columns.tolist() + data_columns]
+            out_df = out_df[meta_df.columns.tolist() + db_data_cols]
             out_df = out_df.where(pd.notnull(out_df), None)
             data = [tuple(x) for x in out_df.values]
+            self.db_connect()
             self.cursor.executemany(SQLCommand, data)
             self.cursor.commit()
+            self.db_disconnect()
             print 'SmartEstimate_{}'.format(year)
 
-        self.db_disconnect()
         return
 
     def write_daily(self, sub_dir, table_name, sel_inds=None, na_inds=None):
@@ -272,6 +262,27 @@ class StarmineDataManager(object):
         self.db_disconnect()
         return
 
+    def recreate_db_table(self, table_name):
+        # Drop and rebuild table
+        self.db_connect()
+        table_sql_path = os.path.join(STARMINE_SQL, table_name + '.sql' )
+        with open(table_sql_path, 'r') as inp:
+            table_sql_script = inp.read()
+        self.cursor.execute(table_sql_script)
+        self.cursor.commit()
+        self.db_disconnect()
+    
+    def get_db_table_cols(self, table_name):
+        # Get table columns
+        self.db_connect()
+        n_column_script = ("select COLUMN_NAME from " +
+                           "information_schema.COLUMNS " +
+                           "where table_name = '{}'".format(table_name))
+        self.cursor.execute(n_column_script)
+        db_cols = [x[0] for x in self.cursor.fetchall()]
+        self.db_disconnect()
+        return db_cols
+    
 
 def read_starmine_zip(zip_path, sel_inds=None, na_inds=None, sep=','):
     zFile = ZipFile(zip_path, 'r')
@@ -327,7 +338,7 @@ def main():
         # PROMPT FOR LOAD
         if args.data_type == 'SmartEstimate':
             table_name = 'ram_starmine_smart_estimate'
-            sel_inds = [0, 1, 2, 3, 5, 9, 22, 23]
+            sel_inds = [0, 1, 2, 3, 5, 9, 22, 23, 27, 28]
             na_inds = [0, 1, 22]
             sdm.write_smart_estimate_history(table_name, sel_inds, na_inds)
         else:
