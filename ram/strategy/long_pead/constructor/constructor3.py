@@ -8,16 +8,18 @@ from ram.strategy.long_pead.constructor.portfolio import Portfolio
 from ram.strategy.long_pead.constructor.base_constructor import Constructor
 
 
-class PortfolioConstructor2(Constructor):
+class PortfolioConstructor3(Constructor):
 
     def get_args(self):
         return {
             'logistic_spread': [0.1, 0.5, 1.0],
-            'group_variable': ['MarketCap', 'Liquidity', 'Sector']
+            'group_variable': [None, 'MarketCap', 'Liquidity', 'Sector'],
+            'pairs_flag': [True, False]
         }
 
     def get_position_sizes(self, scores, logistic_spread,
-                           group_variable, n_groups=3):
+                           group_variable, pairs_flag):
+        n_groups = 3
         # Output should have all the same keys, but can return nan values
         output_sizes = pd.DataFrame(index=scores.keys(),
                                     columns=['weight'])
