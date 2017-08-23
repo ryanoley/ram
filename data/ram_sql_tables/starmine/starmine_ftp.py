@@ -359,7 +359,8 @@ def main():
         # Write new SmartEstimate Data
         daily_dir = 'SmartEstimate'
         table_name = 'ram_starmine_smart_estimate'
-        sel_inds = [0, 1, np.nan, np.nan, 2, np.nan, 9, 20, 31, 42, 53, 64]
+        sel_inds = [0, 1, np.nan, np.nan, 2, np.nan, 9, 20, 10, 21, 31, 42,
+                    32, 43, 53, 64, 54, 65]
         na_inds = [0, 1, 9]
         sdm.write_daily(daily_dir, table_name, sel_inds, na_inds)
 
