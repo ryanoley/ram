@@ -3,7 +3,7 @@ import pandas as pd
 import datetime as dt
 
 
-def ern_date_blackout(data, offset1=-1, offset2=2):
+def ern_date_blackout(data, offset1=-1, offset2=1):
     assert offset1 <= 0, 'Offset1 must be less than/equal to 0'
     assert offset2 >= 0, 'Offset2 must be greater than/equal to 0'
     ern_inds = np.where(data.EARNINGSFLAG == 1)[0]
@@ -18,6 +18,20 @@ def ern_date_blackout(data, offset1=-1, offset2=2):
     blackouts[all_inds] = 1
     data['blackout'] = blackouts
     return data
+
+
+def make_anchor_ret_rank(data, init_offset=1,
+                         window=20):
+    data = ern_price_anchor(data, init_offset=init_offset,
+                            window=window)
+    data['anchor_ret'] = data.AdjClose / data.anchor_price - 1
+    data['anchor_ret'] = data.anchor_ret.fillna(0)
+    anchor_rets = data.pivot(index='Date',
+                             columns='SecCode', values='anchor_ret')
+    ranks = anchor_rets.rank(axis=1, pct=True)
+    ranks = ranks.unstack().reset_index()
+    ranks.columns = ['SecCode', 'Date', 'anchor_ret_rank']
+    return data.merge(ranks)
 
 
 def ern_price_anchor(data, init_offset=1, window=20):
@@ -67,18 +81,6 @@ def ern_return(data):
     return data.merge(output)
 
 
-def make_anchor_ret_rank(data, init_offset=1,
-                         window=20):
-    data = ern_price_anchor(data, init_offset=init_offset,
-                            window=window)
-    data['anchor_ret'] = data.AdjClose / data.anchor_price - 1
-    data['anchor_ret'] = data.anchor_ret.fillna(0)
-    anchor_rets = data.pivot(index='Date',
-                             columns='SecCode', values='anchor_ret')
-    ranks = anchor_rets.rank(axis=1, pct=True)
-    ranks = ranks.unstack().reset_index()
-    ranks.columns = ['SecCode', 'Date', 'anchor_ret_rank']
-    return data.merge(ranks)
 
 
 def smoothed_responses(data, thresh=.25, days=[2, 3]):
