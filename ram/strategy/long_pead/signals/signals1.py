@@ -1,4 +1,5 @@
 import numpy as np
+import datetime as dt
 
 from sklearn.ensemble import VotingClassifier
 from sklearn.ensemble import BaggingClassifier
@@ -15,15 +16,21 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'min_samples_leaf': [140, 300],
+            'min_samples_leaf': [140],
+            'n_estimators': [100],
+            'max_features': [None],
             'drop_accounting': [False],
             'drop_extremes': [True],
-            'drop_market_variables': [True, False]
+            'drop_market_variables': [False],
+            'weight_flag': [None, 2, 4, 'balanced']
         }
 
-    def generate_signals(self, data_container, min_samples_leaf,
+    def generate_signals(self, data_container, n_estimators,
+                         max_features,
+                         min_samples_leaf,
                          drop_accounting, drop_extremes,
-                         drop_market_variables):
+                         drop_market_variables,
+                         weight_flag):
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
@@ -40,13 +47,20 @@ class SignalModel1(object):
         if drop_extremes:
             features = [x for x in features if x.find('extreme') == -1]
         if drop_market_variables:
-            features = [x for x in features if x.find('spy') == -1]
-            features = [x for x in features if x.find('vxx') == -1]
+            features = [x for x in features if x.find('Mkt_') == -1]
 
-        clf = ExtraTreesClassifier(n_estimators=80,
+        weights = {-1: 1, 0: 1, 1: 1}
+        if weight_flag:
+            weights = 'balanced'
+        elif weight_flag:
+            weights[-1] = weight_flag
+            weights[1] = weight_flag
+
+        clf = ExtraTreesClassifier(n_estimators=n_estimators,
                                    min_samples_leaf=min_samples_leaf,
-                                   max_features='log2',
-                                   n_jobs=self.NJOBS)
+                                   max_features=max_features,
+                                   n_jobs=self.NJOBS,
+                                   class_weight=weights)
 
         clf.fit(X=train_data[features],
                 y=train_data['Response'])

@@ -148,11 +148,23 @@ class RunManager(object):
         return format_param_results(self.returns, cparams,
                                     astats, self.start_year)
 
-    def analyze_returns(self):
+    def analyze_returns(self, drop_params=None):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        rets1 = basic_model_selection(self.returns, window=100).iloc[101:]
-        rets2 = basic_model_selection(self.returns, window=100,
+        if drop_params and (not hasattr(self, 'column_params')):
+            self.import_column_params()
+
+        if drop_params:
+            cparams = classify_params(self.column_params)
+            cparams = filter_classified_params(cparams, drop_params)
+            # Get unique column names
+            cols = get_columns(cparams)
+            temp_returns = self.returns[cols]
+        else:
+            temp_returns = self.returns
+
+        rets1 = basic_model_selection(temp_returns, window=100).iloc[101:]
+        rets2 = basic_model_selection(temp_returns, window=100,
                                       criteria='sharpe').iloc[101:]
         rets = pd.DataFrame(rets1)
         rets.columns = ['ReturnOptim']
@@ -166,7 +178,7 @@ class RunManager(object):
         return basic_model_selection(self.returns, window=window,
                                      criteria=criteria)
 
-    def plot_results(self):
+    def plot_results(self, drop_params=None):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
         rets1 = self.basic_model_selection(window=100).iloc[101:]
@@ -281,6 +293,42 @@ class RunManagerGCP(RunManager):
         file_path = self._get_storage_run_files('meta.json')[0]
         blob = self._bucket.get_blob(file_path)
         self.meta = json.loads(blob.download_as_string())
+
+    def import_long_short_returns(self):
+        files = self._get_storage_run_files('all_output.csv')
+        if len(files) == 0:
+            print('No `all_output` files available to analyze')
+            self.returns = None
+        # Trim files for test periods
+        if self.test_periods > 0:
+            files = files[:-self.test_periods]
+        returns = pd.DataFrame()
+        for i, f in enumerate(files):
+            if int(f.split('/')[-1][:4]) < self.start_year:
+                continue
+            blob = self._bucket.get_blob(f)
+            temp = pd.read_csv(StringIO(blob.download_as_string()),
+                               index_col=0)
+            # Adjustment for zero exposures on final day if present
+            exposure_columns = [x for x in temp.columns
+                                if x.find('Exposure') > -1]
+            temp.loc[temp.index.max(), exposure_columns] = np.nan
+            temp.fillna(method='pad', inplace=True)
+            # Keep just long and shorts and combine
+            unique_columns = set([int(x.split('_')[1]) for x in temp.columns])
+            for cn in unique_columns:
+                temp['LongRet_{}'.format(cn)] = \
+                    temp['LongPL_{}'.format(cn)] / \
+                    temp['Exposure_{}'.format(cn)]
+                temp['ShortRet_{}'.format(cn)] = \
+                    temp['ShortPL_{}'.format(cn)] / \
+                    temp['Exposure_{}'.format(cn)]
+            ret_columns = [x for x in temp.columns if x.find('Ret') > 0]
+            temp = temp.loc[:, ret_columns]
+            # Add to returns
+            returns = returns.add(temp, fill_value=0)
+        returns.index = convert_date_array(returns.index)
+        self.long_short_returns = returns
 
 
 ###############################################################################
@@ -454,3 +502,13 @@ def get_run_data(strategy_name, cloud_flag):
         return RunManagerGCP.get_run_names(strategy_name)
     else:
         return RunManager.get_run_names(strategy_name)
+
+
+def get_columns(param_dict):
+    cols = []
+    for vals1 in param_dict.values():
+        for vals2 in vals1.values():
+            cols.append(vals2)
+    cols = list(set(sum(cols, [])))
+    cols.sort()
+    return cols

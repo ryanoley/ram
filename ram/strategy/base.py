@@ -372,6 +372,17 @@ class Strategy(object):
         data.SecCode = data.SecCode.astype(int).astype(str)
         return data
 
+    def read_market_index_data(self):
+        dpath = os.path.join(self._prepped_data_dir,
+                             'market_index_data.csv')
+        if self._gcp_implementation:
+            data = read_csv_cloud(dpath, self._bucket)
+        else:
+            data = pd.read_csv(dpath)
+        data.Date = convert_date_array(data.Date)
+        data.SecCode = data.SecCode.astype(int).astype(str)
+        return data
+
     def write_index_results(self, returns_df, index, suffix='returns'):
         """
         This is a wrapper function for cloud implementation.
@@ -525,11 +536,13 @@ def make_argument_parser(Strategy):
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
         if args.cloud:
-            version = get_version_name_cloud(args.restart_run)
+            version = get_version_name_cloud(Strategy.__name__,
+                                             args.restart_run)
             strategy = Strategy(gcp_implementation=True, write_flag=True)
             strategy.restart(version)
         else:
-            version = get_version_name(args.restart_run)
+            version = get_version_name(Strategy.__name__,
+                                       args.restart_run)
             strategy = Strategy(write_flag=True)
             strategy.restart(version)
 

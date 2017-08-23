@@ -56,24 +56,20 @@ class TestRunManager(unittest.TestCase):
             1: {'stat1': 20, 'stat2': 40}}
         with open(os.path.join(results_path, '20100101_stats.json'), 'w') as f:
             json.dump(stats, f)
-        f.close()
         stats = {
             0: {'stat1': 55, 'stat2': 75},
             1: {'stat1': 65, 'stat2': 95}}
         with open(os.path.join(results_path, '20100106_stats.json'), 'w') as f:
             json.dump(stats, f)
-        f.close()
         # Create a meta file
         meta = {'description': 'Test data', 'start_time': '2010-01-01',
                 'completed': True}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
-        f.close()
         # Create column params
         params = {0: {'p1': 10, 'p2': 20}, 1: {'p1': 20, 'p2': 30}}
         with open(os.path.join(run_path, 'column_params.json'), 'w') as f:
             json.dump(params, f)
-        f.close()
 
     def test_import_return_frame(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
@@ -96,6 +92,12 @@ class TestRunManager(unittest.TestCase):
     def test_import_long_short_returns(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
         run1.import_long_short_returns(path=self.base_path)
+        result = run1.long_short_returns
+        benchmark = pd.Series(
+            [0.1, 0.2, 0.3, 0.4, 0.5],
+            index=['2010-01-{0:02d}'.format(i) for i in range(1, 6)],
+            name='LongRet_0')
+        assert_array_equal(result.LongRet_0.values, benchmark.values)
 
     def test_import_stats(self):
         run1 = RunManager('TestStrategy', 'run_0001')
@@ -111,6 +113,12 @@ class TestRunManager(unittest.TestCase):
     def test_import_column_params(self):
         run1 = RunManager('TestStrategy', 'run_0001')
         run1.import_column_params(self.base_path)
+
+    def Xtest_analyze_returns(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
+        run1.import_return_frame(path=self.base_path)
+        run1.import_column_params(self.base_path)
+        run1.analyze_returns(drop_params=[('p1', 20)])
 
     def test_analyze_parameters(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
