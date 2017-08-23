@@ -11,7 +11,7 @@ FUNCS = [
     'EARNINGSRETURN', 'MKT',
 
     # QUALITATIVE
-    'GSECTOR', 'GGROUP',
+    'GSECTOR', 'GGROUP', 'TICKER', 'CUSIP',
     
     # VIX
     'VIX',
@@ -200,8 +200,7 @@ def parse_input_var(vstring, table, filter_commands):
             sql_func_data_column = arg[0]
 
         # Adjustment irrelevant columns
-        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor',
-                        'HistoricalTicker']:
+        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
             sql_func_data_column = arg[0]
 
         else:
@@ -498,6 +497,27 @@ def GGROUP(arg0, arg1, arg2, table):
             and     A.Date_ between B.StartDate and B.EndDate
         """.format(table)
     return clean_sql_cmd(sqlcmd)
+
+
+def _MASTER_ID_FIELD(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    M.{0} as {1}
+        from        {2} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+        """.format(feature, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def TICKER(arg0, feature_name, arg2, table):
+    return _MASTER_ID_FIELD('Ticker', feature_name, table)         
+
+
+def CUSIP(arg0, feature_name, arg2, table):
+    return _MASTER_ID_FIELD('Cusip', feature_name, table)  
 
 
 def EARNINGSFLAG(arg0, feature_name, arg2, table):
