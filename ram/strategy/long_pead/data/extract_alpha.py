@@ -51,7 +51,7 @@ import pandas as pd
 from ram.utils.time_funcs import convert_date_array
 
 
-def get_extract_alpha_data(data, ram_data, features):
+def get_extract_alpha_data(data, features, ram_data):
     """
     Parameters
     ----------
@@ -62,6 +62,7 @@ def get_extract_alpha_data(data, ram_data, features):
     features : list
         List of features from the `data` file that should be returned
     """
+    ram_data = ram_data[['SecCode', 'Date', 'TICKER', 'CUSIP']].copy()
     # First merge on Cusip
     ram_data2 = ram_data.merge(data[['Date', 'CUSIP'] + features], how='left')
     # Get matched/unmatched SecCodes
@@ -80,8 +81,9 @@ def get_extract_alpha_data(data, ram_data, features):
     ram_data3 = ram_data3.drop(features, axis=1)
     ram_data3 = ram_data3.merge(data[['Date', 'TICKER'] + features], how='left')
 
-    missing_indexes = ram_data3[features].isnull().all(axis=1)
-    ram_data3[missing_indexes]['SecCode'].unique()
+    # Something to do with these?
+    #missing_indexes = ram_data3[features].isnull().all(axis=1)
+    #ram_data3[missing_indexes]['SecCode'].unique()
 
     return ram_data2.append(ram_data3).reset_index(drop=True)
 
@@ -92,7 +94,7 @@ def _format_clean_data(data, features):
                                 'Cusip': 'CUSIP',
                                 'ticker': 'TICKER',
                                 'Ticker': 'TICKER'})
-    data.CUSIP = data.CUSIP.apply(lambda x: x[:8])
+    data.CUSIP = data.CUSIP.apply(lambda x: str(x)[:8])
     data.Date = convert_date_array(data.Date)
 
     data = data[['Date', 'CUSIP', 'TICKER'] + features]
