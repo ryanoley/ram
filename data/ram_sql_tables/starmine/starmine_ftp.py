@@ -119,7 +119,7 @@ class StarmineDataManager(object):
         and load into db. Files added to db are printed to console.
         '''
         self.db_connect()
-        self.recreate_db_table(table_name)
+        self.create_db_table(table_name)
 
         # Create generic insert statement for new records
         fld_txt = '?,' * len(sel_inds)
@@ -149,7 +149,7 @@ class StarmineDataManager(object):
         Loading SmartEstimate history specifically.  Deletes all records in
         table_name and loads in all files from historical dir.
         '''
-        self.recreate_db_table(table_name)
+        self.create_db_table(table_name)
 
         # Build Insert Statement
         db_cols = self.get_db_table_cols(table_name)
@@ -262,7 +262,7 @@ class StarmineDataManager(object):
         self.db_disconnect()
         return
 
-    def recreate_db_table(self, table_name):
+    def create_db_table(self, table_name):
         # Drop and rebuild table
         self.db_connect()
         table_sql_path = os.path.join(STARMINE_SQL, table_name + '.sql' )
