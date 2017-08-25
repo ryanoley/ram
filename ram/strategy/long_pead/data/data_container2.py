@@ -118,13 +118,15 @@ class DataContainer2(DataContainer1):
                 ea_features2.extend(x)
             else:
                 ea_features2.append(x)
-        ea_features = ['EA_' + x for x in ea_features2]
+        ea_features3 = ['EA_' + x for x in ea_features2]
+        import pdb; pdb.set_trace()
+        data = data.rename(columns={i: j for i, j in zip(ea_features2, ea_features3)})
 
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(data[~data.TestFlag])
         self._processed_test_data = data[data.TestFlag]
-        self.features = features + ea_features
+        self.features = features + ea_features3
         self._time_index_data_for_responses[time_index] = \
             data[['SecCode', 'Date', 'AdjClose', 'TestFlag']]
 
