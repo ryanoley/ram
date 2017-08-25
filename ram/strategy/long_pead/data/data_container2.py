@@ -120,7 +120,6 @@ class DataContainer2(DataContainer1):
                 ea_features2.append(x)
         ea_features = ['EA_' + x for x in ea_features2]
 
-        import pdb; pdb.set_trace()
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(data[~data.TestFlag])

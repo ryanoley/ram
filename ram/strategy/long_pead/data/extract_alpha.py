@@ -144,15 +144,15 @@ def read_all_extract_alpha_files():
         dpath = os.path.join(ddir, 'CAM1_History_2005_201707.csv')
 
         blob = bucket.get_blob(dpath)
-        data1 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data1 = pd.read_csv(StringIO(blob.download_as_string()))
         data1 = _format_clean_data(data1, features1)
-    
+
         # ~~~ Digital Revenue ~~~
         features2 = ['Digital_Revenue_Signal']
         dpath = os.path.join(ddir, 'Digital_Revenue_Signal_history_2012_201707.csv')
 
         blob = bucket.get_blob(dpath)
-        data2 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data2 = pd.read_csv(StringIO(blob.download_as_string()))
         data2 = _format_clean_data(data2, features2)
 
         # ~~~ TM ~~~
@@ -161,7 +161,7 @@ def read_all_extract_alpha_files():
         dpath = os.path.join(ddir, 'TM1_History_2000_201701.csv')
 
         blob = bucket.get_blob(dpath)
-        data3 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data3 = pd.read_csv(StringIO(blob.download_as_string()))
         data3 = _format_clean_data(data3, features3)
 
         # ~~~ Tress ~~~
@@ -169,7 +169,7 @@ def read_all_extract_alpha_files():
         dpath = os.path.join(ddir, 'TRESS_history_2010_201707.csv')
 
         blob = bucket.get_blob(dpath)
-        data4 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data4 = pd.read_csv(StringIO(blob.download_as_string()))
         data4 = _format_clean_data(data4, features4)
 
     return {
