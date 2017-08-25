@@ -135,8 +135,8 @@ where				D.FilterDate >= '1998-01-01'
 
 , report_dates_1 as (
 select				D.*,
-					S.SE_EPS as HistEps,
-					S.SE_EPS_Surprise as HistEpsSurprise
+					S.SE_EPS_FQ1 as HistEps,
+					S.SE_EPS_Surprise_FQ1 as HistEpsSurprise
 from				matched_ids_report_dates D
 	left join		ram.dbo.ram_starmine_smart_estimate S
 	on				D.SecId = S.SecId

@@ -47,8 +47,8 @@ FUNCS = [
     
     # STARMINE
     'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-    'EPSESTIMATE', 'EPSSURPRISE', 'EBITDAESTIMATE', 'EBITDASURPRISE',
-    'REVENUEESTIMATE', 'REVENUESURPRISE', 'SESPLITFACTOR',
+    'EPSESTIMATEFQ', 'EPSSURPRISEFQ', 'EBITDAESTIMATEFQ', 'EBITDASURPRISEFQ',
+    'REVENUEESTIMATEFQ', 'REVENUESURPRISEFQ', 'SESPLITFACTOR',
     'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
     'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
   
@@ -946,29 +946,29 @@ def SESPLITFACTOR(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SplitFactor', feature_name, table)
 
   
-def EPSESTIMATE(arg0, feature_name, arg2, table):
-    return _STARMINE_SMART_ESTIMATE('SE_EPS', feature_name, table)
+def EPSESTIMATEFQ(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EPS_FQ{}'.format(arg2), feature_name,
+                                    table)
 
-  
-def EPSSURPRISE(arg0, feature_name, arg2, table):
-    return _STARMINE_SMART_ESTIMATE('SE_EPS_Surprise', feature_name, table)
+def EPSSURPRISEFQ(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EPS_Surprise_FQ{}'.format(arg2),
+                                    feature_name, table)
 
-  
-def EBITDAESTIMATE(arg0, feature_name, arg2, table):
-    return _STARMINE_SMART_ESTIMATE('SE_EBITDA', feature_name, table)
+def EBITDAESTIMATEFQ(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EBITDA_FQ{}'.format(arg2),
+                                    feature_name, table)
 
-  
-def EBITDASURPRISE(arg0, feature_name, arg2, table):
-    return _STARMINE_SMART_ESTIMATE('SE_EBITDA_Surprise', feature_name, table)
+def EBITDASURPRISEFQ(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_EBITDA_Surprise_FQ{}'.format(arg2),
+                                    feature_name, table)
 
-  
-def REVENUEESTIMATE(arg0, feature_name, arg2, table):
-    return _STARMINE_SMART_ESTIMATE('SE_REV', feature_name, table)
+def REVENUEESTIMATEFQ(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_REV_FQ{}'.format(arg2),
+                                    feature_name, table)
 
-  
-def REVENUESURPRISE(arg0, feature_name, arg2, table):
-    return _STARMINE_SMART_ESTIMATE('SE_REV_Surprise', feature_name, table)
-
+def REVENUESURPRISEFQ(arg0, feature_name, arg2, table):
+    return _STARMINE_SMART_ESTIMATE('SE_REV_Surprise_FQ{}'.format(arg2),
+                                    feature_name, table)
 
 def SIRANK(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_Rank', feature_name, table)
