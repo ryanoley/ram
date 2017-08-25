@@ -48,7 +48,11 @@ using proporietary NLP, that takes into account recency and quality.
 """
 import os
 import pandas as pd
+
 from ram.utils.time_funcs import convert_date_array
+
+from StringIO import StringIO
+from google.cloud import storage
 
 
 def get_extract_alpha_data(data, features, ram_data):
@@ -102,29 +106,71 @@ def _format_clean_data(data, features):
 
 
 def read_all_extract_alpha_files():
-    ddir = os.path.join(os.getenv('DATA'), 'extractalpha')
 
-    # ~~~ CAM1 ~~~
-    features1 = ['spread_component', 'skew_component', 'volume_component',
-                 'CAM1', 'CAM1_slow']
-    dpath = os.path.join(ddir, 'CAM1_History_2005_201707.csv')
-    data1 = _format_clean_data(pd.read_csv(dpath), features1)
+    try:
+        ddir = os.path.join(os.getenv('DATA'), 'ram', 'extractalpha')
 
-    # ~~~ Digital Revenue ~~~
-    features2 = ['Digital_Revenue_Signal']
-    dpath = os.path.join(ddir, 'Digital_Revenue_Signal_history_2012_201707.csv')
-    data2 = _format_clean_data(pd.read_csv(dpath), features2)
+        # ~~~ CAM1 ~~~
+        features1 = ['spread_component', 'skew_component', 'volume_component',
+                     'CAM1', 'CAM1_slow']
+        dpath = os.path.join(ddir, 'CAM1_History_2005_201707.csv')
+        data1 = _format_clean_data(pd.read_csv(dpath), features1)
+    
+        # ~~~ Digital Revenue ~~~
+        features2 = ['Digital_Revenue_Signal']
+        dpath = os.path.join(ddir, 'Digital_Revenue_Signal_history_2012_201707.csv')
+        data2 = _format_clean_data(pd.read_csv(dpath), features2)
+    
+        # ~~~ TM ~~~
+        features3 = ['reversal_component', 'factor_momentum_component',
+                     'liquidity_shock_component', 'seasonality_component', 'tm1']
+        dpath = os.path.join(ddir, 'TM1_History_2000_201701.csv')
+        data3 = _format_clean_data(pd.read_csv(dpath), features3)
+    
+        # ~~~ Tress ~~~
+        features4 = ['TRESS']
+        dpath = os.path.join(ddir, 'TRESS_history_2010_201707.csv')
+        data4 = _format_clean_data(pd.read_csv(dpath), features4)
 
-    # ~~~ TM ~~~
-    features3 = ['reversal_component', 'factor_momentum_component',
-                 'liquidity_shock_component', 'seasonality_component', 'tm1']
-    dpath = os.path.join(ddir, 'TM1_History_2000_201701.csv')
-    data3 = _format_clean_data(pd.read_csv(dpath), features3)
+    except:
+        # CLOUD HACK
+        client = storage.Client()
+        bucket = client.get_bucket('ram_data')
+        ddir = 'extractalpha'
 
-    # ~~~ Tress ~~~
-    features4 = ['TRESS']
-    dpath = os.path.join(ddir, 'TRESS_history_2010_201707.csv')
-    data4 = _format_clean_data(pd.read_csv(dpath), features4)
+        # ~~~ CAM1 ~~~
+        features1 = ['spread_component', 'skew_component', 'volume_component',
+                     'CAM1', 'CAM1_slow']
+        dpath = os.path.join(ddir, 'CAM1_History_2005_201707.csv')
+
+        blob = bucket.get_blob(dpath)
+        data1 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data1 = _format_clean_data(data1, features1)
+    
+        # ~~~ Digital Revenue ~~~
+        features2 = ['Digital_Revenue_Signal']
+        dpath = os.path.join(ddir, 'Digital_Revenue_Signal_history_2012_201707.csv')
+
+        blob = bucket.get_blob(dpath)
+        data2 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data2 = _format_clean_data(data2, features2)
+
+        # ~~~ TM ~~~
+        features3 = ['reversal_component', 'factor_momentum_component',
+                     'liquidity_shock_component', 'seasonality_component', 'tm1']
+        dpath = os.path.join(ddir, 'TM1_History_2000_201701.csv')
+
+        blob = bucket.get_blob(dpath)
+        data3 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data3 = _format_clean_data(data3, features3)
+
+        # ~~~ Tress ~~~
+        features4 = ['TRESS']
+        dpath = os.path.join(ddir, 'TRESS_history_2010_201707.csv')
+
+        blob = bucket.get_blob(dpath)
+        data4 = pd.read_csv(StringIO(blob.download_as_string()), index_col=0)
+        data4 = _format_clean_data(data4, features4)
 
     return {
         'cam1': (data1, features1),
