@@ -91,7 +91,7 @@ class DataContainer2(DataContainer1):
         ea_data = _process_ea(
             get_extract_alpha_data(v1[0], v1[1], data), v1[1])
         data = data.merge(ea_data, how='left')
-        ea_features = v1[1]
+        ea_features = list(v1[1])
 
         v1 = self._extract_alpha_data['cam1']
         ea_data = _process_ea(
