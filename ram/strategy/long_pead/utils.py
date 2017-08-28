@@ -125,8 +125,7 @@ def outlier_rank(data, variable, outlier_std=4):
 
 
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
-    # Training dates
-    train_dates = data.Date[~data.TestFlag].unique()
+    test_date_map = data[['Date', 'TestFlag']].drop_duplicates()
     if not isinstance(days, list):
         days = [days]
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
@@ -141,7 +140,7 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
         (final_ranks <= thresh).astype(int)
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
-    output = output[output.Date.isin(train_dates)].reset_index(drop=True)
+    output = output.merge(test_date_map)
     return output
 
 

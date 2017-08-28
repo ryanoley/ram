@@ -18,8 +18,8 @@ class DataContainerWrapper(DataContainer1):
 class TestDataContainer1(unittest.TestCase):
 
     def setUp(self):
-        dates = ['2015-01-01', '2015-03-01', '2015-04-01',
-                 '2015-05-01', '2015-07-01', '2015-08-01']
+        dates = ['2015-03-29', '2015-03-30', '2015-03-31',
+                 '2015-04-01', '2015-04-02', '2015-04-03']
         self.data = pd.DataFrame({
             'SecCode': ['AAPL'] * 6,
             'Date': dates,
@@ -30,18 +30,22 @@ class TestDataContainer1(unittest.TestCase):
             'TestFlag': [False] * 4 + [True] * 2
         })
         self.data['Date'] = convert_date_array(self.data.Date)
+        self.data2 = self.data.copy()
+        self.data2.Date = ['2015-02-01', '2015-02-02', '2015-02-03',
+                           '2015-02-04', '2015-02-05', '2015-02-06']
+        self.data2['Date'] = convert_date_array(self.data2.Date)
 
     def test_get_response_data(self):
         container = DataContainerWrapper()
         container.add_data(self.data, 1)
         result = container._get_response_data(1, 2, 0.5)
-        self.assertEqual(result.shape[0], 4)
+        self.assertEqual(result.shape[0], 6)
         # Test that it stacked
-        container.add_data(self.data, 2)
+        container.add_data(self.data2, 2)
         result = container._get_response_data(2, 2, 0.5)
-        self.assertEqual(result.shape[0], 8)
+        self.assertEqual(result.shape[0], 10)
 
-    def test_prep_data(self):
+    def Xtest_prep_data(self):
         container = DataContainerWrapper()
         container.add_data(self.data, 1)
         container.prep_data(1, 2, .5, -99)
@@ -50,7 +54,7 @@ class TestDataContainer1(unittest.TestCase):
         result = DataContainer1()._trim_training_data(self.data, -99)
         self.assertEqual(len(result), 6)
         result = DataContainer1()._trim_training_data(self.data, 1)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result), 3)
 
     def tearDown(self):
         pass

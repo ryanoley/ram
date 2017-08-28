@@ -27,7 +27,7 @@ class DataContainer1(object):
         return {
             'response_days': [[2, 4, 6], [2]],
             'response_thresh': [0.30],
-            'training_qtrs': [-99, 12]
+            'training_qtrs': [-99]
         }
 
     def prep_data(self, time_index,
@@ -46,6 +46,7 @@ class DataContainer1(object):
         train_data = self._trim_training_data(train_data, training_qtrs)
         # Merge response data
         train_data = train_data.merge(response_data)
+        test_data = test_data.merge(response_data)
         # Create data for downstream
         self.train_data = train_data
         self.test_data = test_data
@@ -72,7 +73,7 @@ class DataContainer1(object):
         # Separated for testing ease
         data, features = self._process_data(data)
         # Add market data
-        if np.any(self._market_data):
+        if hasattr(self, '_market_data') and np.any(self._market_data):
             data = data.merge(self._market_data, how='left').fillna(0)
             features_mkt = self._market_data.columns.tolist()
             features_mkt.remove('Date')
@@ -233,6 +234,9 @@ class DataContainer1(object):
         time_indexes = resp_dict.keys()
         time_indexes.sort()
         responses = pd.DataFrame()
-        for t in time_indexes:
-            responses = responses.append(resp_dict[t][data_name])
+        for t in time_indexes[:-1]:
+            temp_r = resp_dict[t][data_name]
+            responses = responses.append(temp_r[~temp_r.TestFlag])
+        t = time_indexes[-1]
+        responses = responses.append(resp_dict[t][data_name])
         return responses.reset_index(drop=True)
