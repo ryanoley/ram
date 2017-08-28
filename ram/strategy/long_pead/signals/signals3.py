@@ -81,6 +81,8 @@ class SignalModel3(object):
                 train_data = train_data.append(test_data_2)
 
             test_data = train_data[train_data.TestFlag]
+            if 'preds' in data_container.test_data:
+                data_container.test_data.drop('preds', axis=1, inplace=True)
             data_container.test_data = \
                 data_container.test_data.merge(
                 test_data[['SecCode', 'Date', 'preds']])
