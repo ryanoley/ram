@@ -13,8 +13,9 @@ OUTDIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'coverage_audit')
 FEATURES = ['DISCOUNT126_Close', 'PRMA20_Close', 'PRMAH20_Open', 'AdjClose',
             'BOLL20_High', 'RSI10_Close', 'MFI10_Low', 'VOL20_Close',
             'AvgDolVol', 'MarketCap', 'GSECTOR', 'GGROUP', 'SI',
-            'EARNINGSFLAG', 'ACCTSALESGROWTH',
-            'ACCTEPSGROWTH', 'ACCTPRICESALES']
+            'EARNINGSFLAG', 'SALESGROWTHQ',
+            'EBITDAMARGIN', 'GROSSMARGINQ',
+            'FREECASHFLOWQ', 'EBITGROWTHQ', 'OPERATINGINCOMEGROWTHQ']
 
 UNIVSIZE = 1000
 
@@ -23,20 +24,22 @@ class DataTableCoverage(object):
 
     def __init__(self, history_flag):
         self.datahandler = DataHandlerSQL()
+        all_dates = self._get_iterable_dates()
         if history_flag:
-            # Delete directory and recreate
-            print('Deleting directory: {}'.format(OUTDIR))
-            if os.path.isdir(OUTDIR):
-                shutil.rmtree(OUTDIR)
-            os.mkdir(OUTDIR)
-            all_dates = self._get_iterable_dates()
+            if not os.path.isdir(OUTDIR):
+                os.mkdir(OUTDIR)
             self.run(all_dates)
         else:
-            # Get files in directory to see if they need to be calculated
-            pass
+            self.run([all_dates[-1]])
 
     def run(self, date_iterator):
         for t1, t2 in ProgBar(date_iterator):
+            path1 = os.path.join(OUTDIR, '{}_{}_seccodes.csv'.format(
+                             t1.strftime('%Y%m%d'), t2.strftime('%Y%m%d')))
+            path2 = os.path.join(OUTDIR, '{}_{}_variables.csv'.format(
+                             t1.strftime('%Y%m%d'), t2.strftime('%Y%m%d')))
+            if os.path.isfile(path1):
+                continue
             data = self._get_data(t1, t2)
             # Get troublesome SecCodes
             data2 = data.isnull().copy().astype(int)
@@ -45,15 +48,11 @@ class DataTableCoverage(object):
             data2 = data2.groupby('SecCode').mean().unstack().reset_index()
             data2.columns = ['Column', 'SecCode', 'MissingCoverage']
             bad_seccodes = data2[data2.MissingCoverage > .05]
-            bad_seccodes.to_csv(
-                os.path.join(OUTDIR, '{}_seccodes.csv'.format(
-                             t1.strftime('%Y%m%d'))), index=False)
+            bad_seccodes.to_csv(path1, index=False)
             # Create means coverage for whole universe
             data = pd.DataFrame(data.isnull().mean()).T
             data = data.drop(['Date', 'SecCode'], axis=1)
-            data.to_csv(
-                os.path.join(OUTDIR, '{}_variables.csv'.format(
-                             t1.strftime('%Y%m%d'))), index=False)
+            data.to_csv(path2, index=False)
 
     def _get_iterable_dates(self):
         """
