@@ -239,4 +239,11 @@ class DataContainer1(object):
             responses = responses.append(temp_r[~temp_r.TestFlag])
         t = time_indexes[-1]
         responses = responses.append(resp_dict[t][data_name])
-        return responses.reset_index(drop=True)
+        # Add indexes for periods
+        month_inds = responses[['Date', 'TestFlag']].drop_duplicates()
+        month_inds['month_index'] = np.append(0, np.diff([x.month for x in month_inds.Date]))
+        month_inds.loc[~month_inds.TestFlag, 'month_index'] = 0
+        month_inds['month_index'] = month_inds.month_index.cumsum().shift(
+            -max(response_days)).fillna(method='pad')
+        month_inds = month_inds.drop('TestFlag', axis=1)
+        return responses.merge(month_inds).reset_index(drop=True)

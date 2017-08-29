@@ -67,8 +67,10 @@ class SignalModel1(object):
                 test_data_2 = test_data[(test_data.Date >= min_date) &
                                         (test_data.Date <= max_date)].copy()
 
-                clf.fit(X=train_data[features],
-                        y=train_data['Response'])
+                # THIS IS A BIG ASSUMPTION. DO WE WANT TO DROP THESE OBS?
+                inds = train_data.month_index <= i
+                clf.fit(X=train_data.loc[inds, features],
+                        y=train_data.loc[inds, 'Response'])
 
                 # Get indexes of long and short sides
                 short_ind = np.where(clf.classes_ == -1)[0][0]
