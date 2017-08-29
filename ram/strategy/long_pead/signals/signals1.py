@@ -12,9 +12,9 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'min_samples_leaf': [30, 90],
-            'n_estimators': [100, 500, 1000],
-            'max_features': ['log2', 0.8],
+            'min_samples_leaf': [45],
+            'n_estimators': [500],
+            'max_features': [0.8],
             'drop_accounting': [False],
             'drop_extremes': [True],
             'drop_market_variables': [True],
