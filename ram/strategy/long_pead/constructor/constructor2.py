@@ -12,8 +12,9 @@ class PortfolioConstructor2(Constructor):
 
     def get_args(self):
         return {
-            'logistic_spread': [0.1, 0.5, 1.0],
-            'group_variable': ['MarketCap', 'Liquidity', 'Sector']
+            'logistic_spread': [0.1, 2],
+            'group_variable': ['MarketCap', 'Liquidity', 'Sector'],
+            'smooth_days': [None, 2, 4, 7]
         }
 
     def get_position_sizes(self, scores, logistic_spread,

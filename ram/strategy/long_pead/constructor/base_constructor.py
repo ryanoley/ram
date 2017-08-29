@@ -34,7 +34,8 @@ class Constructor(object):
         """
         self.booksize = booksize
 
-    def get_daily_pl(self, data_container, signals, **kwargs):
+    def get_daily_pl(self, data_container, signals,
+                     smooth_days=None, **kwargs):
         """
         Parameters
         ----------
@@ -42,8 +43,14 @@ class Constructor(object):
         signals
         kwargs
         """
-
-        scores_dict = make_variable_dict(signals.preds_data, 'preds')
+        # TEMP HACK
+        preds_pivot = signals.preds_data.pivot(
+            index='Date', columns='SecCode', values='preds') 
+        if smooth_days:
+            preds_pivot = preds_pivot.rolling(
+                smooth_days).mean().fillna(preds_pivot)
+        scores_dict = preds_pivot.T.to_dict()
+        #scores_dict = make_variable_dict(signals.preds_data, 'preds')
 
         portfolio = Portfolio()
 
