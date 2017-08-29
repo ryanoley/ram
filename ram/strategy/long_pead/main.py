@@ -6,6 +6,7 @@ from ram.strategy.base import Strategy
 
 from ram.strategy.long_pead.data.data_container1 import DataContainer1
 from ram.strategy.long_pead.data.data_container2 import DataContainer2
+
 from ram.strategy.long_pead.constructor.constructor1 import \
     PortfolioConstructor1
 from ram.strategy.long_pead.constructor.constructor2 import \
@@ -17,8 +18,9 @@ from ram.strategy.long_pead.signals.signals2 import SignalModel2
 
 class LongPeadStrategy(Strategy):
 
-    data = DataContainer2()
-    signals = SignalModel2()
+    data = DataContainer1()
+    signals = SignalModel1()
+
     constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):

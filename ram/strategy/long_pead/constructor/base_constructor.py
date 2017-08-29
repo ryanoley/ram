@@ -42,7 +42,8 @@ class Constructor(object):
         signals
         kwargs
         """
-        scores_dict = make_variable_dict(data_container.test_data, 'preds')
+
+        scores_dict = make_variable_dict(signals.preds_data, 'preds')
 
         portfolio = Portfolio()
 

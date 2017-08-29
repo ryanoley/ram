@@ -24,15 +24,19 @@ class SignalModel2(object):
             'drop_extract_alpha': [True, False]
         }
 
-    def generate_signals(self, data_container, n_estimators,
+    def generate_signals(self,
+                         data_container,
+                         n_estimators,
                          max_features,
                          min_samples_leaf,
                          drop_accounting, drop_extremes,
                          drop_market_variables,
                          drop_extract_alpha):
+
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
+
         if drop_accounting:
             accounting_vars = [
                 'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM',
@@ -65,5 +69,4 @@ class SignalModel2(object):
         # Get test predictions to create portfolios on:
         #    Long Prediction - Short Prediction
         preds = clf.predict_proba(test_data[features])
-        data_container.test_data['preds'] = \
-            preds[:, long_ind] - preds[:, short_ind]
+        # self.preds_data = pd.DataFrame(preds)

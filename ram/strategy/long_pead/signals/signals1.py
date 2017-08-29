@@ -1,9 +1,6 @@
 import numpy as np
 
-from sklearn.ensemble import VotingClassifier
-from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.linear_model import LogisticRegression
 
 from ram import config
 
@@ -21,16 +18,23 @@ class SignalModel1(object):
             'drop_accounting': [False],
             'drop_extremes': [True],
             'drop_market_variables': [False],
+            'monthly_training': [False]
         }
 
-    def generate_signals(self, data_container, n_estimators,
+    def generate_signals(self,
+                         data_container,
+                         n_estimators,
                          max_features,
                          min_samples_leaf,
-                         drop_accounting, drop_extremes,
-                         drop_market_variables):
+                         drop_accounting,
+                         drop_extremes,
+                         drop_market_variables,
+                         monthly_training):
+
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
+
         if drop_accounting:
             accounting_vars = [
                 'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM',
@@ -51,15 +55,49 @@ class SignalModel1(object):
                                    max_features=max_features,
                                    n_jobs=self.NJOBS)
 
-        clf.fit(X=train_data[features],
-                y=train_data['Response'])
+        if monthly_training:
 
-        # Get indexes of long and short sides
-        short_ind = np.where(clf.classes_ == -1)[0][0]
-        long_ind = np.where(clf.classes_ == 1)[0][0]
+            train_data['preds'] = 0
+            dates = test_data.Date.unique()
+            months = np.array([d.month for d in dates])
 
-        # Get test predictions to create portfolios on:
-        #    Long Prediction - Short Prediction
-        preds = clf.predict_proba(test_data[features])
-        data_container.test_data['preds'] = \
-            preds[:, long_ind] - preds[:, short_ind]
+            for i, m in enumerate(np.unique(months)):
+                min_date = min(dates[months == m])
+                max_date = max(dates[months == m])
+                test_data_2 = test_data[(test_data.Date >= min_date) &
+                                        (test_data.Date <= max_date)].copy()
+
+                clf.fit(X=train_data[features],
+                        y=train_data['Response'])
+
+                # Get indexes of long and short sides
+                short_ind = np.where(clf.classes_ == -1)[0][0]
+                long_ind = np.where(clf.classes_ == 1)[0][0]
+
+                # Get test predictions to create portfolios on:
+                #    Long Prediction - Short Prediction
+                preds = clf.predict_proba(test_data_2[features])
+
+                test_data_2['preds'] = preds[:, long_ind] - preds[:, short_ind]
+
+                train_data = train_data.append(test_data_2)
+
+            test_data = train_data[train_data.TestFlag].reset_index(True)
+            self.preds_data = test_data[['SecCode', 'Date', 'preds']]
+
+        else:
+
+            clf.fit(X=train_data[features],
+                    y=train_data['Response'])
+
+            # Get indexes of long and short sides
+            short_ind = np.where(clf.classes_ == -1)[0][0]
+            long_ind = np.where(clf.classes_ == 1)[0][0]
+
+            # Get test predictions to create portfolios on:
+            #    Long Prediction - Short Prediction
+            preds = clf.predict_proba(test_data[features])
+
+            test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
+            self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
+
