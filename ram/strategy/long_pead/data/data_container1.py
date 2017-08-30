@@ -27,7 +27,7 @@ class DataContainer1(object):
         return {
             'response_days': [[2, 4, 6], [2]],
             'response_thresh': [0.30],
-            'training_qtrs': [-20]
+            'training_qtrs': [20]
         }
 
     def prep_data(self, time_index,
