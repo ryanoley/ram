@@ -27,7 +27,7 @@ class DataContainer1(object):
         return {
             'response_days': [[2, 4, 6], [2]],
             'response_thresh': [0.30],
-            'training_qtrs': [-99]
+            'training_qtrs': [-20]
         }
 
     def prep_data(self, time_index,
@@ -239,11 +239,28 @@ class DataContainer1(object):
             responses = responses.append(temp_r[~temp_r.TestFlag])
         t = time_indexes[-1]
         responses = responses.append(resp_dict[t][data_name])
-        # Add indexes for periods
-        month_inds = responses[['Date', 'TestFlag']].drop_duplicates()
-        month_inds['month_index'] = np.append(0, np.diff([x.month for x in month_inds.Date]))
-        month_inds.loc[~month_inds.TestFlag, 'month_index'] = 0
-        month_inds['month_index'] = month_inds.month_index.cumsum().shift(
-            -max(response_days)).fillna(method='pad')
-        month_inds = month_inds.drop('TestFlag', axis=1)
-        return responses.merge(month_inds).reset_index(drop=True)
+
+        period_inds = make_weekly_monthly_indexes(
+            responses, max(response_days))
+
+        return responses.merge(period_inds).reset_index(drop=True)
+
+
+def make_weekly_monthly_indexes(responses, max_response_days):
+    # Add indexes for periods
+    time_inds = responses[['Date', 'TestFlag']].drop_duplicates()
+    # Get month indexes
+    time_inds['month_index'] = np.append(0, np.diff([x.month for x in time_inds.Date]))
+    time_inds.loc[~time_inds.TestFlag, 'month_index'] = 0
+    time_inds['month_index'] = time_inds.month_index.cumsum().shift(
+        -max_response_days).fillna(method='pad')
+    # Get week indexes
+    week_inds = [1, 0, 0, 0, 0.] * 100
+    start_ind = 5 - np.where(time_inds.TestFlag)[0][0] % 5
+    time_inds['week_index'] = week_inds[start_ind:][:len(time_inds)]
+    time_inds.loc[~time_inds.TestFlag, 'week_index'] = 0
+    time_inds['week_index'] = time_inds.week_index.cumsum()
+    time_inds['week_index_train_offset'] = time_inds.week_index.shift(
+        -max_response_days).fillna(method='pad')
+    time_inds = time_inds.drop('TestFlag', axis=1)
+    return time_inds
