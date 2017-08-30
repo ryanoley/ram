@@ -6,14 +6,14 @@ from ram.strategy.base import Strategy
 
 from ram.strategy.starmine.data.data_container1 import DataContainer1
 from ram.strategy.starmine.signals.signals1 import SignalModel1
-from ram.strategy.starmine.constructor.constructor2 import PortfolioConstructor2
+from ram.strategy.starmine.constructor.constructor1 import PortfolioConstructor1
 
 
 class PostErnStrategy(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
-    constructor = PortfolioConstructor2()
+    constructor = PortfolioConstructor1()
 
     def get_column_parameters(self):
         """
@@ -39,10 +39,14 @@ class PostErnStrategy(Strategy):
         self.data.add_data(self.read_data_from_index(time_index))
 
         if len(self.data._processed_train_data) == 0:
+            return
+        if len(self.data._processed_test_data) == 0:
             return        
 
         # Restart Functionality: check if file already run.
         if time_index <= self._max_run_time_index:
+            return
+        if time_index < 4:
             return
 
         args_data = make_arg_iter(self.data.get_args())
@@ -93,7 +97,7 @@ class PostErnStrategy(Strategy):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 ' +
             'and Close_ >= 15',
-            'univ_size': 500
+            'univ_size': 1500
         }
 
     def get_univ_date_parameters(self):
@@ -101,18 +105,17 @@ class PostErnStrategy(Strategy):
             'frequency': 'Q',
             'train_period_length': 1,
             'test_period_length': 1,
-            'start_year': 2002
+            'start_year': 2000
         }
 
     def get_features(self):
         return [
-
             # Descriptive
             'GGROUP', 'EARNINGSRETURN', 'EARNINGSFLAG', 'MarketCap',
-            'AvgDolVol', 'SplitFactor'
+            'AvgDolVol', 'SplitFactor', 'RClose', 
 
             # Pricing
-            'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',
+            'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',
             'LEAD5_AdjVwap', 'LEAD10_AdjVwap',
             'LEAD15_AdjVwap', 'LEAD20_AdjVwap', 'LEAD25_AdjVwap',
             'LEAD30_AdjVwap', 'LEAD35_AdjVwap', 'LEAD40_AdjVwap',
@@ -142,7 +145,8 @@ class PostErnStrategy(Strategy):
             'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
 
             # Starmine Features
-            'EPSESTIMATE', 'EBITDAESTIMATE','REVENUEESTIMATE'
+            'EPSESTIMATEFQ1', 'EPSESTIMATEFQ2', 'EBITDAESTIMATEFQ1',
+            'EBITDAESTIMATEFQ2', 'REVENUEESTIMATEFQ1', 'REVENUEESTIMATEFQ2'
         ]
 
 

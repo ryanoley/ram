@@ -3,7 +3,9 @@ import numpy as np
 from sklearn.ensemble import VotingClassifier
 from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression
 
 from ram import config
 
@@ -17,8 +19,8 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': [0.8],
-            'n_estimators': [50],
+            'max_features': [0.75],
+            'n_estimators': [100],
             'min_samples_leaf': [100]
         }
 
@@ -51,4 +53,14 @@ class SignalModel1(object):
     def generate_signals2(self, data_container, max_features,
                          min_samples_leaf, n_estimators):
 
-        data_container.test_data['preds'] = data_container.test_data['SISHORTSQUEEZE']
+        train_data = data_container.train_data
+        test_data = data_container.test_data
+        features = data_container.features
+
+        lr = LinearRegression()
+
+        lr.fit(X=train_data[features],
+                y=train_data['Response'])
+        data_container.test_data['preds'] = lr.predict(test_data[features])
+
+

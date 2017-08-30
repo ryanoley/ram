@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.starmine.utils import *
+from ram.strategy.starmine.data.features import *
 
 from gearbox import create_time_index
 
@@ -12,13 +12,92 @@ class DataContainer1(object):
     def __init__(self):
         self._processed_train_data = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
+        self._set_features()
 
     def get_args(self):
         return {
-            'response_days': [5],
-            'training_qtrs': [-99],
-            'thresh': [.25]
+            'response_days': [10, 20, 30, 40],
+            'training_qtrs': [-99]
         }
+    
+    def add_data(self, data):
+        """
+        Takes in raw data, processes it and caches it
+        """
+        
+        data = self.process_raw_data(data)
+
+        # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        data.AdjVwap = np.where(
+            data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
+        data.AdjClose = np.where(
+            data.AdjClose.isnull(), data.AdjVwap, data.AdjClose)
+
+        # SPLITS  - Is this needed?
+        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
+
+        # Filter nans
+        keep_inds = data[self.features].isnull().sum(axis=1) == 0
+        data = data.loc[keep_inds]
+        keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
+        data = data.loc[keep_inds]
+        #data = data[data.EARNINGSFLAG == 0].reset_index(drop=True)
+        data2 = self.get_data_subset(data, 3)
+
+        # Separate training from test data
+        self._processed_train_data = \
+            self._processed_train_data.append(data[~data.TestFlag])
+        self._processed_test_data = data[data.TestFlag]
+
+    
+    def process_raw_data(self, data, entry_window=10):
+        # Previous Earnings Return
+        data = get_previous_ern_return(data, fillna = True,
+                                       prior_data = self._processed_train_data)
+
+        # Binary vars for previous wins
+        data['ern_ret_bin1'] = (data.EARNINGSRETURN < -.03) & (data.PrevRet < -.03)
+        data['ern_ret_bin2'] = (np.abs(data.EARNINGSRETURN) < .03) & (np.abs(data.PrevRet) < .03)
+        data['ern_ret_bin3'] = (data.EARNINGSRETURN > .03) & (data.PrevRet > .03)
+
+        # Achor Return
+        data = ern_date_blackout(data, -1, 1)
+        data = ern_price_anchor(data, 1, 15)
+        data = make_anchor_ret_rank(data, 1, 15)
+
+        # Revenue As compared to estimate
+        data['RevMissBeat'] = ((data.REVENUEESTIMATEFQ1 - data.SALESQ) /
+                                data.SALESQ).fillna(0.)
+
+        # SMART ESTIMATE REVISIONS
+        data = get_se_revisions(data, 'EPSESTIMATE', 'eps_est_change',
+                                window=10)
+        data = get_se_revisions(data, 'EBITDAESTIMATE', 'ebitda_est_change',
+                                window=10)
+        data = get_se_revisions(data, 'REVENUEESTIMATE', 'rev_est_change',
+                                window=10)
+
+        # Get subset of data 10 days after ern announcement
+        data = filter_entry_window(data, window_len=10)
+
+        # Several different returns
+        data = get_vwap_returns(data, 5, hedged=True)
+        data = get_vwap_returns(data, 10, hedged=True)
+        data = get_vwap_returns(data, 20, hedged=True)
+        data = get_vwap_returns(data, 30, hedged=True)
+        data = get_vwap_returns(data, 40, hedged=True)
+        data = get_vwap_returns(data, 50, hedged=True)
+
+        return data
+
+    def get_data_subset(self, data, t_entry):
+        offset = t_entry - 1
+        ernflag = data.pivot(index='Date', columns='SecCode', values='EARNINGSFLAG')
+        ernflag = ernflag.shift(offset).fillna(0)
+        ernflag = ernflag.unstack().reset_index()
+        ernflag.columns = ['SecCode', 'Date', 'DtSelect']
+        subset = pd.merge(data, ernflag)
+        return subset
 
     def prep_data(self, response_days, training_qtrs, thresh=.25):
         """
@@ -37,60 +116,26 @@ class DataContainer1(object):
         self.test_data = test_data
         self.features = features
 
-    def add_data(self, data):
-        """
-        Takes in raw data, processes it and caches it
-        """
+    
+    def _set_features(self):
         features = [
-            #'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-            #'EPSESTIMATE',
-            
-            #'EPSSURPRISE', 'EBITDAESTIMATE', 'EBITDASURPRISE',
-            #'REVENUEESTIMATE', 'REVENUESURPRISE', 'SESPLITFACTOR',
-            
-            'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-            'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
-            
-            # Additional Pricing Cols
-            'PRMA120_AvgDolVol', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
-            'BOLL10_AdjClose', 'BOLL20_AdjClose', 'BOLL60_AdjClose',
-            'MFI10_AdjClose', 'MFI20_AdjClose', 'MFI60_AdjClose',
-            'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
-            'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
-            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
-            'DISCOUNT252_AdjClose'
+        # Pricing and Vol vars
+        'PRMA10_AdjClose', 'PRMA20_AdjClose', 'PRMA60_AdjClose',
+        'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
+        'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
+
+        'anchor_ret', 'anchor_ret_rank',
+
+        # Earnings Return Variables
+        'EARNINGSRETURN',
+        'PrevRet', 'ern_ret_bin1', 'ern_ret_bin2', 'ern_ret_bin3',
+
+        'eps_est_change', 'ebitda_est_change', 'rev_est_change'
         ]
-
-        # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        data.AdjVwap = np.where(
-            data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
-        data.AdjClose = np.where(
-            data.AdjClose.isnull(), data.AdjVwap, data.AdjClose)
-
-        # SPLITS: Instead of using the levels, use the CHANGE in levels.
-        # This is necessary for the updating of positions and prices downstream
-        data.loc[:, 'SplitMultiplier'] = \
-            data.SplitFactor.pct_change().fillna(0) + 1
-
-        # NEW FEATURES
-        # Blackout flags and anchor returns
-        data = ern_date_blackout(data, offset1=-1, offset2=1)
-
-        data = make_anchor_ret_rank(data, init_offset=3, window=10)
-
-        data = ern_return(data)
-
-        # Rank and create binaries for extreme values
-        features = features + ['blackout', 'anchor_ret_rank', 'earnings_ret']
-
-        keep_inds = data[features].isnull().sum(axis=1) == 0
-        data = data.loc[keep_inds]
-
-        # Separate training from test data
-        self._processed_train_data = \
-            self._processed_train_data.append(data[~data.TestFlag])
-        self._processed_test_data = data[data.TestFlag]
         self.features = features
+        self.ret_cols = ['Ret10', 'Ret20']
+        return
+
 
     ###########################################################################
 
@@ -109,5 +154,4 @@ class DataContainer1(object):
         return data.iloc[inds > (max_ind-training_qtrs)]
 
     def _add_response_variables(self, data, response_days, response_thresh):
-        return data.merge(smoothed_responses2(data, thresh=response_thresh,
-                                              days=response_days))
+        return data.merge(fixed_response(data, days=response_days))
