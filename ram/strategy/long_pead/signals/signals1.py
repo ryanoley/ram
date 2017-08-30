@@ -98,8 +98,7 @@ class SignalModel1(object):
             for i in np.arange(1, max(test_data.week_index)+1):
                 test_data_2 = test_data[test_data.week_index == i]
 
-                # THIS IS A BIG ASSUMPTION. DO WE WANT TO DROP THESE OBS?
-                inds = train_data.week_index_train_offset <= i
+                inds = train_data.week_index_train_offset < i
                 clf.fit(X=train_data.loc[inds, features],
                         y=train_data.loc[inds, 'Response'])
 
