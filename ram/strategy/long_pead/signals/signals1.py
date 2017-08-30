@@ -152,9 +152,10 @@ class SignalModel1(object):
             self.preds_data = test_data[['SecCode', 'Date', 'preds']]
 
         else:
-
-            clf.fit(X=train_data[features],
-                    y=train_data['Response'])
+            # Hack to accomodate response vars
+            inds = train_data.week_index_train_offset < 1
+            clf.fit(X=train_data.loc[inds, features],
+                    y=train_data.loc[inds, 'Response'])
 
             # Get indexes of long and short sides
             short_ind = np.where(clf.classes_ == -1)[0][0]
@@ -164,6 +165,6 @@ class SignalModel1(object):
             #    Long Prediction - Short Prediction
             preds = clf.predict_proba(test_data[features])
 
-            test_data['preds'] = preds[:, long_ind] - preds[:, short_ind]
+            test_data.loc[:, 'preds'] = \
+                preds[:, long_ind] - preds[:, short_ind]
             self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
-
