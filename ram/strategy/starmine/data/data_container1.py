@@ -16,7 +16,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [10, 20, 30, 40],
+            'response_days': [10, 20],
             'training_qtrs': [-99]
         }
     
@@ -42,7 +42,7 @@ class DataContainer1(object):
         keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
         data = data.loc[keep_inds]
         #data = data[data.EARNINGSFLAG == 0].reset_index(drop=True)
-        data2 = self.get_data_subset(data, 3)
+        data = self.get_data_subset(data, 3)
 
         # Separate training from test data
         self._processed_train_data = \
@@ -84,9 +84,6 @@ class DataContainer1(object):
         data = get_vwap_returns(data, 5, hedged=True)
         data = get_vwap_returns(data, 10, hedged=True)
         data = get_vwap_returns(data, 20, hedged=True)
-        data = get_vwap_returns(data, 30, hedged=True)
-        data = get_vwap_returns(data, 40, hedged=True)
-        data = get_vwap_returns(data, 50, hedged=True)
 
         return data
 
@@ -99,7 +96,7 @@ class DataContainer1(object):
         subset = pd.merge(data, ernflag)
         return subset
 
-    def prep_data(self, response_days, training_qtrs, thresh=.25):
+    def prep_data(self, response_days, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -109,8 +106,7 @@ class DataContainer1(object):
         train_data, test_data, features = self._get_train_test_features()
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
-        train_data = self._add_response_variables(train_data, response_days,
-                                                  thresh)
+        train_data = self._add_response_variables(train_data, response_days)
 
         self.train_data = train_data
         self.test_data = test_data
@@ -133,7 +129,7 @@ class DataContainer1(object):
         'eps_est_change', 'ebitda_est_change', 'rev_est_change'
         ]
         self.features = features
-        self.ret_cols = ['Ret10', 'Ret20']
+        self.ret_cols = ['Ret5', 'Ret10', 'Ret20']
         return
 
 
@@ -153,5 +149,5 @@ class DataContainer1(object):
         max_ind = np.max(inds)
         return data.iloc[inds > (max_ind-training_qtrs)]
 
-    def _add_response_variables(self, data, response_days, response_thresh):
+    def _add_response_variables(self, data, response_days):
         return data.merge(fixed_response(data, days=response_days))

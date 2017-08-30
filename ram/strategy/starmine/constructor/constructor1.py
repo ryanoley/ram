@@ -14,8 +14,8 @@ class PortfolioConstructor1(object):
     def get_args(self):
         return {
             'thresh': [0.01, 0.02, .04],
-            'hold_days': [10, 20, 30, 40],
-            'pos_size': [.01],
+            'hold_days': [10, 20],
+            'pos_size': [.002],
         }
 
 

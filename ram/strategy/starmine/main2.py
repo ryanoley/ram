@@ -60,7 +60,7 @@ class PostErnStrategy(Strategy):
 
             for as_ in args_signals:
 
-                self.signals.generate_signals2(self.data, **as_)
+                self.signals.lr_signals(self.data)
 
                 for ac in args_constructor:
     
@@ -97,7 +97,7 @@ class PostErnStrategy(Strategy):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 ' +
             'and Close_ >= 15',
-            'univ_size': 1500
+            'univ_size': 500
         }
 
     def get_univ_date_parameters(self):

@@ -1,10 +1,7 @@
 import numpy as np
 
-from sklearn.ensemble import VotingClassifier
-from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
 
 from ram import config
@@ -19,19 +16,20 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': [0.75],
-            'n_estimators': [100],
-            'min_samples_leaf': [100]
+            'feat':[1]
+            #'max_features': [.50, 0.75],
+            #'n_estimators': [100],
+            #'min_samples_leaf': [50, 100]
         }
 
-    def generate_signals(self, data_container, max_features,
-                         min_samples_leaf, n_estimators):
+    def rf_signals(self, data_container, max_features,
+                   min_samples_leaf, n_estimators):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
 
-        clf = ExtraTreesClassifier(n_estimators=n_estimators,
+        clf = RandomForestRegressor(n_estimators=n_estimators,
                                    min_samples_leaf=min_samples_leaf,
                                    max_features=max_features,
                                    n_jobs=NJOBS)
@@ -39,19 +37,14 @@ class SignalModel1(object):
         clf.fit(X=train_data[features],
                 y=train_data['Response'])
 
-        # Get indexes of long and short sides
-        short_ind = np.where(clf.classes_ == -1)[0][0]
-        long_ind = np.where(clf.classes_ == 1)[0][0]
-
         # Get test predictions to create portfolios on:
         #    Long Prediction - Short Prediction
-        preds = clf.predict_proba(test_data[features])
-        data_container.test_data['preds'] = \
-            preds[:, long_ind] - preds[:, short_ind]
+        preds = clf.predict(test_data[features])
+        data_container.test_data['preds'] = preds
+        return
 
 
-    def generate_signals2(self, data_container, max_features,
-                         min_samples_leaf, n_estimators):
+    def lr_signals(self, data_container):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
@@ -62,5 +55,7 @@ class SignalModel1(object):
         lr.fit(X=train_data[features],
                 y=train_data['Response'])
         data_container.test_data['preds'] = lr.predict(test_data[features])
+        return
+
 
 
