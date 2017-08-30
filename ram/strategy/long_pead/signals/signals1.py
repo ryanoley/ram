@@ -12,20 +12,44 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'min_samples_leaf': [45],
-            'n_estimators': [500],
-            'max_features': [0.8],
+            'tree_params': [
+                {'min_samples_leaf': 200,
+                 'n_estimators': 500,
+                 'max_features': 0.8,
+                },
+                {'min_samples_leaf': 100,
+                 'n_estimators': 500,
+                 'max_features': 0.8,
+                },
+                {'min_samples_leaf': 40,
+                 'n_estimators': 100,
+                 'max_features': 0.8,
+                },
+                {'min_samples_leaf': 40,
+                 'n_estimators': 100,
+                 'max_features': 0.8,
+                 'bootstrap': True,
+                },
+
+                {'min_samples_leaf': 200,
+                 'n_estimators': 500,
+                 'max_features': 'log2',
+                },
+                {'min_samples_leaf': 40,
+                 'n_estimators': 100,
+                 'max_features': 'log2',
+                },
+            ],
+
             'drop_accounting': [False],
             'drop_extremes': [True],
             'drop_market_variables': [True],
-            'monthly_training': [True]
+            'monthly_training': [False]
         }
 
     def generate_signals(self,
                          data_container,
-                         n_estimators,
-                         max_features,
-                         min_samples_leaf,
+                         tree_params,
                          drop_accounting,
                          drop_extremes,
                          drop_market_variables,
@@ -50,10 +74,7 @@ class SignalModel1(object):
         if drop_market_variables:
             features = [x for x in features if x.find('Mkt_') == -1]
 
-        clf = ExtraTreesClassifier(n_estimators=n_estimators,
-                                   min_samples_leaf=min_samples_leaf,
-                                   max_features=max_features,
-                                   n_jobs=self.NJOBS)
+        clf = ExtraTreesClassifier(n_jobs=self.NJOBS, **tree_params)
 
         if monthly_training:
 
