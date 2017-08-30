@@ -95,7 +95,7 @@ class SignalModel1(object):
 
             train_data['preds'] = 0
 
-            for i in np.arange(1, max(test_data.week_index)):
+            for i in np.arange(1, max(test_data.week_index)+1):
                 test_data_2 = test_data[test_data.week_index == i]
 
                 # THIS IS A BIG ASSUMPTION. DO WE WANT TO DROP THESE OBS?
@@ -111,7 +111,8 @@ class SignalModel1(object):
                 #    Long Prediction - Short Prediction
                 preds = clf.predict_proba(test_data_2[features])
 
-                test_data_2['preds'] = preds[:, long_ind] - preds[:, short_ind]
+                test_data_2.loc[:, 'preds'] = preds[:, long_ind] - \
+                    preds[:, short_ind]
 
                 train_data = train_data.append(test_data_2)
 
@@ -143,7 +144,8 @@ class SignalModel1(object):
                 #    Long Prediction - Short Prediction
                 preds = clf.predict_proba(test_data_2[features])
 
-                test_data_2['preds'] = preds[:, long_ind] - preds[:, short_ind]
+                test_data_2.loc[:, 'preds'] = preds[:, long_ind] - \
+                    preds[:, short_ind]
 
                 train_data = train_data.append(test_data_2)
 
