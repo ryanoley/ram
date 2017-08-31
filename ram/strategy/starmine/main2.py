@@ -36,7 +36,7 @@ class PostErnStrategy(Strategy):
     def run_index(self, time_index):
 
         # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index))
+        self.data.add_data(self.read_data_from_index(time_index), entry_day = 5)
 
         if len(self.data._processed_train_data) == 0:
             return
@@ -97,7 +97,7 @@ class PostErnStrategy(Strategy):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 ' +
             'and Close_ >= 15',
-            'univ_size': 500
+            'univ_size': 1500
         }
 
     def get_univ_date_parameters(self):
