@@ -16,11 +16,11 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [10, 20],
+            'response_days': [20],
             'training_qtrs': [-99]
         }
     
-    def add_data(self, data):
+    def add_data(self, data, entry_day=2):
         """
         Takes in raw data, processes it and caches it
         """
@@ -42,7 +42,7 @@ class DataContainer1(object):
         keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
         data = data.loc[keep_inds]
         #data = data[data.EARNINGSFLAG == 0].reset_index(drop=True)
-        data = self.get_data_subset(data, 3)
+        data = self.get_data_subset(data, entry_day)
 
         # Separate training from test data
         self._processed_train_data = \
