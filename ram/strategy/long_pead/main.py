@@ -18,9 +18,8 @@ from ram.strategy.long_pead.signals.signals2 import SignalModel2
 
 class LongPeadStrategy(Strategy):
 
-    data = DataContainer1()
+    data = DataContainer2()
     signals = SignalModel1()
-
     constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):
@@ -42,6 +41,9 @@ class LongPeadStrategy(Strategy):
         return output_params
 
     def run_index(self, time_index):
+
+        if time_index < 20:
+            return None
 
         # Attach market data first since it is merged with equity data
         self.data.add_market_data(self.read_market_index_data())
