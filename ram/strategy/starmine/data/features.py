@@ -4,7 +4,6 @@ import pandas as pd
 import datetime as dt
 from gearbox import convert_date_array, create_time_index
 
-
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
                         'PostErnStrategy','spy.csv')
 
@@ -71,46 +70,48 @@ def ern_price_anchor(data, init_offset=1, window=20):
 
 # Revisions to Smart Estimates
 def get_se_revisions(data, se_col, out_col, window=10):
-    
-    ernflag = data.pivot(index='Date', columns='SecCode', values='EARNINGSFLAG')
+    '''
+    Cumulative sum of estimate changes over window following
+    the earnings announcement
+    '''
+    ernflag = data.pivot(index='Date', columns='SecCode',
+                         values='EARNINGSFLAG')
     fq1_estimates = data.pivot(index='Date', columns='SecCode',
                                values='{}FQ1'.format(se_col))
     fq2_estimates = data.pivot(index='Date', columns='SecCode',
                                values='{}FQ2'.format(se_col))
     fq1_estimates[:] = np.where(ernflag.shift(-1) == 1, fq2_estimates,
                                 fq1_estimates)
-
     delta = fq1_estimates.diff(1).fillna(0.)
-    delta_sum_window = ernflag.rolling(window = window,
-                                       min_periods=1).sum()
+
+    # Sum estimate changes in  window following ern
+    delta_sum_window = ernflag.rolling(window = window, min_periods=1).sum()
     delta[:] = np.where(delta_sum_window == 1, delta, 0.)
-    
     delta_sum = delta.rolling(window=window, min_periods=1).sum()
-    delta_sum[:] = np.where(delta_sum_window == 1, delta_sum, np.nan)
-    
-    delta_sum = delta_sum.unstack().dropna().reset_index()
+    delta_sum[:] = np.where(delta_sum_window == 1, delta_sum, 0.)
+    delta_sum = delta_sum.unstack().reset_index()
     delta_sum.columns = ['SecCode', 'Date', out_col]
     data = data.merge(delta_sum, how='left')
     return data
 
 
 def get_previous_ern_return(data, fillna=False, prior_data=[]):
-    
-    assert set(['EARNINGSFLAG','EARNINGSRETURN']).issubset(data.columns)
-    train = data[['SecCode', 'Date', 'EARNINGSFLAG', 'EARNINGSRETURN']].copy()
-    
+    '''
+    Get prior earnings return, fillna with 0. if specified
+    '''
+    req_cols = ['SecCode', 'Date', 'EARNINGSFLAG', 'EARNINGSRETURN']
+    assert set(req_cols).issubset(data.columns)
+    train = data[req_cols].copy()
+
     if len(prior_data) > 0:
-        assert set(['EARNINGSFLAG','EARNINGSRETURN']).issubset(prior_data.columns)
-        prior_data = prior_data[['SecCode', 'Date',
-                                 'EARNINGSFLAG', 'EARNINGSRETURN']]
+        assert set(req_cols).issubset(prior_data.columns)
+        prior_data = prior_data[req_cols]
         train = prior_data.append(train).drop_duplicates(['Date','SecCode'])
-        train.reset_index(drop=True, inplace=True)
 
     ernflag = train.pivot(index='Date', columns='SecCode', values='EARNINGSFLAG')
     ernret = train.pivot(index='Date', columns='SecCode', values='EARNINGSRETURN')
     ernret[:] = np.where(ernflag==1, ernret, np.nan)
-    ernret = ernret.shift(1)
-    ernret.fillna(method='pad', inplace=True)
+    ernret = ernret.shift(1).fillna(method='pad')
     prevRets = ernret.unstack().reset_index()
     prevRets.columns = ['SecCode', 'Date', 'PrevRet']
     if fillna:
@@ -120,11 +121,14 @@ def get_previous_ern_return(data, fillna=False, prior_data=[]):
 
 
 def filter_entry_window(data, window_len=10):
-    ernflag = data.pivot(index='Date', columns='SecCode', values='EARNINGSFLAG')
+    ernflag = data.pivot(index='Date', columns='SecCode',
+                         values='EARNINGSFLAG')
     entry_dates = ernflag.rolling(window = window_len).sum()
     entry_dates[:] = np.where(entry_dates == 1, entry_dates, np.nan)
     entry_dates = entry_dates.unstack().dropna().reset_index()
-    entry_dates.columns = ['SecCode', 'Date', 'DtSelect']  
+    entry_dates.columns = ['SecCode', 'Date', 'DtSelect']
+    entry_dates = entry_dates[entry_dates.DtSelect == 1]
+    entry_dates.drop('DtSelect', axis=1, inplace=True)
     return pd.merge(entry_dates, data)
 
 
@@ -134,7 +138,7 @@ def get_vwap_returns(data, days, hedged=False):
     
     if exit_col not in data.columns:
         print 'Lead columns not available for {} days'.format(days)
-        #return data
+        return data
     prices  = data[['SecCode', 'Date', exit_col, 'LEAD1_AdjVwap']].copy()
     prices[ret_col] = (prices[exit_col] / prices.LEAD1_AdjVwap)
 
@@ -142,7 +146,7 @@ def get_vwap_returns(data, days, hedged=False):
         spy = read_spy_data()
         if exit_col not in spy.columns:
             print 'SPY Lead columns not available for {} days'.format(days)
-            #return data
+            return data
         spy_prices  = spy[['Date', exit_col, 'LEAD1_AdjVwap']].copy()
         spy_prices['MktRet'] = (spy_prices[exit_col] / spy_prices.LEAD1_AdjVwap)
         prices = prices.merge(spy_prices[['Date', 'MktRet']], how='left')
@@ -180,28 +184,8 @@ def smoothed_responses(data, thresh=.25, days=[2, 3]):
     return output
 
 
-def simple_response(data, thresh=.25, days=[2, 3]):
-    if not isinstance(days, list):
-        days = [days]
-    data['QIndex'] = create_time_index(data.Date)
-    for q in data.QIndex.unique():
-        qdata = data[data.QIndex == q]
-        ranks = np.zeros(data.shape[0])
-        for i in days:
-            assert 'Ret{}'.format(i) in data.columns
-            ranks += data['Ret{}'.format(i)].rank()
-        data.loc[data.QIndex == q, 'Response'] = ranks
-        data.loc[data.QIndex == q, 'Response'] = data.loc[data.QIndex == q, 'Response'].rank(pct=True)
-    
-    data.Response = np.where(data.Response >= 1 - thresh, 1, np.where(
-        data.Response <= thresh, -1, 0))
-
-    return data[['SecCode', 'Date', 'Response']].copy()
-
-
 def fixed_response(data, days=5):
     assert 'Ret{}'.format(days) in data.columns
     data['Response'] = data['Ret{}'.format(days)].copy()
     return data[['SecCode', 'Date', 'Response']].copy()
-
 

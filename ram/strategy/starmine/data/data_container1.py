@@ -42,7 +42,7 @@ class DataContainer1(object):
         keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
         data = data.loc[keep_inds]
         #data = data[data.EARNINGSFLAG == 0].reset_index(drop=True)
-        data = self.get_data_subset(data, entry_day)
+        data = self.get_data_subset(data, entry_day - 1)
 
         # Separate training from test data
         self._processed_train_data = \
@@ -86,15 +86,6 @@ class DataContainer1(object):
         data = get_vwap_returns(data, 20, hedged=True)
 
         return data
-
-    def get_data_subset(self, data, t_entry):
-        offset = t_entry - 1
-        ernflag = data.pivot(index='Date', columns='SecCode', values='EARNINGSFLAG')
-        ernflag = ernflag.shift(offset).fillna(0)
-        ernflag = ernflag.unstack().reset_index()
-        ernflag.columns = ['SecCode', 'Date', 'DtSelect']
-        subset = pd.merge(data, ernflag)
-        return subset
 
     def prep_data(self, response_days, training_qtrs):
         """
@@ -149,5 +140,19 @@ class DataContainer1(object):
         max_ind = np.max(inds)
         return data.iloc[inds > (max_ind-training_qtrs)]
 
+    def get_data_subset(self, data, ern_flag_offset):
+        '''
+        Get a subset of the data based on an int offset from EARNINGSFLAG
+        '''
+        assert 'EARNINGSFLAG' in data.columns
+        ernflag = data.pivot(index='Date', columns='SecCode',
+                             values='EARNINGSFLAG')
+        ernflag = ernflag.shift(ern_flag_offset).fillna(0)
+        ernflag = ernflag.unstack().reset_index()
+        ernflag.columns = ['SecCode', 'Date', 'DtSelect']
+        ernflag = ernflag[ernflag.DtSelect == 1].drop('DtSelect', axis=1)
+        subset = pd.merge(data, ernflag)
+        return subset
+    
     def _add_response_variables(self, data, response_days):
         return data.merge(fixed_response(data, days=response_days))
