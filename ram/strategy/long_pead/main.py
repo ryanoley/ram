@@ -67,8 +67,7 @@ class LongPeadStrategy(Strategy):
 
             self.data.prep_data(time_index, **ad)
 
-            if time_index < 25:
-                continue
+            continue
 
             for as_ in args_signals:
 
