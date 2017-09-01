@@ -257,7 +257,11 @@ def make_weekly_monthly_indexes(responses, max_response_days):
     # Get week indexes
     week_inds = [1, 0, 0, 0, 0.] * 100
     start_ind = 5 - np.where(time_inds.TestFlag)[0][0] % 5
-    time_inds['week_index'] = week_inds[start_ind:][:len(time_inds)]
+    try:
+        time_inds['week_index'] = week_inds[start_ind:][:len(time_inds)]
+    except:
+        import pdb; pdb.set_trace()
+        time_inds['week_index'] = week_inds[start_ind:][:len(time_inds)]
     time_inds.loc[~time_inds.TestFlag, 'week_index'] = 0
     time_inds['week_index'] = time_inds.week_index.cumsum()
     time_inds['week_index_train_offset'] = time_inds.week_index.shift(

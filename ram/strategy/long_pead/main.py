@@ -67,6 +67,9 @@ class LongPeadStrategy(Strategy):
 
             self.data.prep_data(time_index, **ad)
 
+            if time_index < 25:
+                continue
+
             for as_ in args_signals:
 
                 self.signals.generate_signals(self.data, **as_)
@@ -79,11 +82,11 @@ class LongPeadStrategy(Strategy):
                     self._capture_output(result, stats, i)
                     i += 1
 
-        self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_all_output,
-                                 time_index,
-                                 'all_output')
-        self.write_index_stats(self.output_stats, time_index)
+        # self.write_index_results(self.output_returns, time_index)
+        # self.write_index_results(self.output_all_output,
+        #                          time_index,
+        #                          'all_output')
+        # self.write_index_stats(self.output_stats, time_index)
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
