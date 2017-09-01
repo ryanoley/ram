@@ -67,8 +67,6 @@ class LongPeadStrategy(Strategy):
 
             self.data.prep_data(time_index, **ad)
 
-            continue
-
             for as_ in args_signals:
 
                 self.signals.generate_signals(self.data, **as_)
