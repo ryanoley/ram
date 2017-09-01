@@ -121,7 +121,7 @@ class DataContainer2(DataContainer1):
         ea_features3 = ['EA_' + x for x in ea_features2]
 
         all_columns = data.columns
-        for i, col in all_columns:
+        for i, col in enumerate(all_columns):
             ind = np.where(col == np.array(ea_features2))[0]
             if len(ind) > 0:
                 all_columns[i] = ea_features3[ind]
