@@ -124,7 +124,7 @@ class DataContainer2(DataContainer1):
         for i, col in enumerate(all_columns):
             ind = np.where(col == np.array(ea_features2))[0]
             if len(ind) > 0:
-                all_columns[i] = ea_features3[ind]
+                all_columns[i] = ea_features3[ind[0]]
         data.columns = all_columns
 
         # Separate training from test data
