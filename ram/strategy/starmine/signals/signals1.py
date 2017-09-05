@@ -16,10 +16,10 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'feat':[1]
-            #'max_features': [.50, 0.75],
-            #'n_estimators': [100],
-            #'min_samples_leaf': [50, 100]
+            #'feat':[1]
+            'max_features': [0.75],
+            'n_estimators': [100],
+            'min_samples_leaf': [30, 50, 100]
         }
 
     def rf_signals(self, data_container, max_features,
@@ -40,7 +40,8 @@ class SignalModel1(object):
         # Get test predictions to create portfolios on:
         #    Long Prediction - Short Prediction
         preds = clf.predict(test_data[features])
-        data_container.test_data['preds'] = preds
+        test_data['preds'] = preds
+        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
         return
 
 
@@ -54,7 +55,8 @@ class SignalModel1(object):
 
         lr.fit(X=train_data[features],
                 y=train_data['Response'])
-        data_container.test_data['preds'] = lr.predict(test_data[features])
+        test_data['preds'] = lr.predict(test_data[features])
+        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
         return
 
 

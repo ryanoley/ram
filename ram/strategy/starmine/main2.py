@@ -36,7 +36,7 @@ class PostErnStrategy(Strategy):
     def run_index(self, time_index):
 
         # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index), entry_day = 5)
+        self.data.add_data(self.read_data_from_index(time_index), entry_day = 3)
 
         if len(self.data._processed_train_data) == 0:
             return
@@ -46,7 +46,7 @@ class PostErnStrategy(Strategy):
         # Restart Functionality: check if file already run.
         if time_index <= self._max_run_time_index:
             return
-        if time_index < 4:
+        if time_index < -1:
             return
 
         args_data = make_arg_iter(self.data.get_args())
@@ -60,11 +60,12 @@ class PostErnStrategy(Strategy):
 
             for as_ in args_signals:
 
-                self.signals.lr_signals(self.data)
+                self.signals.rf_signals(self.data, **as_)
 
                 for ac in args_constructor:
     
-                    result = self.constructor.get_daily_pl(self.data, **ac)
+                    result = self.constructor.get_daily_pl(self.data,
+                                                           self.signals, **ac)
 
                     self._capture_output(result, i)
                     i += 1
@@ -112,7 +113,8 @@ class PostErnStrategy(Strategy):
         return [
             # Descriptive
             'GGROUP', 'EARNINGSRETURN', 'EARNINGSFLAG', 'MarketCap',
-            'AvgDolVol', 'SplitFactor', 'RClose', 
+            'AvgDolVol', 'SplitFactor', 'RVwap', 'LEAD1_RVwap', 'RClose',
+            'RCashDividend',
 
             # Pricing
             'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',

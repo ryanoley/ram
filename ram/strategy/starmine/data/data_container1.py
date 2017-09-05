@@ -3,6 +3,7 @@ import pandas as pd
 import datetime as dt
 
 from ram.strategy.starmine.data.features import *
+from ram.strategy.basic.utils import make_variable_dict
 
 from gearbox import create_time_index
 
@@ -12,11 +13,12 @@ class DataContainer1(object):
     def __init__(self):
         self._processed_train_data = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
+        self._processed_pricing_data = pd.DataFrame()
         self._set_features()
 
     def get_args(self):
         return {
-            'response_days': [20],
+            'response_days': [10, 20, 30],
             'training_qtrs': [-99]
         }
     
@@ -26,6 +28,7 @@ class DataContainer1(object):
         """
         
         data = self.process_raw_data(data)
+        self._entry_day = entry_day
 
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         data.AdjVwap = np.where(
@@ -41,16 +44,23 @@ class DataContainer1(object):
         data = data.loc[keep_inds]
         keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
         data = data.loc[keep_inds]
-        #data = data[data.EARNINGSFLAG == 0].reset_index(drop=True)
+
+        pricing_data = data[data.TestFlag].copy()
+        pricing_data['RCashDividend'] = 0.
+        pricing_data['LiveFlag'] = 0
         data = self.get_data_subset(data, entry_day - 1)
 
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(data[~data.TestFlag])
         self._processed_test_data = data[data.TestFlag]
+        pricing_cols = ['Date', 'SecCode', 'RClose', 'EARNINGSFLAG',
+                        'RCashDividend', 'SplitMultiplier', 'AvgDolVol',
+                        'MarketCap', 'LiveFlag']
+        self._processed_pl_data = pricing_data[pricing_cols]
 
-    
-    def process_raw_data(self, data, entry_window=10):
+
+    def process_raw_data(self, data):
         # Previous Earnings Return
         data = get_previous_ern_return(data, fillna = True,
                                        prior_data = self._processed_train_data)
@@ -77,15 +87,14 @@ class DataContainer1(object):
         data = get_se_revisions(data, 'REVENUEESTIMATE', 'rev_est_change',
                                 window=10)
 
-        # Get subset of data 10 days after ern announcement
-        data = filter_entry_window(data, window_len=10)
-
         # Several different returns
         data = get_vwap_returns(data, 5, hedged=True)
         data = get_vwap_returns(data, 10, hedged=True)
         data = get_vwap_returns(data, 20, hedged=True)
+        data = get_vwap_returns(data, 30, hedged=True)
 
         return data
+
 
     def prep_data(self, response_days, training_qtrs):
         """
@@ -94,16 +103,31 @@ class DataContainer1(object):
         train/test_data and features objects.
         """
         # Fresh copies of processed raw data
-        train_data, test_data, features = self._get_train_test_features()
+        train_data, test_data, daily_pl = self._get_train_test_daily_data()
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
         train_data = self._add_response_variables(train_data, response_days)
+        daily_pl = self._add_exit_flag(daily_pl, response_days)
 
         self.train_data = train_data
         self.test_data = test_data
-        self.features = features
-
+        self.daily_pl_data = daily_pl
     
+        # Process implementation details
+        self.close_dict = make_variable_dict(
+            self._processed_pl_data, 'RClose')
+        self.vwap_dict = make_variable_dict(
+            self._processed_pl_data, 'LEAD1_AdjVwap')
+        self.dividend_dict = make_variable_dict(
+            self._processed_pl_data, 'RCashDividend', 0)
+        self.split_mult_dict = make_variable_dict(
+            self._processed_pl_data, 'SplitMultiplier', 1)
+        self.liquidity_dict = make_variable_dict(
+            self._processed_pl_data, 'AvgDolVol')
+        self.market_cap_dict = make_variable_dict(
+            self._processed_pl_data, 'MarketCap')
+
+
     def _set_features(self):
         features = [
         # Pricing and Vol vars
@@ -120,17 +144,17 @@ class DataContainer1(object):
         'eps_est_change', 'ebitda_est_change', 'rev_est_change'
         ]
         self.features = features
-        self.ret_cols = ['Ret5', 'Ret10', 'Ret20']
+        self.ret_cols = ['Ret5', 'Ret10', 'Ret20', 'Ret30']
         return
 
 
     ###########################################################################
 
-    def _get_train_test_features(self):
+    def _get_train_test_daily_data(self):
         return (
             self._processed_train_data.copy(),
             self._processed_test_data.copy(),
-            self.features
+            self._processed_pl_data.copy(),
         )
 
     def _trim_training_data(self, data, training_qtrs):
@@ -156,3 +180,15 @@ class DataContainer1(object):
     
     def _add_response_variables(self, data, response_days):
         return data.merge(fixed_response(data, days=response_days))
+
+    def _add_exit_flag(self, data, response_days):
+        assert 'EARNINGSFLAG' in data.columns
+        ernflag = data.pivot(index='Date', columns='SecCode',
+                             values='EARNINGSFLAG')
+        ernflag = ernflag.shift(response_days + self._entry_day).fillna(0)     
+        ernflag.iloc[-1] = 1
+        ernflag = ernflag.unstack().reset_index()
+        ernflag.columns = ['SecCode', 'Date', 'ExitFlag']
+        data = pd.merge(data, ernflag, how='left')
+        return data
+
