@@ -20,7 +20,6 @@ class LongPeadStrategy(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
-
     constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):

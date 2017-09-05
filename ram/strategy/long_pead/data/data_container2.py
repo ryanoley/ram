@@ -111,7 +111,7 @@ class DataContainer2(DataContainer1):
         data = data.merge(ea_data, how='left')
         ea_features.append(v1[1])
 
-        # HACK
+        # HACK to rename columns
         ea_features2 = []
         for x in ea_features:
             if isinstance(x, list):
@@ -120,7 +120,12 @@ class DataContainer2(DataContainer1):
                 ea_features2.append(x)
         ea_features3 = ['EA_' + x for x in ea_features2]
 
-        data = data.rename(columns={i: j for i, j in zip(ea_features2, ea_features3)})
+        all_columns = data.columns.values
+        for i, col in enumerate(all_columns):
+            ind = np.where(col == np.array(ea_features2))[0]
+            if len(ind) > 0:
+                all_columns[i] = ea_features3[ind[0]]
+        data.columns = all_columns
 
         # Separate training from test data
         self._processed_train_data = \

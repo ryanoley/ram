@@ -12,45 +12,30 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            # 'tree_params': [
-            #     {'min_samples_leaf': 200,
-            #      'n_estimators': 500,
-            #      'max_features': 0.8,
-            #     },
-            #     {'min_samples_leaf': 100,
-            #      'n_estimators': 500,
-            #      'max_features': 0.8,
-            #     },
-            #     {'min_samples_leaf': 40,
-            #      'n_estimators': 100,
-            #      'max_features': 0.8,
-            #     },
-            #     {'min_samples_leaf': 40,
-            #      'n_estimators': 100,
-            #      'max_features': 0.8,
-            #      'bootstrap': True,
-            #     },
-            # 
-            #     {'min_samples_leaf': 200,
-            #      'n_estimators': 500,
-            #      'max_features': 'log2',
-            #     },
-            #     {'min_samples_leaf': 40,
-            #      'n_estimators': 100,
-            #      'max_features': 'log2',
-            #     },
-            # ],
             'tree_params': [
-                {'min_samples_leaf': 80,
+                {'min_samples_leaf': 100,
                  'n_estimators': 100,
                  'max_features': 0.8,
-                }
+                },
+                # {'min_samples_leaf': 50,
+                #  'n_estimators': 100,
+                #  'max_features': 0.8,
+                # },
+                {'min_samples_leaf': 100,
+                 'n_estimators': 100,
+                 'max_features': 0.6,
+                },
+                # {'min_samples_leaf': 50,
+                #  'n_estimators': 100,
+                #  'max_features': 0.6,
+                # },
             ],
             'drop_accounting': [False],
             'drop_extremes': [True],
             'drop_starmine': [False],
+            #'drop_extract_alpha': [False, True],
             'drop_market_variables': [True],
-            'training': ['weekly', 'monthly', 'quarterly']
+            'training': ['quarterly', 'monthly', 'weekly'],
         }
 
     def generate_signals(self,
@@ -60,6 +45,7 @@ class SignalModel1(object):
                          drop_extremes,
                          drop_starmine,
                          drop_market_variables,
+                         #drop_extract_alpha,
                          training):
 
         train_data = data_container.train_data
@@ -88,6 +74,14 @@ class SignalModel1(object):
                 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
                 'LAG1_SIINSTOWNERSHIP']
             features = [x for x in features if x not in starmine_vars]
+        # if drop_extract_alpha:
+        #     extract_alpha_vars = [
+        #         'EA_TRESS', 'EA_spread_component', 'EA_skew_component',
+        #         'EA_volume_component', 'EA_CAM1', 'EA_CAM1_slow',
+        #         'EA_reversal_component', 'EA_factor_momentum_component',
+        #         'EA_liquidity_shock_component', 'EA_seasonality_component',
+        #         'EA_tm1', 'EA_Digital_Revenue_Signal']
+        #     features = [x for x in features if x not in extract_alpha_vars]
 
         clf = ExtraTreesClassifier(n_jobs=self.NJOBS, **tree_params)
 

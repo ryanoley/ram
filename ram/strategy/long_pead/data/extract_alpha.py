@@ -49,7 +49,7 @@ using proporietary NLP, that takes into account recency and quality.
 import os
 import pandas as pd
 
-from ram.utils.time_funcs import convert_date_array
+from gearbox import convert_date_array
 
 from StringIO import StringIO
 from google.cloud import storage

@@ -255,7 +255,7 @@ def make_weekly_monthly_indexes(responses, max_response_days):
     time_inds['month_index'] = time_inds.month_index.cumsum().shift(
         -max_response_days).fillna(method='pad')
     # Get week indexes
-    week_inds = [1, 0, 0, 0, 0.] * 100
+    week_inds = [1, 0, 0, 0, 0.] * 10000
     start_ind = 5 - np.where(time_inds.TestFlag)[0][0] % 5
     time_inds['week_index'] = week_inds[start_ind:][:len(time_inds)]
     time_inds.loc[~time_inds.TestFlag, 'week_index'] = 0
