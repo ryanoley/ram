@@ -45,18 +45,21 @@ class DataContainer1(object):
         keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
         data = data.loc[keep_inds]
 
+        # Get data for daily pl calculations
         pricing_data = data[data.TestFlag].copy()
         pricing_data['RCashDividend'] = 0.
         pricing_data['LiveFlag'] = 0
+        pricing_cols = ['Date', 'SecCode', 'RClose', 'EARNINGSFLAG', 'AdjVwap',
+                        'RCashDividend', 'SplitMultiplier', 'AvgDolVol',
+                        'MarketCap', 'LiveFlag']
+
+        # Filter train and test data to one entry date
         data = self.get_data_subset(data, entry_day - 1)
 
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(data[~data.TestFlag])
         self._processed_test_data = data[data.TestFlag]
-        pricing_cols = ['Date', 'SecCode', 'RClose', 'EARNINGSFLAG',
-                        'RCashDividend', 'SplitMultiplier', 'AvgDolVol',
-                        'MarketCap', 'LiveFlag']
         self._processed_pl_data = pricing_data[pricing_cols]
 
 
@@ -117,7 +120,7 @@ class DataContainer1(object):
         self.close_dict = make_variable_dict(
             self._processed_pl_data, 'RClose')
         self.vwap_dict = make_variable_dict(
-            self._processed_pl_data, 'LEAD1_AdjVwap')
+            self._processed_pl_data, 'AdjVwap')
         self.dividend_dict = make_variable_dict(
             self._processed_pl_data, 'RCashDividend', 0)
         self.split_mult_dict = make_variable_dict(
