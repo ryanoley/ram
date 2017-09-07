@@ -401,7 +401,7 @@ class Strategy(object):
         if self._write_flag and self._gcp_implementation:
             write_json_cloud(stats, output_path, self._bucket)
         elif self._write_flag:
-            write_json(stats)
+            write_json(stats, output_path)
 
 
 def copytree(src, dst, symlinks=False, ignore=None):
