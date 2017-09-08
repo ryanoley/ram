@@ -2,10 +2,12 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from gearbox import create_time_index
 from ram.strategy.starmine.data.features import *
 from ram.strategy.basic.utils import make_variable_dict
 
-from gearbox import create_time_index
+SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
+                        'PostErnStrategy','spy.csv')
 
 
 class DataContainer1(object):
@@ -15,29 +17,34 @@ class DataContainer1(object):
         self._processed_test_data = pd.DataFrame()
         self._processed_pricing_data = pd.DataFrame()
         self._set_features()
+        self.prep_market_dicts()
 
     def get_args(self):
         return {
-            'response_days': [10, 20, 30],
+            'response_days': [20, 30],
             'training_qtrs': [-99]
         }
-    
+
+    def prep_market_dicts(self):
+        market_data = read_spy_data()
+        market_data['SplitMultiplier'] = market_data.SplitFactor.pct_change().fillna(0) + 1
+        market_dict = {}
+                # Process implementation details
+        market_dict['close'] = make_variable_dict(market_data, 'RClose')
+        market_dict['vwap'] = make_variable_dict(market_data, 'RVwap')
+        market_dict['dividend'] = make_variable_dict(market_data,
+                                                     'RCashDividend', 0)
+        market_dict['split_mult'] = make_variable_dict(market_data,
+                                                       'SplitMultiplier', 1)
+        self.market_dict = market_dict
+        self._market_data = market_data
+
     def add_data(self, data, entry_day=2):
         """
         Takes in raw data, processes it and caches it
         """
-        
+
         data = self.process_raw_data(data)
-        self._entry_day = entry_day
-
-        # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        data.AdjVwap = np.where(
-            data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
-        data.AdjClose = np.where(
-            data.AdjClose.isnull(), data.AdjVwap, data.AdjClose)
-
-        # SPLITS  - Is this needed?
-        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
 
         # Filter nans
         keep_inds = data[self.features].isnull().sum(axis=1) == 0
@@ -49,11 +56,12 @@ class DataContainer1(object):
         pricing_data = data[data.TestFlag].copy()
         pricing_data['RCashDividend'] = 0.
         pricing_data['LiveFlag'] = 0
-        pricing_cols = ['Date', 'SecCode', 'RClose', 'EARNINGSFLAG', 'AdjVwap',
+        pricing_cols = ['Date', 'SecCode', 'RClose', 'RVwap', 'EARNINGSFLAG', 
                         'RCashDividend', 'SplitMultiplier', 'AvgDolVol',
                         'MarketCap', 'LiveFlag']
 
         # Filter train and test data to one entry date
+        self._entry_day = entry_day
         data = self.get_data_subset(data, entry_day - 1)
 
         # Separate training from test data
@@ -62,8 +70,17 @@ class DataContainer1(object):
         self._processed_test_data = data[data.TestFlag]
         self._processed_pl_data = pricing_data[pricing_cols]
 
-
     def process_raw_data(self, data):
+        
+        # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        data.AdjVwap = np.where(
+            data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
+        data.AdjClose = np.where(
+            data.AdjClose.isnull(), data.AdjVwap, data.AdjClose)
+
+        # SPLITS
+        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
+
         # Previous Earnings Return
         data = get_previous_ern_return(data, fillna = True,
                                        prior_data = self._processed_train_data)
@@ -91,13 +108,12 @@ class DataContainer1(object):
                                 window=10)
 
         # Several different returns
-        data = get_vwap_returns(data, 5, hedged=True)
-        data = get_vwap_returns(data, 10, hedged=True)
-        data = get_vwap_returns(data, 20, hedged=True)
-        data = get_vwap_returns(data, 30, hedged=True)
+        data = get_vwap_returns(data, 20, hedged=True,
+                                market_data=self._market_data)
+        data = get_vwap_returns(data, 30, hedged=True,
+                                market_data=self._market_data)
 
         return data
-
 
     def prep_data(self, response_days, training_qtrs):
         """
@@ -120,7 +136,7 @@ class DataContainer1(object):
         self.close_dict = make_variable_dict(
             self._processed_pl_data, 'RClose')
         self.vwap_dict = make_variable_dict(
-            self._processed_pl_data, 'AdjVwap')
+            self._processed_pl_data, 'RVwap')
         self.dividend_dict = make_variable_dict(
             self._processed_pl_data, 'RCashDividend', 0)
         self.split_mult_dict = make_variable_dict(
@@ -129,7 +145,6 @@ class DataContainer1(object):
             self._processed_pl_data, 'AvgDolVol')
         self.market_cap_dict = make_variable_dict(
             self._processed_pl_data, 'MarketCap')
-
 
     def _set_features(self):
         features = [
@@ -147,9 +162,8 @@ class DataContainer1(object):
         'eps_est_change', 'ebitda_est_change', 'rev_est_change'
         ]
         self.features = features
-        self.ret_cols = ['Ret5', 'Ret10', 'Ret20', 'Ret30']
+        self.ret_cols = ['Ret20', 'Ret30']
         return
-
 
     ###########################################################################
 
@@ -180,7 +194,7 @@ class DataContainer1(object):
         ernflag = ernflag[ernflag.DtSelect == 1].drop('DtSelect', axis=1)
         subset = pd.merge(data, ernflag)
         return subset
-    
+
     def _add_response_variables(self, data, response_days):
         return data.merge(fixed_response(data, days=response_days))
 
@@ -195,3 +209,11 @@ class DataContainer1(object):
         data = pd.merge(data, ernflag, how='left')
         return data
 
+
+
+def read_spy_data(spy_path=None):
+    if spy_path is None:
+        spy_path = SPY_PATH
+    spy = pd.read_csv(spy_path)
+    spy.Date = convert_date_array(spy.Date)
+    return spy

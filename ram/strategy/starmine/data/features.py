@@ -4,8 +4,7 @@ import pandas as pd
 import datetime as dt
 from gearbox import convert_date_array, create_time_index
 
-SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
-                        'PostErnStrategy','spy.csv')
+
 
 def ern_date_blackout(data, offset1=-1, offset2=1):
     assert offset1 <= 0, 'Offset1 must be less than/equal to 0'
@@ -132,7 +131,7 @@ def filter_entry_window(data, window_len=10):
     return pd.merge(entry_dates, data)
 
 
-def get_vwap_returns(data, days, hedged=False):
+def get_vwap_returns(data, days, hedged=False, market_data=None):
     exit_col = 'LEAD{}_AdjVwap'.format(days)
     ret_col = 'Ret{}'.format(days)
     
@@ -143,11 +142,10 @@ def get_vwap_returns(data, days, hedged=False):
     prices[ret_col] = (prices[exit_col] / prices.LEAD1_AdjVwap)
 
     if hedged:
-        spy = read_spy_data()
-        if exit_col not in spy.columns:
+        if exit_col not in market_data.columns:
             print 'SPY Lead columns not available for {} days'.format(days)
             return data
-        spy_prices  = spy[['Date', exit_col, 'LEAD1_AdjVwap']].copy()
+        spy_prices  = market_data[['Date', exit_col, 'LEAD1_AdjVwap']].copy()
         spy_prices['MktRet'] = (spy_prices[exit_col] / spy_prices.LEAD1_AdjVwap)
         prices = prices.merge(spy_prices[['Date', 'MktRet']], how='left')
         prices[ret_col] -= prices.MktRet
@@ -155,13 +153,6 @@ def get_vwap_returns(data, days, hedged=False):
     data = data.merge(prices[['SecCode', 'Date', ret_col]], how='left')
     return data
 
-
-def read_spy_data(spy_path=None):
-    if spy_path is None:
-        spy_path = SPY_PATH
-    spy = pd.read_csv(spy_path)
-    spy.Date = convert_date_array(spy.Date)
-    return spy
 
 
 ############# RESPONSES ##################
