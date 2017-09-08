@@ -16,10 +16,9 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [0.005, 0.01, 0.015, 0.02],
-            'pos_size': [.002, .0035, .005]
+            'thresh': [0.005, 0.01, 0.015],
+            'pos_size': [.002, .0035]
         }
-
 
     def get_daily_pl_old(self, data_container, signals, thresh, **kwargs):
         """
@@ -78,7 +77,7 @@ class PortfolioConstructor1(Constructor):
             else:
                 scores = scores_dict[prior_dt]
 
-            vwaps = data_container.close_dict[date]
+            vwaps = data_container.vwap_dict[date]
             closes = data_container.close_dict[date]
             dividends = data_container.dividend_dict[date]
             splits = data_container.split_mult_dict[date]
@@ -96,25 +95,13 @@ class PortfolioConstructor1(Constructor):
             else:
                 sizes = self.get_position_sizes(scores, daily_pl_data,
                                                 date, prior_dt, **kwargs)
-                daily_pl_data = self.update_daily_df(daily_pl_data, date, sizes)
                 sizes = self._get_position_sizes_dollars(sizes)
-                portfolio.update_position_sizes(sizes, closes)
+                portfolio.update_position_sizes(sizes, vwaps)
+                daily_pl_data = self.update_pl_data(daily_pl_data, sizes,
+                                     date, prior_dt)
 
-            pl_long, pl_short = portfolio.get_portfolio_daily_pl()
-            daily_turnover = portfolio.get_portfolio_daily_turnover()
-            daily_exposure = portfolio.get_portfolio_exposure()
+            daily_df = update_daily_df(daily_df, portfolio, date)
 
-            daily_df.loc[date, 'PL'] = pl_long + pl_short
-            daily_df.loc[date, 'LongPL'] = pl_long
-            daily_df.loc[date, 'ShortPL'] = pl_short
-            daily_df.loc[date, 'Turnover'] = daily_turnover
-            daily_df.loc[date, 'Exposure'] = daily_exposure
-            daily_df.loc[date, 'OpenPositions'] = sum([
-                1 if x.shares != 0 else 0
-                for x in portfolio.positions.values()])
-            # Daily portfolio stats
-            daily_stats = portfolio.get_portfolio_stats()
-            daily_df.loc[date, 'stat1'] = daily_stats['stat1']
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats
@@ -135,53 +122,84 @@ class PortfolioConstructor1(Constructor):
         scores = pd.Series(scores).to_frame()
         scores.columns = ['score']
         if len(scores) == 0:
-            new_secCodes = {'long':[], 'short':[]}
+            new_shorts = new_longs = set([])
         else:
-            new_secCodes = {'long':scores[scores.score >= thresh].index,
-                            'short':scores[scores.score <= -thresh].index}
-        
-        live_secCodes = {}
-        live_shorts =  set(prior_df.loc[(prior_df.LiveFlag == -1), 'SecCode'])
-        live_shorts = live_shorts - close_secCodes
-        live_shorts.update(set(new_secCodes['short']))
-        live_secCodes['short'] = live_shorts
+            new_longs = set(scores[scores.score >= thresh].index)
+            new_shorts = set(scores[scores.score <= -thresh].index)
 
-        live_longs =  set(prior_df.loc[(prior_df.LiveFlag == 1), 'SecCode'])
-        live_longs = live_longs - close_secCodes
-        live_longs.update(set(new_secCodes['long']))
-        live_secCodes['long'] = live_longs
+        prev_shorts =  set(prior_df.loc[(prior_df.LiveFlag == -1), 'SecCode'])
+        live_shorts = prev_shorts - close_secCodes
+        live_shorts.update(new_shorts)
+
+        prev_longs =  set(prior_df.loc[(prior_df.LiveFlag == 1), 'SecCode'])
+        live_longs = prev_longs - close_secCodes
+        live_longs.update(new_longs)
 
         output = pd.DataFrame(index=daily_pl_data.SecCode.unique(),
                               data = {'weights':0.})
-        output.loc[output.index.isin(live_secCodes['long']), 'weights'] = 1.
-        output.loc[output.index.isin(live_secCodes['short']), 'weights'] = -1.
+        output.loc[output.index.isin(live_longs), 'weights'] = 1.
+        output.loc[output.index.isin(live_shorts), 'weights'] = -1.
         
         exposure = pos_size * np.abs(output.weights).sum()
-        pos_size = (1. / exposure) * pos_size if exposure > 1. else pos_size
-        output['weights'] *= pos_size
+        scaled_size = (1. / exposure) * pos_size if exposure > 1. else pos_size
+        output['weights'] *= scaled_size
+        
+        if scaled_size == pos_size:
+            positions_to_update = new_longs.copy()
+            positions_to_update.update(new_shorts)
+            positions_to_update.update(close_secCodes)
+        else:
+            positions_to_update = live_longs.copy()
+            positions_to_update.update(live_shorts)
+            positions_to_update.update(close_secCodes)
+
+        output = output[output.index.isin(positions_to_update)]
 
         return pd.Series(output.weights)
 
 
-    def update_daily_df(self, data, date, sizes):
+    def update_pl_data(self, data, sizes, date, prior_dt):
         assert 'LiveFlag' in data.columns
-        longs = sizes[sizes > 0].index
-        shorts = sizes[sizes < 0].index
-        data.loc[(data.Date == date) & (data.SecCode.isin(longs)),'LiveFlag'] = 1
-        data.loc[(data.Date == date) & (data.SecCode.isin(shorts)), 'LiveFlag'] = -1
+        if isinstance(sizes, dict):
+            sizes = pd.Series(sizes)
+        
+        prev_longs = set(data.loc[(data.Date == prior_dt) &
+            (data.LiveFlag == 1), 'SecCode'])
+        prev_shorts = set(data.loc[(data.Date == prior_dt) &
+            (data.LiveFlag == -1), 'SecCode'])
+
+        new_longs = set(sizes[sizes > 0].index)
+        new_shorts = set(sizes[sizes < 0].index)
+        close_secCodes = set(sizes[sizes == 0].index)
+
+        new_longs.update(prev_longs)
+        new_shorts.update(prev_shorts)
+        hold_longs = new_longs - close_secCodes
+        hold_shorts = new_shorts - close_secCodes
+
+        data.loc[(data.Date == date) & (data.SecCode.isin(hold_longs)),
+            'LiveFlag'] = 1
+        data.loc[(data.Date == date) & (data.SecCode.isin(hold_shorts)),
+            'LiveFlag'] = -1
         return data
+
+
+    def update_daily_df(self, data, portfolio, date):
+        daily_df = data.copy()
+        pl_long, pl_short = portfolio.get_portfolio_daily_pl()
+        daily_turnover = portfolio.get_portfolio_daily_turnover()
+        daily_exposure = portfolio.get_portfolio_exposure()
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        daily_df.loc[date, 'PL'] = pl_long + pl_short
+        daily_df.loc[date, 'LongPL'] = pl_long
+        daily_df.loc[date, 'ShortPL'] = pl_short
+        daily_df.loc[date, 'Turnover'] = daily_turnover
+        daily_df.loc[date, 'Exposure'] = daily_exposure
+        daily_df.loc[date, 'OpenPositions'] = sum([
+            1 if x.shares != 0 else 0
+            for x in portfolio.positions.values()])
+        # Daily portfolio stats
+        daily_stats = portfolio.get_portfolio_stats()
+        daily_df.loc[date, 'stat1'] = daily_stats['stat1']
+        return daily_df
+    
