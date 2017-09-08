@@ -16,10 +16,9 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            #'feat':[1]
-            'max_features': [0.75],
+            'max_features': [0.65, .85],
             'n_estimators': [100],
-            'min_samples_leaf': [50, 100]
+            'min_samples_leaf': [30, 50, 100]
         }
 
     def rf_signals(self, data_container, max_features,

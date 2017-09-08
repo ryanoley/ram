@@ -4,8 +4,8 @@ import datetime as dt
 
 from ram.strategy.base import Strategy
 
-from ram.strategy.starmine.data.data_container1 import DataContainer1
 from ram.strategy.starmine.signals.signals1 import SignalModel1
+from ram.strategy.starmine.data.data_container1 import DataContainer1
 from ram.strategy.starmine.constructor.constructor1 import PortfolioConstructor1
 
 
@@ -46,7 +46,7 @@ class PostErnStrategy(Strategy):
         # Restart Functionality: check if file already run.
         if time_index <= self._max_run_time_index:
             return
-        if time_index < -8:
+        if time_index < 8:
             return
 
         args_data = make_arg_iter(self.data.get_args())
@@ -116,8 +116,7 @@ class PostErnStrategy(Strategy):
         return [
             # Descriptive
             'GGROUP', 'EARNINGSRETURN', 'EARNINGSFLAG', 'MarketCap',
-            'AvgDolVol', 'SplitFactor', 'RVwap', 'LEAD1_RVwap', 'RClose',
-            'RCashDividend',
+            'AvgDolVol', 'SplitFactor', 'RVwap', 'RClose', 'RCashDividend',
 
             # Pricing
             'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',

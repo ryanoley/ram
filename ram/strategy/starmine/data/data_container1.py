@@ -28,6 +28,7 @@ class DataContainer1(object):
     def prep_market_dicts(self):
         market_data = read_spy_data()
         market_data['SplitMultiplier'] = market_data.SplitFactor.pct_change().fillna(0) + 1
+        market_data.loc[:, 'SecCode'] = 'spy'
         market_dict = {}
                 # Process implementation details
         market_dict['close'] = make_variable_dict(market_data, 'RClose')

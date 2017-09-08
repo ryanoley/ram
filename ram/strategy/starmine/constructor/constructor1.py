@@ -16,39 +16,9 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [0.005, 0.01, 0.015],
+            'thresh': [0.005, 0.01, .015],
             'pos_size': [.002, .0035]
         }
-
-    def get_daily_pl_old(self, data_container, signals, thresh, **kwargs):
-        """
-        Parameters
-        ----------
-        """
-
-        test = data_container.test_data.copy()
-        hold_days = kwargs['hold_days']
-        pos_size = kwargs['pos_size']
-        
-        assert 'Ret{}'.format(hold_days) in test.columns
-        test['Ret'] = test['Ret{}'.format(hold_days)].copy()
-
-        longs = test[test.preds >= thresh].copy()
-        shorts = test[test.preds <= -thresh].copy()
-        longs = longs.groupby('Date')
-        shorts = shorts.groupby('Date')
-
-        out = pd.DataFrame(index=test.Date.unique())
-        out['Long'] = longs.Ret.mean() - COST
-        out['nLong'] = longs.Date.count()
-        out['Short'] = shorts.Ret.mean() + COST
-        out['nShort'] = shorts.Date.count()
-        out.fillna(0., inplace=True)
-        out['Ret'] = out.Long - out.Short
-        out['nPos'] = out.nLong + out.nShort
-        out.sort_index(inplace=True)
-        out.Ret *= (out.nPos * pos_size)
-        return out
 
 
     def get_daily_pl(self, data_container, signals, **kwargs):
@@ -82,6 +52,11 @@ class PortfolioConstructor1(Constructor):
             dividends = data_container.dividend_dict[date]
             splits = data_container.split_mult_dict[date]
 
+            spy_vwap = data_container.market_dict['vwap'][date]
+            spy_close = data_container.market_dict['close'][date]
+            spy_dividend = data_container.market_dict['dividend'][date]
+            spy_split = data_container.market_dict['split_mult'][date]
+
             # If close is very low, drop as well
             low_price_seccodes = filter_seccodes(closes, LOW_PRICE_FILTER)
 
@@ -89,18 +64,27 @@ class PortfolioConstructor1(Constructor):
                 scores[seccode] = np.nan
 
             portfolio.update_prices(closes, dividends, splits)
+            portfolio.update_prices(spy_close, spy_dividend, spy_split)
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                sizes = self.get_position_sizes(scores, daily_pl_data,
-                                                date, prior_dt, **kwargs)
-                sizes = self._get_position_sizes_dollars(sizes)
-                portfolio.update_position_sizes(sizes, vwaps)
-                daily_pl_data = self.update_pl_data(daily_pl_data, sizes,
-                                     date, prior_dt)
+                positions, hedge = self.get_position_sizes(scores,
+                                                           daily_pl_data,
+                                                           date, prior_dt,
+                                                           **kwargs)
 
-            daily_df = update_daily_df(daily_df, portfolio, date)
+                position_sizes = self._get_position_sizes_dollars(positions)
+                portfolio.update_position_sizes(position_sizes, vwaps)
+
+                spy_size = self._get_position_sizes_dollars(hedge)
+                portfolio.update_position_sizes(spy_size, spy_vwap)
+
+                daily_pl_data = self.update_pl_data(daily_pl_data,
+                                                    position_sizes,
+                                                    date, prior_dt)
+
+            daily_df = self.update_daily_df(daily_df, portfolio, date)
 
         # Time Index aggregate stats
         stats = {}
@@ -143,6 +127,8 @@ class PortfolioConstructor1(Constructor):
         exposure = pos_size * np.abs(output.weights).sum()
         scaled_size = (1. / exposure) * pos_size if exposure > 1. else pos_size
         output['weights'] *= scaled_size
+        net_exposure = pd.Series(data={'spy':output.weights.sum() * -1},
+                                 name='weights')
         
         if scaled_size == pos_size:
             positions_to_update = new_longs.copy()
@@ -155,7 +141,7 @@ class PortfolioConstructor1(Constructor):
 
         output = output[output.index.isin(positions_to_update)]
 
-        return pd.Series(output.weights)
+        return pd.Series(output.weights), net_exposure
 
 
     def update_pl_data(self, data, sizes, date, prior_dt):
