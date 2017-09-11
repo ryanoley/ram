@@ -250,7 +250,8 @@ def make_weekly_monthly_indexes(responses, max_response_days):
     # Add indexes for periods
     time_inds = responses[['Date', 'TestFlag']].drop_duplicates()
     # Get month indexes
-    time_inds['month_index'] = np.append(0, np.diff([x.month for x in time_inds.Date]))
+    time_inds['month_index'] = np.append(
+        False, np.diff([x.month for x in time_inds.Date]) != 0).astype(int)
     time_inds.loc[~time_inds.TestFlag, 'month_index'] = 0
     time_inds['month_index'] = time_inds.month_index.cumsum().shift(
         -max_response_days).fillna(method='pad')
