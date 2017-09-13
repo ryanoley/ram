@@ -13,16 +13,14 @@ class SignalModel1(object):
     def get_args(self):
         return {
             'model_params': [
+                {'sort_variable': 'PRMA10_AdjClose'},
+                {'sort_variable': 'VOL10_AdjClose'},
+                {'sort_variable': 'RSI10_AdjClose'},
                 {'min_samples_leaf': 100,
                  'n_estimators': 100,
                  'max_features': 0.8,
                 },
 
-                {'sort_variable': 'PRMA10_AdjClose'},
-                {'sort_variable': 'VOL10_AdjClose'},
-                {'sort_variable': 'RSI10_AdjClose'},
-                {'sort_variable': 'LAG1_ARM'},
-                {'sort_variable': 'LAG1_SISECTORRANK'},
                 # {'min_samples_leaf': 50,
                 #  'n_estimators': 100,
                 #  'max_features': 0.8,
@@ -36,11 +34,14 @@ class SignalModel1(object):
                 #  'max_features': 0.6,
                 # },
             ],
-            'drop_accounting': [False, True],
+            'drop_accounting': [True],
+            #'drop_accounting': [False, True],
             'drop_extremes': [True],
-            'drop_starmine': [False, True],
+            'drop_starmine': [True],
+            #'drop_starmine': [False, True],
             'drop_extract_alpha': [True],
-            'drop_market_variables': ['constrained', False, True],
+            #'drop_market_variables': ['constrained', False, True],
+            'drop_market_variables': [True],
             'training': ['quarterly']
         }
 
@@ -61,7 +62,7 @@ class SignalModel1(object):
         if 'sort_variable' in model_params:
             test_data = test_data[['SecCode', 'Date',
                                    model_params['sort_variable']]].copy()
-            test_data['preds'] = test_data[model_params['sort_variable']]
+            test_data['preds'] = test_data[model_params['sort_variable']] * -1
             self.preds_data = test_data[['SecCode', 'Date', 'preds']]
             return
 

@@ -84,6 +84,7 @@ class LongPeadStrategy(Strategy):
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _capture_output(self, results, stats, arg_index):
+        results = results.copy()
         returns = pd.DataFrame(results.PL / self.constructor.booksize)
         returns.columns = [arg_index]
         # Rename columns
