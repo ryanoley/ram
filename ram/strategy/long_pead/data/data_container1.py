@@ -70,6 +70,12 @@ class DataContainer1(object):
         """
         Takes in raw data, processes it and caches it
         """
+        # Trim only one quarter's worth of training data
+        min_date = data.Date[data.TestFlag].min()
+        trim_date = min_date - dt.timedelta(days=80)
+        trim_date = dt.date(trim_date.year, trim_date.month, 1)
+        data = data[data.Date >= trim_date].copy()
+
         # Separated for testing ease
         data, features = self._process_data(data)
         # Add market data

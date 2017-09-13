@@ -13,7 +13,6 @@ from ram.strategy.long_pead.constructor.constructor2 import \
     PortfolioConstructor2
 
 from ram.strategy.long_pead.signals.signals1 import SignalModel1
-from ram.strategy.long_pead.signals.signals2 import SignalModel2
 
 
 class LongPeadStrategy(Strategy):
