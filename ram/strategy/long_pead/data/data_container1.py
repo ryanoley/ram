@@ -7,8 +7,9 @@ from ram.strategy.long_pead.utils import ern_date_blackout
 from ram.strategy.long_pead.utils import make_anchor_ret_rank
 from ram.strategy.long_pead.utils import ern_return
 from ram.strategy.long_pead.utils import outlier_rank
-from ram.strategy.long_pead.utils import smoothed_responses
 from ram.strategy.long_pead.utils import make_variable_dict
+from ram.strategy.long_pead.utils import simple_responses
+from ram.strategy.long_pead.utils import smoothed_responses
 
 from gearbox import create_time_index, convert_date_array
 
@@ -17,7 +18,7 @@ class DataContainer1(object):
 
     def __init__(self):
         self._time_index_data_for_responses = {}
-        self._time_index_response_data = {}
+        self._time_index_response_data = {'smoothed': {}, 'simple': {}}
         # Deliverable
         self._processed_train_data = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
@@ -25,21 +26,32 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [[2, 4, 6], [2]],
-            'response_thresh': [0.30],
-            'training_qtrs': [20]
+            'response_params': [
+                {'type': 'smoothed', 'response_days': [2, 4, 6], 'response_thresh': 0.3},
+                {'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
+                {'type': 'simple', 'response_days': 2},
+                {'type': 'simple', 'response_days': 4},
+            ],
+            'training_qtrs': [-99]
         }
 
-    def prep_data(self, time_index,
-                  response_days, response_thresh, training_qtrs):
+    def prep_data(self, time_index, response_params, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
         train/test_data and features objects.
         """
         # Get (and process if needed) response data
-        response_data = self._get_response_data(time_index, response_days,
-                                                response_thresh)
+        if response_params['type'] == 'smoothed':
+            response_data = self._get_smoothed_response_data(
+                time_index,
+                response_params['response_days'],
+                response_params['response_thresh'])
+        else:
+            response_data = self._get_simple_response_data(
+                time_index,
+                response_params['response_days'])
+
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
         # Adjust per hyperparameters
@@ -223,11 +235,12 @@ class DataContainer1(object):
         max_ind = np.max(inds)
         return data.iloc[inds > (max_ind-training_qtrs)]
 
-    def _get_response_data(self, time_index, response_days, response_thresh):
+    def _get_smoothed_response_data(self, time_index, response_days,
+                                    response_thresh):
         # Process input
         if not isinstance(response_days, list):
             response_days = [response_days]
-        resp_dict = self._time_index_response_data
+        resp_dict = self._time_index_response_data['smoothed']
         # Cached data exist for this particular quarter?
         if time_index not in resp_dict:
             resp_dict[time_index] = {}
@@ -248,6 +261,31 @@ class DataContainer1(object):
 
         period_inds = make_weekly_monthly_indexes(
             responses, max(response_days))
+
+        return responses.merge(period_inds).reset_index(drop=True)
+
+    def _get_simple_response_data(self, time_index, response_days):
+        resp_dict = self._time_index_response_data['simple']
+        # Cached data exist for this particular quarter?
+        if time_index not in resp_dict:
+            resp_dict[time_index] = {}
+
+        data_name = str((response_days))
+        if data_name not in resp_dict[time_index]:
+            resp_dict[time_index][data_name] = simple_responses(
+                self._time_index_data_for_responses[time_index],
+                days=response_days)
+        # Stack time indexes
+        time_indexes = resp_dict.keys()
+        time_indexes.sort()
+        responses = pd.DataFrame()
+        for t in time_indexes[:-1]:
+            temp_r = resp_dict[t][data_name]
+            responses = responses.append(temp_r[~temp_r.TestFlag])
+        t = time_indexes[-1]
+        responses = responses.append(resp_dict[t][data_name])
+
+        period_inds = make_weekly_monthly_indexes(responses, response_days)
 
         return responses.merge(period_inds).reset_index(drop=True)
 

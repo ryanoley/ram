@@ -102,6 +102,7 @@ class Constructor(object):
             daily_stats = portfolio.get_portfolio_stats()
             daily_df.loc[date, 'TicketChargePrc'] = \
                 daily_stats['min_ticket_charge_prc']
+            daily_df.loc[date, 'MeanSignal'] = np.nanmean(scores.values())
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats

@@ -13,35 +13,28 @@ class SignalModel1(object):
     def get_args(self):
         return {
             'model_params': [
-                {'sort_variable': 'PRMA10_AdjClose'},
-                {'sort_variable': 'VOL10_AdjClose'},
-                {'sort_variable': 'RSI10_AdjClose'},
                 {'min_samples_leaf': 100,
                  'n_estimators': 100,
                  'max_features': 0.8,
                 },
-
                 # {'min_samples_leaf': 50,
                 #  'n_estimators': 100,
                 #  'max_features': 0.8,
                 # },
                 # {'min_samples_leaf': 100,
                 #  'n_estimators': 100,
-                #  'max_features': 0.6,
+                #  'max_features': 0.5,
                 # },
                 # {'min_samples_leaf': 50,
                 #  'n_estimators': 100,
                 #  'max_features': 0.6,
                 # },
             ],
-            'drop_accounting': [True],
-            #'drop_accounting': [False, True],
+            'drop_accounting': [False],
             'drop_extremes': [True],
-            'drop_starmine': [True],
-            #'drop_starmine': [False, True],
+            'drop_starmine': [False],
             'drop_extract_alpha': [True],
-            #'drop_market_variables': ['constrained', False, True],
-            'drop_market_variables': [True],
+            'drop_market_variables': ['constrained', False, True],
             'training': ['quarterly']
         }
 
@@ -58,13 +51,6 @@ class SignalModel1(object):
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
-
-        if 'sort_variable' in model_params:
-            test_data = test_data[['SecCode', 'Date',
-                                   model_params['sort_variable']]].copy()
-            test_data['preds'] = test_data[model_params['sort_variable']] * -1
-            self.preds_data = test_data[['SecCode', 'Date', 'preds']]
-            return
 
         if drop_accounting:
             accounting_vars = [
@@ -110,22 +96,11 @@ class SignalModel1(object):
 
             for i in np.arange(1, max(test_data.week_index)+1):
                 test_data_2 = test_data[test_data.week_index == i]
-
                 inds = train_data.week_index_train_offset < i
                 clf.fit(X=train_data.loc[inds, features],
                         y=train_data.loc[inds, 'Response'])
-
-                # Get indexes of long and short sides
-                short_ind = np.where(clf.classes_ == -1)[0][0]
-                long_ind = np.where(clf.classes_ == 1)[0][0]
-
-                # Get test predictions to create portfolios on:
-                #    Long Prediction - Short Prediction
                 preds = clf.predict_proba(test_data_2[features])
-
-                test_data_2.loc[:, 'preds'] = preds[:, long_ind] - \
-                    preds[:, short_ind]
-
+                test_data_2.loc[:, 'preds'] = _get_preds(clf, preds)
                 train_data = train_data.append(test_data_2)
 
             test_data = train_data[train_data.TestFlag].reset_index(True)
@@ -142,23 +117,12 @@ class SignalModel1(object):
                 max_date = max(dates[months == m])
                 test_data_2 = test_data[(test_data.Date >= min_date) &
                                         (test_data.Date <= max_date)].copy()
-
                 # THIS IS A BIG ASSUMPTION. DO WE WANT TO DROP THESE OBS?
                 inds = train_data.month_index <= i
                 clf.fit(X=train_data.loc[inds, features],
                         y=train_data.loc[inds, 'Response'])
-
-                # Get indexes of long and short sides
-                short_ind = np.where(clf.classes_ == -1)[0][0]
-                long_ind = np.where(clf.classes_ == 1)[0][0]
-
-                # Get test predictions to create portfolios on:
-                #    Long Prediction - Short Prediction
                 preds = clf.predict_proba(test_data_2[features])
-
-                test_data_2.loc[:, 'preds'] = preds[:, long_ind] - \
-                    preds[:, short_ind]
-
+                test_data_2.loc[:, 'preds'] = _get_preds(clf, preds)
                 train_data = train_data.append(test_data_2)
 
             test_data = train_data[train_data.TestFlag].reset_index(True)
@@ -169,15 +133,16 @@ class SignalModel1(object):
             inds = train_data.week_index_train_offset < 1
             clf.fit(X=train_data.loc[inds, features],
                     y=train_data.loc[inds, 'Response'])
-
-            # Get indexes of long and short sides
-            short_ind = np.where(clf.classes_ == -1)[0][0]
-            long_ind = np.where(clf.classes_ == 1)[0][0]
-
-            # Get test predictions to create portfolios on:
-            #    Long Prediction - Short Prediction
             preds = clf.predict_proba(test_data[features])
-
-            test_data.loc[:, 'preds'] = \
-                preds[:, long_ind] - preds[:, short_ind]
+            test_data.loc[:, 'preds'] = _get_preds(clf, preds)
             self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
+
+
+def _get_preds(classifier, preds):
+    if -1 in classifier.classes_:
+        short_ind = np.where(classifier.classes_ == -1)[0][0]
+        long_ind = np.where(classifier.classes_ == 1)[0][0]
+        return preds[:, long_ind] - preds[:, short_ind]
+    else:
+        long_ind = np.where(classifier.classes_ == 1)[0][0]
+        return preds[:, long_ind]
