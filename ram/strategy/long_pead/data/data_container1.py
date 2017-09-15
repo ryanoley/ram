@@ -30,7 +30,6 @@ class DataContainer1(object):
                 {'type': 'smoothed', 'response_days': [2, 4, 6], 'response_thresh': 0.3},
                 {'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
                 {'type': 'simple', 'response_days': 2},
-                {'type': 'simple', 'response_days': 4},
             ],
             'training_qtrs': [-99]
         }
@@ -108,7 +107,7 @@ class DataContainer1(object):
         """
         Separated from add data for testing purposes
         """
-        features = [
+        proposed_features = [
             'PRMA120_AvgDolVol', 'PRMA10_AdjClose',
             'PRMA20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
             'BOLL60_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
@@ -139,6 +138,8 @@ class DataContainer1(object):
             'LAG1_SISECTORRANK', 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
             'LAG1_SIINSTOWNERSHIP',
         ]
+
+        features = list(set(proposed_features).intersection(data.columns))
 
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         data.AdjVwap = np.where(

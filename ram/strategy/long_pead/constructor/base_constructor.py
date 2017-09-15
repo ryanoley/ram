@@ -25,7 +25,7 @@ class Constructor(object):
     def get_args(self):
         raise NotImplementedError('Constructor.get_args')
 
-    def __init__(self, booksize=30e6):
+    def __init__(self, booksize=10e6):
         """
         Parameters
         ----------
