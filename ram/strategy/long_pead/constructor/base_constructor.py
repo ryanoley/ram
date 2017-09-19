@@ -18,7 +18,7 @@ class Constructor(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def get_position_sizes(self):
+    def get_position_sizes(self, scores, **kwargs):
         raise NotImplementedError('Constructor.get_position_sizes')
 
     @abstractmethod
@@ -42,10 +42,29 @@ class Constructor(object):
         signals
         kwargs
         """
-        scores_dict = make_variable_dict(signals.preds_data, 'preds')
-
         portfolio = Portfolio()
 
+        # Process needed values into dictionaries for efficiency
+        scores = make_variable_dict(
+            signals.preds_data, 'preds')
+        closes = make_variable_dict(
+            data_container.test_data, 'RClose')
+        dividends = make_variable_dict(
+            data_container.test_data, 'RCashDividend', 0)
+        splits = make_variable_dict(
+            data_container.test_data, 'SplitMultiplier', 1)
+        liquidity = make_variable_dict(
+            data_container.test_data, 'AvgDolVol')
+        market_caps = make_variable_dict(
+            data_container.test_data, 'MarketCap')
+        sectors = make_variable_dict(
+            data_container.test_data, 'GSECTOR')
+
+        self.data_container = data_container
+        self.signals = signals
+        self.portfolio = portfolio
+
+        # Dates to iterate over
         unique_test_dates = np.unique(data_container.test_data.Date)
 
         # Output object
@@ -55,35 +74,26 @@ class Constructor(object):
 
         for i, date in enumerate(unique_test_dates):
 
-            scores = scores_dict[date]
-
-            closes = data_container.close_dict[date]
-            dividends = data_container.dividend_dict[date]
-            splits = data_container.split_mult_dict[date]
-
-            # HACK to get into get_position_sizes
-            self.liquidity = data_container.liquidity_dict[date]
-            self.market_cap = data_container.market_cap_dict[date]
-            self.sector = data_container.sector_dict[date]
-
             # If a low liquidity value, set score to nan
             # Update every five days
             if i % 5 == 0:
                 low_liquidity_seccodes = filter_seccodes(
-                    self.liquidity, LOW_LIQUIDITY_FILTER)
+                    liquidity[date], LOW_LIQUIDITY_FILTER)
             # If close is very low, drop as well
-            low_price_seccodes = filter_seccodes(closes, LOW_PRICE_FILTER)
+            low_price_seccodes = filter_seccodes(
+                closes[date], LOW_PRICE_FILTER)
 
             for seccode in set(low_liquidity_seccodes+low_price_seccodes):
-                scores[seccode] = np.nan
+                scores[date][seccode] = np.nan
 
-            portfolio.update_prices(closes, dividends, splits)
+            portfolio.update_prices(
+                closes[date], dividends[date], splits[date])
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                sizes = self._get_position_sizes_dollars(
-                    self.get_position_sizes(scores, **kwargs))
+                sizes = self.get_position_sizes(scores[date], **kwargs)
+                sizes = self._scale_position_sizes_dollars(sizes)
                 portfolio.update_position_sizes(sizes, closes)
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
@@ -107,7 +117,7 @@ class Constructor(object):
         stats = {}
         return daily_df, stats
 
-    def _get_position_sizes_dollars(self, sizes):
+    def _scale_position_sizes_dollars(self, sizes):
         """
         Setup to normalize outputs from derived class. Uses booksize
         to convert to dollars
