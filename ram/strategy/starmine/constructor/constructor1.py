@@ -3,12 +3,11 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.basic.constructor.portfolio import Portfolio
-from ram.strategy.starmine.constructor.base_constructor import Constructor, filter_seccodes
+from ram.strategy.starmine.constructor.portfolio import Portfolio
+from ram.strategy.starmine.constructor.base_constructor import Constructor
 from ram.strategy.starmine.utils import make_variable_dict, get_prior_business_date
 
 
-LOW_PRICE_FILTER = 7
 COST = .0015
 
 
@@ -16,10 +15,10 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [0.005, 0.01, .015],
-            'pos_size': [.002, .0035]
+            'thresh': [0.005, 0.01],
+            'pos_size': [.002, .0035],
+            'dd_thresh': [-.05, -.1],
         }
-
 
     def get_daily_pl(self, data_container, signals, **kwargs):
         """
@@ -30,59 +29,43 @@ class PortfolioConstructor1(Constructor):
         kwargs
         """
         scores_dict = make_variable_dict(signals.preds_data, 'preds')
+        exit_dict = data_container.exit_dict.copy()
 
         portfolio = Portfolio()
-
-        daily_pl_data = data_container.daily_pl_data.copy()
-        unique_test_dates = np.unique(daily_pl_data.Date)
-        prior_bdates = get_prior_business_date(unique_test_dates)
+        test_dates = data_container.test_dates
+        prior_bdates = get_prior_business_date(test_dates)
 
         # Output object
-        daily_df = pd.DataFrame(index=unique_test_dates, dtype=float)
+        daily_df = pd.DataFrame(index=test_dates, dtype=float)
 
-        for prior_dt, date in zip(prior_bdates, unique_test_dates):
-            
-            if prior_dt not in scores_dict.keys():
-                scores = {}
-            else:
-                scores = scores_dict[prior_dt]
+        for prior_dt, date in zip(prior_bdates, test_dates):
 
-            vwaps = data_container.vwap_dict[date]
-            closes = data_container.close_dict[date]
-            dividends = data_container.dividend_dict[date]
-            splits = data_container.split_mult_dict[date]
+            vwaps, closes, dividends, splits = \
+                    data_container.get_pricing_dicts(date)
 
-            spy_vwap = data_container.market_dict['vwap'][date]
-            spy_close = data_container.market_dict['close'][date]
-            spy_dividend = data_container.market_dict['dividend'][date]
-            spy_split = data_container.market_dict['split_mult'][date]
+            mkt_vwap, mkt_close, mkt_dividend, mkt_split = \
+                    data_container.get_pricing_dicts(date, mkt_prices=True)
 
-            # If close is very low, drop as well
-            low_price_seccodes = filter_seccodes(closes, LOW_PRICE_FILTER)
-
-            for seccode in set(low_price_seccodes):
-                scores[seccode] = np.nan
-
-            portfolio.update_prices(closes, dividends, splits)
-            portfolio.update_prices(spy_close, spy_dividend, spy_split)
-
-            if date == unique_test_dates[-1]:
+            if date == test_dates[0]:
+                portfolio.update_prices(closes, dividends, splits)
+                portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
+            elif date == test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                positions, hedge = self.get_position_sizes(scores,
-                                                           daily_pl_data,
-                                                           date, prior_dt,
-                                                           **kwargs)
+                scores = scores_dict[prior_dt]
+                close_seccodes = self.get_closing_seccodes(exit_dict, date)
+
+                positions, net_exposure = self.get_position_sizes(
+                    scores, portfolio, close_seccodes, **kwargs)
 
                 position_sizes = self._get_position_sizes_dollars(positions)
                 portfolio.update_position_sizes(position_sizes, vwaps)
+                portfolio.update_prices(closes, dividends, splits)
 
-                spy_size = self._get_position_sizes_dollars(hedge)
-                portfolio.update_position_sizes(spy_size, spy_vwap)
-
-                daily_pl_data = self.update_pl_data(daily_pl_data,
-                                                    position_sizes,
-                                                    date, prior_dt)
+                mkt_size = self._get_position_sizes_dollars(
+                    {'spy':-net_exposure})
+                portfolio.update_position_sizes(mkt_size, mkt_vwap)
+                portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
 
             daily_df = self.update_daily_df(daily_df, portfolio, date)
 
@@ -90,84 +73,55 @@ class PortfolioConstructor1(Constructor):
         stats = {}
         return daily_df, stats
 
+    def get_closing_seccodes(self, exit_dict, date):
+        if date not in exit_dict.keys():
+            return set()
+        else:
+            return set(exit_dict[date])
 
-    def get_position_sizes(self, scores, daily_pl_data, date, prior_dt,
-                           thresh, pos_size):
+    def get_position_sizes(self, scores, portfolio, close_seccodes, thresh,
+                           pos_size, dd_thresh):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
         both the long and short sides.
         """
 
-        prior_df = daily_pl_data[(daily_pl_data.Date == prior_dt)].copy()
-        dt_df = daily_pl_data[(daily_pl_data.Date == date)].copy()
-        close_secCodes = set(dt_df.loc[(dt_df.ExitFlag == 1), 'SecCode'])
+        scores = pd.Series(scores, name='score').to_frame()
+        new_longs = set(scores[scores.score >= thresh].index)
+        new_shorts = set(scores[scores.score <= -thresh].index)
 
-        scores = pd.Series(scores).to_frame()
-        scores.columns = ['score']
-        if len(scores) == 0:
-            new_shorts = new_longs = set([])
-        else:
-            new_longs = set(scores[scores.score >= thresh].index)
-            new_shorts = set(scores[scores.score <= -thresh].index)
+        dd_seccodes = portfolio.dd_filter(drawdown_pct = dd_thresh)
+        prev_longs, prev_shorts = portfolio.get_open_positions()
 
-        prev_shorts =  set(prior_df.loc[(prior_df.LiveFlag == -1), 'SecCode'])
-        live_shorts = prev_shorts - close_secCodes
+        live_shorts = (prev_shorts - close_seccodes) - dd_seccodes
         live_shorts.update(new_shorts)
 
-        prev_longs =  set(prior_df.loc[(prior_df.LiveFlag == 1), 'SecCode'])
-        live_longs = prev_longs - close_secCodes
+        live_longs = (prev_longs - close_seccodes) - dd_seccodes
         live_longs.update(new_longs)
 
-        output = pd.DataFrame(index=daily_pl_data.SecCode.unique(),
-                              data = {'weights':0.})
-        output.loc[output.index.isin(live_longs), 'weights'] = 1.
-        output.loc[output.index.isin(live_shorts), 'weights'] = -1.
-        
-        exposure = pos_size * np.abs(output.weights).sum()
+        scores.loc[:, 'weights'] = 0.
+        scores.loc[scores.index.isin(live_longs), 'weights'] = 1.
+        scores.loc[scores.index.isin(live_shorts), 'weights'] = -1.
+
+        exposure = pos_size * (np.abs(scores.weights).sum() +
+                               np.abs(scores.weights.sum()))
         scaled_size = (1. / exposure) * pos_size if exposure > 1. else pos_size
-        output['weights'] *= scaled_size
-        net_exposure = pd.Series(data={'spy':output.weights.sum() * -1},
-                                 name='weights')
-        
+        scores['weights'] *= scaled_size
+        net_exposure = scores.weights.sum()
+
+        ids_to_trade = close_seccodes.copy()
+        ids_to_trade.update(dd_seccodes)
         if scaled_size == pos_size:
-            positions_to_update = new_longs.copy()
-            positions_to_update.update(new_shorts)
-            positions_to_update.update(close_secCodes)
+            ids_to_trade.update(new_longs)
+            ids_to_trade.update(new_shorts)
         else:
-            positions_to_update = live_longs.copy()
-            positions_to_update.update(live_shorts)
-            positions_to_update.update(close_secCodes)
+            ids_to_trade.update(live_longs)
+            ids_to_trade.update(live_shorts)
 
-        output = output[output.index.isin(positions_to_update)]
+        scores = scores[scores.index.isin(ids_to_trade)]
 
-        return pd.Series(output.weights), net_exposure
-
-
-    def update_pl_data(self, data, sizes, date, prior_dt):
-        assert 'LiveFlag' in data.columns
-        if isinstance(sizes, dict):
-            sizes = pd.Series(sizes)
-        
-        prev_longs = set(data.loc[(data.Date == prior_dt) &
-            (data.LiveFlag == 1), 'SecCode'])
-        prev_shorts = set(data.loc[(data.Date == prior_dt) &
-            (data.LiveFlag == -1), 'SecCode'])
-
-        new_longs = set(sizes[sizes > 0].index)
-        new_shorts = set(sizes[sizes < 0].index)
-        close_secCodes = set(sizes[sizes == 0].index)
-
-        new_longs.update(prev_longs)
-        new_shorts.update(prev_shorts)
-        hold_longs = new_longs - close_secCodes
-        hold_shorts = new_shorts - close_secCodes
-
-        data.loc[(data.Date == date) & (data.SecCode.isin(hold_longs)),
-            'LiveFlag'] = 1
-        data.loc[(data.Date == date) & (data.SecCode.isin(hold_shorts)),
-            'LiveFlag'] = -1
-        return data
+        return pd.Series(scores.weights), net_exposure
 
 
     def update_daily_df(self, data, portfolio, date):
@@ -188,4 +142,4 @@ class PortfolioConstructor1(Constructor):
         daily_stats = portfolio.get_portfolio_stats()
         daily_df.loc[date, 'stat1'] = daily_stats['stat1']
         return daily_df
-    
+
