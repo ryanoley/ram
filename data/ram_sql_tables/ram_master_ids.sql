@@ -65,11 +65,11 @@ join			qai.prc.PrcInfo I
 		and		I.Issue not like '%MERGE%'
 		and		I.Issue not like '%REIT%'
 		and		I.Issue not like '%BEN INT%'
-		and		I.Issuer not like '% MERG%'
-		and		I.Issuer not like '%-MERG%'
-		and		I.Issuer not like '%TERM TRUST%'
-		and		I.Issuer not like '%INCOME%'
-		and		I.Issuer not like '% MUNI %'
+		and		H.Issuer not like '%TERM TRUST%'
+		and		H.Issuer not like '%INCOME FD%'
+		and		H.Issuer not like '%INCOME FUND%'
+		and		H.Issuer not like '%INCOME TR%'
+		and		H.Issuer not like '% MUNI %'
 
 )
 

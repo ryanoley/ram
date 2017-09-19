@@ -172,21 +172,25 @@ class RunManager(object):
         return get_stats(rets), get_quarterly_rets(rets,
                                                    column_name='SharpeOptim')
 
-    def basic_model_selection(self, window=30, criteria='mean'):
-        if not hasattr(self, 'returns'):
-            self.import_return_frame()
-        return basic_model_selection(self.returns, window=window,
-                                     criteria=criteria)
-
     def plot_results(self, drop_params=None):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        rets1 = self.basic_model_selection(window=100).iloc[101:]
-        rets2 = self.basic_model_selection(
-            window=100, criteria='sharpe').iloc[101:]
-        all_rets = self.returns.loc[rets1.index]
+        if drop_params and (not hasattr(self, 'column_params')):
+            self.import_column_params()
+        if drop_params:
+            cparams = classify_params(self.column_params)
+            cparams = filter_classified_params(cparams, drop_params)
+            # Get unique column names
+            cols = get_columns(cparams)
+            temp_returns = self.returns[cols]
+        else:
+            temp_returns = self.returns
+        rets1 = basic_model_selection(temp_returns, window=100).iloc[101:]
+        rets2 = basic_model_selection(temp_returns, window=100,
+                                      criteria='sharpe').iloc[101:]
+        temp_returns = temp_returns.loc[rets1.index]
         plt.figure()
-        plt.plot(all_rets.cumsum(), 'b', alpha=0.3)
+        plt.plot(temp_returns.cumsum(), 'b', alpha=0.3)
         plt.plot(rets1.cumsum(), 'r')
         plt.plot(rets2.cumsum(), 'g')
         plt.show()

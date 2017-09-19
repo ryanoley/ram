@@ -144,6 +144,20 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
     return output
 
 
+def simple_responses(data, days=2):
+    """
+    Just return 1 or 0 for Position or Negative return
+    """
+    test_date_map = data[['Date', 'TestFlag']].drop_duplicates()
+    assert isinstance(days, int)
+    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+    rets2 = (rets.pct_change(days).shift(-days) >= 0).astype(int)
+    output = rets2.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'Response']
+    output = output.merge(test_date_map)
+    return output
+
+
 def make_variable_dict(data, variable, fillna=np.nan):
     data_pivot = data.pivot(index='Date', columns='SecCode', values=variable)
     if fillna == 'pad':

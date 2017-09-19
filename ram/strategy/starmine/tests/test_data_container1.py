@@ -33,7 +33,6 @@ class TestDataContainer1(unittest.TestCase):
         self.assertEqual(len(result), 2)
     
     def test_get_data_subset(self):
-        import ipdb; ipdb.set_trace()
         result = self.DC.get_data_subset(self.data, 1)
         self.assertEqual(len(result), 1)
         self.assertEqual(result.Date.iloc[0], dt.date(2015, 4, 1))

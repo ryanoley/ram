@@ -57,10 +57,27 @@ class TestDataContainer1(unittest.TestCase):
         self.assertEqual(len(result), 3)
 
     def test_make_weekly_monthly_indexes(self):
-
         dates = ['2015-03-28', '2015-03-29', '2015-03-30', '2015-03-31',
                  '2015-04-01', '2015-04-02', '2015-04-03', '2015-04-04',
                  '2015-04-05', '2015-04-06', '2015-04-07']
+        data = pd.DataFrame({
+            'SecCode': ['AAPL'] * 11,
+            'Date': dates,
+            'Response': [1] * 11,
+            'TestFlag': [False] * 4 + [True] * 7
+        })
+        data['Date'] = convert_date_array(data.Date)
+        result = make_weekly_monthly_indexes(data, 2)
+        benchmark = pd.DataFrame()
+        benchmark['Date'] = data.Date.copy()
+        benchmark['month_index'] = [0] * 2 + [1.] * 9
+        benchmark['week_index'] = [0] * 4 + [1] * 5 + [2.] * 2
+        benchmark['week_index_train_offset'] = [0] * 2 + [1] * 5 + [2.] * 4
+        assert_frame_equal(benchmark, result)
+        #
+        dates = ['2015-12-28', '2015-12-29', '2015-12-30', '2015-12-31',
+                 '2016-01-01', '2016-01-02', '2016-01-03', '2016-01-04',
+                 '2016-01-05', '2016-01-06', '2016-01-07']
         data = pd.DataFrame({
             'SecCode': ['AAPL'] * 11,
             'Date': dates,

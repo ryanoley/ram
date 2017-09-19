@@ -25,7 +25,7 @@ class Constructor(object):
     def get_args(self):
         raise NotImplementedError('Constructor.get_args')
 
-    def __init__(self, booksize=30e6):
+    def __init__(self, booksize=10e6):
         """
         Parameters
         ----------
@@ -102,6 +102,7 @@ class Constructor(object):
             daily_stats = portfolio.get_portfolio_stats()
             daily_df.loc[date, 'TicketChargePrc'] = \
                 daily_stats['min_ticket_charge_prc']
+            daily_df.loc[date, 'MeanSignal'] = np.nanmean(scores.values())
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats

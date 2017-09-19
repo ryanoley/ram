@@ -3,23 +3,16 @@ import pandas as pd
 import datetime as dt
 
 from ram.strategy.base import Strategy
-
-from ram.strategy.long_pead.data.data_container1 import DataContainer1
-from ram.strategy.long_pead.data.data_container2 import DataContainer2
-
-from ram.strategy.long_pead.constructor.constructor1 import \
-    PortfolioConstructor1
-from ram.strategy.long_pead.constructor.constructor2 import \
-    PortfolioConstructor2
-
-from ram.strategy.long_pead.signals.signals1 import SignalModel1
+from ram.strategy.basic.signals.signals1 import SignalModel1
+from ram.strategy.basic.data.data_container1 import DataContainer1
+from ram.strategy.basic.constructor.constructor1 import PortfolioConstructor1
 
 
-class LongPeadStrategy(Strategy):
+class BasicStrategy(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
-    constructor = PortfolioConstructor2()
+    constructor = PortfolioConstructor1()
 
     def get_column_parameters(self):
         """
@@ -28,11 +21,9 @@ class LongPeadStrategy(Strategy):
         args1 = make_arg_iter(self.data.get_args())
         args2 = make_arg_iter(self.signals.get_args())
         args3 = make_arg_iter(self.constructor.get_args())
-
         output_params = {}
-        for col_ind, (x, y, z) in enumerate(itertools.product(args1,
-                                                              args2,
-                                                              args3)):
+        for col_ind, (x, y, z) in enumerate(
+                itertools.product(args1, args2, args3)):
             params = dict(x)
             params.update(y)
             params.update(z)
@@ -42,7 +33,8 @@ class LongPeadStrategy(Strategy):
     def run_index(self, time_index):
 
         # Attach market data first since it is merged with equity data
-        self.data.add_market_data(self.read_market_index_data())
+        #self.data.add_market_data(self.read_market_index_data())
+
         # Import, process, and stack data
         self.data.add_data(self.read_data_from_index(time_index), time_index)
 
@@ -84,7 +76,6 @@ class LongPeadStrategy(Strategy):
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _capture_output(self, results, stats, arg_index):
-        results = results.copy()
         returns = pd.DataFrame(results.PL / self.constructor.booksize)
         returns.columns = [arg_index]
         # Rename columns
@@ -108,7 +99,7 @@ class LongPeadStrategy(Strategy):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 ' +
             'and Close_ between 5 and 500',
-            'univ_size': 800
+            'univ_size': 50
         }
 
     def get_univ_date_parameters(self):
@@ -116,58 +107,14 @@ class LongPeadStrategy(Strategy):
             'frequency': 'Q',
             'train_period_length': 1,
             'test_period_length': 1,
-            'start_year': 2001
+            'start_year': 2016
         }
 
     def get_features(self):
         return [
             # Pricing
             'AdjClose', 'AdjVwap', 'RClose', 'RCashDividend', 'SplitFactor',
-            'LAG1_AdjClose', 'LAG2_AdjClose', 'LAG3_AdjClose',
-
-            # Descriptive
-            'GGROUP', 'EARNINGSFLAG', 'MarketCap', 'AvgDolVol',
-
-            # Pricing Features
-            'PRMA120_AvgDolVol',
-            'PRMA10_AdjClose', 'PRMA20_AdjClose',
-            'BOLL10_AdjClose', 'BOLL20_AdjClose', 'BOLL60_AdjClose',
-            'MFI10_AdjClose', 'MFI20_AdjClose', 'MFI60_AdjClose',
-            'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
-            'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
-            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
-            'DISCOUNT252_AdjClose',
-
-            # Accounting Features - No lag because new data points are
-            # recorded at (T+1)
-            'NETINCOMEQ', 'NETINCOMETTM',
-            'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
-
-            'OPERATINGINCOMEQ', 'OPERATINGINCOMETTM',
-            'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
-
-            'EBITQ', 'EBITTTM',
-            'EBITGROWTHQ', 'EBITGROWTHTTM',
-
-            'SALESQ', 'SALESTTM',
-            'SALESGROWTHQ', 'SALESGROWTHTTM',
-
-            'FREECASHFLOWQ', 'FREECASHFLOWTTM',
-            'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
-
-            'GROSSPROFASSET',
-            'ASSETS',
-
-            'GROSSMARGINTTM',
-            'EBITDAMARGIN',
-
-            'PE', 'FCFMARKETCAP', 'CASHEV',
-
-            # StarMine - Lag because data for (T) isn't available until (T+1)
-            'LAG1_ARM', 'LAG1_ARMREVENUE', 'LAG1_ARMRECS',
-            'LAG1_ARMEARNINGS', 'LAG1_ARMEXRECS', 'LAG1_SIRANK',
-            'LAG1_SIMARKETCAPRANK', 'LAG1_SISECTORRANK',
-            'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE', 'LAG1_SIINSTOWNERSHIP'
+            'GGROUP', 'AvgDolVol', 'MarketCap', 'PRMA10_AdjClose'
         ]
 
 
@@ -179,4 +126,5 @@ def make_arg_iter(variants):
 if __name__ == '__main__':
 
     from ram.strategy.base import make_argument_parser
-    make_argument_parser(LongPeadStrategy)
+
+    make_argument_parser(BasicStrategy)
