@@ -28,8 +28,8 @@ class DataContainer1(object):
         return {
             'response_params': [
                 {'type': 'smoothed', 'response_days': [2, 4, 6], 'response_thresh': 0.3},
-                {'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
-                {'type': 'simple', 'response_days': 2},
+                #{'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
+                #{'type': 'simple', 'response_days': 2},
             ],
             'training_qtrs': [-99]
         }

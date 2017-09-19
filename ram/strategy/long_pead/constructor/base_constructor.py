@@ -43,6 +43,7 @@ class Constructor(object):
         kwargs
         """
         portfolio = Portfolio()
+        portfolio_tracker = Portfolio()
 
         # Process needed values into dictionaries for efficiency
         scores = make_variable_dict(
@@ -62,7 +63,9 @@ class Constructor(object):
 
         self.data_container = data_container
         self.signals = signals
+
         self.portfolio = portfolio
+        self.portfolio_tracker = portfolio_tracker
 
         # Dates to iterate over
         unique_test_dates = np.unique(data_container.test_data.Date)
@@ -88,13 +91,16 @@ class Constructor(object):
 
             portfolio.update_prices(
                 closes[date], dividends[date], splits[date])
+            portfolio_tracker.update_prices(
+                closes[date], dividends[date], splits[date])
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
+                portfolio_tracker.close_portfolio_positions()
             else:
-                sizes = self.get_position_sizes(scores[date], **kwargs)
-                sizes = self._scale_position_sizes_dollars(sizes)
-                portfolio.update_position_sizes(sizes, closes)
+                sizes, sizes_tracker = self.get_position_sizes(scores[date], **kwargs)
+                portfolio.update_position_sizes(sizes, closes[date])
+                portfolio_tracker.update_position_sizes(sizes_tracker, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()
@@ -112,19 +118,11 @@ class Constructor(object):
             daily_stats = portfolio.get_portfolio_stats()
             daily_df.loc[date, 'TicketChargePrc'] = \
                 daily_stats['min_ticket_charge_prc']
-            daily_df.loc[date, 'MeanSignal'] = np.nanmean(scores.values())
+            daily_df.loc[date, 'MeanSignal'] = \
+                np.nanmean(scores[date].values())
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats
-
-    def _scale_position_sizes_dollars(self, sizes):
-        """
-        Setup to normalize outputs from derived class. Uses booksize
-        to convert to dollars
-        """
-        if isinstance(sizes, dict):
-            sizes = pd.Series(sizes)
-        return (sizes / sizes.abs().sum() * self.booksize).to_dict()
 
 
 def filter_seccodes(data_dict, min_value):

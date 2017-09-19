@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -40,6 +41,40 @@ class CombinationSearch(object):
                         t2, train_data, test_data, criteria)
                 self._process_results(
                     t2, test_results, train_scores, combs)
+
+        ### TEMP - Turn trade on and off ###
+        hold1 = pd.DataFrame()
+        hold2 = pd.DataFrame()
+        hold3 = pd.DataFrame()
+
+        for i, (t1, t2, t3) in enumerate(self._time_indexes):
+            if i < 4:
+                continue
+            # ALL Returns
+            # Penalize missing data points to keep aligned columns
+            train_data = self.runs.returns.iloc[t1:t2].copy()
+            train_data = train_data.fillna(-99)
+
+            test_data = self.runs.returns.iloc[t2:t3].copy()
+            test_data = test_data.fillna(0)
+
+            processed = self._get_processed_returns(train_data, test_data,
+                                                    open_thresh=0.002,
+                                                    close_thresh=-0.0005,
+                                                    test_start_date=t2,
+                                                    criteria=criteria)
+            hold1 = hold1.append(processed)
+
+            processed = self._get_processed_returns(train_data, test_data,
+                                                    open_thresh=0.002,
+                                                    close_thresh=-0.0005,
+                                                    test_start_date=t2,
+                                                    criteria='mean')
+            hold2 = hold2.append(processed)
+
+        self.hold1 = hold1
+        self.hold2 = hold2
+        self.hold3 = hold3
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -188,3 +223,41 @@ class CombinationSearch(object):
             self.best_results_rets.loc[test_rets.index] = test_rets
             self.best_results_scores[time_index] = scores
             self.best_results_combs[time_index] = combs
+
+    def _get_processed_returns(self, train_data, test_data, open_thresh,
+                               close_thresh, test_start_date, criteria):
+
+        train_data2 = train_data.append(test_data)
+
+        # Rolling sum
+        index = train_data2.rolling(3).sum().values
+        positions = np.zeros(index.shape)
+        _get_positions(index, positions, open_thresh, close_thresh)
+
+        output = train_data2.copy()
+        output[:] = positions
+        output = output.shift(1).fillna(0)
+
+        train_data_p = train_data * output.loc[train_data.index]
+        test_data_p = test_data * output.loc[test_data.index]
+
+        test_results, train_scores, combs = \
+            self._fit_top_combinations(
+                test_start_date, train_data_p, test_data_p, criteria)
+
+        return test_results
+
+
+@numba.jit(nopython=True)
+def _get_positions(index, positions, open_thresh, close_thresh):
+    n1, n2 = positions.shape
+    # Iterate through columns
+    for i in xrange(n2):
+        pos = 0
+        # Iterate through rows
+        for j in xrange(n1):
+            if index[j, i] >= open_thresh:
+                pos = 1
+            elif index[j, i] <= close_thresh:
+                pos = 0
+            positions[j, i] = pos

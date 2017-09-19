@@ -19,7 +19,7 @@ class LongPeadStrategy(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
-    constructor = PortfolioConstructor2()
+    constructor = PortfolioConstructor1()
 
     def get_column_parameters(self):
         """
@@ -50,7 +50,11 @@ class LongPeadStrategy(Strategy):
         if time_index <= self._max_run_time_index:
             return
 
-        # HACK FOR CLOUD
+        # HACK: If training and writing, don't train until 2007, but stack data
+        if self._write_flag and (int(self._prepped_data_files[time_index][:4]) < 2007):
+            return
+
+        # HACK
         if self._gcp_implementation:
             self.signals.NJOBS = -1
 

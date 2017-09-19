@@ -28,6 +28,7 @@ class Position(object):
             self.open_position = False
         # Stats
         self.min_ticket_charge_achieved = np.nan
+        self.losing_day_count = 0
 
     def update_position_prices(self, price, dividend, split):
         """
@@ -52,6 +53,10 @@ class Position(object):
             self.daily_pl += dividend * self.shares
         self.current_price = float(price)
         self.exposure = self.shares * self.current_price
+        if self.daily_pl < 0:
+            self.losing_day_count += 1
+        else:
+            self.losing_day_count = 0
         return
 
     def update_position_size(self, new_size, exec_price):
