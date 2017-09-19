@@ -63,20 +63,6 @@ class DataContainer1(object):
         self.test_data = test_data
         self.features = features
 
-        # Process implementation details
-        self.close_dict = make_variable_dict(
-            test_data, 'RClose')
-        self.dividend_dict = make_variable_dict(
-            test_data, 'RCashDividend', 0)
-        self.split_mult_dict = make_variable_dict(
-            test_data, 'SplitMultiplier', 1)
-        self.liquidity_dict = make_variable_dict(
-            test_data, 'AvgDolVol')
-        self.market_cap_dict = make_variable_dict(
-            test_data, 'MarketCap')
-        self.sector_dict = make_variable_dict(
-            test_data, 'GSECTOR')
-
     def add_data(self, data, time_index):
         """
         Takes in raw data, processes it and caches it
