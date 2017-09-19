@@ -12,7 +12,10 @@ FUNCS = [
 
     # QUALITATIVE
     'GSECTOR', 'GGROUP', 'TICKER', 'CUSIP',
-    
+
+    # DATE COLUMNS
+    'TM', 'T',
+
     # VIX
     'VIX',
 
@@ -137,7 +140,7 @@ def make_commands(feature_data):
 def make_id_date_filter(ids, start_date, end_date):
     # First pull date ranges. Make this dynamic somehow?
     sdate = start_date - dt.timedelta(days=365)
-    fdate = end_date + dt.timedelta(days=30)
+    fdate = end_date + dt.timedelta(days=90)
     sqlcmd = \
         """
         where A.Date_ between '{0}' and '{1}'
@@ -566,7 +569,24 @@ def SI(arg0, arg1, arg2, table):
             )
         """.format(table)
     return clean_sql_cmd(sqlcmd)
+  
+def _DATE_OFFSET(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{2} as {1}
+        from        {0} A
+        left join   ram.dbo.ram_trading_dates B
+            on      A.Date_ = B.CalendarDate
+        """.format(table, feature_name, feature)
+    return clean_sql_cmd(sqlcmd)
 
+def TM(arg0, feature_name, arg2, table):
+    return _DATE_OFFSET('Tm{}'.format(arg2), feature_name, table)
+
+def T(arg0, feature_name, arg2, table):
+    return _DATE_OFFSET('T{}'.format(arg2), feature_name,table)
 
 # ~~~~~~ Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
