@@ -89,7 +89,11 @@ class LongPeadStrategy(Strategy):
 
     def _capture_output(self, results, stats, arg_index):
         results = results.copy()
-        returns = pd.DataFrame(results.PL / self.constructor.booksize)
+        if hasattr(self.constructor, 'booksize_original'):
+            book = self.constructor.booksize_original
+        else:
+            book = self.constructor.booksize
+        returns = pd.DataFrame(results.PL / book)
         returns.columns = [arg_index]
         # Rename columns
         results.columns = ['{}_{}'.format(x, arg_index)
