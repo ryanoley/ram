@@ -42,6 +42,10 @@ class Constructor(object):
         signals
         kwargs
         """
+        # HACK
+        if hasattr(self, 'booksize_original'):
+            del self.booksize_original
+            del self.booksize_adjusted
         portfolio = Portfolio()
         portfolio_tracker = Portfolio()
 
