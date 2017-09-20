@@ -16,8 +16,8 @@ class PortfolioConstructor1(Constructor):
     def get_args(self):
         return {
             'thresh': [0.005, 0.01],
-            'pos_size': [.002, .0035],
-            'dd_thresh': [-.05, -.1],
+            'pos_size': [.0025],
+            'dd_thresh': [-99, -.1, -.05],
         }
 
     def get_daily_pl(self, data_container, signals, **kwargs):
@@ -29,10 +29,11 @@ class PortfolioConstructor1(Constructor):
         kwargs
         """
         scores_dict = make_variable_dict(signals.preds_data, 'preds')
-        exit_dict = data_container.exit_dict.copy()
-
         portfolio = Portfolio()
+
+        test_ids = data_container.test_ids
         test_dates = data_container.test_dates
+        exit_dict = data_container.exit_dict.copy()
         prior_bdates = get_prior_business_date(test_dates)
 
         # Output object
@@ -52,8 +53,8 @@ class PortfolioConstructor1(Constructor):
             elif date == test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                scores = scores_dict[prior_dt]
-                close_seccodes = self.get_closing_seccodes(exit_dict, date)
+                scores = get_scores(scores_dict, prior_dt, test_ids)
+                close_seccodes = get_closing_seccodes(exit_dict, date)
 
                 positions, net_exposure = self.get_position_sizes(
                     scores, portfolio, close_seccodes, **kwargs)
@@ -73,12 +74,6 @@ class PortfolioConstructor1(Constructor):
         stats = {}
         return daily_df, stats
 
-    def get_closing_seccodes(self, exit_dict, date):
-        if date not in exit_dict.keys():
-            return set()
-        else:
-            return set(exit_dict[date])
-
     def get_position_sizes(self, scores, portfolio, close_seccodes, thresh,
                            pos_size, dd_thresh):
         """
@@ -87,7 +82,6 @@ class PortfolioConstructor1(Constructor):
         both the long and short sides.
         """
 
-        scores = pd.Series(scores, name='score').to_frame()
         new_longs = set(scores[scores.score >= thresh].index)
         new_shorts = set(scores[scores.score <= -thresh].index)
 
@@ -100,7 +94,7 @@ class PortfolioConstructor1(Constructor):
         live_longs = (prev_longs - close_seccodes) - dd_seccodes
         live_longs.update(new_longs)
 
-        scores.loc[:, 'weights'] = 0.
+        scores['weights'] = 0.
         scores.loc[scores.index.isin(live_longs), 'weights'] = 1.
         scores.loc[scores.index.isin(live_shorts), 'weights'] = -1.
 
@@ -143,3 +137,15 @@ class PortfolioConstructor1(Constructor):
         daily_df.loc[date, 'stat1'] = daily_stats['stat1']
         return daily_df
 
+def get_scores(scores_dict, date, index_ids):
+    if date not in scores_dict.keys():
+        return pd.Series(data=np.nan, name='score',
+                         index=index_ids).to_frame()
+    else:
+        return pd.Series(scores_dict[date], name='score').to_frame()
+    
+def get_closing_seccodes(exit_dict, date):
+    if date not in exit_dict.keys():
+        return set()
+    else:
+        return set(exit_dict[date])

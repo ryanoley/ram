@@ -14,7 +14,6 @@ def make_variable_dict(data, variable, fillna=np.nan):
     return data_pivot.T.to_dict()
 
 
-
 def get_prior_business_date(unique_test_dates):
     dh = DataHandlerSQL()
     if type(unique_test_dates) is np.ndarray:
