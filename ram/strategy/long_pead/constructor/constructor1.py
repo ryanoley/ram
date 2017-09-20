@@ -37,6 +37,7 @@ class PortfolioConstructor1(Constructor):
 
         if not hasattr(self, 'booksize_original'):
             self.booksize_original = float(self.booksize)
+            self.booksize_adjusted = float(self.booksize)
             self.port_returns = []
 
         # Check losing days
@@ -53,10 +54,10 @@ class PortfolioConstructor1(Constructor):
             if len(self.port_returns) > rolling_return_days:
                 self.port_returns.pop(0)
             rolling_return = sum(self.port_returns) / rolling_return_days
-            if (self.booksize != 0) & (rolling_return < exit_threshold):
-                self.booksize = 0
-            if (self.booksize == 0) & (rolling_return >= entry_threshold):
-                self.booksize = float(self.booksize_original)
+            if (self.booksize_adjusted != 0) & (rolling_return < exit_threshold):
+                self.booksize_adjusted = 0
+            if (self.booksize_adjusted == 0) & (rolling_return >= entry_threshold):
+                self.booksize_adjusted = float(self.booksize_original)
 
         # Get scores
         scores = pd.Series(scores).to_frame()
@@ -73,6 +74,6 @@ class PortfolioConstructor1(Constructor):
             logistic_weight(x) for x in np.linspace(
                 -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
         scores = scores.weights / scores.weights.abs().sum()
-        scores_actual = (scores / scores.abs().sum() * self.booksize).to_dict()
+        scores_actual = (scores / scores.abs().sum() * self.booksize_adjusted).to_dict()
         scores_tracker = (scores / scores.abs().sum() * self.booksize_original).to_dict()
         return scores_actual, scores_tracker
