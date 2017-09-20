@@ -22,7 +22,7 @@ class CombinationSearch(object):
     def add_run(self, run):
         self.runs.add_run(run)
 
-    def start(self, epochs=20, criteria='mean'):
+    def start(self, epochs=20, criteria='sharpe'):
         # Merge
         self.runs.aggregate_returns()
         self._create_results_objects(self.runs.returns)
@@ -40,6 +40,27 @@ class CombinationSearch(object):
                         t2, train_data, test_data, criteria)
                 self._process_results(
                     t2, test_results, train_scores, combs)
+
+    def start_dynamic(self, criteria='sharpe',
+                      open_thresh=0.0020, close_thresh=-0.0005):
+
+        self.runs.aggregate_returns()
+        self._create_training_indexes(self.runs.returns)
+
+        hold1 = pd.DataFrame()
+
+        for t1, t2, t3 in tqdm(self._time_indexes):
+            train_data = self.runs.returns.iloc[t1:t2].copy()
+            train_data = train_data.fillna(-99)
+            test_data = self.runs.returns.iloc[t2:t3].copy()
+            test_data = test_data.fillna(0)
+            processed = self._get_dynamic_returns(train_data, test_data,
+                                                  open_thresh=open_thresh,
+                                                  close_thresh=close_thresh,
+                                                  test_start_date=t2,
+                                                  criteria=criteria)
+            hold1 = hold1.append(processed)
+        self.dynamic_returns = hold1
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -188,3 +209,41 @@ class CombinationSearch(object):
             self.best_results_rets.loc[test_rets.index] = test_rets
             self.best_results_scores[time_index] = scores
             self.best_results_combs[time_index] = combs
+
+    def _get_dynamic_returns(self, train_data, test_data, open_thresh,
+                             close_thresh, test_start_date, criteria):
+
+        train_data2 = train_data.append(test_data)
+
+        # Rolling sum
+        index = train_data2.rolling(3).sum().values
+        positions = np.zeros(index.shape)
+        _get_positions(index, positions, open_thresh, close_thresh)
+
+        output = train_data2.copy()
+        output[:] = positions
+        output = output.shift(1).fillna(0)
+
+        train_data_p = train_data * output.loc[train_data.index]
+        test_data_p = test_data * output.loc[test_data.index]
+
+        test_results, train_scores, combs = \
+            self._fit_top_combinations(
+                test_start_date, train_data_p, test_data_p, criteria)
+
+        return test_results
+
+
+@numba.jit(nopython=True)
+def _get_positions(index, positions, open_thresh, close_thresh):
+    n1, n2 = positions.shape
+    # Iterate through columns
+    for i in xrange(n2):
+        pos = 0
+        # Iterate through rows
+        for j in xrange(n1):
+            if index[j, i] >= open_thresh:
+                pos = 1
+            elif index[j, i] <= close_thresh:
+                pos = 0
+            positions[j, i] = pos
