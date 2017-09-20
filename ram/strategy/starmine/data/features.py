@@ -119,18 +119,6 @@ def get_previous_ern_return(data, fillna=False, prior_data=[]):
     return data
 
 
-def filter_entry_window(data, window_len=10):
-    ernflag = data.pivot(index='Date', columns='SecCode',
-                         values='EARNINGSFLAG')
-    entry_dates = ernflag.rolling(window = window_len).sum()
-    entry_dates[:] = np.where(entry_dates == 1, entry_dates, np.nan)
-    entry_dates = entry_dates.unstack().dropna().reset_index()
-    entry_dates.columns = ['SecCode', 'Date', 'DtSelect']
-    entry_dates = entry_dates[entry_dates.DtSelect == 1]
-    entry_dates.drop('DtSelect', axis=1, inplace=True)
-    return pd.merge(entry_dates, data)
-
-
 def get_vwap_returns(data, days, hedged=False, market_data=None):
     exit_col = 'LEAD{}_AdjVwap'.format(days)
     ret_col = 'Ret{}'.format(days)

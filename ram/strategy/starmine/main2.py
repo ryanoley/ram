@@ -115,8 +115,9 @@ class PostErnStrategy(Strategy):
     def get_features(self):
         return [
             # Descriptive
-            'GGROUP', 'EARNINGSRETURN', 'EARNINGSFLAG', 'MarketCap',
-            'AvgDolVol', 'SplitFactor', 'RVwap', 'RClose', 'RCashDividend',
+            'TM1', 'T1', 'GGROUP', 'EARNINGSRETURN', 'EARNINGSFLAG',
+            'MarketCap', 'AvgDolVol', 'SplitFactor', 'RVwap', 'RClose',
+            'RCashDividend',
 
             # Pricing
             'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',

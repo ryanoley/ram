@@ -17,7 +17,7 @@ class DataContainer1(object):
         self._processed_test_data = pd.DataFrame()
         self._processed_pricing_data = pd.DataFrame()
         self._set_features()
-        self.prep_market_dicts()
+        self._prep_market_pricing_dicts()
 
     def get_args(self):
         return {
@@ -25,19 +25,17 @@ class DataContainer1(object):
             'training_qtrs': [-99]
         }
 
-    def prep_market_dicts(self):
+    def _prep_market_pricing_dicts(self):
         market_data = read_spy_data()
         market_data['SplitMultiplier'] = market_data.SplitFactor.pct_change().fillna(0) + 1
         market_data.loc[:, 'SecCode'] = 'spy'
-        market_dict = {}
-                # Process implementation details
-        market_dict['close'] = make_variable_dict(market_data, 'RClose')
-        market_dict['vwap'] = make_variable_dict(market_data, 'RVwap')
-        market_dict['dividend'] = make_variable_dict(market_data,
-                                                     'RCashDividend', 0)
-        market_dict['split_mult'] = make_variable_dict(market_data,
-                                                       'SplitMultiplier', 1)
-        self.market_dict = market_dict
+
+        self.mkt_vwap_dict = make_variable_dict(market_data, 'RVwap')
+        self.mkt_close_dict = make_variable_dict(market_data, 'RClose')
+        self.mkt_dividend_dict = make_variable_dict(market_data,
+                                                'RCashDividend', 0)
+        self.mkt_split_mult_dict = make_variable_dict(market_data,
+                                                'SplitMultiplier', 1)
         self._market_data = market_data
 
     def add_data(self, data, entry_day=2):
@@ -55,11 +53,8 @@ class DataContainer1(object):
 
         # Get data for daily pl calculations
         pricing_data = data[data.TestFlag].copy()
-        pricing_data['RCashDividend'] = 0.
-        pricing_data['LiveFlag'] = 0
         pricing_cols = ['Date', 'SecCode', 'RClose', 'RVwap', 'EARNINGSFLAG', 
-                        'RCashDividend', 'SplitMultiplier', 'AvgDolVol',
-                        'MarketCap', 'LiveFlag']
+                        'RCashDividend', 'SplitMultiplier', 'AvgDolVol']
 
         # Filter train and test data to one entry date
         self._entry_day = entry_day
@@ -127,12 +122,11 @@ class DataContainer1(object):
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
         train_data = self._add_response_variables(train_data, response_days)
-        daily_pl = self._add_exit_flag(daily_pl, response_days)
 
         self.train_data = train_data
         self.test_data = test_data
-        self.daily_pl_data = daily_pl
-    
+        self.test_dates = np.sort(daily_pl.Date.unique())
+
         # Process implementation details
         self.close_dict = make_variable_dict(
             self._processed_pl_data, 'RClose')
@@ -144,8 +138,7 @@ class DataContainer1(object):
             self._processed_pl_data, 'SplitMultiplier', 1)
         self.liquidity_dict = make_variable_dict(
             self._processed_pl_data, 'AvgDolVol')
-        self.market_cap_dict = make_variable_dict(
-            self._processed_pl_data, 'MarketCap')
+        self.exit_dict = self._make_exit_dict(daily_pl, response_days)
 
     def _set_features(self):
         features = [
@@ -174,6 +167,22 @@ class DataContainer1(object):
             self._processed_test_data.copy(),
             self._processed_pl_data.copy(),
         )
+
+    def get_pricing_dicts(self, date, mkt_prices=False):
+        try:
+            if mkt_prices:
+                vwaps = self.mkt_vwap_dict[date]
+                closes = self.mkt_close_dict[date]
+                dividends = self.mkt_dividend_dict[date]
+                splits = self.mkt_split_mult_dict[date]
+            else:
+                vwaps = self.vwap_dict[date]
+                closes = self.close_dict[date]
+                dividends = self.dividend_dict[date]
+                splits = self.split_mult_dict[date]
+        except KeyError:
+            return {}, {}, {}, {}
+        return vwaps, closes, dividends, splits
 
     def _trim_training_data(self, data, training_qtrs):
         if training_qtrs == -99:
@@ -210,6 +219,21 @@ class DataContainer1(object):
         data = pd.merge(data, ernflag, how='left')
         return data
 
+    def _make_exit_dict(self, data, response_days):
+        assert 'EARNINGSFLAG' in data.columns
+        ernflag = data.pivot(index='Date', columns='SecCode',
+                             values='EARNINGSFLAG')
+        ernflag = ernflag.shift(response_days + self._entry_day).fillna(0)     
+        ernflag.iloc[-1] = 1
+        ernflag = ernflag.unstack().reset_index()
+        ernflag.columns = ['SecCode', 'Date', 'ExitFlag']
+
+        ernflag = ernflag.loc[ernflag.ExitFlag == 1]
+        exit_dict = {k: g["SecCode"].tolist() for k,g in ernflag.groupby("Date")}
+
+        return exit_dict
+
+    
 
 
 def read_spy_data(spy_path=None):
