@@ -1,4 +1,3 @@
-import numba
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -23,7 +22,7 @@ class CombinationSearch(object):
     def add_run(self, run):
         self.runs.add_run(run)
 
-    def start(self, epochs=20, criteria='mean'):
+    def start(self, epochs=20, criteria='sharpe'):
         # Merge
         self.runs.aggregate_returns()
         self._create_results_objects(self.runs.returns)
@@ -42,39 +41,26 @@ class CombinationSearch(object):
                 self._process_results(
                     t2, test_results, train_scores, combs)
 
-        ### TEMP - Turn trade on and off ###
-        hold1 = pd.DataFrame()
-        hold2 = pd.DataFrame()
-        hold3 = pd.DataFrame()
+    def start_dynamic(self, criteria='sharpe',
+                      open_thresh=0.0020, close_thresh=-0.0005):
 
-        for i, (t1, t2, t3) in enumerate(self._time_indexes):
-            if i < 4:
-                continue
-            # ALL Returns
-            # Penalize missing data points to keep aligned columns
+        self.runs.aggregate_returns()
+        self._create_training_indexes(self.runs.returns)
+
+        hold1 = pd.DataFrame()
+
+        for t1, t2, t3 in tqdm(self._time_indexes):
             train_data = self.runs.returns.iloc[t1:t2].copy()
             train_data = train_data.fillna(-99)
-
             test_data = self.runs.returns.iloc[t2:t3].copy()
             test_data = test_data.fillna(0)
-
-            processed = self._get_processed_returns(train_data, test_data,
-                                                    open_thresh=0.002,
-                                                    close_thresh=-0.0005,
-                                                    test_start_date=t2,
-                                                    criteria=criteria)
+            processed = self._get_dynamic_returns(train_data, test_data,
+                                                  open_thresh=open_thresh,
+                                                  close_thresh=close_thresh,
+                                                  test_start_date=t2,
+                                                  criteria=criteria)
             hold1 = hold1.append(processed)
-
-            processed = self._get_processed_returns(train_data, test_data,
-                                                    open_thresh=0.002,
-                                                    close_thresh=-0.0005,
-                                                    test_start_date=t2,
-                                                    criteria='mean')
-            hold2 = hold2.append(processed)
-
-        self.hold1 = hold1
-        self.hold2 = hold2
-        self.hold3 = hold3
+        self.dynamic_returns = hold1
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -224,8 +210,8 @@ class CombinationSearch(object):
             self.best_results_scores[time_index] = scores
             self.best_results_combs[time_index] = combs
 
-    def _get_processed_returns(self, train_data, test_data, open_thresh,
-                               close_thresh, test_start_date, criteria):
+    def _get_dynamic_returns(self, train_data, test_data, open_thresh,
+                             close_thresh, test_start_date, criteria):
 
         train_data2 = train_data.append(test_data)
 
