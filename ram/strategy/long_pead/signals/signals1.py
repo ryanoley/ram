@@ -22,11 +22,11 @@ class SignalModel1(object):
                 #  'max_features': 0.8,
                 # },
             ],
-            'drop_accounting': [True, False],
+            'drop_accounting': [False],
             'drop_extremes': [True],
             'drop_starmine': [False],
             'drop_extract_alpha': [True],
-            'drop_market_variables': ['constrained', False, True],
+            'drop_market_variables': ['constrained', False],
             'training': ['quarterly']
         }
 

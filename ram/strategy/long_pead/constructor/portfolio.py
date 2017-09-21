@@ -54,7 +54,10 @@ class Portfolio(object):
         counts = [x.min_ticket_charge_achieved
                   for x in self.positions.values()]
         counts = [x for x in counts if ~np.isnan(x)]
-        min_ticket_charge_prc = sum(counts) / float(len(counts))
+        if counts:
+            min_ticket_charge_prc = sum(counts) / float(len(counts))
+        else:
+            min_ticket_charge_prc = 0
         return {
             'min_ticket_charge_prc': min_ticket_charge_prc
         }
