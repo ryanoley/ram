@@ -42,12 +42,7 @@ class Constructor(object):
         signals
         kwargs
         """
-        # HACK
-        if hasattr(self, 'booksize_original'):
-            del self.booksize_original
-            del self.booksize_adjusted
         portfolio = Portfolio()
-        portfolio_tracker = Portfolio()
 
         # Process needed values into dictionaries for efficiency
         scores = make_variable_dict(
@@ -67,9 +62,7 @@ class Constructor(object):
 
         self.data_container = data_container
         self.signals = signals
-
         self.portfolio = portfolio
-        self.portfolio_tracker = portfolio_tracker
 
         # Dates to iterate over
         unique_test_dates = np.unique(data_container.test_data.Date)
@@ -95,16 +88,12 @@ class Constructor(object):
 
             portfolio.update_prices(
                 closes[date], dividends[date], splits[date])
-            portfolio_tracker.update_prices(
-                closes[date], dividends[date], splits[date])
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
-                portfolio_tracker.close_portfolio_positions()
             else:
-                sizes, sizes_tracker = self.get_position_sizes(scores[date], **kwargs)
+                sizes = self.get_position_sizes(date, scores[date], **kwargs)
                 portfolio.update_position_sizes(sizes, closes[date])
-                portfolio_tracker.update_position_sizes(sizes_tracker, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()

@@ -16,7 +16,7 @@ class PortfolioConstructor2(Constructor):
             'group_variable': ['MarketCap', 'Liquidity', 'Sector']
         }
 
-    def get_position_sizes(self, scores, logistic_spread,
+    def get_position_sizes(self, date, scores, logistic_spread,
                            group_variable, n_groups=3):
         # Output should have all the same keys, but can return nan values
         output_sizes = pd.DataFrame(index=scores.keys(),

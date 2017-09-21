@@ -4,10 +4,7 @@ import pandas as pd
 import itertools as it
 
 
-class PairSelector2(object):
-
-    def get_iterable_args(self):
-        return {'n_pairs': [500, 5000]}
+class PairSelector(object):
 
     def rank_pairs(self, data, n_pairs=10):
         # Reshape Close data
@@ -21,11 +18,11 @@ class PairSelector2(object):
         self.close_data = close_data
         self.pair_info = pair_info.iloc[:n_pairs]
 
-    def _filter_pairs(self, close_data, n_pairs=15000):
+    def _filter_pairs(self, close_data, n_pairs=None):
         pairs = self._prep_output(close_data)
         pairs['distances'] = self._flatten(self._get_distances(close_data))
         pairs = pairs.sort_values('distances').reset_index(drop=True)
-        return pairs.iloc[:n_pairs]
+        return pairs
 
     # ~~~~~~ Z-Scores ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

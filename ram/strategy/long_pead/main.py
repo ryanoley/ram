@@ -6,20 +6,23 @@ from ram.strategy.base import Strategy
 
 from ram.strategy.long_pead.data.data_container1 import DataContainer1
 from ram.strategy.long_pead.data.data_container2 import DataContainer2
+from ram.strategy.long_pead.data.data_container_pairs import DataContainerPairs
 
 from ram.strategy.long_pead.constructor.constructor1 import \
     PortfolioConstructor1
 from ram.strategy.long_pead.constructor.constructor2 import \
     PortfolioConstructor2
+from ram.strategy.long_pead.constructor.constructor3 import \
+    PortfolioConstructor3
 
 from ram.strategy.long_pead.signals.signals1 import SignalModel1
 
 
 class LongPeadStrategy(Strategy):
 
-    data = DataContainer1()
+    data = DataContainerPairs()
     signals = SignalModel1()
-    constructor = PortfolioConstructor1()
+    constructor = PortfolioConstructor3()
 
     def get_column_parameters(self):
         """
@@ -114,7 +117,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 ' +
+            'where': 'MarketCap >= 200 and GSECTOR = 20' +
             'and Close_ between 5 and 500',
             'univ_size': 800
         }
@@ -122,7 +125,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_date_parameters(self):
         return {
             'frequency': 'Q',
-            'train_period_length': 1,
+            'train_period_length': 4,
             'test_period_length': 1,
             'start_year': 2001
         }

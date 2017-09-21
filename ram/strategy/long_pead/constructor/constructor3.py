@@ -8,16 +8,16 @@ from ram.strategy.long_pead.constructor.portfolio import Portfolio
 from ram.strategy.long_pead.constructor.base_constructor import Constructor
 
 
-class PortfolioConstructor1(Constructor):
+class PortfolioConstructor3(Constructor):
 
     def get_args(self):
         return {
             'logistic_spread': [0.1],
-            'losing_days_kill_switch': [4, 8, 1000],
+            'losing_days_kill_switch': [1000]
         }
 
-    def get_position_sizes(self,
-                           date, scores, logistic_spread,
+    def get_position_sizes(self, date, scores,
+                           logistic_spread,
                            losing_days_kill_switch):
         """
         Position sizes are determined by the ranking, and for an
@@ -34,10 +34,21 @@ class PortfolioConstructor1(Constructor):
         for sc in bad_seccodes:
             self.portfolio.positions[sc].close_position()
             scores[sc] = np.nan
+
         # Get scores
+        zscores = self.data_container.zscores.copy()
+        zscores = zscores[zscores.Date == date]
+        import pdb; pdb.set_trace()
+
         scores = pd.Series(scores).to_frame()
-        scores.columns = ['score']
-        scores = scores.sort_values('score')
+        scores = scores.reset_index()
+        scores.columns = ['Leg1', 'Score1']
+        zscores = zscores.merge(scores)
+        scores.columns = ['Leg2', 'Score2']
+        zscores = zscores.merge(scores)
+        zscores['absZscore'] = zscores.zscore.abs()
+        zscores = zscores.sort_values('absZscore', ascending=False)
+
         # Simple rank
         def logistic_weight(k):
             return 2 / (1 + np.exp(-k)) - 1
