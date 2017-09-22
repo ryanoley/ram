@@ -92,9 +92,8 @@ class Constructor(object):
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                sizes = self.get_position_sizes(scores[date], **kwargs)
-                sizes = self._scale_position_sizes_dollars(sizes)
-                portfolio.update_position_sizes(sizes, closes)
+                sizes = self.get_position_sizes(date, scores[date], **kwargs)
+                portfolio.update_position_sizes(sizes, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()
@@ -112,19 +111,11 @@ class Constructor(object):
             daily_stats = portfolio.get_portfolio_stats()
             daily_df.loc[date, 'TicketChargePrc'] = \
                 daily_stats['min_ticket_charge_prc']
-            daily_df.loc[date, 'MeanSignal'] = np.nanmean(scores.values())
+            daily_df.loc[date, 'MeanSignal'] = \
+                np.nanmean(scores[date].values())
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats
-
-    def _scale_position_sizes_dollars(self, sizes):
-        """
-        Setup to normalize outputs from derived class. Uses booksize
-        to convert to dollars
-        """
-        if isinstance(sizes, dict):
-            sizes = pd.Series(sizes)
-        return (sizes / sizes.abs().sum() * self.booksize).to_dict()
 
 
 def filter_seccodes(data_dict, min_value):

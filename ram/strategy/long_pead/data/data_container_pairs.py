@@ -11,10 +11,12 @@ from ram.strategy.long_pead.utils import make_variable_dict
 from ram.strategy.long_pead.utils import simple_responses
 from ram.strategy.long_pead.utils import smoothed_responses
 
+from ram.strategy.long_pead.data.pairs_selector import PairSelector
+
 from gearbox import create_time_index, convert_date_array
 
 
-class DataContainer1(object):
+class DataContainerPairs(object):
 
     def __init__(self):
         self._time_index_data_for_responses = {}
@@ -31,10 +33,13 @@ class DataContainer1(object):
                 #{'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
                 #{'type': 'simple', 'response_days': 2},
             ],
-            'training_qtrs': [-99]
+            'training_qtrs': [-99],
+            'same_accounting_group': [True, False],
+            'top_x_pairs': [500, 5000],
         }
 
-    def prep_data(self, time_index, response_params, training_qtrs):
+    def prep_data(self, time_index, response_params, training_qtrs,
+                  same_accounting_group, top_x_pairs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -58,7 +63,22 @@ class DataContainer1(object):
         # Merge response data
         train_data = train_data.merge(response_data)
         test_data = test_data.merge(response_data)
+        # Pairs
+        pairs = self._pair_info_hold.copy()
+        pairs = pairs.sort_values('distances')
+        if same_accounting_group:
+            pairs = pairs[pairs.same_accounting]
+        pairs = pairs.iloc[:top_x_pairs]
+        pairs = ['{}~{}'.format(x, y) for x, y in zip(pairs.Leg1, pairs.Leg2)]
+        zscores = self._pair_zscores_hold[pairs].copy()
+        zscores = zscores.loc[test_data.Date.unique()]
+        zscores = zscores.unstack().reset_index()
+        zscores.columns = ['Pair', 'Date', 'zscore']
+        zscores['Leg1'] = zscores.Pair.apply(lambda x: x.split('~')[0])
+        zscores['Leg2'] = zscores.Pair.apply(lambda x: x.split('~')[1])
+        zscores = zscores.drop(['Pair'], axis=1)
         # Create data for downstream
+        self.zscores = zscores
         self.train_data = train_data
         self.test_data = test_data
         self.features = features
@@ -67,6 +87,9 @@ class DataContainer1(object):
         """
         Takes in raw data, processes it and caches it
         """
+        self._pair_info_hold, self._pair_spreads_hold, \
+            self._pair_zscores_hold = PairSelector().rank_pairs(data, 20)
+
         # Trim only one quarter's worth of training data
         min_date = data.Date[data.TestFlag].min()
         trim_date = min_date - dt.timedelta(days=80)
