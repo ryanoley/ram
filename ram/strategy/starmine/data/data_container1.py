@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from gearbox import create_time_index
+from gearbox import create_time_index, convert_date_array
 from ram.strategy.starmine.data.features import *
 from ram.strategy.basic.utils import make_variable_dict
 
@@ -21,7 +21,8 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20, 30],
+            'response_days': [20, 30, 40],
+            #'threshA': [.10, .25, .25], 
             'training_qtrs': [-99]
         }
 
@@ -31,6 +32,7 @@ class DataContainer1(object):
         market_data.loc[:, 'SecCode'] = 'spy'
 
         self.mkt_vwap_dict = make_variable_dict(market_data, 'RVwap')
+        self.mkt_adj_close_dict = make_variable_dict(market_data, 'AdjClose')
         self.mkt_close_dict = make_variable_dict(market_data, 'RClose')
         self.mkt_dividend_dict = make_variable_dict(market_data,
                                                 'RCashDividend', 0)
@@ -53,8 +55,9 @@ class DataContainer1(object):
 
         # Get data for daily pl calculations
         pricing_data = data[data.TestFlag].copy()
-        pricing_cols = ['Date', 'SecCode', 'RClose', 'RVwap', 'EARNINGSFLAG', 
-                        'RCashDividend', 'SplitMultiplier', 'AvgDolVol']
+        pricing_cols = ['Date', 'SecCode', 'TM1', 'RClose', 'RVwap',
+                        'EARNINGSFLAG',  'RCashDividend', 'SplitMultiplier',
+                        'AvgDolVol']
 
         # Filter train and test data to one entry date
         self._entry_day = entry_day
@@ -73,6 +76,7 @@ class DataContainer1(object):
             data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
         data.AdjClose = np.where(
             data.AdjClose.isnull(), data.AdjVwap, data.AdjClose)
+        data.TM1 = convert_date_array(data.TM1)
 
         # SPLITS
         data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
@@ -94,6 +98,8 @@ class DataContainer1(object):
         # Revenue As compared to estimate
         data['RevMissBeat'] = ((data.REVENUEESTIMATEFQ1 - data.SALESQ) /
                                 data.SALESQ).fillna(0.)
+        data.RevMissBeat.replace(np.inf, 0, inplace=True)
+        data.RevMissBeat.replace(-np.inf, 0, inplace=True)
 
         # SMART ESTIMATE REVISIONS
         data = get_se_revisions(data, 'EPSESTIMATE', 'eps_est_change',
@@ -104,14 +110,25 @@ class DataContainer1(object):
                                 window=10)
 
         # Several different returns
+        data = get_vwap_returns(data, 10, hedged=True,
+                                market_data=self._market_data)
         data = get_vwap_returns(data, 20, hedged=True,
                                 market_data=self._market_data)
         data = get_vwap_returns(data, 30, hedged=True,
                                 market_data=self._market_data)
+        data = get_vwap_returns(data, 40, hedged=True,
+                                market_data=self._market_data)
 
+        # Accounting infs
+        accounting_cols = ['NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
+        'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
+        'EBITGROWTHQ', 'EBITGROWTHTTM',
+        'SALESGROWTHQ', 'SALESGROWTHTTM']
+        data[accounting_cols] = data[accounting_cols].replace(np.inf, 0.)
+        data[accounting_cols] = data[accounting_cols].replace(-np.inf, 0.)
         return data
 
-    def prep_data(self, response_days, training_qtrs):
+    def prep_data(self, response_days, training_qtrs, **kwargs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -121,23 +138,22 @@ class DataContainer1(object):
         train_data, test_data, daily_pl = self._get_train_test_daily_data()
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
-        train_data = self._add_response_variables(train_data, response_days)
+        train_data = self._add_response_variables(train_data, response_days,
+                                                  **kwargs)
 
         self.train_data = train_data
         self.test_data = test_data
-        self.test_dates = np.sort(daily_pl.Date.unique())
+        daily_pl.sort_values('Date', inplace=True)
+        self.test_dates = daily_pl[['Date', 'TM1']].drop_duplicates()
+        self.test_ids = np.sort(test_data.SecCode.unique())
 
         # Process implementation details
-        self.close_dict = make_variable_dict(
-            self._processed_pl_data, 'RClose')
-        self.vwap_dict = make_variable_dict(
-            self._processed_pl_data, 'RVwap')
-        self.dividend_dict = make_variable_dict(
-            self._processed_pl_data, 'RCashDividend', 0)
-        self.split_mult_dict = make_variable_dict(
-            self._processed_pl_data, 'SplitMultiplier', 1)
-        self.liquidity_dict = make_variable_dict(
-            self._processed_pl_data, 'AvgDolVol')
+        self.close_dict = make_variable_dict(daily_pl, 'RClose')
+        self.vwap_dict = make_variable_dict(daily_pl, 'RVwap')
+        self.dividend_dict = make_variable_dict(daily_pl, 'RCashDividend', 0)
+        self.split_mult_dict = make_variable_dict(daily_pl, 'SplitMultiplier',
+                                                  1)
+        self.liquidity_dict = make_variable_dict(daily_pl, 'AvgDolVol')
         self.exit_dict = self._make_exit_dict(daily_pl, response_days)
 
     def _set_features(self):
@@ -150,13 +166,22 @@ class DataContainer1(object):
         'anchor_ret', 'anchor_ret_rank',
 
         # Earnings Return Variables
-        'EARNINGSRETURN',
-        'PrevRet', 'ern_ret_bin1', 'ern_ret_bin2', 'ern_ret_bin3',
+        'EARNINGSRETURN', 'PrevRet',
+        'ern_ret_bin1', 'ern_ret_bin2', 'ern_ret_bin3',
 
-        'eps_est_change', 'ebitda_est_change', 'rev_est_change'
+        # Analyst Estimate change variables (Starmine)
+        'eps_est_change', 'ebitda_est_change', 'rev_est_change',
+
+        'RevMissBeat',
+        
+        # Accounting Variables
+        'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
+        'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
+        'EBITGROWTHQ', 'EBITGROWTHTTM',
+        'SALESGROWTHQ', 'SALESGROWTHTTM'
         ]
         self.features = features
-        self.ret_cols = ['Ret20', 'Ret30']
+        self.ret_cols = ['Ret10', 'Ret20', 'Ret30', 'Ret40']
         return
 
     ###########################################################################
@@ -173,16 +198,21 @@ class DataContainer1(object):
             if mkt_prices:
                 vwaps = self.mkt_vwap_dict[date]
                 closes = self.mkt_close_dict[date]
+                adj_closes = self.mkt_adj_close_dict[date]
                 dividends = self.mkt_dividend_dict[date]
                 splits = self.mkt_split_mult_dict[date]
+                return vwaps, closes, adj_closes, dividends, splits
             else:
                 vwaps = self.vwap_dict[date]
                 closes = self.close_dict[date]
                 dividends = self.dividend_dict[date]
                 splits = self.split_mult_dict[date]
+                return vwaps, closes, dividends, splits
         except KeyError:
-            return {}, {}, {}, {}
-        return vwaps, closes, dividends, splits
+            if mkt_prices:
+                return {}, {}, {}, {}, {}
+            else:
+                return {}, {}, {}, {}
 
     def _trim_training_data(self, data, training_qtrs):
         if training_qtrs == -99:
@@ -205,22 +235,10 @@ class DataContainer1(object):
         subset = pd.merge(data, ernflag)
         return subset
 
-    def _add_response_variables(self, data, response_days):
-        return data.merge(fixed_response(data, days=response_days))
-
-    def _add_exit_flag(self, data, response_days):
-        assert 'EARNINGSFLAG' in data.columns
-        ernflag = data.pivot(index='Date', columns='SecCode',
-                             values='EARNINGSFLAG')
-        ernflag = ernflag.shift(response_days + self._entry_day).fillna(0)     
-        ernflag.iloc[-1] = 1
-        ernflag = ernflag.unstack().reset_index()
-        ernflag.columns = ['SecCode', 'Date', 'ExitFlag']
-        data = pd.merge(data, ernflag, how='left')
-        return data
-
     def _make_exit_dict(self, data, response_days):
         assert 'EARNINGSFLAG' in data.columns
+        if type(response_days) is list:
+            response_days = max(response_days)
         ernflag = data.pivot(index='Date', columns='SecCode',
                              values='EARNINGSFLAG')
         ernflag = ernflag.shift(response_days + self._entry_day).fillna(0)     
@@ -233,7 +251,10 @@ class DataContainer1(object):
 
         return exit_dict
 
-    
+    def _add_response_variables(self, data, response_days):
+        return data.merge(fixed_response(data, days=response_days))
+        #return data.merge(smoothed_responses(data, thresh=threshA,
+        #                                     days=response_days))
 
 
 def read_spy_data(spy_path=None):

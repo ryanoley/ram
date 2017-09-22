@@ -20,9 +20,8 @@ class Position(object):
         self.exposure = 0
         self.daily_pl = 0
         self.daily_turnover = 0
-        self.pl_max = 0
-        self.cumulative_pl = 0
-        self.drawdown = 0
+        self.return_peak = 0
+        self.cumulative_return = 0
         self.comm = comm
         self.open_position = True
         self.current_price = float(price)
@@ -54,9 +53,8 @@ class Position(object):
         self.current_price = float(price)
         self.exposure = self.shares * self.current_price
         if self.exposure != 0:
-            self.cumulative_pl += self.daily_pl / np.abs(self.exposure)
-            self.pl_max = np.max([self.cumulative_pl, self.pl_max])
-            self.drawdown = (self.cumulative_pl - self.pl_max)
+            self.cumulative_return += self.daily_pl / np.abs(self.exposure)
+            self.return_peak = np.max([self.cumulative_return, self.return_peak])
         return
 
     def update_position_size(self, new_size, exec_price):
