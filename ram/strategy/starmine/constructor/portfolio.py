@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from ram.strategy.starmine.constructor.position import Position
+from ram.strategy.starmine.constructor.hedged_position import HedgedPosition
 
 
 class Portfolio(object):
@@ -19,7 +20,7 @@ class Portfolio(object):
         """
         for symbol, close_ in closes.iteritems():
             if symbol not in self.positions:
-                self.positions[symbol] = Position(symbol=symbol, price=close_)
+                self.positions[symbol] = HedgedPosition(symbol=symbol, price=close_)
             else:
                 self.positions[symbol].update_position_prices(
                     close_, dividends[symbol], splits[symbol])
@@ -57,11 +58,19 @@ class Portfolio(object):
         for position in self.positions.values():
             position.close_position()
 
-    def dd_filter(self, drawdown_pct=-.05):
+    def dd_filter(self, drawdown_pct=-.05, dd_from_zero=False):
         dd_seccodes = set()
+
         for position in self.positions.values():
-            if (position.drawdown <= drawdown_pct) & (position.exposure != 0):
-                dd_seccodes.add(position.symbol)
+            if position.exposure != 0:
+                if dd_from_zero:
+                    drawdown = position.cumulative_return
+                else:
+                    drawdown = (position.cumulative_return - position.return_peak)
+
+                if drawdown <= drawdown_pct:
+                    dd_seccodes.add(position.symbol)
+
         return dd_seccodes
 
     def get_open_positions(self):
@@ -73,3 +82,11 @@ class Portfolio(object):
             elif position.exposure < 0:
                 open_shorts.add(position.symbol)
         return open_longs, open_shorts
+
+    def update_mkt_prices(self, mkt_price):
+        for position in self.positions.values():
+            if position.exposure != 0:
+                position.update_mkt_prices(mkt_price)
+        return
+
+

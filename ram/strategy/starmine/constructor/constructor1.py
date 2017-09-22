@@ -3,21 +3,20 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from ram.strategy.starmine.utils import make_variable_dict
 from ram.strategy.starmine.constructor.portfolio import Portfolio
 from ram.strategy.starmine.constructor.base_constructor import Constructor
-from ram.strategy.starmine.utils import make_variable_dict, get_prior_business_date
-
-
-COST = .0015
 
 
 class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [0.005, 0.01],
+            'thresh': [0.01, .015, .02],
+            #'thresh': [0.05, 0.1, 0.15],
             'pos_size': [.0025],
-            'dd_thresh': [-99, -.1, -.05],
+            'dd_thresh': [-99, -.15, -.1],
+            'dd_from_zero': [False, True],
         }
 
     def get_daily_pl(self, data_container, signals, **kwargs):
@@ -33,24 +32,23 @@ class PortfolioConstructor1(Constructor):
 
         test_ids = data_container.test_ids
         test_dates = data_container.test_dates
-        exit_dict = data_container.exit_dict.copy()
-        prior_bdates = get_prior_business_date(test_dates)
+        exit_dict = data_container.exit_dict
 
         # Output object
-        daily_df = pd.DataFrame(index=test_dates, dtype=float)
+        daily_df = pd.DataFrame(index=test_dates.Date, dtype=float)
 
-        for prior_dt, date in zip(prior_bdates, test_dates):
+        for date, prior_dt in test_dates.values:
 
             vwaps, closes, dividends, splits = \
                     data_container.get_pricing_dicts(date)
 
-            mkt_vwap, mkt_close, mkt_dividend, mkt_split = \
+            mkt_vwap, mkt_close, mkt_adj_close, mkt_dividend, mkt_split = \
                     data_container.get_pricing_dicts(date, mkt_prices=True)
 
-            if date == test_dates[0]:
+            if date == test_dates.Date.iloc[0]:
                 portfolio.update_prices(closes, dividends, splits)
                 portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
-            elif date == test_dates[-1]:
+            elif date == test_dates.Date.iloc[-1]:
                 portfolio.close_portfolio_positions()
             else:
                 scores = get_scores(scores_dict, prior_dt, test_ids)
@@ -68,6 +66,8 @@ class PortfolioConstructor1(Constructor):
                 portfolio.update_position_sizes(mkt_size, mkt_vwap)
                 portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
 
+                portfolio.update_mkt_prices(mkt_adj_close)
+
             daily_df = self.update_daily_df(daily_df, portfolio, date)
 
         # Time Index aggregate stats
@@ -75,7 +75,7 @@ class PortfolioConstructor1(Constructor):
         return daily_df, stats
 
     def get_position_sizes(self, scores, portfolio, close_seccodes, thresh,
-                           pos_size, dd_thresh):
+                           pos_size, dd_thresh,  dd_from_zero):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -85,7 +85,7 @@ class PortfolioConstructor1(Constructor):
         new_longs = set(scores[scores.score >= thresh].index)
         new_shorts = set(scores[scores.score <= -thresh].index)
 
-        dd_seccodes = portfolio.dd_filter(drawdown_pct = dd_thresh)
+        dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
         prev_longs, prev_shorts = portfolio.get_open_positions()
 
         live_shorts = (prev_shorts - close_seccodes) - dd_seccodes
