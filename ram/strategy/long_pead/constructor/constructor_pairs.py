@@ -8,20 +8,19 @@ from ram.strategy.long_pead.constructor.portfolio import Portfolio
 from ram.strategy.long_pead.constructor.base_constructor import Constructor
 
 
-class PortfolioConstructor3(Constructor):
+class PortfolioConstructorPairs(Constructor):
 
     def get_args(self):
         return {
             'logistic_spread': [0.1],
             'losing_days_kill_switch': [1000],
-            'zscore_thresh': [1.2, 2],
-            'same_accounting_group': [True, False]
+            'zscore_thresh': [1.2, 2]
         }
 
     def get_position_sizes(self, date, scores,
                            logistic_spread,
                            losing_days_kill_switch,
-                           zscore_thresh, same_accounting_group):
+                           zscore_thresh):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -44,8 +43,7 @@ class PortfolioConstructor3(Constructor):
         zscores.columns = ['Pair', 'zscore']
         zscores = zscores.merge(self.data_container.zscores_leg_map)
         zscores = zscores.drop(['Pair'], axis=1)
-        if same_accounting_group:
-            zscores = zscores[zscores.same_accounting]
+
         scores = pd.Series(scores).to_frame().dropna()
         scores = scores.reset_index()
         scores.columns = ['Leg1', 'Score1']
