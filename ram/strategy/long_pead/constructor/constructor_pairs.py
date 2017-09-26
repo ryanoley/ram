@@ -13,14 +13,16 @@ class PortfolioConstructorPairs(Constructor):
     def get_args(self):
         return {
             'logistic_spread': [0.1],
-            'losing_days_kill_switch': [1000],
-            'zscore_thresh': [1.2, 2]
+            'pair_zscore_thresh': [1.2, 2],
+            'pair_min_max_num_offsets': [(1, None), (3, None), (5, None)],
+            'opposite_offset_signal': [True, False]
         }
 
     def get_position_sizes(self, date, scores,
                            logistic_spread,
-                           losing_days_kill_switch,
-                           zscore_thresh):
+                           pair_zscore_thresh,
+                           pair_min_max_num_offsets,
+                           opposite_offset_signal):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -30,64 +32,128 @@ class PortfolioConstructorPairs(Constructor):
         and the shape of the sigmoid is modulated by the hyperparameter
         logistic spread.
         """
+        # Capture all seccodes for output object. Bad SecCodes will be filtered
+        # during construction phase.
         all_seccodes = scores.keys()
-        # Check losing days
-        bad_seccodes = [x for x, y in self.portfolio.positions.iteritems()
-                        if y.losing_day_count > losing_days_kill_switch]
-        for sc in bad_seccodes:
-            self.portfolio.positions[sc].close_position()
-            scores[sc] = np.nan
+        # Format and Retrieve Scores and ZScores
+        scores = _format_scores_dict(scores)
+        zscores = _extract_zscore_data(self.data_container, date)
+        scores = _merge_scores_zscores_data(scores, zscores)
         # Get scores
-        zscores = pd.DataFrame({'zscore': self.data_container.zscores.loc[date]})
-        zscores = zscores.reset_index()
-        zscores.columns = ['Pair', 'zscore']
-        zscores = zscores.merge(self.data_container.zscores_leg_map)
-        zscores = zscores.drop(['Pair'], axis=1)
-
-        scores = pd.Series(scores).to_frame().dropna()
-        scores = scores.reset_index()
-        scores.columns = ['Leg1', 'Score1']
-        zscores = zscores.merge(scores)
-        scores.columns = ['Leg2', 'Score2']
-        zscores = zscores.merge(scores)
-
-        scores = _get_sizes(zscores, zscore_thresh)
-        scores = pd.Series(0, index=all_seccodes).add(scores)
-        scores.name = 'score'
-        scores = scores.to_frame()
-        scores = scores.sort_values('score')
-
-        # Simple rank
-        def logistic_weight(k):
-            return 2 / (1 + np.exp(-k)) - 1
-        n_good = (~scores.score.isnull()).sum()
-        n_bad = scores.score.isnull().sum()
-        scores['weights'] = [
-            logistic_weight(x) for x in np.linspace(
-                -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
-        scores.weights = scores.weights / scores.weights.abs().sum()
-        scores.weights *= self.booksize
-        return scores.weights.to_dict()
+        scores = _select_port_and_offsets(scores, logistic_spread,
+                                          pair_zscore_thresh,
+                                          pair_min_max_num_offsets,
+                                          opposite_offset_signal)
+        scores.pos_size *= self.booksize
+        scores = scores.merge(pd.DataFrame({'SecCode': all_seccodes}),
+                              how='outer').fillna(0)
+        scores = scores.set_index('SecCode')
+        return scores.pos_size.to_dict()
 
 
-def _get_sizes(data, zscore_thresh):
+def _select_port_and_offsets(data, logistic_spread,
+                             zscore_thresh, min_max_num_offsets,
+                             opposite_offset_signal):
+    # Get approximate side to match correct pairs
+    sides = data[['SecCode', 'Signal']].drop_duplicates()
+    sides = sides.sort_values('Signal')
+    sides['long'] = sides.Signal > sides.Signal.median()
+    data = data.merge(sides)
 
-    temp1 = data[['Leg1', 'Leg2', 'Score1', 'Score2', 'zscore', 'distances']].copy()
+    if opposite_offset_signal:
+        temp1 = data[
+            (~data.long) &
+            (data.zscore > zscore_thresh) &
+            (data.SignalOffset > 0)
+        ]
+        temp2 = data[
+            (data.long) &
+            (data.zscore < -zscore_thresh) &
+            (data.SignalOffset < 0)
+        ]
+        data = temp1.append(temp2)
+    else:
+        temp1 = data[(~data.long) & (data.zscore > zscore_thresh)]
+        temp2 = data[(data.long) & (data.zscore < -zscore_thresh)]
+        data = temp1.append(temp2)
+
+    # Counts filter
+    min_count, max_count = min_max_num_offsets
+    counts = data.groupby('SecCode')['Signal'].count().reset_index()
+    counts.columns = ['SecCode', 'counts']
+    data = data.merge(counts)
+    data = data[data.counts >= min_count]
+
+    # Get proper sizing given remaing names
+    ranked_weights = _get_weighting(
+        data[['SecCode', 'Signal']].drop_duplicates(),
+        'Signal', logistic_spread)
+    data = data.merge(ranked_weights)
+
+    # Get norm factor
+    norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
+    norm_factor.columns = ['SecCode', 'norm_factor']
+    data = data.merge(norm_factor)
+    data['offset_signal'] = data.zscore / data.norm_factor * \
+        data.Weighted_Signal * -1
+
+    offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
+    main_size = data.groupby('SecCode')['Weighted_Signal'].max()
+    out = main_size.add(offset_size, fill_value=0).reset_index()
+    out.columns = ['SecCode', 'pos_size']
+    # Scale to get everything to one
+    out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
+    return out
+
+
+def _extract_zscore_data(data_container, date):
+    zscores = pd.DataFrame({'zscore': data_container.zscores.loc[date]})
+    zscores = zscores.reset_index()
+    zscores.columns = ['pair', 'zscore']
+    zscores = zscores.merge(data_container.zscores_pair_info)
+    return zscores
+
+
+def _merge_scores_zscores_data(scores, zscores):
+    scores.columns = ['Leg1', 'Score1']
+    zscores = zscores.merge(scores)
+    scores.columns = ['Leg2', 'Score2']
+    zscores = zscores.merge(scores)
+
+    temp1 = zscores[['Leg1', 'Leg2', 'Score1',
+                     'Score2', 'zscore', 'distances']].copy()
     temp2 = temp1.copy()
     temp2.zscore *= -1
-    temp2.columns = ['Leg2', 'Leg1', 'Score2', 'Score1', 'zscore', 'distances']
+    temp2.columns = ['Leg2', 'Leg1', 'Score2',
+                     'Score1', 'zscore', 'distances']
     data = temp1.append(temp2)
+    data['SecCode'] = data.Leg1
+    data['OffsetSecCode'] = data.Leg2
+    data['Signal'] = data.Score1
+    data['SignalOffset'] = data.Score2
+    return data[['SecCode', 'OffsetSecCode', 'Signal', 'SignalOffset',
+                 'distances', 'zscore']].reset_index(drop=True)
 
-    temp1 = data[(data.Score1 < 0) & (data.zscore > zscore_thresh)]
-    temp2 = data[(data.Score1 > 0) & (data.zscore < -zscore_thresh)]
-    data = temp1.append(temp2)
-    norm_factor = data.groupby('Leg1')['zscore'].sum().reset_index()
 
-    norm_factor.columns = ['Leg1', 'norm_factor']
-    data = data.merge(norm_factor)
-    data['offset_size'] = data.zscore / data.norm_factor * data.Score1 * -1
+def _format_scores_dict(scores):
+    scores = pd.Series(scores).to_frame().reset_index()
+    scores.columns = ['SecCode', 'RegScore']
+    scores = scores[scores.RegScore.notnull()]
+    scores = scores.sort_values('RegScore')
+    return scores.reset_index(drop=True)
 
-    offset_size = data.groupby('Leg2')['offset_size'].sum()
-    main_size = data.groupby('Leg1')['Score1'].max()
 
-    return main_size.add(offset_size, fill_value=0)
+def _get_weighting(data, rank_column, logistic_spread):
+    data = data.copy()
+    data = data.sort_values(rank_column)
+
+    def logistic_weight(k):
+        return 2 / (1 + np.exp(-k)) - 1
+    n_good = (~data[rank_column].isnull()).sum()
+    n_bad = data[rank_column].isnull().sum()
+    new_col = 'Weighted_{}'.format(rank_column)
+    data[new_col] = [
+        logistic_weight(x) for x in np.linspace(
+            -logistic_spread, logistic_spread, n_good)] + [0] * n_bad
+    data[new_col] = data[new_col] / data[new_col].abs().sum()
+    return data.reset_index(drop=True)
