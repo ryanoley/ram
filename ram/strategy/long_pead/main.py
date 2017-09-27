@@ -1,3 +1,4 @@
+import sys
 import itertools
 import pandas as pd
 import datetime as dt
@@ -75,7 +76,6 @@ class LongPeadStrategy(Strategy):
                 self.signals.generate_signals(self.data, **as_)
 
                 for ac in args_constructor:
-
                     result, stats = self.constructor.get_daily_pl(
                         self.data, self.signals, **ac)
 
