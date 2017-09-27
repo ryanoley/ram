@@ -91,10 +91,13 @@ class Position(object):
         next day open!!!
         """
         daily_pl = float(self.daily_pl)
-        self.daily_pl = 0
         return daily_pl
 
     def get_daily_turnover(self):
         daily_turnover = float(self.daily_turnover)
         self.daily_turnover = 0
         return daily_turnover
+
+    def reset_daily_pl(self):
+        self.daily_pl = 0
+    

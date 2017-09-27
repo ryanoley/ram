@@ -20,6 +20,7 @@ class HedgedPosition(Position):
         self.market_entry_price = 0
         self.market_curent_price = 0
         self.market_return = 0
+        self.sector = np.nan
 
     def update_position_prices(self, price, dividend, split):
         """
@@ -47,7 +48,7 @@ class HedgedPosition(Position):
         if self.exposure != 0:
             self.cumulative_return += self.daily_pl / np.abs(self.exposure)
         return
-    
+
     def update_mkt_prices(self, market_price):
         
         # No position yet or just closed
@@ -66,4 +67,11 @@ class HedgedPosition(Position):
         self.cumulative_return -= hedge_ret
         self.return_peak = np.max([self.cumulative_return, self.return_peak])
 
+    def set_sector(self, sector):
+        self.sector = sector
 
+    def close_position(self):
+        self.daily_pl += -1 * abs(self.shares) * self.comm
+        self.daily_turnover = abs(self.shares) * self.current_price
+        self.shares = 0
+        self.exposure = 0
