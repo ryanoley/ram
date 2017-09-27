@@ -12,6 +12,8 @@ from ram.strategy.long_pead.utils import simple_responses
 from ram.strategy.long_pead.utils import smoothed_responses
 
 from ram.strategy.long_pead.data.pairs_selector import PairSelector
+from ram.strategy.long_pead.data.pairs_selector_filter import \
+    PairSelectorFilter
 
 from gearbox import create_time_index, convert_date_array
 
@@ -29,17 +31,20 @@ class DataContainerPairs(object):
     def get_args(self):
         return {
             'response_params': [
-                {'type': 'smoothed', 'response_days': [2, 4, 6], 'response_thresh': 0.3},
-                #{'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
-                #{'type': 'simple', 'response_days': 2},
+                {'type': 'smoothed',
+                 'response_days': [2, 4, 6],
+                 'response_thresh': 0.3},
+                {'type': 'smoothed',
+                 'response_days': [2],
+                 'response_thresh': 0.3},
+                # {'type': 'simple', 'response_days': 2},
             ],
             'training_qtrs': [-99],
-            'same_accounting_group': [True, False],
-            'top_x_pairs': [500, 5000],
+            'filter_training': [False, True],
         }
 
     def prep_data(self, time_index, response_params, training_qtrs,
-                  same_accounting_group, top_x_pairs):
+                  filter_training):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -58,27 +63,17 @@ class DataContainerPairs(object):
 
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
+        if filter_training:
+            train_data = train_data.loc[
+                (train_data.RClose >= 10) &
+                (train_data.AvgDolVol >= 3) &
+                (train_data.MarketCap >= 200)
+            ]
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
         # Merge response data
         train_data = train_data.merge(response_data)
         test_data = test_data.merge(response_data)
-        # Pairs
-        pairs = self._pair_info_hold.copy()
-        pairs = pairs.sort_values('distances')
-        if same_accounting_group:
-            pairs = pairs[pairs.same_accounting]
-        pairs = pairs.iloc[:top_x_pairs]
-        pairs = ['{}~{}'.format(x, y) for x, y in zip(pairs.Leg1, pairs.Leg2)]
-        zscores = self._pair_zscores_hold[pairs].copy()
-        zscores = zscores.loc[test_data.Date.unique()]
-        zscores = zscores.unstack().reset_index()
-        zscores.columns = ['Pair', 'Date', 'zscore']
-        zscores['Leg1'] = zscores.Pair.apply(lambda x: x.split('~')[0])
-        zscores['Leg2'] = zscores.Pair.apply(lambda x: x.split('~')[1])
-        zscores = zscores.drop(['Pair'], axis=1)
-        # Create data for downstream
-        self.zscores = zscores
         self.train_data = train_data
         self.test_data = test_data
         self.features = features
@@ -87,8 +82,14 @@ class DataContainerPairs(object):
         """
         Takes in raw data, processes it and caches it
         """
-        self._pair_info_hold, self._pair_spreads_hold, \
-            self._pair_zscores_hold = PairSelector().rank_pairs(data, 20)
+        # Pair data
+        pair_info, spreads, zscores = PairSelector().rank_pairs(data, 20)
+
+        sf = PairSelectorFilter(n_pairs_per_seccode=30)
+        pair_info, _, zscores = sf.filter(pair_info, spreads, zscores)
+
+        self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
+        self.zscores_pair_info = pair_info
 
         # Trim only one quarter's worth of training data
         min_date = data.Date[data.TestFlag].min()
@@ -110,7 +111,8 @@ class DataContainerPairs(object):
         self._processed_test_data = data[data.TestFlag]
         self.features = features
         self._time_index_data_for_responses[time_index] = \
-            data[['SecCode', 'Date', 'AdjClose', 'TestFlag']]
+            data[['SecCode', 'Date', 'AdjClose', 'TestFlag', 'RClose',
+                  'AvgDolVol', 'MarketCap']]
 
     def _process_data(self, data):
         """
@@ -211,7 +213,7 @@ class DataContainerPairs(object):
         data = data.merge(name_map)
 
         features = [
-            'AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose', 
+            'AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
             'VOL10_AdjClose', 'VOL20_AdjClose', 'RSI10_AdjClose',
             'RSI20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose'
         ]
@@ -222,8 +224,8 @@ class DataContainerPairs(object):
             # Only keep levels (AdjClose) for VIX indexes
             if f == 'AdjClose':
                 pdata = pdata[['ShortVIX', 'VIX', 'LongVIX']]
-            pdata.columns = ['Mkt_{}_{}'.format(col, f.replace('_AdjClose', ''))
-                             for col in pdata.columns]
+            pdata.columns = ['Mkt_{}_{}'.format(
+                col, f.replace('_AdjClose', '')) for col in pdata.columns]
             market_data = market_data.join(pdata, how='outer')
         # Nan Values set to medians of rows
         market_data = market_data.fillna(market_data.median())

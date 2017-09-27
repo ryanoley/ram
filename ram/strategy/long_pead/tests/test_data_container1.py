@@ -38,11 +38,11 @@ class TestDataContainer1(unittest.TestCase):
     def test_get_response_data(self):
         container = DataContainerWrapper()
         container.add_data(self.data, 1)
-        result = container._get_response_data(1, 2, 0.5)
+        result = container._get_smoothed_response_data(1, 2, 0.5)
         self.assertEqual(result.shape[0], 6)
         # Test that it stacked
         container.add_data(self.data2, 2)
-        result = container._get_response_data(2, 2, 0.5)
+        result = container._get_smoothed_response_data(2, 2, 0.5)
         self.assertEqual(result.shape[0], 10)
 
     def Xtest_prep_data(self):

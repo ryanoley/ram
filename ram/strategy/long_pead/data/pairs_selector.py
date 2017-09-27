@@ -3,9 +3,6 @@ import numpy as np
 import pandas as pd
 import itertools as it
 
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import Imputer
-
 
 class PairSelector(object):
 
@@ -18,12 +15,11 @@ class PairSelector(object):
         train_close = close_data.loc[close_data.index <= cut_date]
         train_close = train_close.T.dropna().T
         pair_info = self._filter_pairs(train_close)
-        pair_info = self._get_accounting_groups(pair_info, data, cut_date)
         spreads, zscores = self._get_spreads_zscores(
             pair_info, close_data, z_window)
         return pair_info, spreads, zscores
 
-    def _filter_pairs(self, close_data, n_pairs=None):
+    def _filter_pairs(self, close_data):
         pairs = self._prep_output(close_data)
         pairs['distances'] = self._flatten(self._get_distances(close_data))
         pairs = pairs.sort_values('distances').reset_index(drop=True)
@@ -33,9 +29,14 @@ class PairSelector(object):
 
     def _get_spreads_zscores(self, pair_info, close_data, window=20):
         spreads = self._get_spread_index(pair_info, close_data)
+        zscores = self._get_zscores(spreads, window)
+        return spreads, zscores
+
+    @staticmethod
+    def _get_zscores(spreads, window):
         ma = spreads.rolling(window=window).mean()
         std = spreads.rolling(window=window).std()
-        return spreads, (spreads - ma) / std
+        return (spreads - ma) / std
 
     @staticmethod
     def _get_spread_index(pair_info, close_data):
@@ -67,44 +68,6 @@ class PairSelector(object):
         stat_df = pd.DataFrame({'Leg1': legs[0]})
         stat_df['Leg2'] = legs[1]
         return stat_df
-
-    # ~~~~~~ Accounting Groups ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def _get_accounting_groups(self, pair_info, data, cut_date):
-        accounting_features = [
-            'NETINCOMEQ', 'NETINCOMETTM',
-            'SALESQ', 'SALESTTM', 'ASSETS',
-            'CASHEV', 'FCFMARKETCAP',
-            'NETINCOMEGROWTHQ',
-            'NETINCOMEGROWTHTTM',
-            'OPERATINGINCOMEGROWTHQ',
-            'OPERATINGINCOMEGROWTHTTM',
-            'EBITGROWTHQ',
-            'EBITGROWTHTTM',
-            'SALESGROWTHQ',
-            'SALESGROWTHTTM',
-            'FREECASHFLOWGROWTHQ',
-            'FREECASHFLOWGROWTHTTM',
-            'GROSSPROFASSET',
-            'GROSSMARGINTTM',
-            'EBITDAMARGIN',
-            'PE'
-        ]
-        # On last train day
-        filter_inds = data.Date == data.Date[~data.TestFlag].max()
-        data2 = data.loc[filter_inds].copy()
-        imp = Imputer(strategy='median', axis=0)
-        data2.loc[:, accounting_features] = imp.fit_transform(
-            data2[accounting_features].values)
-        km = KMeans(n_clusters=4)
-        data2['group'] = km.fit_predict(data2[accounting_features])
-        data2 = data2[['SecCode', 'group']]
-        data3 = data2.copy()
-        data2.columns = ['Leg1', 'group1']
-        data3.columns = ['Leg2', 'group2']
-        pair_info = pair_info.merge(data2).merge(data3)
-        pair_info['same_accounting'] = pair_info.group1 == pair_info.group2
-        return pair_info.drop(['group1', 'group2'], axis=1).sort_values('distances').reset_index(drop=True)
 
 
 # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
