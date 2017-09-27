@@ -21,7 +21,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20, 30, 40],
+            'response_days': [30],
             #'threshA': [.10, .25, .25], 
             'training_qtrs': [-99]
         }
@@ -55,7 +55,7 @@ class DataContainer1(object):
 
         # Get data for daily pl calculations
         pricing_data = data[data.TestFlag].copy()
-        pricing_cols = ['Date', 'SecCode', 'TM1', 'RClose', 'RVwap',
+        pricing_cols = ['Date', 'SecCode', 'GGROUP', 'TM1', 'RClose', 'RVwap',
                         'EARNINGSFLAG',  'RCashDividend', 'SplitMultiplier',
                         'AvgDolVol']
 
@@ -155,6 +155,8 @@ class DataContainer1(object):
                                                   1)
         self.liquidity_dict = make_variable_dict(daily_pl, 'AvgDolVol')
         self.exit_dict = self._make_exit_dict(daily_pl, response_days)
+        self.ind_groups = self._make_group_dict(daily_pl)
+        
 
     def _set_features(self):
         features = [
@@ -250,6 +252,18 @@ class DataContainer1(object):
         exit_dict = {k: g["SecCode"].tolist() for k,g in ernflag.groupby("Date")}
 
         return exit_dict
+
+    def _make_group_dict(self, data):
+        assert 'GGROUP' in data.columns
+        data = data[['SecCode', 'GGROUP']].drop_duplicates()
+        g_dict = {k: g["GGROUP"].tolist() for k,g in data.groupby("SecCode")}
+
+        for code, group in g_dict.iteritems():
+            if len(group) > 1:
+                g_dict[code] = [x for x in group if not np.isnan(x)]
+
+        return g_dict
+
 
     def _add_response_variables(self, data, response_days):
         return data.merge(fixed_response(data, days=response_days))

@@ -33,6 +33,7 @@ class PortfolioConstructor1(Constructor):
         test_ids = data_container.test_ids
         test_dates = data_container.test_dates
         exit_dict = data_container.exit_dict
+        ind_groups = data_container.ind_groups
 
         # Output object
         daily_df = pd.DataFrame(index=test_dates.Date, dtype=float)
@@ -48,6 +49,7 @@ class PortfolioConstructor1(Constructor):
             if date == test_dates.Date.iloc[0]:
                 portfolio.update_prices(closes, dividends, splits)
                 portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
+                portfolio.add_sector_info(ind_groups)
             elif date == test_dates.Date.iloc[-1]:
                 portfolio.close_portfolio_positions()
             else:
@@ -69,6 +71,7 @@ class PortfolioConstructor1(Constructor):
                 portfolio.update_mkt_prices(mkt_adj_close)
 
             daily_df = self.update_daily_df(daily_df, portfolio, date)
+            portfolio.reset_daily_pl()
 
         # Time Index aggregate stats
         stats = {}
@@ -118,7 +121,7 @@ class PortfolioConstructor1(Constructor):
         return pd.Series(scores.weights), net_exposure
 
 
-    def update_daily_df(self, data, portfolio, date):
+    def update_daily_df(self, data, portfolio, date, ind_stats=False):
         daily_df = data.copy()
         pl_long, pl_short = portfolio.get_portfolio_daily_pl()
         daily_turnover = portfolio.get_portfolio_daily_turnover()
@@ -133,9 +136,12 @@ class PortfolioConstructor1(Constructor):
             1 if x.shares != 0 else 0
             for x in portfolio.positions.values()])
         # Daily portfolio stats
-        daily_stats = portfolio.get_portfolio_stats()
-        daily_df.loc[date, 'stat1'] = daily_stats['stat1']
+        if ind_stats:
+            daily_stats = portfolio.get_portfolio_stats()
+            for key, value in daily_stats.iteritems():
+                daily_df.loc[date, key] = values
         return daily_df
+    
 
 def get_scores(scores_dict, date, index_ids):
     if date not in scores_dict.keys():

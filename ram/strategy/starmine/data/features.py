@@ -146,21 +146,23 @@ def get_vwap_returns(data, days, hedged=False, market_data=None):
 ############# RESPONSES ##################
 
 def smoothed_responses(data, thresh=.25, days=[2, 3]):
+    data = data.copy()
     if not isinstance(days, list):
         days = [days]
-    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+
     for i in days:
+        assert 'Ret{}'.format(i) in data.columns
+        rets = data['Ret{}'.format(i)]
         if i == days[0]:
-            rank = rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+            rank = rets.rank(pct=True)
         else:
-            rank += rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
-    final_ranks = rank.rank(axis=1, pct=True)
-    output = final_ranks.copy()
-    output[:] = (final_ranks >= (1 - thresh)).astype(int) - \
-        (final_ranks <= thresh).astype(int)
-    output = output.unstack().reset_index()
-    output.columns = ['SecCode', 'Date', 'Response']
-    return output
+            rank += rets.rank(pct=True)
+
+    final_ranks = rank.rank(pct=True)
+    output = np.where(final_ranks >= (1 - thresh), 1,
+                      np.where((final_ranks <= thresh), -1, 0))
+    data['Response'] = output
+    return data[['SecCode', 'Date', 'Response']]
 
 
 def fixed_response(data, days=5):

@@ -52,7 +52,25 @@ class Portfolio(object):
         return port_turnover
 
     def get_portfolio_stats(self):
-        return {'stat1': 0}
+        sector_pl = {}
+        sector_counts = {}
+
+        for position in self.positions.values():
+            sector = str(position.sector)
+            if sector not in sector_pl.keys():
+                sector_pl[sector] = position.daily_pl
+                sector_counts[sector] = 1
+            else:
+                sector_pl[sector] += position.daily_pl
+                sector_counts[sector] += 1
+
+        sum_df = pd.DataFrame(data={'counts':sector_counts,
+                                    'pl':sector_pl},
+                              index = sector_counts.keys())
+        sum_df['AvgPL'] = sum_df.pl / sum_df.counts
+        sum_df = sum_df.T
+        sum_df.columns = ['sector_{}_pl'.format(x) for x in sum_df.columns]
+        return sum_df.loc['AvgPL'].to_dict()
 
     def close_portfolio_positions(self):
         for position in self.positions.values():
@@ -89,4 +107,19 @@ class Portfolio(object):
                 position.update_mkt_prices(mkt_price)
         return
 
+    def add_sector_info(self, sectors):
+        for position in self.positions.values():
+            if position.symbol in sectors.keys():
+                sector = sectors[position.symbol]
+                if len(sector) != 1:
+                    continue
+                elif not np.isnan(sector[0]):
+                    sector = str(sector[0])[:2]
+                    position.set_sector(sector)
+        return
 
+
+    def reset_daily_pl(self):
+        for position in self.positions.values():
+            position.reset_daily_pl()
+        return
