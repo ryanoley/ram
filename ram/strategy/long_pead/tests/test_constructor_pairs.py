@@ -18,6 +18,8 @@ from ram.strategy.long_pead.constructor.constructor_pairs import \
     _extract_zscore_data
 from ram.strategy.long_pead.constructor.constructor_pairs import \
     _get_weighting
+from ram.strategy.long_pead.constructor.constructor_pairs import \
+    _zscore_rank
 
 
 class DataContainer(object):
@@ -25,11 +27,11 @@ class DataContainer(object):
     zscores['A~B'] = [10, 12]
     zscores['A~C'] = [-10, -12]
     zscores['B~C'] = [2, 4]
-    zscores_leg_map = pd.DataFrame()
-    zscores_leg_map['Pair'] = ['A~B', 'A~C', 'B~C']
-    zscores_leg_map['Leg1'] = ['A', 'A', 'B']
-    zscores_leg_map['Leg2'] = ['B', 'C', 'C']
-    zscores_leg_map['distances'] = [1, 2, 3]
+    zscores_pair_info = pd.DataFrame()
+    zscores_pair_info['pair'] = ['A~B', 'A~C', 'B~C']
+    zscores_pair_info['Leg1'] = ['A', 'A', 'B']
+    zscores_pair_info['Leg2'] = ['B', 'C', 'C']
+    zscores_pair_info['distances'] = [1, 2, 3]
 
 
 class TestConstructorPairs(unittest.TestCase):
@@ -45,16 +47,17 @@ class TestConstructorPairs(unittest.TestCase):
         data['SignalOffset'] = [-1, 1, -1, 1, -1, 1]
         data['distances'] = [1, 2, 3, 4, 5, 6]
         data['zscore'] = [-1.5, -1.5, -3, 2, 0, 10]
-        result = _select_port_and_offsets(data, 1, 1.4, (1, 10))
+        result = _select_port_and_offsets(data, 1.4, 2, 10)
+        result = result.drop('pos_size', axis=1)
         benchmark = pd.DataFrame()
-        benchmark['SecCode'] = ['A', 'B', 'C', 'D', 'G']
-        benchmark['pos_size'] = [0.25, -0.3125, -0.0625, -.125, 0.25]
+        benchmark['SecCode'] = ['A', 'B', 'C', 'D']
         assert_frame_equal(result, benchmark)
 
     def test_extract_zscore_data(self):
         data_container = DataContainer()
         result = _extract_zscore_data(data_container, dt.date(2010, 1, 2))
         benchmark = pd.DataFrame()
+        benchmark['pair'] = ['A~B', 'A~C', 'B~C']
         benchmark['zscore'] = [12, -12, 4]
         benchmark['Leg1'] = ['A', 'A', 'B']
         benchmark['Leg2'] = ['B', 'C', 'C']
@@ -95,6 +98,13 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark['V1'] = [1, 2, 3]
         benchmark['Weighted_V1'] = [-0.5, 0, 0.5]
         assert_frame_equal(result, benchmark)
+
+    def test_zscore_rank(self):
+        data = pd.DataFrame()
+        data['SecCode'] = ['A', 'A', 'A', 'A', 'B', 'B']
+        data['OffsetSecCode'] = ['B', 'C', 'D', 'E', 'F', 'G']
+        data['zscore'] = [2, 3, 1, 0, -1, -5]
+        result = _zscore_rank(data)
 
     def tearDown(self):
         pass

@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -13,16 +14,14 @@ class PortfolioConstructorPairs(Constructor):
     def get_args(self):
         return {
             'logistic_spread': [0.1],
-            'pair_zscore_thresh': [1.2, 2],
-            'pair_min_max_num_offsets': [(1, None), (3, None), (5, None)],
-            'opposite_offset_signal': [True, False]
+            'pair_min_offsets': [1, 3, 5],
+            'pair_max_offsets': [10, 100]
         }
 
     def get_position_sizes(self, date, scores,
                            logistic_spread,
-                           pair_zscore_thresh,
-                           pair_min_max_num_offsets,
-                           opposite_offset_signal):
+                           pair_min_offsets,
+                           pair_max_offsets):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -41,9 +40,9 @@ class PortfolioConstructorPairs(Constructor):
         scores = _merge_scores_zscores_data(scores, zscores)
         # Get scores
         scores = _select_port_and_offsets(scores, logistic_spread,
-                                          pair_zscore_thresh,
-                                          pair_min_max_num_offsets,
-                                          opposite_offset_signal)
+                                          pair_min_offsets,
+                                          pair_max_offsets)
+
         scores.pos_size *= self.booksize
         scores = scores.merge(pd.DataFrame({'SecCode': all_seccodes}),
                               how='outer').fillna(0)
@@ -51,38 +50,29 @@ class PortfolioConstructorPairs(Constructor):
         return scores.pos_size.to_dict()
 
 
-def _select_port_and_offsets(data, logistic_spread,
-                             zscore_thresh, min_max_num_offsets,
-                             opposite_offset_signal):
+def _select_port_and_offsets(data,
+                             logistic_spread,
+                             pair_min_offsets,
+                             pair_max_offsets):
+
     # Get approximate side to match correct pairs
     sides = data[['SecCode', 'Signal']].drop_duplicates()
     sides = sides.sort_values('Signal')
     sides['long'] = sides.Signal > sides.Signal.median()
     data = data.merge(sides)
-
-    if opposite_offset_signal:
-        temp1 = data[
-            (~data.long) &
-            (data.zscore > zscore_thresh) &
-            (data.SignalOffset > 0)
-        ]
-        temp2 = data[
-            (data.long) &
-            (data.zscore < -zscore_thresh) &
-            (data.SignalOffset < 0)
-        ]
-        data = temp1.append(temp2)
-    else:
-        temp1 = data[(~data.long) & (data.zscore > zscore_thresh)]
-        temp2 = data[(data.long) & (data.zscore < -zscore_thresh)]
-        data = temp1.append(temp2)
+    temp1 = data[(~data.long) & (data.zscore > 0)]
+    temp2 = data[(data.long) & (data.zscore < 0)]
+    data = temp1.append(temp2)
 
     # Counts filter
-    min_count, max_count = min_max_num_offsets
     counts = data.groupby('SecCode')['Signal'].count().reset_index()
     counts.columns = ['SecCode', 'counts']
     data = data.merge(counts)
-    data = data[data.counts >= min_count]
+    data = data[data.counts >= pair_min_offsets]
+
+    # Max number
+    data = _zscore_rank(data)
+    data = data[data.zscore_rank <= pair_max_offsets]
 
     # Get proper sizing given remaing names
     ranked_weights = _get_weighting(
@@ -106,6 +96,30 @@ def _select_port_and_offsets(data, logistic_spread,
     return out
 
 
+def _zscore_rank(data):
+    data['absZscore'] = data.zscore.abs() * -1
+    data = data.sort_values(['SecCode', 'absZscore'])
+    ids = data.SecCode.astype('category').cat.codes.values
+    ranks = np.zeros(data.shape[0])
+    _zscore_rank_numba(ranks, ids)
+    data['zscore_rank'] = ranks
+    return data
+
+
+@numba.jit(nopython=True)
+def _zscore_rank_numba(ranks, seccodes):
+    seccode = seccodes[0]
+    ranks[0] = 1
+    rank = 1
+    for i in xrange(1, len(ranks)):
+        if seccodes[i] == seccode:
+            rank += 1
+        else:
+            seccode = seccodes[i]
+            rank = 1
+        ranks[i] = rank
+
+
 def _extract_zscore_data(data_container, date):
     zscores = pd.DataFrame({'zscore': data_container.zscores.loc[date]})
     zscores = zscores.reset_index()
@@ -118,15 +132,7 @@ def _merge_scores_zscores_data(scores, zscores):
     scores.columns = ['Leg1', 'Score1']
     zscores = zscores.merge(scores)
     scores.columns = ['Leg2', 'Score2']
-    zscores = zscores.merge(scores)
-
-    temp1 = zscores[['Leg1', 'Leg2', 'Score1',
-                     'Score2', 'zscore', 'distances']].copy()
-    temp2 = temp1.copy()
-    temp2.zscore *= -1
-    temp2.columns = ['Leg2', 'Leg1', 'Score2',
-                     'Score1', 'zscore', 'distances']
-    data = temp1.append(temp2)
+    data = zscores.merge(scores)
     data['SecCode'] = data.Leg1
     data['OffsetSecCode'] = data.Leg2
     data['Signal'] = data.Score1
