@@ -5,133 +5,109 @@ IF OBJECT_ID('ram.dbo.ram_ibes_map') IS NOT NULL
 
 create table ram.dbo.ram_ibes_map (
 	SecCode int,
-	Code int,
-	StartDate smalldatetime,
-	EndDate smalldatetime,
-	primary key (SecCode, StartDate)
-);
-
-
-IF OBJECT_ID('tempdb..#ibescode_cusips') IS NOT NULL
-    DROP TABLE #ibescode_cusips
-
-
-create table #ibescode_cusips (
-	Code int,
-	Cusip varchar(10)
-	primary key (Cusip, Code)
+	RegCode int,
+	Typ int,
+	IBESTicker varchar(50),
+	EstPermID bigint,
+	QuotePermID bigint,
+	InstrPermID bigint,
+	CtryPermID bigint,
+	Source_ varchar(50),
+	primary key (SecCode, EstPermID)
 );
 
 
 
-------------------------------------------------------------------------------------
 
--- For Cusips that map to multiple Codes
-; with datapoint_count as (
-select          Code, 
-	            count(*) as Count_
+INSERT INTO ram.dbo.ram_ibes_map
 
-from			qai.dbo.IBESActL3
-group by		Code
-)
+SELECT		SecCode, RegCode, Typ, IBESTicker, EstPermID, QuotePermID, InstrPermID, CtryPermID, Source_
+	FROM	(
+			SELECT		SecCode
+						, RegCode
+						, IBESTicker
+						, EstPermID
+						, QuotePermID
+						, CtryPermID
+						, InstrPermID
 
+						, CASE RegCode 
+							WHEN 0 THEN 6 
+							ELSE 1 
+						  END									AS Typ
 
-, ibescode_cusip as (
-select          distinct Code, 
-                Cusip            
-from qai.dbo.IBESInfo3
-)
+						, CASE Priority_ 
+							WHEN 1 THEN 'instrPrimaryQuote' 
+							WHEN 2 THEN 'quote' 
+							WHEN 3 THEN 'instrument' 
+						  END									AS Source_
 
+						, ROW_NUMBER() OVER (PARTITION BY RegCode,SecCode ORDER BY [Priority_],[ExpireDate] DESC,[EffectiveDate] DESC,[Rank]) AS Rank_
+				FROM	(
 
-
-, ibescode_cusip_map_0 as (
-select			D.Code,
-				D.Count_,
-				C.Cusip
-from			ibescode_cusip C
-	join		datapoint_count D
-	on			C.Code = D.Code
-where			C.Cusip is not null
-)
-
-
-, ibescode_cusip_map_1 as (
-select			A.Code,
-				A.Cusip
-from			ibescode_cusip_map_0 A
-	join		(select Cusip, max(Count_) as Count_ 
-				 from ibescode_cusip_map_0 group by Cusip) B
-		on		A.Cusip = B.Cusip
-		and		A.Count_ = B.Count_
-)
-
-
-insert into #ibescode_cusips
-select * from ibescode_cusip_map_1
-
-
-
-
-
-------------------------------------------
----  MAP TO SECCODES IN PRICING DATA   ---
-------------------------------------------
-
-; with seccode_cusip_map_0 as (
-select			SecCode,
-				Cusip,
-				min(StartDate) as StartDate
-from			ram.dbo.ram_master_ids
-	where		SecCode in (select distinct SecCode from ram.dbo.ram_equity_pricing_research)
-	and			Cusip in (select distinct Cusip from #ibescode_cusips)
-group by		SecCode, Cusip
-)
-
-
-
-, seccode_ibescode_map_0 as (
-select			M1.SecCode,
-				M2.Code,
-				M1.StartDate
-from			seccode_cusip_map_0 M1
-	join		#ibescode_cusips M2
-	on			M1.Cusip = M2.Cusip
-)
-
-
-
-, seccode_ibescode_map_1 as (
-select			*,
-				dateadd(day, -1, Lead(StartDate, 1) over (
-					partition by SecCode
-					order by StartDate)) as EndDate,
-				ROW_NUMBER() over (
-					partition by SecCode
-					order by StartDate) as rownum
-from			seccode_ibescode_map_0
-)
-
-
-
-
-
-
-insert into		ram.dbo.ram_ibes_map
-select			S.SecCode,
-				S.Code,
-				case
-					when S.rownum = 1 then '1950-01-01'
-					else S.StartDate
-				end as StartDate,
-				case
-					when S.rownum = M.MaxRoWNum then '2059-01-01'
-					else S.EndDate
-				end as EndDate
-
-from			seccode_ibescode_map_1 S
-	join		(select SecCode, max(rownum) as MaxRowNum 
-				 from seccode_ibescode_map_1 group by SecCode) M
-	on			S.SecCode = M.SecCode
-
+						SELECT			2											AS Priority_ 
+										, p.RegCode
+										, p.SecCode
+										, p.[Rank] 
+										, t.IBESTicker
+										, t.EstPermID
+										, t.QuotePermID
+										, t.CtryPermID
+										, t.InstrPermID
+										, COALESCE(DATEADD(mi, -(t.ExpireOffset), t.[ExpireDate])	,'2079-12-31')	AS [ExpireDate]
+										, COALESCE(DATEADD(mi, -(t.EffectiveOffset), t.EffectiveDate),'2079-12-31')	AS EffectiveDate
+							FROM		dbo.PermSecMapx		AS p
+							LEFT JOIN	dbo.TREInfo			AS t
+								ON		t.QuotePermID		= p.EntPermID 
+							WHERE		p.EntType			= 55
+								AND		t.IBESTicker		IS NOT NULL
+							
+						UNION ALL
+ 
+						SELECT			1											AS Priority_ 
+										, p.RegCode
+										, p.SecCode
+										, p.[Rank]
+										, t.IBESTicker
+										, t.EstPermID
+										, t.QuotePermID
+										, t.CtryPermID
+										, q.InstrPermID
+										, COALESCE(DATEADD(mi, -(t.ExpireOffset), t.[ExpireDate])	,'2079-12-31')	AS [ExpireDate]
+										, COALESCE(DATEADD(mi, -(t.EffectiveOffset), t.EffectiveDate),'2079-12-31')	AS EffectiveDate
+							FROM		dbo.PermSecMapx			AS p
+							LEFT JOIN	dbo.PermQuoteRef		AS q
+								ON		q.InstrPermID			= p.EntPermID 
+								AND		q.IsPrimary				= 1
+							LEFT JOIN	dbo.TREInfo				AS t
+								ON		t.QuotePermID			= q.QuotePermID 
+								AND		t.CtryPermID			IN (100052,100319)
+							WHERE		p.EntType				= 49
+								AND		p.RegCode				= 1	 
+								AND		t.IBESTicker			IS NOT NULL  												
+													
+						UNION ALL
+					
+						SELECT			3											AS Priority_ 
+										, p.RegCode
+										, p.SecCode
+										, p.[Rank] 
+										, t.IBESTicker
+										, t.EstPermID
+										, t.QuotePermID
+										, t.CtryPermID
+										, t.InstrPermID
+										, COALESCE(DATEADD(mi, -(t.ExpireOffset), t.[ExpireDate])	,'2079-12-31')	AS [ExpireDate]
+										, COALESCE(DATEADD(mi, -(t.EffectiveOffset), t.EffectiveDate),'2079-12-31')	AS EffectiveDate
+							FROM		dbo.PermSecMapx		AS p
+							LEFT JOIN	dbo.TREINfo			AS t
+								ON		t.InstrPermID		= p.EntPermID 
+								AND		t.CtryPermID		IN (100052,100319)
+							WHERE		p.EntType			= 49
+								AND		p.RegCode			= 1		
+								AND		t.IBESTicker		IS NOT NULL
+						)	IN_ 
+			)	OUT_
+	WHERE	Rank_		= 1
 
 
