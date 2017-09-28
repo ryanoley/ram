@@ -12,8 +12,8 @@ create table ram.dbo.ram_ibes_map (
 	QuotePermID bigint,
 	InstrPermID bigint,
 	CtryPermID bigint,
-	Source_ varchar(50)
-	--primary key (SecCode, EstPermID)
+	Source_ varchar(50),
+	primary key (SecCode, EstPermID)
 );
 
 
