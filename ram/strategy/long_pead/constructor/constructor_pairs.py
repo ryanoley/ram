@@ -13,15 +13,27 @@ class PortfolioConstructorPairs(Constructor):
 
     def get_args(self):
         return {
-            'logistic_spread': [0.1],
-            'pair_min_offsets': [1, 3, 5],
-            'pair_max_offsets': [10, 100]
+            'params': [
+            # ZSCORES
+            {'type': 'zscore_model', 'z_thresh': 0.4, 'n_per_side': 3},
+            {'type': 'zscore_model', 'z_thresh': 0.4, 'n_per_side': 5},
+            {'type': 'zscore_model', 'z_thresh': 0.4, 'n_per_side': 7},
+
+            {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 1},
+            {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 3},
+            {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 5},
+
+            {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 1},
+            {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 2},
+            {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 3},
+
+            # TREES
+            {'type': 'tree_model', 'pair_max_offsets': 3},
+            {'type': 'tree_model', 'pair_max_offsets': 7},
+            ]
         }
 
-    def get_position_sizes(self, date, scores,
-                           logistic_spread,
-                           pair_min_offsets,
-                           pair_max_offsets):
+    def get_position_sizes(self, date, scores, params):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -39,9 +51,7 @@ class PortfolioConstructorPairs(Constructor):
         zscores = _extract_zscore_data(self.data_container, date)
         scores = _merge_scores_zscores_data(scores, zscores)
         # Get scores
-        scores = _select_port_and_offsets(scores, logistic_spread,
-                                          pair_min_offsets,
-                                          pair_max_offsets)
+        scores = _select_port_and_offsets(scores, params)
 
         scores.pos_size *= self.booksize
         scores = scores.merge(pd.DataFrame({'SecCode': all_seccodes}),
@@ -50,50 +60,76 @@ class PortfolioConstructorPairs(Constructor):
         return scores.pos_size.to_dict()
 
 
-def _select_port_and_offsets(data,
-                             logistic_spread,
-                             pair_min_offsets,
-                             pair_max_offsets):
+def _select_port_and_offsets(data, params):
 
-    # Get approximate side to match correct pairs
-    sides = data[['SecCode', 'Signal']].drop_duplicates()
-    sides = sides.sort_values('Signal')
-    sides['long'] = sides.Signal > sides.Signal.median()
-    data = data.merge(sides)
-    temp1 = data[(~data.long) & (data.zscore > 0)]
-    temp2 = data[(data.long) & (data.zscore < 0)]
-    data = temp1.append(temp2)
+    if params['type'] == 'tree_model':
+        # Get approximate side to match correct pairs
+        sides = data[['SecCode', 'Signal']].drop_duplicates()
+        sides = sides.sort_values('Signal')
+        sides['long'] = sides.Signal > sides.Signal.median()
+        data = data.merge(sides)
+        temp1 = data[(~data.long) & (data.zscore > 0)]
+        temp2 = data[(data.long) & (data.zscore < 0)]
+        data = temp1.append(temp2)
 
-    # Counts filter
-    counts = data.groupby('SecCode')['Signal'].count().reset_index()
-    counts.columns = ['SecCode', 'counts']
-    data = data.merge(counts)
-    data = data[data.counts >= pair_min_offsets]
+        # Counts filter
+        counts = data.groupby('SecCode')['Signal'].count().reset_index()
+        counts.columns = ['SecCode', 'counts']
+        data = data.merge(counts)
+        data = data[data.counts >= 2]
 
-    # Max number
-    data = _zscore_rank(data)
-    data = data[data.zscore_rank <= pair_max_offsets]
+        # Max number
+        data = _zscore_rank(data)
+        data = data[data.zscore_rank <= params['pair_max_offsets']]
+        # Get proper sizing given remaing names
+        ranked_weights = _get_weighting(
+            data[['SecCode', 'Signal']].drop_duplicates(), 'Signal')
+        data = data.merge(ranked_weights)
 
-    # Get proper sizing given remaing names
-    ranked_weights = _get_weighting(
-        data[['SecCode', 'Signal']].drop_duplicates(),
-        'Signal', logistic_spread)
-    data = data.merge(ranked_weights)
+        # Get norm factor
+        norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
+        norm_factor.columns = ['SecCode', 'norm_factor']
+        data = data.merge(norm_factor)
+        data['offset_signal'] = data.zscore / data.norm_factor * \
+            data.Weighted_Signal * -1
 
-    # Get norm factor
-    norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
-    norm_factor.columns = ['SecCode', 'norm_factor']
-    data = data.merge(norm_factor)
-    data['offset_signal'] = data.zscore / data.norm_factor * \
-        data.Weighted_Signal * -1
+        offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
+        main_size = data.groupby('SecCode')['Weighted_Signal'].max()
+        out = main_size.add(offset_size, fill_value=0).reset_index()
+        out.columns = ['SecCode', 'pos_size']
+        # Scale to get everything to one
+        out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
+        return out
 
-    offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
-    main_size = data.groupby('SecCode')['Weighted_Signal'].max()
-    out = main_size.add(offset_size, fill_value=0).reset_index()
-    out.columns = ['SecCode', 'pos_size']
-    # Scale to get everything to one
-    out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
-    return out
+    elif params['type'] == 'zscore_model':
+
+        data_pos = _zscore_rank(data[data.zscore > params['z_thresh']].copy())
+        data_neg = _zscore_rank(data[data.zscore < -params['z_thresh']].copy())
+        data = data_pos.append(data_neg)
+
+        # Return data frame with SecCode, pos_size
+        pos_z = data_pos.SecCode.value_counts().reset_index()
+        pos_z.columns = ['SecCode', 'CountPos']
+
+        neg_z = data_neg.SecCode.value_counts().reset_index()
+        neg_z.columns = ['SecCode', 'CountNeg']
+
+        counts = pos_z.merge(neg_z)
+        data = data.merge(counts)
+
+        data = data[(data.CountPos >= params['n_per_side']) &
+                    (data.CountNeg >= params['n_per_side'])]
+        data = data[data.zscore_rank <= params['n_per_side']]
+
+        data['pos_size'] = (1./params['n_per_side']) * np.sign(data.zscore)
+        out = data.groupby('OffsetSecCode')['pos_size'].sum()
+        out = out.reset_index()
+        out.columns = ['SecCode', 'pos_size']
+        try:
+            out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
+        except:
+            return out
+        return out
 
 
 def _zscore_rank(data):
@@ -149,7 +185,7 @@ def _format_scores_dict(scores):
     return scores.reset_index(drop=True)
 
 
-def _get_weighting(data, rank_column, logistic_spread):
+def _get_weighting(data, rank_column, logistic_spread=0.01):
     data = data.copy()
     data = data.sort_values(rank_column)
 

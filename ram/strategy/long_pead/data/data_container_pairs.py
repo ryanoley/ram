@@ -39,12 +39,10 @@ class DataContainerPairs(object):
                  'response_thresh': 0.3},
                 # {'type': 'simple', 'response_days': 2},
             ],
-            'training_qtrs': [-99],
-            'filter_training': [False, True],
+            'training_qtrs': [-99, 20],
         }
 
-    def prep_data(self, time_index, response_params, training_qtrs,
-                  filter_training):
+    def prep_data(self, time_index, response_params, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -63,12 +61,7 @@ class DataContainerPairs(object):
 
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
-        if filter_training:
-            train_data = train_data.loc[
-                (train_data.RClose >= 10) &
-                (train_data.AvgDolVol >= 3) &
-                (train_data.MarketCap >= 200)
-            ]
+
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
         # Merge response data
