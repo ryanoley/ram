@@ -59,7 +59,7 @@ class Constructor(object):
             data_container.test_data, 'AvgDolVol')
         self.market_cap = make_variable_dict(
             data_container.test_data, 'MarketCap')
-        self.sectors = make_variable_dict(
+        self.sector = make_variable_dict(
             data_container.test_data, 'GSECTOR')
         self.groups = make_variable_dict(
             data_container.test_data, 'GGROUP')
