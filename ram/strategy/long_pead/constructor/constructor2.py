@@ -13,29 +13,33 @@ class PortfolioConstructor2(Constructor):
     def get_args(self):
         return {
             'logistic_spread': [0.1, 2],
-            'group_variable': ['MarketCap', 'Liquidity', 'Sector']
+            'group_variable': ['Group', 'MarketCap', 'Liquidity', 'Sector']
         }
 
     def get_position_sizes(self, date, scores, logistic_spread,
                            group_variable, n_groups=3):
         # Output should have all the same keys, but can return nan values
-        output_sizes = pd.DataFrame(index=scores.keys(),
-                                    columns=['weight'])
+        output_sizes = pd.DataFrame(index=scores.keys(), columns=['weight'])
         # Reformat input
         if group_variable == 'MarketCap':
             scores = pd.Series(scores, name='score').to_frame().join(
-                pd.Series(self.market_cap, name='sort_var')).dropna()
+                pd.Series(self.market_cap[date], name='sort_var')).dropna()
         elif group_variable == 'Liquidity':
             scores = pd.Series(scores, name='score').to_frame().join(
-                pd.Series(self.liquidity, name='sort_var')).dropna()
+                pd.Series(self.liquidity[date], name='sort_var')).dropna()
+        elif group_variable == 'Sector':
+            scores = pd.Series(scores, name='score').to_frame().join(
+                pd.Series(self.sector[date], name='group')).dropna()
         else:
             scores = pd.Series(scores, name='score').to_frame().join(
-                pd.Series(self.sector, name='group')).dropna()
+                pd.Series(self.groups[date], name='group')).dropna()
 
         if group_variable == 'Sector':
             # Drop anything that isn't real gics sector
             scores = scores.loc[scores.group.isin(
                 [str(x) for x in range(10, 60, 5)])]
+        elif group_variable == 'Group':
+            pass
         else:
             # Sort on market cap
             scores = scores.sort_values('sort_var')
@@ -46,6 +50,7 @@ class PortfolioConstructor2(Constructor):
         # Get unique groups and their proportions. This is used for
         # total allocation to group.
         groups = scores.groupby('group')['score'].count()
+        groups = groups[groups > 4]
         groups = groups / float(groups.sum())
         # Collect weighted output that has been scaled already.
         output = pd.DataFrame()
@@ -54,6 +59,7 @@ class PortfolioConstructor2(Constructor):
                 scores[scores.group == g], logistic_spread, prop))
         # Put data into output dictionary for downstream. Preserves nans
         output_sizes.loc[output.index, 'weight'] = output.weights
+        output_sizes.weight *= self.booksize
         return output_sizes.weight.fillna(0).to_dict()
 
 

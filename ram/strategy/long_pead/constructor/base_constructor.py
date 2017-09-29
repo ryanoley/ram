@@ -53,12 +53,16 @@ class Constructor(object):
             data_container.test_data, 'RCashDividend', 0)
         splits = make_variable_dict(
             data_container.test_data, 'SplitMultiplier', 1)
-        liquidity = make_variable_dict(
+
+
+        self.liquidity = make_variable_dict(
             data_container.test_data, 'AvgDolVol')
-        market_caps = make_variable_dict(
+        self.market_caps = make_variable_dict(
             data_container.test_data, 'MarketCap')
-        sectors = make_variable_dict(
+        self.sectors = make_variable_dict(
             data_container.test_data, 'GSECTOR')
+        self.groups = make_variable_dict(
+            data_container.test_data, 'GGROUP')
 
         self.data_container = data_container
         self.signals = signals
@@ -78,7 +82,7 @@ class Constructor(object):
             # Update every five days
             if i % 5 == 0:
                 low_liquidity_seccodes = filter_seccodes(
-                    liquidity[date], LOW_LIQUIDITY_FILTER)
+                    self.liquidity[date], LOW_LIQUIDITY_FILTER)
             # If close is very low, drop as well
             low_price_seccodes = filter_seccodes(
                 closes[date], LOW_PRICE_FILTER)

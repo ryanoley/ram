@@ -24,9 +24,9 @@ class SignalModel1(object):
             ],
             'drop_accounting': [False],
             'drop_extremes': [True],
-            'drop_starmine': [False],
+            'drop_starmine': [False, True],
             'drop_extract_alpha': [True],
-            'drop_market_variables': ['constrained', False],
+            'drop_market_variables': ['constrained'],
             'training': ['quarterly']
         }
 

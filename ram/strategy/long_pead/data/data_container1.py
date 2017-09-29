@@ -31,7 +31,7 @@ class DataContainer1(object):
                 #{'type': 'smoothed', 'response_days': [2], 'response_thresh': 0.3},
                 #{'type': 'simple', 'response_days': 2},
             ],
-            'training_qtrs': [-99]
+            'training_qtrs': [-99, 20]
         }
 
     def prep_data(self, time_index, response_params, training_qtrs):
