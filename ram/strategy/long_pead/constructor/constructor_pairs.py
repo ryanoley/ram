@@ -15,21 +15,21 @@ class PortfolioConstructorPairs(Constructor):
         return {
             'params': [
             # ZSCORES
-            {'type': 'zscore_model', 'z_thresh': 0.4, 'n_per_side': 3},
-            {'type': 'zscore_model', 'z_thresh': 0.4, 'n_per_side': 5},
-            {'type': 'zscore_model', 'z_thresh': 0.4, 'n_per_side': 7},
+            # TREES - LONG ONLY
+            {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': 4},
+            {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': 8},
+            {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': None},
 
             {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 1},
             {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 3},
-            {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 5},
 
             {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 1},
-            {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 2},
             {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 3},
 
             # TREES
             {'type': 'tree_model', 'pair_max_offsets': 3},
             {'type': 'tree_model', 'pair_max_offsets': 7},
+
             ]
         }
 
@@ -62,7 +62,45 @@ class PortfolioConstructorPairs(Constructor):
 
 def _select_port_and_offsets(data, params):
 
-    if params['type'] == 'tree_model':
+    if params['type'] == 'tree_model_long':
+        # Get approximate side to match correct pairs
+        sides = data[['SecCode', 'Signal']].drop_duplicates()
+        sides = sides.sort_values('Signal')
+        sides = sides[sides.Signal > 0]
+
+        data = data.merge(sides)
+        data = data[data.zscore < 0]
+
+        if params['filter_offset_signal']:
+            data = _offset_rank(data)
+            data = data[data.SignalOffset_rank <= params['filter_offset_signal']]
+
+        # Max number
+        data = _zscore_rank(data)
+        data = data[data.zscore_rank <= params['pair_max_offsets']]
+        # Get proper sizing given remaing names
+        ranked_weights = _get_weighting(
+            data[['SecCode', 'Signal']].drop_duplicates(), 'Signal')
+        ranked_weights.Weighted_Signal += ranked_weights.Weighted_Signal.min() * -1
+        ranked_weights.Weighted_Signal /= ranked_weights.Weighted_Signal.sum()
+        data = data.merge(ranked_weights)
+
+        # Get norm factor
+        norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
+        norm_factor.columns = ['SecCode', 'norm_factor']
+        data = data.merge(norm_factor)
+        data['offset_signal'] = data.zscore / data.norm_factor * \
+            data.Weighted_Signal * -1
+
+        offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
+        main_size = data.groupby('SecCode')['Weighted_Signal'].max()
+        out = main_size.add(offset_size, fill_value=0).reset_index()
+        out.columns = ['SecCode', 'pos_size']
+        # Scale to get everything to one
+        out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
+        return out
+
+    elif params['type'] == 'tree_model':
         # Get approximate side to match correct pairs
         sides = data[['SecCode', 'Signal']].drop_duplicates()
         sides = sides.sort_values('Signal')
@@ -139,6 +177,16 @@ def _zscore_rank(data):
     ranks = np.zeros(data.shape[0])
     _zscore_rank_numba(ranks, ids)
     data['zscore_rank'] = ranks
+    return data
+
+
+def _offset_rank(data):
+    data['absSignalOffset'] = data.SignalOffset.abs()
+    data = data.sort_values(['SecCode', 'absSignalOffset'])
+    ids = data.SecCode.astype('category').cat.codes.values
+    ranks = np.zeros(data.shape[0])
+    _zscore_rank_numba(ranks, ids)
+    data['SignalOffset_rank'] = ranks
     return data
 
 

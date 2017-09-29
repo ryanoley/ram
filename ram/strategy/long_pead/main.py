@@ -21,11 +21,11 @@ from ram.strategy.long_pead.signals.signals1 import SignalModel1
 
 class LongPeadStrategy(Strategy):
 
-    #data = DataContainerPairs()
-    data = DataContainer1()
+    data = DataContainerPairs()
+    #data = DataContainer1()
     signals = SignalModel1()
-    #constructor = PortfolioConstructorPairs()
-    constructor = PortfolioConstructor2()
+    constructor = PortfolioConstructorPairs()
+    #constructor = PortfolioConstructor2()
 
     def get_column_parameters(self):
         """
