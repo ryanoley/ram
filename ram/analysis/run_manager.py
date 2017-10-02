@@ -381,7 +381,7 @@ class RunManagerGCP(RunManager):
         path = os.path.join('simulations', self.strategy_class,
                             self.run_name, 'notes.json')
         blob = self._bucket.blob(path)
-        blob.upload_from_string(str(notes))
+        blob.upload_from_string(json.dumps(notes))
 
     def get_notes(self):
         notes = self._import_notes()
