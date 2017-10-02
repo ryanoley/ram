@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import datetime as dt
 from StringIO import StringIO
 import matplotlib.pyplot as plt
 
@@ -195,6 +196,32 @@ class RunManager(object):
         plt.plot(rets2.cumsum(), 'g')
         plt.show()
 
+    # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def add_note(self, note, path=config.SIMULATION_OUTPUT_DIR):
+        note_path = os.path.join(path, self.strategy_class,
+                                 self.run_name, 'notes.json')
+        if os.path.isfile(note_path):
+            notes = json.load(open(note_path, 'r'))
+        else:
+            notes = {}
+        now = dt.datetime.utcnow()
+        notes[now.strftime('%Y-%m-%dT%H:%M:%S')] = note
+        with open(note_path, 'w') as outfile:
+            json.dump(notes, outfile)
+
+    def get_notes(self, path=config.SIMULATION_OUTPUT_DIR):
+        note_path = os.path.join(path, self.strategy_class,
+                                 self.run_name, 'notes.json')
+        if not os.path.isfile(note_path):
+            return 'No notes files'
+        notes = json.load(open(note_path, 'r'))
+        out = pd.Series(notes).to_frame().reset_index()
+        out.columns = ['DateTime', 'Note']
+        out = out.sort_values('DateTime')
+        out = out.reset_index(drop=True)
+        return out
+
 
 ###############################################################################
 
@@ -333,6 +360,38 @@ class RunManagerGCP(RunManager):
             returns = returns.add(temp, fill_value=0)
         returns.index = convert_date_array(returns.index)
         self.long_short_returns = returns
+
+    # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _import_notes(self):
+        path = os.path.join('simulations', self.strategy_class,
+                            self.run_name, 'notes.json')
+        blob = self._bucket.get_blob(path)
+        if blob:
+            return json.loads(blob.download_as_string())
+        else:
+            return None
+
+    def add_note(self, note, path=config.SIMULATION_OUTPUT_DIR):
+        notes = self._import_notes()
+        notes = notes if notes else {}
+        #
+        now = dt.datetime.utcnow()
+        notes[now.strftime('%Y-%m-%dT%H:%M:%S')] = note
+        path = os.path.join('simulations', self.strategy_class,
+                            self.run_name, 'notes.json')
+        blob = self._bucket(path)
+        blob.upload_from_string(str(notes))
+
+    def get_notes(self):
+        notes = self._import_notes()
+        if not notes:
+            return 'No notes files'
+        out = pd.Series(notes).to_frame().reset_index()
+        out.columns = ['DateTime', 'Note']
+        out = out.sort_values('DateTime')
+        out = out.reset_index(drop=True)
+        return out
 
 
 ###############################################################################

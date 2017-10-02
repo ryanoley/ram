@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import shutil
 import unittest
@@ -85,7 +86,7 @@ class TestRunManager(unittest.TestCase):
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.]
         data['1'] = [6, 7, 8, 9, 10.]
-        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(6, 11)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
 
@@ -270,6 +271,14 @@ class TestRunManager(unittest.TestCase):
         data['Ret2'] = range(5, -5, -1)
         result = get_quarterly_rets(data, 'Ret1')
         self.assertEqual(result.values[0].tolist(), [10, 35])
+
+    def test_add_note(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
+        run1.add_note('This is a test note', path=self.base_path)
+        time.sleep(2)
+        run1.add_note('This is a second test note', path=self.base_path)
+        result = run1.get_notes(self.base_path)
+        self.assertEqual(result.shape[0], 2)
 
     def tearDown(self):
         shutil.rmtree(self.base_path)
