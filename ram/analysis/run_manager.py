@@ -380,7 +380,7 @@ class RunManagerGCP(RunManager):
         notes[now.strftime('%Y-%m-%dT%H:%M:%S')] = note
         path = os.path.join('simulations', self.strategy_class,
                             self.run_name, 'notes.json')
-        blob = self._bucket(path)
+        blob = self._bucket.blob(path)
         blob.upload_from_string(str(notes))
 
     def get_notes(self):
