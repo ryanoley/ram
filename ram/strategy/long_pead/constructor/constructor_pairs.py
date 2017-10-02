@@ -14,15 +14,17 @@ class PortfolioConstructorPairs(Constructor):
     def get_args(self):
         return {
             'params': [
-            # ZSCORES
             # TREES - LONG ONLY
+            {'type': 'tree_model_long', 'pair_max_offsets': 1, 'filter_offset_signal': 4},
+            {'type': 'tree_model_long', 'pair_max_offsets': 1, 'filter_offset_signal': 8},
+            {'type': 'tree_model_long', 'pair_max_offsets': 1, 'filter_offset_signal': None},
             {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': 4},
             {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': 8},
             {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': None},
 
+            # ZSCORES
             {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 1},
             {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 3},
-
             {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 1},
             {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 3},
 
@@ -181,8 +183,7 @@ def _zscore_rank(data):
 
 
 def _offset_rank(data):
-    data['absSignalOffset'] = data.SignalOffset.abs()
-    data = data.sort_values(['SecCode', 'absSignalOffset'])
+    data = data.sort_values(['SecCode', 'SignalOffset'])
     ids = data.SecCode.astype('category').cat.codes.values
     ranks = np.zeros(data.shape[0])
     _zscore_rank_numba(ranks, ids)

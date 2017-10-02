@@ -39,7 +39,7 @@ class DataContainerPairs(object):
                  'response_thresh': 0.3},
                 # {'type': 'simple', 'response_days': 2},
             ],
-            'training_qtrs': [-99, 20],
+            'training_qtrs': [-99],
         }
 
     def prep_data(self, time_index, response_params, training_qtrs):
