@@ -53,8 +53,11 @@ FUNCS = [
     'EPSESTIMATEFQ', 'EPSSURPRISEFQ', 'EBITDAESTIMATEFQ', 'EBITDASURPRISEFQ',
     'REVENUEESTIMATEFQ', 'REVENUESURPRISEFQ', 'SESPLITFACTOR',
     'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-    'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
-  
+    'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
+
+    # IBES
+    'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
+    'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
 ]
 
 
@@ -1012,6 +1015,69 @@ def SISHORTSQUEEZE(arg0, feature_name, arg2, table):
   
 def SIINSTOWNERSHIP(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_InstOwnership', feature_name, table)
+
+
+# ~~~~~ IBES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def _PRICETARGET(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{0} as {1}
+        from        {2} A
+        join   ram.dbo.ram_ibes_price_target B
+            on      B.SecCode = A.SecCode
+            and     B.EffectiveDate = (
+                select max(EffectiveDate)
+                from ram.dbo.ram_ibes_price_target C
+                where C.SecCode = A.SecCode
+                    and C.EffectiveDate <= A.Date_
+            )
+        """.format(feature, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def PTARGETMEAN(arg0, feature_name, arg2, table):
+    return _PRICETARGET('MeanEst', feature_name, table)
+
+def PTARGETHIGH(arg0, feature_name, arg2, table):
+    return _PRICETARGET('HighEst', feature_name, table)
+
+def PTARGETLOW(arg0, feature_name, arg2, table):
+    return _PRICETARGET('LowEst', feature_name, table)
+
+def PTARGETUNADJ(arg0, feature_name, arg2, table):
+    return _PRICETARGET('UnAdjMeanEst', feature_name, table)
+
+
+def _ANALYSTREC(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{0} as {1}
+        from        {2} A
+        join   ram.dbo.ram_ibes_recommendation B
+            on      B.SecCode = A.SecCode
+            and     B.EffectiveDate = (
+                select max(EffectiveDate)
+                from ram.dbo.ram_ibes_recommendation C
+                where C.SecCode = A.SecCode
+                    and C.EffectiveDate <= A.Date_
+            )
+        """.format(feature, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def RECMEAN(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('MeanRec', feature_name, table)
+
+def RECHIGH(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('HighRec', feature_name, table)
+
+def RECLOW(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('LowRec', feature_name, table)
+
+def RECNREC(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('NumRecs', feature_name, table)
 
 
 # ~~~~~~ Utility ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
