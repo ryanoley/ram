@@ -54,7 +54,6 @@ class Constructor(object):
         splits = make_variable_dict(
             data_container.test_data, 'SplitMultiplier', 1)
 
-
         self.liquidity = make_variable_dict(
             data_container.test_data, 'AvgDolVol')
         self.market_cap = make_variable_dict(
@@ -103,6 +102,9 @@ class Constructor(object):
             daily_turnover = portfolio.get_portfolio_daily_turnover()
             daily_exposure = portfolio.get_portfolio_exposure()
 
+            min_pos_size = min([pos.exposure for pos in portfolio.positions.values()])
+            max_pos_size = max([pos.exposure for pos in portfolio.positions.values()])
+
             daily_df.loc[date, 'PL'] = pl_long + pl_short
             daily_df.loc[date, 'LongPL'] = pl_long
             daily_df.loc[date, 'ShortPL'] = pl_short
@@ -117,6 +119,8 @@ class Constructor(object):
                 daily_stats['min_ticket_charge_prc']
             daily_df.loc[date, 'MeanSignal'] = \
                 np.nanmean(scores[date].values())
+            daily_df.loc[date, 'MinPosSize'] = min_pos_size / self.booksize
+            daily_df.loc[date, 'MaxPosSize'] = max_pos_size / self.booksize
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats
