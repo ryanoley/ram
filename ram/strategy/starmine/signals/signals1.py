@@ -18,7 +18,7 @@ class SignalModel1(object):
         return {
             'max_features': [0.75],
             'n_estimators': [100],
-            'min_samples_leaf': [30]
+            'min_samples_leaf': [25]
         }
 
 

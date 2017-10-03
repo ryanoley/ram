@@ -2,12 +2,12 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from gearbox import create_time_index, convert_date_array
 from ram.strategy.starmine.data.features import *
 from ram.strategy.basic.utils import make_variable_dict
+from gearbox import create_time_index, convert_date_array
 
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
-                        'PostErnStrategy','spy.csv')
+                        'PostErnStrategy', 'spy.csv')
 
 
 class DataContainer1(object):
@@ -21,8 +21,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [30],
-            #'threshA': [.10, .25, .25], 
+            'response_days': [20, 30],
             'training_qtrs': [-99]
         }
 
@@ -102,12 +101,23 @@ class DataContainer1(object):
         data.RevMissBeat.replace(-np.inf, 0, inplace=True)
 
         # SMART ESTIMATE REVISIONS
-        data = get_se_revisions(data, 'EPSESTIMATE', 'eps_est_change',
-                                window=10)
-        data = get_se_revisions(data, 'EBITDAESTIMATE', 'ebitda_est_change',
-                                window=10)
-        data = get_se_revisions(data, 'REVENUEESTIMATE', 'rev_est_change',
-                                window=10)
+        data = get_cum_delta(data, 'EPSESTIMATE', 'eps_est_change',
+                            smart_est_column=True)
+        data = get_cum_delta(data, 'EBITDAESTIMATE', 'ebitda_est_change',
+                                 smart_est_column=True)
+        data = get_cum_delta(data, 'REVENUEESTIMATE', 'rev_est_change',
+                                 smart_est_column=True)
+
+        # Price Target and Analyst Recommendations
+        data = get_cum_delta(data, 'PTARGETUNADJ', 'prtgt_est_change')
+        data['prtgt_est_change'] /= data.PTARGETUNADJ
+        data.loc[np.abs(data.prtgt_est_change) == np.inf, 'prtgt_est_change'] = 0.
+
+        data['prtgt_discount'] = (data.RClose / data.PTARGETUNADJ) - 1
+        data.loc[np.abs(data.prtgt_discount) == np.inf, 'prtgt_discount'] = 0.
+        data = get_cum_delta(data, 'prtgt_discount', 'prtgt_disc_change')
+
+        data = get_cum_delta(data, 'RECMEAN', 'anr_rec_change')
 
         # Several different returns
         data = get_vwap_returns(data, 10, hedged=True,
@@ -120,10 +130,11 @@ class DataContainer1(object):
                                 market_data=self._market_data)
 
         # Accounting infs
-        accounting_cols = ['NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
-        'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
-        'EBITGROWTHQ', 'EBITGROWTHTTM',
-        'SALESGROWTHQ', 'SALESGROWTHTTM']
+        accounting_cols = [
+            'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM', 'OPERATINGINCOMEGROWTHQ',
+            'OPERATINGINCOMEGROWTHTTM', 'EBITGROWTHQ', 'EBITGROWTHTTM',
+            'SALESGROWTHQ', 'SALESGROWTHTTM'
+            ]
         data[accounting_cols] = data[accounting_cols].replace(np.inf, 0.)
         data[accounting_cols] = data[accounting_cols].replace(-np.inf, 0.)
         return data
@@ -180,7 +191,11 @@ class DataContainer1(object):
         'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
         'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
         'EBITGROWTHQ', 'EBITGROWTHTTM',
-        'SALESGROWTHQ', 'SALESGROWTHTTM'
+        'SALESGROWTHQ', 'SALESGROWTHTTM',
+
+        # Price target changes
+        'prtgt_est_change', 'prtgt_discount', 'prtgt_disc_change',
+        'anr_rec_change', 'RECMEAN'
         ]
         self.features = features
         self.ret_cols = ['Ret10', 'Ret20', 'Ret30', 'Ret40']
@@ -267,8 +282,7 @@ class DataContainer1(object):
 
     def _add_response_variables(self, data, response_days):
         return data.merge(fixed_response(data, days=response_days))
-        #return data.merge(smoothed_responses(data, thresh=threshA,
-        #                                     days=response_days))
+
 
 
 def read_spy_data(spy_path=None):

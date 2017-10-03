@@ -68,20 +68,26 @@ def ern_price_anchor(data, init_offset=1, window=20):
 
 
 # Revisions to Smart Estimates
-def get_se_revisions(data, se_col, out_col, window=10):
+def get_cum_delta(data, est_col, out_col, smart_est_column=False,
+                  window=10):
     '''
     Cumulative sum of estimate changes over window following
     the earnings announcement
     '''
     ernflag = data.pivot(index='Date', columns='SecCode',
                          values='EARNINGSFLAG')
-    fq1_estimates = data.pivot(index='Date', columns='SecCode',
-                               values='{}FQ1'.format(se_col))
-    fq2_estimates = data.pivot(index='Date', columns='SecCode',
-                               values='{}FQ2'.format(se_col))
-    fq1_estimates[:] = np.where(ernflag.shift(-1) == 1, fq2_estimates,
-                                fq1_estimates)
-    delta = fq1_estimates.diff(1).fillna(0.)
+
+    if smart_est_column:
+        est_pivot = data.pivot(index='Date', columns='SecCode',
+                                   values='{}FQ1'.format(est_col))
+        est_substitute = data.pivot(index='Date', columns='SecCode',
+                                   values='{}FQ2'.format(est_col))
+        est_pivot[:] = np.where(ernflag.shift(-1) == 1, est_substitute,
+                                est_pivot)
+    else:
+        est_pivot = data.pivot(index='Date', columns='SecCode', values=est_col)
+
+    delta = est_pivot.diff(1).fillna(0.)
 
     # Sum estimate changes in  window following ern
     delta_sum_window = ernflag.rolling(window = window, min_periods=1).sum()

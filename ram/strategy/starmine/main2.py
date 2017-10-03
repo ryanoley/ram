@@ -13,7 +13,7 @@ class PostErnStrategy(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
-    constructor = PortfolioConstructor1()
+    constructor = PortfolioConstructor1(5e6)
 
     def get_column_parameters(self):
         """
@@ -36,7 +36,7 @@ class PostErnStrategy(Strategy):
     def run_index(self, time_index):
 
         # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index), entry_day = 3)
+        self.data.add_data(self.read_data_from_index(time_index), entry_day = 4)
 
         if len(self.data._processed_train_data) == 0:
             return
@@ -132,8 +132,7 @@ class PostErnStrategy(Strategy):
             'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
             'DISCOUNT252_AdjClose',
 
-            # Accounting Features - No lag because new data points are
-            # recorded at (T+1)
+            # Accounting Features
             'NETINCOMEQ', 'NETINCOMETTM',
             'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
 
@@ -151,7 +150,11 @@ class PostErnStrategy(Strategy):
 
             # Starmine Features
             'EPSESTIMATEFQ1', 'EPSESTIMATEFQ2', 'EBITDAESTIMATEFQ1',
-            'EBITDAESTIMATEFQ2', 'REVENUEESTIMATEFQ1', 'REVENUEESTIMATEFQ2'
+            'EBITDAESTIMATEFQ2', 'REVENUEESTIMATEFQ1', 'REVENUEESTIMATEFQ2',
+
+            # Price Targets
+            'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
+            'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
         ]
 
 
