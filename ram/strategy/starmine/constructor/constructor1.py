@@ -12,11 +12,10 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [0.01, .015, .02],
-            #'thresh': [0.05, 0.1, 0.15],
-            'pos_size': [.0025],
+            'thresh': [.02, .03],
+            'pos_size': [.05, .065],
             'dd_thresh': [-99, -.15, -.1],
-            'dd_from_zero': [False, True],
+            'dd_from_zero': [True]
         }
 
     def get_daily_pl(self, data_container, signals, **kwargs):

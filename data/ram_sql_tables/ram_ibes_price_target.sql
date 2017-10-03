@@ -19,7 +19,7 @@ create table ram.dbo.ram_ibes_price_target (
 	UnAdjMeanEst float,
 	SplitFactor float,
 	Scale float,
-	primary key (SecCode, EffectiveDate, PerLength)
+	primary key (SecCode, EffectiveDate)
 );
 
 
@@ -50,9 +50,9 @@ join ram.dbo.ram_ibes_map IbesMap
     on IbesMap.EstPermID = PrcTgt.EstPermID
     and IbesMap.Typ = 1 -- US Equities
 
-
 where PrcTgt.Measure = 31 -- PRICE TARGET
 and IbesMap.SecCode in (
     select distinct SecCode from ram.dbo.ram_master_ids)
+and PrcTgt.PerLength =  12 -- ANNUAL FORECAST
 
 
