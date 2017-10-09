@@ -12,13 +12,14 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [.02, .03],
-            'pos_size': [.05, .065],
+            'thresh': [.02, .03, .04],
+            'pos_size': [.06, .065],
             'dd_thresh': [-99, -.15, -.1],
             'dd_from_zero': [True]
         }
 
-    def get_daily_pl(self, data_container, signals, **kwargs):
+    def get_daily_pl(self, data_container, signals, dd_thresh, dd_from_zero,
+                     **kwargs):
         """
         Parameters
         ----------
@@ -26,7 +27,7 @@ class PortfolioConstructor1(Constructor):
         signals
         kwargs
         """
-        scores_dict = make_variable_dict(signals.preds_data, 'preds')
+        scores_dict = make_scores_dict(signals.preds_data)
         portfolio = Portfolio()
 
         test_ids = data_container.test_ids
@@ -54,9 +55,10 @@ class PortfolioConstructor1(Constructor):
             else:
                 scores = get_scores(scores_dict, prior_dt, test_ids)
                 close_seccodes = get_closing_seccodes(exit_dict, date)
+                dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
 
                 positions, net_exposure = self.get_position_sizes(
-                    scores, portfolio, close_seccodes, **kwargs)
+                    scores, portfolio, close_seccodes, dd_seccodes, **kwargs)
 
                 position_sizes = self._get_position_sizes_dollars(positions)
                 portfolio.update_position_sizes(position_sizes, vwaps)
@@ -76,8 +78,8 @@ class PortfolioConstructor1(Constructor):
         stats = {}
         return daily_df, stats
 
-    def get_position_sizes(self, scores, portfolio, close_seccodes, thresh,
-                           pos_size, dd_thresh,  dd_from_zero):
+    def get_position_sizes(self, scores, portfolio, close_seccodes,
+                           dd_seccodes, thresh, pos_size):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -86,9 +88,11 @@ class PortfolioConstructor1(Constructor):
 
         new_longs = set(scores[scores.score >= thresh].index)
         new_shorts = set(scores[scores.score <= -thresh].index)
-
-        dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
         prev_longs, prev_shorts = portfolio.get_open_positions()
+        
+        # Once a position is on, do not update if on same side
+        new_longs -= prev_longs
+        new_shorts -= prev_shorts
 
         live_shorts = (prev_shorts - close_seccodes) - dd_seccodes
         live_shorts.update(new_shorts)
@@ -119,7 +123,6 @@ class PortfolioConstructor1(Constructor):
 
         return pd.Series(scores.weights), net_exposure
 
-
     def update_daily_df(self, data, portfolio, date, ind_stats=False):
         daily_df = data.copy()
         pl_long, pl_short = portfolio.get_portfolio_daily_pl()
@@ -140,14 +143,28 @@ class PortfolioConstructor1(Constructor):
             for key, value in daily_stats.iteritems():
                 daily_df.loc[date, key] = values
         return daily_df
-    
+
+def make_scores_dict(preds_dict):
+    scores_dict = {}
+    preds_df = pd.DataFrame([])
+
+    for e in preds_dict.keys():
+        preds_df = preds_df.append(preds_dict[e])
+
+    for date, preds in preds_df.groupby('Date'):
+        scores_dict[date] = {s:p for s,p in preds[['SecCode','preds']].values}
+
+    return scores_dict
 
 def get_scores(scores_dict, date, index_ids):
-    if date not in scores_dict.keys():
-        return pd.Series(data=np.nan, name='score',
-                         index=index_ids).to_frame()
+    score_df = pd.DataFrame(index=index_ids)
+
+    if date in scores_dict.keys():
+        score_df['score'] =  pd.Series(scores_dict[date], name='score')
     else:
-        return pd.Series(scores_dict[date], name='score').to_frame()
+        score_df['score'] = np.nan
+
+    return score_df
     
 def get_closing_seccodes(exit_dict, date):
     if date not in exit_dict.keys():

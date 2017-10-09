@@ -12,6 +12,7 @@ NJOBS = config.SKLEARN_NJOBS
 class SignalModel1(object):
 
     def __init__(self):
+        self.preds_data = {}
         pass
 
     def get_args(self):
@@ -21,9 +22,45 @@ class SignalModel1(object):
             'min_samples_leaf': [25]
         }
 
+    def rf_signals(self, data_container, max_features, min_samples_leaf,
+                   n_estimators):
 
-    def rf_signals2(self, data_container, max_features,
-                   min_samples_leaf, n_estimators):
+        features = data_container.features
+        train_data = data_container.train_data
+        test_data = data_container.test_data
+    
+        for e in data_container.entry_dates:
+            e_train = train_data[train_data['T'] == e - 1].copy()
+            e_test = test_data[test_data['T'] == e - 1].copy()
+
+            clf = RandomForestRegressor(n_estimators=n_estimators,
+                                       min_samples_leaf=min_samples_leaf,
+                                       max_features=max_features,
+                                       n_jobs=NJOBS)
+            clf.fit(X=e_train[features], y=e_train['Response'])
+
+            preds = clf.predict(e_test[features])
+            e_test['preds'] = preds
+            self.preds_data[e] = e_test[['SecCode', 'Date', 'preds']].copy()
+        return
+
+
+    def lr_signals(self, data_container):
+
+        train_data = data_container.train_data
+        test_data = data_container.test_data
+        features = data_container.features
+
+        lr = LinearRegression()
+
+        lr.fit(X=train_data[features], y=train_data['Response'])
+        test_data['preds'] = lr.predict(test_data[features])
+        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
+        return
+
+
+    def rf_signals2(self, data_container, max_features, min_samples_leaf,
+                    n_estimators):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
@@ -39,43 +76,6 @@ class SignalModel1(object):
         test_data.loc[:, 'preds'] = _get_preds(clf, preds)
         self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
         return
-
-
-    def rf_signals(self, data_container, max_features,
-                   min_samples_leaf, n_estimators):
-
-        train_data = data_container.train_data
-        test_data = data_container.test_data
-        features = data_container.features
-
-        clf = RandomForestRegressor(n_estimators=n_estimators,
-                                   min_samples_leaf=min_samples_leaf,
-                                   max_features=max_features,
-                                   n_jobs=NJOBS)
-
-        clf.fit(X=train_data[features],
-                y=train_data['Response'])
-
-        preds = clf.predict(test_data[features])
-        test_data['preds'] = preds
-        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
-        return
-
-
-    def lr_signals(self, data_container):
-
-        train_data = data_container.train_data
-        test_data = data_container.test_data
-        features = data_container.features
-
-        lr = LinearRegression()
-
-        lr.fit(X=train_data[features],
-                y=train_data['Response'])
-        test_data['preds'] = lr.predict(test_data[features])
-        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
-        return
-
 
 
 def _get_preds(classifier, preds):
