@@ -36,7 +36,7 @@ class PostErnStrategy(Strategy):
     def run_index(self, time_index):
 
         # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index), entry_day = 4)
+        self.data.add_data(self.read_data_from_index(time_index))
 
         if len(self.data._processed_train_data) == 0:
             return
@@ -121,10 +121,8 @@ class PostErnStrategy(Strategy):
 
             # Pricing
             'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',
-            'LEAD5_AdjVwap', 'LEAD10_AdjVwap',
-            'LEAD15_AdjVwap', 'LEAD20_AdjVwap', 'LEAD25_AdjVwap',
-            'LEAD30_AdjVwap', 'LEAD35_AdjVwap', 'LEAD40_AdjVwap',
-            'LEAD45_AdjVwap', 'LEAD50_AdjVwap',
+            'LEAD11_AdjVwap', 'LEAD21_AdjVwap',
+            'LEAD31_AdjVwap', 'LEAD41_AdjVwap',
 
             # Pricing Features
             'PRMA10_AdjClose', 'PRMA20_AdjClose', 'PRMA60_AdjClose',
