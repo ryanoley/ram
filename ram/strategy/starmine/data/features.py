@@ -126,7 +126,7 @@ def get_previous_ern_return(data, fillna=False, prior_data=[]):
 
 
 def get_vwap_returns(data, days, hedged=False, market_data=None):
-    exit_col = 'LEAD{}_AdjVwap'.format(days)
+    exit_col = 'LEAD{}_AdjVwap'.format(days +  1)
     ret_col = 'Ret{}'.format(days)
     
     if exit_col not in data.columns:
@@ -171,7 +171,7 @@ def smoothed_responses(data, thresh=.25, days=[2, 3]):
     return data[['SecCode', 'Date', 'Response']]
 
 
-def fixed_response(data, days=5):
+def fixed_response(data, days=20):
     assert 'Ret{}'.format(days) in data.columns
     data['Response'] = data['Ret{}'.format(days)].copy()
     return data[['SecCode', 'Date', 'Response']].copy()
