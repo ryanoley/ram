@@ -14,25 +14,27 @@ class PortfolioConstructorPairs(Constructor):
     def get_args(self):
         return {
             'params': [
-                # ZSCORES
-                {'type': 'zscore_model_2', 'pair_max_offsets': 5},
-                {'type': 'zscore_model_2', 'pair_max_offsets': 3},
-                {'type': 'zscore_model_2', 'pair_max_offsets': 1},
+                # TREES - LONG ONLY
+                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 50, 'concentration_filter': True},
+                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 50, 'concentration_filter': True},
+                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 70, 'concentration_filter': True},
+                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 70, 'concentration_filter': True},
 
-                {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 1},
-                {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 3},
-                {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 1},
-                {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 3},
+                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 50, 'concentration_filter': False},
+                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 50, 'concentration_filter': False},
+                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 70, 'concentration_filter': False},
+                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 70, 'concentration_filter': False},
 
                 # TREES
                 {'type': 'tree_model', 'pair_max_offsets': 3},
                 {'type': 'tree_model', 'pair_max_offsets': 7},
 
-                # TREES - LONG ONLY
-                {'type': 'tree_model_long_2', 'pair_max_offsets': 1, 'filter_offset_signal': None},
-                {'type': 'tree_model_long_2', 'pair_max_offsets': 3, 'filter_offset_signal': None},
-                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'filter_offset_signal': None},
-                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'filter_offset_signal': None},
+                # ZSCORES
+                {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 3},
+                {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 5},
+                {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 3},
+                {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 5},
+
             ]
         }
 
@@ -65,72 +67,59 @@ class PortfolioConstructorPairs(Constructor):
 
 def _select_port_and_offsets(data, params):
 
-    if params['type'] in ['tree_model_long', 'tree_model_long_2']:
+    if params['type'] == 'tree_model_long':
         # Get approximate side to match correct pairs
         sides = data[['SecCode', 'Signal']].drop_duplicates()
-        sides = sides.sort_values('Signal')
-        sides = sides[sides.Signal > 0]
+        thresh = np.percentile(sides.Signal, params['signal_thresh_perc'])
+        sides = sides[sides.Signal > thresh]
 
         data = data.merge(sides)
         data = data[data.zscore < 0]
 
-        if params['filter_offset_signal']:
-            data = _offset_rank(data)
-            data = data[data.SignalOffset_rank <= params['filter_offset_signal']]
-
-        # Max number
-        data = _zscore_rank(data)
-        data = data[data.zscore_rank <= params['pair_max_offsets']]
-
-        if params['type'] == 'tree_model_long':
-            ranked_weights = _get_weighting(
-                data[['SecCode', 'Signal']].drop_duplicates(), 'Signal')
-            ranked_weights.Weighted_Signal += ranked_weights.Weighted_Signal.min() * -1
-            ranked_weights.Weighted_Signal /= ranked_weights.Weighted_Signal.sum()
-
-            # Get proper sizing given remaing names
-            data = data.merge(ranked_weights)
-            # Get norm factor
-            norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
-            norm_factor.columns = ['SecCode', 'norm_factor']
-            data = data.merge(norm_factor)
-            data['offset_signal'] = data.zscore / data.norm_factor * \
-                data.Weighted_Signal * -1
-
-            offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
-            main_size = data.groupby('SecCode')['Weighted_Signal'].max()
-            out = main_size.add(offset_size, fill_value=0).reset_index()
-            out.columns = ['SecCode', 'pos_size']
-            # Scale to get everything to one
-            out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
-            return out
-
+        # TEMP: See below to manage concentration
+        if params['concentration_filter']:
+            # LOGIC HERE IS TO RANK BUT ALSO TO MANAGE CONCENTRATION    
+            # Max number is adjusted here on a first filter
+            data = _zscore_rank(data)
+            zrank = params['pair_max_offsets'] + 3
+            data = data[data.zscore_rank <= zrank]
+    
+            # Prevent concentration in offsets here
+            data = _zscore_rank_offset(data)
+            zrank = params['pair_max_offsets'] + 3
+            data = data[data.zscore_rank_offset <= zrank]
+    
+            # Final filter
+            data = data.drop('zscore_rank', axis=1)
+            data = _zscore_rank(data)
+            zrank = params['pair_max_offsets']
+            data = data[data.zscore_rank <= zrank]
         else:
-            data['zscore2'] = data.zscore * -1
-            ranked_weights = _get_weighting(
-                data.groupby('SecCode')['zscore2'].mean().reset_index(),
-                'zscore2')
-            ranked_weights['Weighted_Signal'] = ranked_weights.Weighted_zscore2 + ranked_weights.Weighted_zscore2.min() * -1
-            ranked_weights.Weighted_Signal /= ranked_weights.Weighted_Signal.sum()
-            ranked_weights = ranked_weights.drop('zscore2', axis=1)
+            data = _zscore_rank(data)
+            data = data[data.zscore_rank <= params['pair_max_offsets']]
 
-            # Get proper sizing given remaing names
-            data = data.merge(ranked_weights)
+        # Allocate capital
+        ranked_weights = _get_weighting(
+            data[['SecCode', 'Signal']].drop_duplicates(), 'Signal')
+        ranked_weights.Weighted_Signal += ranked_weights.Weighted_Signal.min() * -1
+        ranked_weights.Weighted_Signal /= ranked_weights.Weighted_Signal.sum()
 
-            # Get norm factor
-            norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
-            norm_factor.columns = ['SecCode', 'norm_factor']
-            data = data.merge(norm_factor)
-            data['offset_signal'] = data.zscore / data.norm_factor * \
-                data.Weighted_Signal * -1
+        # Get proper sizing given remaing names
+        data = data.merge(ranked_weights)
+        # Get norm factor
+        norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
+        norm_factor.columns = ['SecCode', 'norm_factor']
+        data = data.merge(norm_factor)
+        data['offset_signal'] = data.zscore / data.norm_factor * \
+            data.Weighted_Signal * -1
 
-            offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
-            main_size = data.groupby('SecCode')['Weighted_Signal'].max()
-            out = main_size.add(offset_size, fill_value=0).reset_index()
-            out.columns = ['SecCode', 'pos_size']
-            # Scale to get everything to one
-            out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
-            return out
+        offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
+        main_size = data.groupby('SecCode')['Weighted_Signal'].max()
+        out = main_size.add(offset_size, fill_value=0).reset_index()
+        out.columns = ['SecCode', 'pos_size']
+        # Scale to get everything to one
+        out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
+        return out
 
     elif params['type'] == 'tree_model':
         # Get approximate side to match correct pairs
@@ -201,52 +190,6 @@ def _select_port_and_offsets(data, params):
             return out
         return out
 
-    elif params['type'] == 'zscore_model_2':
-
-        sides = data.groupby('SecCode')['zscore'].mean().reset_index()
-        sides.columns = ['SecCode', 'Signal']
-        sides = sides.sort_values('Signal')
-        sides['long'] = sides.Signal < sides.Signal.median()
-
-        data = data.drop('Signal', axis=1)
-        data = data.merge(sides)
-
-        temp1 = data[(~data.long) & (data.zscore > 0)]
-        temp2 = data[(data.long) & (data.zscore < 0)]
-        data = temp1.append(temp2)
-
-        # Counts filter
-        counts = data.groupby('SecCode')['Signal'].count().reset_index()
-        counts.columns = ['SecCode', 'counts']
-        data = data.merge(counts)
-        data = data[data.counts >= 2]
-
-        # Max number
-        data = _zscore_rank(data)
-        data = data[data.zscore_rank <= params['pair_max_offsets']]
-        data['Signal'] *= -1
-
-        # Get proper sizing given remaing names
-        ranked_weights = _get_weighting(
-            data[['SecCode', 'Signal']].drop_duplicates(), 'Signal')
-        data = data.merge(ranked_weights)
-
-        # Get norm factor
-        norm_factor = data.groupby('SecCode')['zscore'].sum().reset_index()
-        norm_factor.columns = ['SecCode', 'norm_factor']
-        data = data.merge(norm_factor)
-        data['offset_signal'] = data.zscore / data.norm_factor * \
-            data.Weighted_Signal * -1
-
-        offset_size = data.groupby('OffsetSecCode')['offset_signal'].sum()
-        main_size = data.groupby('SecCode')['Weighted_Signal'].max()
-        out = main_size.add(offset_size, fill_value=0).reset_index()
-        out.columns = ['SecCode', 'pos_size']
-        # Scale to get everything to one
-        out.pos_size = out.pos_size * (1 / out.pos_size.abs().sum())
-
-        return out
-
 
 def _zscore_rank(data):
     data['absZscore'] = data.zscore.abs() * -1
@@ -255,6 +198,15 @@ def _zscore_rank(data):
     ranks = np.zeros(data.shape[0])
     _zscore_rank_numba(ranks, ids)
     data['zscore_rank'] = ranks
+    return data
+
+
+def _zscore_rank_offset(data):
+    data = data.sort_values(['OffsetSecCode', 'absZscore'])
+    ids = data.OffsetSecCode.astype('category').cat.codes.values
+    ranks = np.zeros(data.shape[0])
+    _zscore_rank_numba(ranks, ids)
+    data['zscore_rank_offset'] = ranks
     return data
 
 

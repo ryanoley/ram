@@ -40,9 +40,11 @@ class DataContainerPairs(object):
                 # {'type': 'simple', 'response_days': 2},
             ],
             'training_qtrs': [-99],
+            'distance_rank_group': [1, 2]
         }
 
-    def prep_data(self, time_index, response_params, training_qtrs):
+    def prep_data(self, time_index, response_params, training_qtrs,
+                  distance_rank_group):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -58,6 +60,14 @@ class DataContainerPairs(object):
             response_data = self._get_simple_response_data(
                 time_index,
                 response_params['response_days'])
+
+        # TEMP: to test if distance grouping does anything
+        if distance_rank_group == 1:
+            self.zscores_pair_info = self.zscores_pair_info[
+                self.zscores_pair_info.distance_rank <= 30]
+        else:
+            self.zscores_pair_info = self.zscores_pair_info[
+                self.zscores_pair_info.distance_rank > 30]
 
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
@@ -78,7 +88,7 @@ class DataContainerPairs(object):
         # Pair data
         pair_info, spreads, zscores = PairSelector().rank_pairs(data, 20)
 
-        sf = PairSelectorFilter(n_pairs_per_seccode=30)
+        sf = PairSelectorFilter(n_pairs_per_seccode=60)
         pair_info, _, zscores = sf.filter(pair_info, spreads, zscores)
 
         self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
@@ -141,6 +151,9 @@ class DataContainerPairs(object):
             'LAG1_ARMEXRECS', 'LAG1_SIRANK', 'LAG1_SIMARKETCAPRANK',
             'LAG1_SISECTORRANK', 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
             'LAG1_SIINSTOWNERSHIP',
+            # IBES
+            'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
+            'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
         ]
 
         features = list(set(proposed_features).intersection(data.columns))
