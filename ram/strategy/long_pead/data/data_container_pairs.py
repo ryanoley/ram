@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from scipy.stats.mstats import winsorize
+
 from ram.strategy.long_pead.utils import ern_date_blackout
 from ram.strategy.long_pead.utils import make_anchor_ret_rank
 from ram.strategy.long_pead.utils import ern_return
@@ -152,9 +154,13 @@ class DataContainerPairs(object):
             'LAG1_SISECTORRANK', 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
             'LAG1_SIINSTOWNERSHIP',
             # IBES
-            'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
-            'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
+            'IBES1', 'IBES2',
         ]
+        # NEW FEATURES
+        if 'PTARGETUNADJ' in data.columns:
+            data['IBES1'] = winsorize(data.PTARGETUNADJ / data.RClose - 1, limits=(0.005, 0.005))
+        if 'PTARGETMEAN' in data.columns:
+            data['IBES2'] = winsorize(data.PTARGETMEAN / data.AdjClose - 1, limits=(0.005, 0.005))
 
         features = list(set(proposed_features).intersection(data.columns))
 
@@ -173,7 +179,6 @@ class DataContainerPairs(object):
         data['GGROUP'] = data.GGROUP.fillna(0).astype(int).astype(str)
         data['GSECTOR'] = data.GGROUP.apply(lambda x: x[:2])
 
-        # NEW FEATURES
         # Blackout flags and anchor returns
         data = ern_date_blackout(data, offset1=-2, offset2=4)
 

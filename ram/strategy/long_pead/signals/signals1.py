@@ -22,6 +22,7 @@ class SignalModel1(object):
                 #  'max_features': 0.8,
                 # },
             ],
+            'drop_ibes': [True, False],
             'drop_accounting': [False],
             'drop_extremes': [True],
             'drop_starmine': [True],
@@ -33,6 +34,7 @@ class SignalModel1(object):
     def generate_signals(self,
                          data_container,
                          model_params,
+                         drop_ibes,
                          drop_accounting,
                          drop_extremes,
                          drop_starmine,
@@ -43,6 +45,9 @@ class SignalModel1(object):
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
+
+        if drop_ibes:
+            features = [x for x in features if x not in ['IBES1', 'IBES2']]
 
         if drop_accounting:
             accounting_vars = [
