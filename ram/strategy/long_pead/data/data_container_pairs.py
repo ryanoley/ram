@@ -42,7 +42,7 @@ class DataContainerPairs(object):
                 # {'type': 'simple', 'response_days': 2},
             ],
             'training_qtrs': [-99],
-            'distance_rank_group': [1, 2]
+            'distance_rank_group': [1]
         }
 
     def prep_data(self, time_index, response_params, training_qtrs,
