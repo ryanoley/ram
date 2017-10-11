@@ -63,11 +63,11 @@ class DataContainerPairs(object):
 
         # TEMP: to test if distance grouping does anything
         if distance_rank_group == 1:
-            self.zscores_pair_info = self.zscores_pair_info[
-                self.zscores_pair_info.distance_rank <= 30]
+            self.zscores_pair_info = self._zscores_pair_info_temp[
+                self._zscores_pair_info_temp.distance_rank <= 30].copy()
         else:
-            self.zscores_pair_info = self.zscores_pair_info[
-                self.zscores_pair_info.distance_rank > 30]
+            self.zscores_pair_info = self._zscores_pair_info_temp[
+                self._zscores_pair_info_temp.distance_rank > 30].copy()
 
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
@@ -92,7 +92,7 @@ class DataContainerPairs(object):
         pair_info, _, zscores = sf.filter(pair_info, spreads, zscores)
 
         self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
-        self.zscores_pair_info = pair_info
+        self._zscores_pair_info_temp = pair_info
 
         # Trim only one quarter's worth of training data
         min_date = data.Date[data.TestFlag].min()
