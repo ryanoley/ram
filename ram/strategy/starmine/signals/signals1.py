@@ -29,9 +29,9 @@ class SignalModel1(object):
         train_data = data_container.train_data
         test_data = data_container.test_data
     
-        for e in data_container.entry_dates:
-            e_train = train_data[train_data['T'] == e - 1].copy()
-            e_test = test_data[test_data['T'] == e - 1].copy()
+        for e in range(1, data_container._entry_window):
+            e_train = train_data[train_data['T'] == e].copy()
+            e_test = test_data[test_data['T'] == e].copy()
 
             clf = RandomForestRegressor(n_estimators=n_estimators,
                                        min_samples_leaf=min_samples_leaf,
@@ -41,7 +41,7 @@ class SignalModel1(object):
 
             preds = clf.predict(e_test[features])
             e_test['preds'] = preds
-            self.preds_data[e] = e_test[['SecCode', 'Date', 'preds']].copy()
+            self.preds_data[e + 1] = e_test[['SecCode', 'Date', 'preds']]
         return
 
 
