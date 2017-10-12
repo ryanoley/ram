@@ -15,8 +15,6 @@ from ram.strategy.long_pead.constructor.constructor2 import \
     PortfolioConstructor2
 from ram.strategy.long_pead.constructor.constructor_pairs import \
     PortfolioConstructorPairs
-from ram.strategy.long_pead.constructor.constructor_pairs_ibes import \
-    PortfolioConstructorPairsIBES
 
 from ram.strategy.long_pead.signals.signals1 import SignalModel1
 
@@ -26,7 +24,7 @@ class LongPeadStrategy(Strategy):
     data = DataContainerPairs()
     #data = DataContainer1()
     signals = SignalModel1()
-    constructor = PortfolioConstructorPairsIBES()
+    constructor = PortfolioConstructorPairs()
 
     def get_column_parameters(self):
         """

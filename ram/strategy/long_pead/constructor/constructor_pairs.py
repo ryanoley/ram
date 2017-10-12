@@ -14,16 +14,14 @@ class PortfolioConstructorPairs(Constructor):
     def get_args(self):
         return {
             'params': [
-                # TREES - LONG ONLY
-                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 50, 'concentration_filter': True},
-                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 50, 'concentration_filter': True},
-                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 70, 'concentration_filter': True},
-                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 70, 'concentration_filter': True},
+                # ORIGINAL Implementation
+                {'type': 'basic'},
 
-                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 50, 'concentration_filter': False},
-                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 50, 'concentration_filter': False},
-                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 70, 'concentration_filter': False},
-                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 70, 'concentration_filter': False},
+                # TREES - LONG ONLY
+                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 50},
+                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 50},
+                {'type': 'tree_model_long', 'pair_max_offsets': 1, 'signal_thresh_perc': 70},
+                {'type': 'tree_model_long', 'pair_max_offsets': 3, 'signal_thresh_perc': 70},
 
                 # TREES
                 {'type': 'tree_model', 'pair_max_offsets': 3},
@@ -51,6 +49,7 @@ class PortfolioConstructorPairs(Constructor):
         # Capture all seccodes for output object. Bad SecCodes will be filtered
         # during construction phase.
         all_seccodes = scores.keys()
+
         # Format and Retrieve Scores and ZScores
         scores = _format_scores_dict(scores)
         zscores = _extract_zscore_data(self.data_container, date)
@@ -67,7 +66,21 @@ class PortfolioConstructorPairs(Constructor):
 
 def _select_port_and_offsets(data, params):
 
-    if params['type'] == 'tree_model_long':
+    if params['type'] == 'basic':
+        # Get scores
+        scores = data[['SecCode', 'Signal']].drop_duplicates()
+        scores = scores.sort_values('Signal')
+        # Simple rank
+        def logistic_weight(k):
+            return 2 / (1 + np.exp(-k)) - 1
+        logistic_spread = 0.1
+        scores['pos_size'] = [
+            logistic_weight(x) for x in np.linspace(
+                -logistic_spread, logistic_spread, scores.shape[0])]
+        scores.pos_size = scores.pos_size * (1 / scores.pos_size.abs().sum())
+        return scores
+
+    elif params['type'] == 'tree_model_long':
         # Get approximate side to match correct pairs
         sides = data[['SecCode', 'Signal']].drop_duplicates()
         thresh = np.percentile(sides.Signal, params['signal_thresh_perc'])
@@ -76,27 +89,8 @@ def _select_port_and_offsets(data, params):
         data = data.merge(sides)
         data = data[data.zscore < 0]
 
-        # TEMP: See below to manage concentration
-        if params['concentration_filter']:
-            # LOGIC HERE IS TO RANK BUT ALSO TO MANAGE CONCENTRATION    
-            # Max number is adjusted here on a first filter
-            data = _zscore_rank(data)
-            zrank = params['pair_max_offsets'] + 3
-            data = data[data.zscore_rank <= zrank]
-    
-            # Prevent concentration in offsets here
-            data = _zscore_rank_offset(data)
-            zrank = params['pair_max_offsets'] + 3
-            data = data[data.zscore_rank_offset <= zrank]
-    
-            # Final filter
-            data = data.drop('zscore_rank', axis=1)
-            data = _zscore_rank(data)
-            zrank = params['pair_max_offsets']
-            data = data[data.zscore_rank <= zrank]
-        else:
-            data = _zscore_rank(data)
-            data = data[data.zscore_rank <= params['pair_max_offsets']]
+        data = _zscore_rank(data)
+        data = data[data.zscore_rank <= params['pair_max_offsets']]
 
         # Allocate capital
         ranked_weights = _get_weighting(

@@ -38,15 +38,13 @@ class DataContainerPairs(object):
                  'response_thresh': 0.3},
                 {'type': 'smoothed',
                  'response_days': [2],
-                 'response_thresh': 0.3},
+                 'response_thresh': 0.4},
                 # {'type': 'simple', 'response_days': 2},
             ],
-            'training_qtrs': [-99],
-            'distance_rank_group': [1]
+            'training_qtrs': [-99, 20]
         }
 
-    def prep_data(self, time_index, response_params, training_qtrs,
-                  distance_rank_group):
+    def prep_data(self, time_index, response_params, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -62,14 +60,6 @@ class DataContainerPairs(object):
             response_data = self._get_simple_response_data(
                 time_index,
                 response_params['response_days'])
-
-        # TEMP: to test if distance grouping does anything
-        if distance_rank_group == 1:
-            self.zscores_pair_info = self._zscores_pair_info_temp[
-                self._zscores_pair_info_temp.distance_rank <= 30].copy()
-        else:
-            self.zscores_pair_info = self._zscores_pair_info_temp[
-                self._zscores_pair_info_temp.distance_rank > 30].copy()
 
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
@@ -90,11 +80,11 @@ class DataContainerPairs(object):
         # Pair data
         pair_info, spreads, zscores = PairSelector().rank_pairs(data, 20)
 
-        sf = PairSelectorFilter(n_pairs_per_seccode=60)
+        sf = PairSelectorFilter(n_pairs_per_seccode=30)
         pair_info, _, zscores = sf.filter(pair_info, spreads, zscores)
 
         self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
-        self._zscores_pair_info_temp = pair_info
+        self.zscores_pair_info = pair_info
 
         # Trim only one quarter's worth of training data
         min_date = data.Date[data.TestFlag].min()
@@ -154,14 +144,22 @@ class DataContainerPairs(object):
             'LAG1_SISECTORRANK', 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
             'LAG1_SIINSTOWNERSHIP',
             # IBES
-            'IBES1', 'IBES2',
-        ]
-        # NEW FEATURES
-        if 'PTARGETUNADJ' in data.columns:
-            data['IBES1'] = winsorize(data.PTARGETUNADJ / data.RClose - 1, limits=(0.005, 0.005))
-        if 'PTARGETMEAN' in data.columns:
-            data['IBES2'] = winsorize(data.PTARGETMEAN / data.AdjClose - 1, limits=(0.005, 0.005))
+            'IBES_Discount', 'IBES_Discount_PRMA',
+        ] + ['IBES_Increases_Tm{}'.format(i) for i in range(1, 6)] + \
+            ['IBES_Decreases_Tm{}'.format(i) for i in range(1, 6)]
 
+        # IBES feature processing
+        if 'PTARGETUNADJ' in data.columns:
+            data = data.merge(make_ibes_increases_decreases_binaries(data))
+            data['IBES_Discount'] = winsorize(data.PTARGETUNADJ / data.RClose - 1, limits=(0.005, 0.005))
+            discounts = data.pivot(index='Date', columns='SecCode', values='IBES_Discount')
+            # PRMA for discount
+            discounts_smooth = discounts.rolling(4).mean()
+            discounts_feature = (discounts / discounts_smooth).rank(pct=True).unstack().reset_index().fillna(0.5)
+            discounts_feature.columns = ['SecCode', 'Date', 'IBES_Discount_PRMA']
+            data = data.merge(discounts_feature)
+
+        # Get features from data columns
         features = list(set(proposed_features).intersection(data.columns))
 
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -332,3 +330,19 @@ def make_weekly_monthly_indexes(responses, max_response_days):
         -max_response_days).fillna(method='pad')
     time_inds = time_inds.drop('TestFlag', axis=1)
     return time_inds
+
+
+def make_ibes_increases_decreases_binaries(data):
+    price_targets = data.pivot(index='Date', columns='SecCode',
+                               values='PTARGETMEAN')
+    for i in range(1, 6):
+        target_changes = price_targets.pct_change(1).shift(i)
+        f1 = (target_changes > 0).astype(int).unstack().reset_index()
+        f1.columns = ['SecCode', 'Date', 'IBES_Increases_Tm{}'.format(i)]
+        f2 = (target_changes < 0).astype(int).unstack().reset_index()
+        f2.columns = ['SecCode', 'Date', 'IBES_Decreases_Tm{}'.format(i)]
+        if i == 1:
+            output = f1.merge(f2)
+        else:
+            output = output.merge(f1).merge(f2)
+    return output
