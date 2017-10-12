@@ -13,19 +13,19 @@ class SignalModel1(object):
     def get_args(self):
         return {
             'model_params': [
-                {'min_samples_leaf': 100,
+                {'min_samples_leaf': 200,
                  'n_estimators': 100,
+                 'max_features': 0.8,
+                },
+                {'min_samples_leaf': 50,
+                 'n_estimators': 30,
                  'max_features': 0.6,
                 },
-                # {'min_samples_leaf': 50,
-                #  'n_estimators': 100,
-                #  'max_features': 0.8,
-                # },
             ],
-            'drop_accounting': [False],
+            'drop_ibes': [True, False],
+            'drop_accounting': [True, False],
             'drop_extremes': [True],
-            'drop_starmine': [True],
-            'drop_extract_alpha': [True],
+            'drop_starmine': [True, False],
             'drop_market_variables': ['constrained'],
             'training': ['quarterly']
         }
@@ -33,16 +33,19 @@ class SignalModel1(object):
     def generate_signals(self,
                          data_container,
                          model_params,
+                         drop_ibes,
                          drop_accounting,
                          drop_extremes,
                          drop_starmine,
                          drop_market_variables,
-                         drop_extract_alpha,
                          training):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
         features = data_container.features
+
+        if drop_ibes:
+            features = [x for x in features if x[:4] == 'IBES']
 
         if drop_accounting:
             accounting_vars = [
@@ -71,14 +74,6 @@ class SignalModel1(object):
                 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
                 'LAG1_SIINSTOWNERSHIP']
             features = [x for x in features if x not in starmine_vars]
-        if drop_extract_alpha:
-            extract_alpha_vars = [
-                'EA_TRESS', 'EA_spread_component', 'EA_skew_component',
-                'EA_volume_component', 'EA_CAM1', 'EA_CAM1_slow',
-                'EA_reversal_component', 'EA_factor_momentum_component',
-                'EA_liquidity_shock_component', 'EA_seasonality_component',
-                'EA_tm1', 'EA_Digital_Revenue_Signal']
-            features = [x for x in features if x not in extract_alpha_vars]
 
         clf = ExtraTreesClassifier(n_jobs=self.NJOBS, **model_params)
 

@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from scipy.stats.mstats import winsorize
+
 from ram.strategy.long_pead.utils import ern_date_blackout
 from ram.strategy.long_pead.utils import make_anchor_ret_rank
 from ram.strategy.long_pead.utils import ern_return
@@ -36,10 +38,10 @@ class DataContainerPairs(object):
                  'response_thresh': 0.3},
                 {'type': 'smoothed',
                  'response_days': [2],
-                 'response_thresh': 0.3},
+                 'response_thresh': 0.4},
                 # {'type': 'simple', 'response_days': 2},
             ],
-            'training_qtrs': [-99],
+            'training_qtrs': [-99, 20]
         }
 
     def prep_data(self, time_index, response_params, training_qtrs):
@@ -141,8 +143,23 @@ class DataContainerPairs(object):
             'LAG1_ARMEXRECS', 'LAG1_SIRANK', 'LAG1_SIMARKETCAPRANK',
             'LAG1_SISECTORRANK', 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
             'LAG1_SIINSTOWNERSHIP',
-        ]
+            # IBES
+            'IBES_Discount', 'IBES_Discount_PRMA',
+        ] + ['IBES_Increases_Tm{}'.format(i) for i in range(1, 6)] + \
+            ['IBES_Decreases_Tm{}'.format(i) for i in range(1, 6)]
 
+        # IBES feature processing
+        if 'PTARGETUNADJ' in data.columns:
+            data = data.merge(make_ibes_increases_decreases_binaries(data))
+            data['IBES_Discount'] = winsorize(data.PTARGETUNADJ / data.RClose - 1, limits=(0.005, 0.005))
+            discounts = data.pivot(index='Date', columns='SecCode', values='IBES_Discount')
+            # PRMA for discount
+            discounts_smooth = discounts.rolling(4).mean()
+            discounts_feature = (discounts / discounts_smooth).rank(pct=True).unstack().reset_index().fillna(0.5)
+            discounts_feature.columns = ['SecCode', 'Date', 'IBES_Discount_PRMA']
+            data = data.merge(discounts_feature)
+
+        # Get features from data columns
         features = list(set(proposed_features).intersection(data.columns))
 
         # ~~~~~~ CLEAN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -160,7 +177,6 @@ class DataContainerPairs(object):
         data['GGROUP'] = data.GGROUP.fillna(0).astype(int).astype(str)
         data['GSECTOR'] = data.GGROUP.apply(lambda x: x[:2])
 
-        # NEW FEATURES
         # Blackout flags and anchor returns
         data = ern_date_blackout(data, offset1=-2, offset2=4)
 
@@ -314,3 +330,19 @@ def make_weekly_monthly_indexes(responses, max_response_days):
         -max_response_days).fillna(method='pad')
     time_inds = time_inds.drop('TestFlag', axis=1)
     return time_inds
+
+
+def make_ibes_increases_decreases_binaries(data):
+    price_targets = data.pivot(index='Date', columns='SecCode',
+                               values='PTARGETMEAN')
+    for i in range(1, 6):
+        target_changes = price_targets.pct_change(1).shift(i)
+        f1 = (target_changes > 0).astype(int).unstack().reset_index()
+        f1.columns = ['SecCode', 'Date', 'IBES_Increases_Tm{}'.format(i)]
+        f2 = (target_changes < 0).astype(int).unstack().reset_index()
+        f2.columns = ['SecCode', 'Date', 'IBES_Decreases_Tm{}'.format(i)]
+        if i == 1:
+            output = f1.merge(f2)
+        else:
+            output = output.merge(f1).merge(f2)
+    return output
