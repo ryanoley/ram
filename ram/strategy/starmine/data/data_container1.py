@@ -22,8 +22,7 @@ class DataContainer1(object):
     def get_args(self):
         return {
             'response_days': [20, 30],
-            'training_qtrs': [-99],
-            'entry_dates': [[3, 4]]
+            'training_qtrs': [-99]
         }
 
     def _set_market_pricing_dicts(self):
@@ -39,7 +38,7 @@ class DataContainer1(object):
 
         self._market_data = spy
 
-    def add_data(self, data):
+    def add_data(self, data, entry_window=5):
         """
         Takes in raw data, processes it and caches it
         """
@@ -51,6 +50,7 @@ class DataContainer1(object):
         data = data.loc[keep_inds]
         keep_inds = data[self.ret_cols].isnull().sum(axis=1) == 0
         data = data.loc[keep_inds]
+        data = data[data.GGROUP.notnull()]
 
         # Get data for daily pl calculations
         pricing_data = data[data.TestFlag].copy()
@@ -59,7 +59,8 @@ class DataContainer1(object):
                         'AvgDolVol']
 
         # Filter train and test data to entry window
-        data = self._filter_entry_window(data, entry_window=5)
+        data = self._filter_entry_window(data, entry_window)
+        self._entry_window = entry_window
 
         # Separate training from test data
         self._processed_train_data = \
@@ -98,9 +99,14 @@ class DataContainer1(object):
                                  smart_est_column=True)
         data = get_cum_delta(data, 'REVENUEESTIMATE', 'rev_est_change',
                                  smart_est_column=True)
+
         data.eps_est_change /= np.abs(data.EPSESTIMATEFQ1)
         data.ebitda_est_change /= np.abs(data.EBITDAESTIMATEFQ1)
         data.rev_est_change /= np.abs(data.REVENUEESTIMATEFQ1)
+        
+        data.eps_est_change.fillna(0., inplace=True)
+        data.rev_est_change.fillna(0., inplace=True)
+        data.ebitda_est_change.fillna(0., inplace=True)
 
         # Price Target and Analyst Recommendations
         data = get_cum_delta(data, 'PTARGETUNADJ', 'prtgt_est_change')
@@ -127,7 +133,7 @@ class DataContainer1(object):
         data.AdjClose = np.where(data.AdjClose.isnull(), data.AdjVwap,
                                  data.AdjClose)
         data.TM1 = convert_date_array(data.TM1)
-        
+
         # Replace infs
         inf_cols = [
             'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM', 'OPERATINGINCOMEGROWTHQ',
@@ -141,7 +147,7 @@ class DataContainer1(object):
 
         return data
 
-    def prep_data(self, response_days, training_qtrs, entry_dates):
+    def prep_data(self, response_days, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -158,7 +164,6 @@ class DataContainer1(object):
         daily_pl.sort_values('Date', inplace=True)
         self.test_dates = daily_pl[['Date', 'TM1']].drop_duplicates()
         self.test_ids = np.sort(test_data.SecCode.unique())
-        self.entry_dates = entry_dates if type(entry_dates) is list else [entry_dates]
 
         # Process implementation details
         self.close_dict = make_variable_dict(daily_pl, 'RClose')
@@ -244,16 +249,19 @@ class DataContainer1(object):
 
     def _make_exit_dict(self, data, response_days):
         assert 'EARNINGSFLAG' in data.columns
-        max_entry_date = max(self.entry_dates)
+
         ernflag = data.pivot(index='Date', columns='SecCode',
                              values='EARNINGSFLAG')
-        ernflag = ernflag.shift(response_days + max_entry_date).fillna(0)     
-        ernflag.iloc[-1] = 1
-        ernflag = ernflag.unstack().reset_index()
-        ernflag.columns = ['SecCode', 'Date', 'ExitFlag']
+        exit_dict = {}
 
-        ernflag = ernflag.loc[ernflag.ExitFlag == 1]
-        exit_dict = {k: g["SecCode"].tolist() for k,g in ernflag.groupby("Date")}
+        for i in range(1, self._entry_window + 1):
+            shifted = ernflag.shift(response_days + i).fillna(0)     
+            shifted.iloc[-1] = 1
+            shifted = shifted.unstack().reset_index()
+            shifted.columns = ['SecCode', 'Date', 'ExitFlag']
+            shifted = shifted[shifted.ExitFlag == 1]
+            exit_dict[i] = {k: g["SecCode"].tolist() for k, g
+                                in shifted.groupby("Date")}
 
         return exit_dict
 
