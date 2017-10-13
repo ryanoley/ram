@@ -35,7 +35,8 @@ class RunManager(object):
     def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):
         ddir = os.path.join(path, strategy_class)
         dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
-        output = pd.DataFrame({'Run': dirs, 'Description': np.nan})
+        output = pd.DataFrame({'Run': dirs, 'Description': np.nan,
+                               'Starred': ''})
         for i, d in enumerate(dirs):
             desc = json.load(open(os.path.join(ddir, d, 'meta.json'), 'r'))
             output.loc[i, 'Description'] = desc['description']
@@ -49,7 +50,10 @@ class RunManager(object):
                 output.loc[i, 'RunDate'] = desc['start_time'][:10]
             else:
                 output.loc[i, 'RunDate'] = None
-        return output[['Run', 'RunDate', 'Completed', 'Description']]
+            if os.path.isfile(os.path.join(ddir, d, 'starred.json')):
+                output.loc[i, 'Starred'] = '*'
+        return output[['Run', 'RunDate', 'Completed',
+                       'Description', 'Starred']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -221,6 +225,14 @@ class RunManager(object):
         out = out.sort_values('DateTime')
         out = out.reset_index(drop=True)
         return out
+
+    def add_star(self, path=config.SIMULATION_OUTPUT_DIR):
+        star_path = os.path.join(path, self.strategy_class,
+                                 self.run_name, 'starred.json')
+        now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        star = {'date_starred': now}
+        with open(star_path, 'w') as outfile:
+            json.dump(star, outfile)
 
 
 ###############################################################################
