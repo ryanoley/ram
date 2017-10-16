@@ -262,6 +262,7 @@ class TestRunManager(unittest.TestCase):
         benchmark['RunDate'] = ['2010-01-01']
         benchmark['Completed'] = True
         benchmark['Description'] = ['Test data']
+        benchmark['Starred'] = ''
         assert_frame_equal(result, benchmark)
 
     def test_get_quarterly_rets(self):

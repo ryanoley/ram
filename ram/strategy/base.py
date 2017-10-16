@@ -260,6 +260,7 @@ class Strategy(object):
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
                 x for x in all_files if x[-8:] == 'data.csv']
+        self._prepped_data_files.sort()
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

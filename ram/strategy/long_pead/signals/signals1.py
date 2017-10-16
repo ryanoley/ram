@@ -26,8 +26,7 @@ class SignalModel1(object):
             'drop_accounting': [True, False],
             'drop_extremes': [True],
             'drop_starmine': [True, False],
-            'drop_market_variables': ['constrained'],
-            'training': ['quarterly']
+            'drop_market_variables': ['constrained']
         }
 
     def generate_signals(self,
@@ -37,8 +36,7 @@ class SignalModel1(object):
                          drop_accounting,
                          drop_extremes,
                          drop_starmine,
-                         drop_market_variables,
-                         training):
+                         drop_market_variables):
 
         train_data = data_container.train_data
         test_data = data_container.test_data
@@ -77,52 +75,12 @@ class SignalModel1(object):
 
         clf = ExtraTreesClassifier(n_jobs=self.NJOBS, **model_params)
 
-        if training == 'weekly':
+        clf.fit(X=train_data[features],
+                y=train_data['Response'])
 
-            train_data['preds'] = 0
-
-            for i in np.arange(1, max(test_data.week_index)+1):
-                test_data_2 = test_data[test_data.week_index == i]
-                inds = train_data.week_index_train_offset < i
-                clf.fit(X=train_data.loc[inds, features],
-                        y=train_data.loc[inds, 'Response'])
-                preds = clf.predict_proba(test_data_2[features])
-                test_data_2.loc[:, 'preds'] = _get_preds(clf, preds)
-                train_data = train_data.append(test_data_2)
-
-            test_data = train_data[train_data.TestFlag].reset_index(True)
-            self.preds_data = test_data[['SecCode', 'Date', 'preds']]
-
-        elif training == 'monthly':
-
-            train_data['preds'] = 0
-            dates = test_data.Date.unique()
-            months = np.array([d.month for d in dates])
-
-            for i, m in enumerate(np.unique(months)):
-                min_date = min(dates[months == m])
-                max_date = max(dates[months == m])
-                test_data_2 = test_data[(test_data.Date >= min_date) &
-                                        (test_data.Date <= max_date)].copy()
-                # THIS IS A BIG ASSUMPTION. DO WE WANT TO DROP THESE OBS?
-                inds = train_data.month_index <= i
-                clf.fit(X=train_data.loc[inds, features],
-                        y=train_data.loc[inds, 'Response'])
-                preds = clf.predict_proba(test_data_2[features])
-                test_data_2.loc[:, 'preds'] = _get_preds(clf, preds)
-                train_data = train_data.append(test_data_2)
-
-            test_data = train_data[train_data.TestFlag].reset_index(True)
-            self.preds_data = test_data[['SecCode', 'Date', 'preds']]
-
-        else:
-            # Hack to accomodate response vars
-            inds = train_data.week_index_train_offset < 1
-            clf.fit(X=train_data.loc[inds, features],
-                    y=train_data.loc[inds, 'Response'])
-            preds = clf.predict_proba(test_data[features])
-            test_data.loc[:, 'preds'] = _get_preds(clf, preds)
-            self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
+        preds = clf.predict_proba(test_data[features])
+        test_data['preds'] = _get_preds(clf, preds)
+        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
 
 
 def _get_preds(classifier, preds):
