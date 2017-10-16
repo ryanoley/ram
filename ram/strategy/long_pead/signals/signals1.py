@@ -43,7 +43,7 @@ class SignalModel1(object):
         features = data_container.features
 
         if drop_ibes:
-            features = [x for x in features if x[:4] == 'IBES']
+            features = [x for x in features if x[:4] != 'IBES']
 
         if drop_accounting:
             accounting_vars = [

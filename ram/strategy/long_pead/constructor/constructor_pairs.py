@@ -174,8 +174,9 @@ def _select_port_and_offsets(data, params):
                     (data.CountNeg >= params['n_per_side'])]
         data = data[data.zscore_rank <= params['n_per_side']]
 
-        data['pos_size'] = (1./params['n_per_side']) * np.sign(data.zscore)
-        out = data.groupby('OffsetSecCode')['pos_size'].sum()
+        out = data[['OffsetSecCode', 'SecCode']].copy()
+        out['pos_size'] = (1./params['n_per_side']) * np.sign(data.zscore)
+        out = out.groupby('OffsetSecCode')['pos_size'].sum()
         out = out.reset_index()
         out.columns = ['SecCode', 'pos_size']
         try:
@@ -186,6 +187,7 @@ def _select_port_and_offsets(data, params):
 
 
 def _zscore_rank(data):
+    data = data[['SecCode', 'OffsetSecCode', 'Signal', 'zscore']].copy()
     data['absZscore'] = data.zscore.abs() * -1
     data = data.sort_values(['SecCode', 'absZscore'])
     ids = data.SecCode.astype('category').cat.codes.values
