@@ -267,6 +267,7 @@ class RunManagerGCP(RunManager):
         # Get unique runs from StrategyClass blobs
         all_simulation_files = [x.name for x in all_files if x.name.find(
             'simulations/{}'.format(strategy_class)) >= 0]
+        all_files_2 = [x.name for x in all_files]
         all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
         all_runs.sort()
         output = pd.DataFrame({'Run': all_runs, 'Description': np.nan})
@@ -288,7 +289,7 @@ class RunManagerGCP(RunManager):
             # See if starred
             star_path = star_path = os.path.join(
                 'simulations', strategy_class, run, 'starred.json')
-            if star_path in all_files:
+            if star_path in all_files_2:
                 output.loc[i, 'Starred'] = '*'
         return output[['Run', 'RunDate', 'Completed', 'Description']]
 
