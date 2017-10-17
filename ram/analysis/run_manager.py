@@ -270,7 +270,8 @@ class RunManagerGCP(RunManager):
         all_files_2 = [x.name for x in all_files]
         all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
         all_runs.sort()
-        output = pd.DataFrame({'Run': all_runs, 'Description': np.nan})
+        output = pd.DataFrame({'Run': all_runs, 'Description': np.nan,
+                               'Starred': ''})
         for i, run in enumerate(all_runs):
             path = 'simulations/{}/{}/meta.json'.format(strategy_class, run)
             blob = bucket.get_blob(path)
@@ -291,7 +292,8 @@ class RunManagerGCP(RunManager):
                 'simulations', strategy_class, run, 'starred.json')
             if star_path in all_files_2:
                 output.loc[i, 'Starred'] = '*'
-        return output[['Run', 'RunDate', 'Completed', 'Description']]
+        return output[['Run', 'RunDate', 'Completed',
+                       'Description', 'Starred']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
