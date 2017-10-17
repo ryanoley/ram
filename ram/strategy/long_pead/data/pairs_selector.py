@@ -3,10 +3,13 @@ import numpy as np
 import pandas as pd
 import itertools as it
 
+from ram.strategy.long_pead.data.pairs_selector_filter import \
+    PairSelectorFilter
+
 
 class PairSelector(object):
 
-    def rank_pairs(self, data, z_window=20):
+    def rank_pairs(self, data, z_window=20, filter_n_pairs_per_seccode=None):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
@@ -14,16 +17,44 @@ class PairSelector(object):
         cut_date = data.Date[~data.TestFlag].max()
         train_close = close_data.loc[close_data.index <= cut_date]
         train_close = train_close.T.dropna().T
-        pair_info = self._filter_pairs(train_close)
+        pair_info = self._get_pair_info(train_close)
+        pair_info = self._get_top_n_pairs_per_seccode(
+            pair_info, filter_n_pairs_per_seccode)
         spreads, zscores = self._get_spreads_zscores(
             pair_info, close_data, z_window)
         return pair_info, spreads, zscores
 
-    def _filter_pairs(self, close_data):
+    def _get_pair_info(self, close_data):
         pairs = self._prep_output(close_data)
         pairs['distances'] = self._flatten(self._get_distances(close_data))
         pairs = pairs.sort_values('distances').reset_index(drop=True)
         return pairs
+
+    # ~~~~~~ Filter ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _get_top_n_pairs_per_seccode(self, pair_info,
+                                     n_pairs_per_seccode=None):
+        temp = pair_info.copy()
+        temp.columns = ['Leg2', 'Leg1', 'distances']
+        pair_info = pair_info.append(temp).reset_index(drop=True)
+        pair_info['distance_rank'] = \
+            pair_info.groupby('Leg1')['distances'].rank()
+        if n_pairs_per_seccode:
+            pair_info = pair_info[
+                pair_info.distance_rank <= n_pairs_per_seccode]
+        pair_info['pair'] = pair_info[['Leg1', 'Leg2']].apply(
+            lambda x: '~'.join(x), axis=1)
+        # SORT
+        pair_info = pair_info.sort_values(['Leg1', 'distances'])
+        return pair_info
+
+    def _double_flip_frame(self, data):
+        temp = data.copy()
+        temp = temp * -1
+        temp.columns = ['{}~{}'.format(y, x) for x, y in
+                        [x.split('~') for x in temp.columns]]
+        return data.join(temp)
+
 
     # ~~~~~~ Z-Scores ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

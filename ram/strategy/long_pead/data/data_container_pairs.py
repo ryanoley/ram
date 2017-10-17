@@ -74,9 +74,8 @@ class DataContainerPairs(object):
         """
         if self._pairs_flag:
             # Pair data
-            pair_info, spreads, zscores = PairSelector().rank_pairs(data, 20)
-            sf = PairSelectorFilter(n_pairs_per_seccode=30)
-            pair_info, _, zscores = sf.filter(pair_info, spreads, zscores)
+            pair_info, spreads, zscores = PairSelector().rank_pairs(
+                data, 20, filter_n_pairs_per_seccode=30)
             self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
             self.zscores_pair_info = pair_info
 
