@@ -285,6 +285,11 @@ class RunManagerGCP(RunManager):
                 output.loc[i, 'RunDate'] = desc['start_time'][:10]
             else:
                 output.loc[i, 'RunDate'] = None
+            # See if starred
+            star_path = star_path = os.path.join(
+                'simulations', strategy_class, run, 'starred.json')
+            if star_path in all_files:
+                output.loc[i, 'Starred'] = '*'
         return output[['Run', 'RunDate', 'Completed', 'Description']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -384,7 +389,7 @@ class RunManagerGCP(RunManager):
         else:
             return None
 
-    def add_note(self, note, path=config.SIMULATION_OUTPUT_DIR):
+    def add_note(self, note):
         notes = self._import_notes()
         notes = notes if notes else {}
         #
@@ -404,6 +409,14 @@ class RunManagerGCP(RunManager):
         out = out.sort_values('DateTime')
         out = out.reset_index(drop=True)
         return out
+
+    def add_star(self):
+        star_path = os.path.join('simulations', self.strategy_class,
+                                 self.run_name, 'starred.json')
+        now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        star = {'date_starred': now}
+        blob = self._bucket.blob(star_path)
+        blob.upload_from_string(json.dumps(star))
 
 
 ###############################################################################
