@@ -204,7 +204,7 @@ class RunManager(object):
     def parameter_correlations(self, param, drop_params=None, plot=False):
         if not hasattr(self, 'returns'):
             self.import_return_frame()
-        if drop_params and (not hasattr(self, 'column_params')):
+        if not hasattr(self, 'column_params'):
             self.import_column_params()
         cparams = classify_params(self.column_params)
         if drop_params:
