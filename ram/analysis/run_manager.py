@@ -211,7 +211,11 @@ class RunManager(object):
             cparams = filter_classified_params(cparams, drop_params)
         params = cparams[param]
         data = pd.DataFrame()
-        for key, cols in params.iteritems():
+        keys = params.keys()
+        # Sort to make it easy to read
+        keys.sort()
+        for key in keys:
+            cols = params[key]
             temp = self.returns[cols].mean(axis=1).to_frame()
             temp.columns = [key]
             data = data.join(temp, how='outer')
