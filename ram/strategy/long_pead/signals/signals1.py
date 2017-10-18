@@ -22,8 +22,8 @@ class SignalModel1(object):
                  'max_features': 0.6,
                 },
             ],
-            'drop_ibes': [True, False],
-            'drop_accounting': [True, False],
+            'drop_ibes': [True],
+            'drop_accounting': [True],
             'drop_extremes': [True],
             'drop_starmine': [True, False],
             'drop_market_variables': ['constrained']
