@@ -136,6 +136,14 @@ class TestRunManager(unittest.TestCase):
         benchmark = pd.Series(['10', '20'], name='Val')
         assert_series_equal(result.Val, benchmark)
 
+    def test_parameter_correlations(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
+        run1.import_return_frame(path=self.base_path)
+        run1.import_column_params(self.base_path)
+        run1.import_meta(self.base_path)
+        run1.import_stats(self.base_path)
+        result = run1.parameter_correlations('p2')
+
     def test_filter_classified_params(self):
         cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
                    'p1': {'10': ['0', '2'], '20': ['1', '3']}}

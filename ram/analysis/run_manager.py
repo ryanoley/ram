@@ -5,6 +5,7 @@ import pandas as pd
 import datetime as dt
 from StringIO import StringIO
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from google.cloud import storage
 
@@ -199,6 +200,25 @@ class RunManager(object):
         plt.plot(rets1.cumsum(), 'r')
         plt.plot(rets2.cumsum(), 'g')
         plt.show()
+
+    def parameter_correlations(self, param, drop_params=None, plot=False):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
+        if drop_params and (not hasattr(self, 'column_params')):
+            self.import_column_params()
+        cparams = classify_params(self.column_params)
+        if drop_params:
+            cparams = filter_classified_params(cparams, drop_params)
+        params = cparams[param]
+        data = pd.DataFrame()
+        for key, cols in params.iteritems():
+            temp = self.returns[cols].mean(axis=1).to_frame()
+            temp.columns = [key]
+            data = data.join(temp, how='outer')
+        if plot:
+            make_correlation_heatmap(data, title=param)
+        else:
+            return data.corr()
 
     # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -603,3 +623,17 @@ def get_columns(param_dict):
     cols = list(set(sum(cols, [])))
     cols.sort()
     return cols
+
+
+def make_correlation_heatmap(data, title=None):
+    corr = data.corr()
+    # Generate a mask for the upper triangle
+    mask = np.zeros_like(corr, dtype=np.bool)
+    mask[np.triu_indices_from(mask)] = True
+    plt.figure(figsize=(7, 6))
+    cmap = sns.diverging_palette(11, 210, as_cmap=True)
+    sns.heatmap(corr, mask=mask, cmap=cmap, vmin=-1.0, vmax=1.0, center=0,
+                square=True, linewidths=1.5, cbar_kws={'shrink': 0.8, 'aspect': 50})
+    if title:
+        plt.title(title)
+    plt.show()
