@@ -12,16 +12,17 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'thresh': [.025, .035, .045],
-            'pos_size': [.05, .065],
+            'long_thresh': [.02, .03, .04],
+            'short_thresh': [.01, .015, .02],
+            'pos_size': [.025, .035],
             'entry_dates': [[3, 4], [2, 3, 4]],
-            'dd_thresh': [-99, -.15],
+            'dd_thresh': [-99, -0.15],
             'dd_from_zero': [True],
             'close_out': [True, False]
         }
 
     def get_daily_pl(self, data_container, signals, entry_dates, dd_thresh,
-                     dd_from_zero, **kwargs):
+                     dd_from_zero, long_thresh, short_thresh, **kwargs):
         """
         Parameters
         ----------
@@ -32,7 +33,6 @@ class PortfolioConstructor1(Constructor):
         scores_dict = make_scores_dict(signals.preds_data, entry_dates)
         portfolio = Portfolio()
 
-        test_ids = data_container.test_ids
         test_dates = data_container.test_dates
         exit_dict = data_container.exit_dict[max(entry_dates)]
         ind_groups = data_container.ind_groups
@@ -55,20 +55,22 @@ class PortfolioConstructor1(Constructor):
             elif date == test_dates.Date.iloc[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                scores = get_scores(scores_dict, prior_dt, test_ids)
+                scores = get_scores(scores_dict, prior_dt, long_thresh,
+                                    short_thresh)
                 close_seccodes = get_closing_seccodes(exit_dict, date)
                 dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
                 close_seccodes.update(dd_seccodes)
+                close_seccodes.discard('spy')
 
                 positions, net_exposure = self.get_position_sizes(
                     scores, portfolio, close_seccodes, **kwargs)
-
                 position_sizes = self._get_position_sizes_dollars(positions)
+
                 portfolio.update_position_sizes(position_sizes, vwaps)
                 portfolio.update_prices(closes, dividends, splits)
 
                 mkt_size = self._get_position_sizes_dollars(
-                                    {'spy':-net_exposure})
+                    {'spy':-net_exposure})
                 portfolio.update_position_sizes(mkt_size, mkt_vwap)
                 portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
 
@@ -82,56 +84,46 @@ class PortfolioConstructor1(Constructor):
         stats = {}
         return daily_df, stats
 
-    def get_position_sizes(self, scores, portfolio, close_seccodes,
-                           thresh, pos_size, close_out=False):
+    def get_position_sizes(self, scores, portfolio, close_seccodes, pos_size, 
+                           close_out=False):
+    
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
         both the long and short sides.
         """
 
-        prev_longs, prev_shorts = portfolio.get_open_positions()
+        weights = portfolio.get_position_weights(exclude_spy=True)
+        prev_longs = set(weights[weights > 0].index)
+        prev_shorts = set(weights[weights < 0].index)
 
-        new_univ = scores[scores.score.notnull()]
-        new_longs = set(new_univ[new_univ.score >= thresh].index)
-        new_shorts = set(new_univ[new_univ.score <= -thresh].index)
-        if close_out:
-            no_trades = set(new_univ.index) - new_longs - new_shorts
-        else:
-            no_trades = set()
-
-        # Once a position is on, do not update if on same side
+        new_longs = set(scores[scores.weight > 0].index)
+        new_shorts = set(scores[scores.weight < 0].index)
+        # DO NOT UPDATE POSITION IF ALREADY ON SAME SIDE
         new_longs -= prev_longs
         new_shorts -= prev_shorts
 
+        no_trades = set()
+        if close_out:
+            no_trades = set(scores[scores.weight == 0].index)
         close_seccodes.update(no_trades)
-        live_shorts = prev_shorts - close_seccodes
-        live_shorts.update(new_shorts)
 
-        live_longs = prev_longs - close_seccodes
-        live_longs.update(new_longs)
+        weights[new_longs] = scores.loc[new_longs, 'weight']
+        weights[new_shorts] = scores.loc[new_shorts, 'weight']
+        weights[close_seccodes] = 0.
 
-        scores['weights'] = 0.
-        scores.loc[scores.index.isin(live_longs), 'weights'] = 1.
-        scores.loc[scores.index.isin(live_shorts), 'weights'] = -1.
+        ids_to_trade = new_longs.union(new_shorts).union(close_seccodes)
+        portfolio.update_position_weights(weights[ids_to_trade].to_dict())
 
-        exposure = pos_size * (np.abs(scores.weights).sum() +
-                               np.abs(scores.weights.sum()))
-        scaled_size = (1. / exposure) * pos_size if exposure > 1. else pos_size
-        scores['weights'] *= scaled_size
-        net_exposure = scores.weights.sum()
+        exposure = pos_size * (np.abs(weights).sum() + np.abs(weights.sum()))
+        scale_factor = (1. / exposure) if exposure > 1. else 1.
+        positions = weights * scale_factor * pos_size
+        net_exposure = positions.sum()
 
-        ids_to_trade = close_seccodes.copy()
-        if scaled_size == pos_size:
-            ids_to_trade.update(new_longs)
-            ids_to_trade.update(new_shorts)
-        else:
-            ids_to_trade.update(live_longs)
-            ids_to_trade.update(live_shorts)
+        if scale_factor < 1:
+            ids_to_trade.update(positions[positions != 0].index)
 
-        scores = scores[scores.index.isin(ids_to_trade)]
-
-        return pd.Series(scores.weights), net_exposure
+        return positions[ids_to_trade], net_exposure
 
     def update_daily_df(self, data, portfolio, date, ind_stats=False):
         daily_df = data.copy()
@@ -163,22 +155,31 @@ def make_scores_dict(preds_dict, entry_dates):
         preds_df = preds_df.append(preds_dict[e])
 
     for date, preds in preds_df.groupby('Date'):
-        scores_dict[date] = {s:p for s,p in preds[['SecCode','preds']].values}
+        scores_dict[date] = {s:p for s,p in preds[['SecCode', 'preds']].values}
 
     return scores_dict
 
-def get_scores(scores_dict, date, index_ids):
-    score_df = pd.DataFrame(index=index_ids)
+def get_scores(scores_dict, date, long_thresh, short_thresh):
 
-    if date in scores_dict.keys():
-        score_df['score'] =  pd.Series(scores_dict[date], name='score')
-    else:
-        score_df['score'] = np.nan
+    if date not in scores_dict.keys():
+        return pd.DataFrame(columns=['score', 'weight'])
 
-    return score_df
-    
+    scores =  pd.Series(scores_dict[date], name='score').to_frame()
+    # Scaling logic/multiple thresh vals can be handled here
+    #scores['weight'] = np.where(scores.score >= long_thresh, 1.,
+    #                        np.where(scores.score <= -short_thresh, -1., 0.))
+    #
+    scores['thresh'] = np.where(scores.score >= 0, long_thresh, -short_thresh)
+    scores['weight'] = np.round(scores.score / scores.thresh, 2)
+    scores.loc[scores.weight < 1, 'weight'] = 0.
+    scores.loc[scores.weight > 2, 'weight'] = 2.
+    scores.weight *= np.sign(scores.thresh)
+
+    return scores[['score', 'weight']]
+
 def get_closing_seccodes(exit_dict, date):
     if date not in exit_dict.keys():
         return set()
     else:
         return set(exit_dict[date])
+

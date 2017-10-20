@@ -78,13 +78,15 @@ class Portfolio(object):
 
     def dd_filter(self, drawdown_pct=-.05, dd_from_zero=False):
         dd_seccodes = set()
-
+        if np.abs(drawdown_pct) > 1:
+            return dd_seccodes
         for position in self.positions.values():
             if position.exposure != 0:
                 if dd_from_zero:
                     drawdown = position.cumulative_return
                 else:
-                    drawdown = (position.cumulative_return - position.return_peak)
+                    drawdown = (position.cumulative_return -
+                                    position.return_peak)
 
                 if drawdown <= drawdown_pct:
                     dd_seccodes.add(position.symbol)
@@ -101,9 +103,21 @@ class Portfolio(object):
                 open_shorts.add(position.symbol)
         return open_longs, open_shorts
 
+    def get_position_weights(self, exclude_spy=False):
+        weights = pd.Series(name='weight', index=self.positions.keys())
+        for position in self.positions.values():
+            weights.loc[position.symbol] = position.weight
+        spy_mask = ~weights.index.isin(['spy'])
+        return weights[spy_mask]
+
+    def update_position_weights(self, weights):
+        for symbol, weight in weights.items():
+            self.positions[symbol].set_weight(weight)
+        return
+
     def update_mkt_prices(self, mkt_price):
         for position in self.positions.values():
-            if position.exposure != 0:
+            if (position.exposure != 0) & (position.symbol != 'spy'):
                 position.update_mkt_prices(mkt_price)
         return
 
@@ -117,7 +131,6 @@ class Portfolio(object):
                     sector = str(sector[0])[:2]
                     position.set_sector(sector)
         return
-
 
     def reset_daily_pl(self):
         for position in self.positions.values():

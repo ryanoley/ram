@@ -16,37 +16,53 @@ class TestDataContainer1(unittest.TestCase):
         dates = ['2015-01-01', '2015-03-01', '2015-04-01',
                  '2015-05-04', '2015-07-01', '2015-08-01']
         self.data = pd.DataFrame({
-            'SecCode': ['AAPL'] * 6,
-            'Date': dates,
-            'AdjClose': [10, 9, 5, 5, 10, 4],
-            'RClose': [10, 9, 5, 5, 10, 3],
-            'TestFlag': [True] * 6,
-            'EARNINGSFLAG': [0, 1, 0, 0, 0, 0]
+            'SecCode': ['AAPL'] * 6 + ['BAC'] * 6,
+            'Date': dates * 2,
+            'EARNINGSFLAG': [0, 1, 0, 0, 0, 0] * 2,
+            'GGROUP': [4510.] * 6 + [2510.] * 6
         })
         self.data['Date'] = convert_date_array(self.data.Date)
-        self.DC = DataContainer1()
+        self.dc = DataContainer1()
 
     def test_trim_training_data(self):
-        result = self.DC._trim_training_data(self.data, -99)
-        self.assertEqual(len(result), 6)
-        result = self.DC._trim_training_data(self.data, 1)
-        self.assertEqual(len(result), 2)
-    
-    def test_get_data_subset(self):
-        result = self.DC.get_data_subset(self.data, 1)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result.Date.iloc[0], dt.date(2015, 4, 1))
+        result = self.dc._trim_training_data(self.data, -99)
+        self.assertEqual(len(result), 12)
+        result = self.dc._trim_training_data(self.data, 1)
+        self.assertEqual(len(result), 4)
 
-        result = self.DC.get_data_subset(self.data, 3)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result.Date.iloc[0], dt.date(2015, 7, 1))
-    
-        df2 = self.data.copy()
-        df2['SecCode'] = 'IBM'
-        result = self.DC.get_data_subset(self.data.append(df2), 1)
+    def test_filter_entry_window(self):
+        result = self.dc._filter_entry_window(self.data, 1)
         self.assertEqual(len(result), 2)
-        self.assertEqual(result.Date.iloc[0], dt.date(2015, 4, 1))
-        self.assertEqual(result.Date.iloc[1], dt.date(2015, 4, 1))
+        self.assertEqual(result.Date.iloc[0], dt.date(2015, 3, 1))
+
+        result = self.dc._filter_entry_window(self.data, 3)
+        self.assertEqual(len(result), 6)
+        assert_array_equal(result['T'].values, np.array([0, 1 , 2] * 2))
+
+    def test_make_exit_dict(self):
+        self.dc._entry_window = 2
+        result = self.dc._make_exit_dict(self.data, response_days = 2)
+
+        benchmark = {
+            1: {
+                dt.date(2015, 7, 1): ['AAPL', 'BAC'],
+                dt.date(2015, 8, 1): ['AAPL', 'BAC']
+                },
+            2: {
+                dt.date(2015, 8, 1): ['AAPL', 'BAC']
+                }
+            }
+
+        self.assertEqual(result, benchmark)
+
+    def test_make_group_dict(self):
+        result = self.dc._make_group_dict(self.data)
+        benchmark = {'AAPL': [4510.], 'BAC': [2510.]}
+        
+        inp_data = self.data.copy()
+        inp_data.loc[[0, 1], 'GGROUP'] = np.nan
+        result = self.dc._make_group_dict(inp_data)
+        self.assertEqual(result, benchmark)
 
 
     def tearDown(self):
@@ -55,3 +71,20 @@ class TestDataContainer1(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

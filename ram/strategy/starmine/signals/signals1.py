@@ -1,8 +1,8 @@
 import numpy as np
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
 
 from ram import config
 
@@ -17,7 +17,7 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': [0.75],
+            'max_features': [0.85],
             'n_estimators': [100],
             'min_samples_leaf': [25]
         }
@@ -29,7 +29,7 @@ class SignalModel1(object):
         train_data = data_container.train_data
         test_data = data_container.test_data
     
-        for e in range(1, data_container._entry_window):
+        for e in range(data_container._entry_window):
             e_train = train_data[train_data['T'] == e].copy()
             e_test = test_data[test_data['T'] == e].copy()
 
