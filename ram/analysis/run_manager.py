@@ -129,6 +129,27 @@ class RunManager(object):
         returns.index = convert_date_array(returns.index)
         self.long_short_returns = returns
 
+    def import_all_output(self, path=config.SIMULATION_OUTPUT_DIR):
+        ddir = os.path.join(path, self.strategy_class, self.run_name,
+                            'index_outputs')
+        files = [x for x in os.listdir(ddir) if x.find('all_output') > 0]
+        if len(files) == 0:
+            print('No `all_output` files available to analyze')
+            self.all_output = None
+        # Trim files for test periods
+        if self.test_periods > 0:
+            files = files[:-self.test_periods]
+        all_output = pd.DataFrame()
+        for f in files:
+            if int(f[:4]) < self.start_year:
+                continue
+            temp = pd.read_csv(os.path.join(ddir, f), index_col=0)
+            # Add to returns
+            all_output = all_output.add(temp, fill_value=0)
+
+        all_output.index = convert_date_array(all_output.index)
+        self.all_output = all_output
+
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def analyze_parameters(self, drop_params=None):

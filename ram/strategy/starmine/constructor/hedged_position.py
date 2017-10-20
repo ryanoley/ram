@@ -21,6 +21,7 @@ class HedgedPosition(Position):
         self.market_curent_price = 0
         self.market_return = 0
         self.sector = np.nan
+        self.weight = 0.
 
     def update_position_prices(self, price, dividend, split):
         """
@@ -50,28 +51,37 @@ class HedgedPosition(Position):
         return
 
     def update_mkt_prices(self, market_price):
-        
-        # No position yet or just closed
+        if 'spy' not in market_price.keys():
+            raise ValueError('spy must be in key value in arg')
+        mkt_px = market_price['spy']
+
+        # No position or just closed
         if self.exposure == 0:
             self.market_entry_price = 0
             self.market_curent_price = 0
             return
+        # Position just initiated
         elif self.market_entry_price == 0:
-            self.market_entry_price = market_price['spy']
-            self.market_curent_price = market_price['spy']
+            self.market_entry_price = mkt_px
+            self.market_curent_price = mkt_px
             return
-        
-        self.market_curent_price = market_price['spy']
-        self.market_return = (self.market_curent_price / self.market_entry_price) - 1
-        hedge_ret = self.market_return * -1 if self.exposure < 0 else self.market_return
+
+        self.market_curent_price = mkt_px
+        self.market_return = (self.market_curent_price /
+                                self.market_entry_price) - 1
+        hedge_ret = self.market_return * np.sign(self.exposure)
         self.cumulative_return -= hedge_ret
         self.return_peak = np.max([self.cumulative_return, self.return_peak])
 
     def set_sector(self, sector):
         self.sector = sector
 
+    def set_weight(self, weight):
+        self.weight = weight
+
     def close_position(self):
         self.daily_pl += -1 * abs(self.shares) * self.comm
         self.daily_turnover = abs(self.shares) * self.current_price
         self.shares = 0
         self.exposure = 0
+        self.position_weight = 0.
