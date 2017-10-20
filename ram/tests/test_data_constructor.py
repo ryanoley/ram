@@ -22,6 +22,7 @@ class TestStrategy(Strategy):
     def get_univ_date_parameters(self):
         return {
             'frequency': 'Q',
+            'quarter_frequency_month_offset': 1,
             'train_period_length': 4,
             'test_period_length': 2,
             'start_year': 2017
@@ -68,16 +69,17 @@ class TestDataConstructor(unittest.TestCase):
         dc._init_new_run()
         dc._make_date_iterator()
         result = dc._date_iterator[0]
-        self.assertEqual(result[0], dt.datetime(2016, 1, 1))
-        self.assertEqual(result[1], dt.datetime(2017, 1, 1))
-        self.assertEqual(result[2], dt.datetime(2017, 6, 30))
+        self.assertEqual(result[0], dt.datetime(2016, 2, 1))
+        self.assertEqual(result[1], dt.datetime(2017, 2, 1))
+        self.assertEqual(result[2], dt.datetime(2017, 7, 31))
 
     def test_run(self):
         self.data_constructor.run(prompt_description=False)
         result = os.listdir(os.path.join(self.prepped_data_dir,
                                          'TestStrategy',
                                          'version_0001'))
-        self.assertEquals(result[0], '20170101_data.csv')
+        result.sort()
+        self.assertEquals(result[0], '20170201_data.csv')
 
     def test_restart_run(self):
         self.data_constructor._init_new_run()

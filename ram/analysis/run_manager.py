@@ -5,6 +5,7 @@ import pandas as pd
 import datetime as dt
 from StringIO import StringIO
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from google.cloud import storage
 
@@ -35,7 +36,8 @@ class RunManager(object):
     def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):
         ddir = os.path.join(path, strategy_class)
         dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
-        output = pd.DataFrame({'Run': dirs, 'Description': np.nan})
+        output = pd.DataFrame({'Run': dirs, 'Description': np.nan,
+                               'Starred': ''})
         for i, d in enumerate(dirs):
             desc = json.load(open(os.path.join(ddir, d, 'meta.json'), 'r'))
             output.loc[i, 'Description'] = desc['description']
@@ -49,7 +51,10 @@ class RunManager(object):
                 output.loc[i, 'RunDate'] = desc['start_time'][:10]
             else:
                 output.loc[i, 'RunDate'] = None
-        return output[['Run', 'RunDate', 'Completed', 'Description']]
+            if os.path.isfile(os.path.join(ddir, d, 'starred.json')):
+                output.loc[i, 'Starred'] = '*'
+        return output[['Run', 'RunDate', 'Completed',
+                       'Description', 'Starred']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -217,6 +222,29 @@ class RunManager(object):
         plt.plot(rets2.cumsum(), 'g')
         plt.show()
 
+    def parameter_correlations(self, param, drop_params=None, plot=False):
+        if not hasattr(self, 'returns'):
+            self.import_return_frame()
+        if not hasattr(self, 'column_params'):
+            self.import_column_params()
+        cparams = classify_params(self.column_params)
+        if drop_params:
+            cparams = filter_classified_params(cparams, drop_params)
+        params = cparams[param]
+        data = pd.DataFrame()
+        keys = params.keys()
+        # Sort to make it easy to read
+        keys.sort()
+        for key in keys:
+            cols = params[key]
+            temp = self.returns[cols].mean(axis=1).to_frame()
+            temp.columns = [key]
+            data = data.join(temp, how='outer')
+        if plot:
+            make_correlation_heatmap(data, title=param)
+        else:
+            return data.corr()
+
     # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def add_note(self, note, path=config.SIMULATION_OUTPUT_DIR):
@@ -242,6 +270,14 @@ class RunManager(object):
         out = out.sort_values('DateTime')
         out = out.reset_index(drop=True)
         return out
+
+    def add_star(self, path=config.SIMULATION_OUTPUT_DIR):
+        star_path = os.path.join(path, self.strategy_class,
+                                 self.run_name, 'starred.json')
+        now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        star = {'date_starred': now}
+        with open(star_path, 'w') as outfile:
+            json.dump(star, outfile)
 
 
 ###############################################################################
@@ -276,9 +312,11 @@ class RunManagerGCP(RunManager):
         # Get unique runs from StrategyClass blobs
         all_simulation_files = [x.name for x in all_files if x.name.find(
             'simulations/{}'.format(strategy_class)) >= 0]
+        all_files_2 = [x.name for x in all_files]
         all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
         all_runs.sort()
-        output = pd.DataFrame({'Run': all_runs, 'Description': np.nan})
+        output = pd.DataFrame({'Run': all_runs, 'Description': np.nan,
+                               'Starred': ''})
         for i, run in enumerate(all_runs):
             path = 'simulations/{}/{}/meta.json'.format(strategy_class, run)
             blob = bucket.get_blob(path)
@@ -294,7 +332,13 @@ class RunManagerGCP(RunManager):
                 output.loc[i, 'RunDate'] = desc['start_time'][:10]
             else:
                 output.loc[i, 'RunDate'] = None
-        return output[['Run', 'RunDate', 'Completed', 'Description']]
+            # See if starred
+            star_path = star_path = os.path.join(
+                'simulations', strategy_class, run, 'starred.json')
+            if star_path in all_files_2:
+                output.loc[i, 'Starred'] = '*'
+        return output[['Run', 'RunDate', 'Completed',
+                       'Description', 'Starred']]
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -393,7 +437,7 @@ class RunManagerGCP(RunManager):
         else:
             return None
 
-    def add_note(self, note, path=config.SIMULATION_OUTPUT_DIR):
+    def add_note(self, note):
         notes = self._import_notes()
         notes = notes if notes else {}
         #
@@ -413,6 +457,14 @@ class RunManagerGCP(RunManager):
         out = out.sort_values('DateTime')
         out = out.reset_index(drop=True)
         return out
+
+    def add_star(self):
+        star_path = os.path.join('simulations', self.strategy_class,
+                                 self.run_name, 'starred.json')
+        now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        star = {'date_starred': now}
+        blob = self._bucket.blob(star_path)
+        blob.upload_from_string(json.dumps(star))
 
 
 ###############################################################################
@@ -596,3 +648,17 @@ def get_columns(param_dict):
     cols = list(set(sum(cols, [])))
     cols.sort()
     return cols
+
+
+def make_correlation_heatmap(data, title=None):
+    corr = data.corr()
+    # Generate a mask for the upper triangle
+    mask = np.zeros_like(corr, dtype=np.bool)
+    mask[np.triu_indices_from(mask)] = True
+    plt.figure(figsize=(7, 6))
+    cmap = sns.diverging_palette(11, 210, as_cmap=True)
+    sns.heatmap(corr, mask=mask, cmap=cmap, vmin=-1.0, vmax=1.0, center=0,
+                square=True, linewidths=1.5, cbar_kws={'shrink': 0.8, 'aspect': 50})
+    if title:
+        plt.title(title)
+    plt.show()

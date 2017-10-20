@@ -22,9 +22,10 @@ from gearbox import create_time_index, convert_date_array
 
 class DataContainerPairs(object):
 
-    def __init__(self):
+    def __init__(self, pairs_flag=True):
+        self._pairs_flag = pairs_flag
         self._time_index_data_for_responses = {}
-        self._time_index_response_data = {'smoothed': {}, 'simple': {}}
+        self._time_index_response_data = {}
         # Deliverable
         self._processed_train_data = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
@@ -50,16 +51,10 @@ class DataContainerPairs(object):
         down stream. Signals and the portfolio constructor expect the
         train/test_data and features objects.
         """
-        # Get (and process if needed) response data
-        if response_params['type'] == 'smoothed':
-            response_data = self._get_smoothed_response_data(
-                time_index,
-                response_params['response_days'],
-                response_params['response_thresh'])
-        else:
-            response_data = self._get_simple_response_data(
-                time_index,
-                response_params['response_days'])
+        response_data = self._get_smoothed_response_data(
+            time_index,
+            response_params['response_days'],
+            response_params['response_thresh'])
 
         # Fresh copies of processed raw data
         train_data, test_data, features = self._get_train_test_features()
@@ -77,14 +72,12 @@ class DataContainerPairs(object):
         """
         Takes in raw data, processes it and caches it
         """
-        # Pair data
-        pair_info, spreads, zscores = PairSelector().rank_pairs(data, 20)
-
-        sf = PairSelectorFilter(n_pairs_per_seccode=30)
-        pair_info, _, zscores = sf.filter(pair_info, spreads, zscores)
-
-        self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
-        self.zscores_pair_info = pair_info
+        if self._pairs_flag:
+            # Pair data
+            pair_info, spreads, zscores = PairSelector().rank_pairs(
+                data, 20, filter_n_pairs_per_seccode=30)
+            self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
+            self.zscores_pair_info = pair_info
 
         # Trim only one quarter's worth of training data
         min_date = data.Date[data.TestFlag].min()
@@ -261,7 +254,7 @@ class DataContainerPairs(object):
         # Process input
         if not isinstance(response_days, list):
             response_days = [response_days]
-        resp_dict = self._time_index_response_data['smoothed']
+        resp_dict = self._time_index_response_data
         # Cached data exist for this particular quarter?
         if time_index not in resp_dict:
             resp_dict[time_index] = {}
@@ -278,58 +271,7 @@ class DataContainerPairs(object):
             temp_r = resp_dict[t][data_name]
             responses = responses.append(temp_r[~temp_r.TestFlag])
         t = time_indexes[-1]
-        responses = responses.append(resp_dict[t][data_name])
-
-        period_inds = make_weekly_monthly_indexes(
-            responses, max(response_days))
-
-        return responses.merge(period_inds).reset_index(drop=True)
-
-    def _get_simple_response_data(self, time_index, response_days):
-        resp_dict = self._time_index_response_data['simple']
-        # Cached data exist for this particular quarter?
-        if time_index not in resp_dict:
-            resp_dict[time_index] = {}
-
-        data_name = str((response_days))
-        if data_name not in resp_dict[time_index]:
-            resp_dict[time_index][data_name] = simple_responses(
-                self._time_index_data_for_responses[time_index],
-                days=response_days)
-        # Stack time indexes
-        time_indexes = resp_dict.keys()
-        time_indexes.sort()
-        responses = pd.DataFrame()
-        for t in time_indexes[:-1]:
-            temp_r = resp_dict[t][data_name]
-            responses = responses.append(temp_r[~temp_r.TestFlag])
-        t = time_indexes[-1]
-        responses = responses.append(resp_dict[t][data_name])
-
-        period_inds = make_weekly_monthly_indexes(responses, response_days)
-
-        return responses.merge(period_inds).reset_index(drop=True)
-
-
-def make_weekly_monthly_indexes(responses, max_response_days):
-    # Add indexes for periods
-    time_inds = responses[['Date', 'TestFlag']].drop_duplicates()
-    # Get month indexes
-    time_inds['month_index'] = np.append(
-        False, np.diff([x.month for x in time_inds.Date]) != 0).astype(int)
-    time_inds.loc[~time_inds.TestFlag, 'month_index'] = 0
-    time_inds['month_index'] = time_inds.month_index.cumsum().shift(
-        -max_response_days).fillna(method='pad')
-    # Get week indexes
-    week_inds = [1, 0, 0, 0, 0.] * 10000
-    start_ind = 5 - np.where(time_inds.TestFlag)[0][0] % 5
-    time_inds['week_index'] = week_inds[start_ind:][:len(time_inds)]
-    time_inds.loc[~time_inds.TestFlag, 'week_index'] = 0
-    time_inds['week_index'] = time_inds.week_index.cumsum()
-    time_inds['week_index_train_offset'] = time_inds.week_index.shift(
-        -max_response_days).fillna(method='pad')
-    time_inds = time_inds.drop('TestFlag', axis=1)
-    return time_inds
+        return responses.append(resp_dict[t][data_name])
 
 
 def make_ibes_increases_decreases_binaries(data):

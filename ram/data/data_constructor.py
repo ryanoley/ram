@@ -142,12 +142,18 @@ class DataConstructor(object):
     def _make_date_iterator(self):
         # Extract parameters
         frequency = self.date_parameters_univ['frequency']
+        if 'quarter_frequency_month_offset' in self.date_parameters_univ:
+            q_offset = self.date_parameters_univ[
+                'quarter_frequency_month_offset']
+            assert q_offset in (0, 1, 2), 'Quarter offset can only be 0, 1, 2'
+        else:
+            q_offset = 0
         train_period_length = self.date_parameters_univ['train_period_length']
         test_period_length = self.date_parameters_univ['test_period_length']
         start_year = self.date_parameters_univ['start_year']
         # Create
         if frequency == 'Q':
-            periods = [1, 4, 7, 10]
+            periods = np.array([1, 4, 7, 10]) + q_offset
         elif frequency == 'M':
             periods = range(1, 13)
         all_periods = [dt.datetime(y, m, 1) for y, m in itertools.product(

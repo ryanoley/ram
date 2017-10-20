@@ -40,10 +40,10 @@ class TestPairSelector(unittest.TestCase):
         benchmark = np.array([[0, 3, 90], [3, 0, 89], [90, 89, 0]])
         assert_array_equal(result, benchmark)
 
-    def test_filter_pairs(self):
+    def test_get_pair_info(self):
         data = pd.DataFrame([[1, 2, 11], [3, 4, -17], [5, 6, 55], [7, 7, 17]])
         data.columns = ['A', 'B', 'C']
-        result = PairSelector()._filter_pairs(data)
+        result = PairSelector()._get_pair_info(data)
         benchmark = pd.DataFrame()
         benchmark['Leg1'] = ['A', 'B', 'A']
         benchmark['Leg2'] = ['B', 'C', 'C']
@@ -57,7 +57,8 @@ class TestPairSelector(unittest.TestCase):
         data['AdjClose'] = [1, 3, 5, 7, 9, 2, 4, 6, 7, 8, 11, 17, 55, 17, 16]
         flags = [False] * 4 + [True]
         data['TestFlag'] = flags * 3
-        result = PairSelector().rank_pairs(data, z_window=3)
+        result = PairSelector().rank_pairs(data, z_window=3,
+                                           filter_n_pairs_per_seccode=2)
 
     def test_get_zscores(self):
         data = pd.DataFrame()

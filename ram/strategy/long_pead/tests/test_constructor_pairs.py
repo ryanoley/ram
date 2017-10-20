@@ -99,7 +99,10 @@ class TestConstructorPairs(unittest.TestCase):
         data['SecCode'] = ['A', 'A', 'A', 'A', 'B', 'B']
         data['OffsetSecCode'] = ['B', 'C', 'D', 'E', 'F', 'G']
         data['zscore'] = [2, 3, 1, 0, -1, -5]
+        data['Signal'] = range(6)
         result = _zscore_rank(data)
+        result['benchmark'] = [1, 2, 3, 4, 1, 2.]
+        assert np.all(result.benchmark == result.zscore_rank)
 
     def tearDown(self):
         pass
