@@ -249,11 +249,9 @@ class DataContainer1(object):
 
     def _make_exit_dict(self, data, response_days):
         assert 'EARNINGSFLAG' in data.columns
-
         ernflag = data.pivot(index='Date', columns='SecCode',
                              values='EARNINGSFLAG')
         exit_dict = {}
-
         for i in range(1, self._entry_window + 1):
             shifted = ernflag.shift(response_days + i).fillna(0)     
             shifted.iloc[-1] = 1
