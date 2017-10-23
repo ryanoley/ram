@@ -24,6 +24,7 @@ PACKAGES = [
     'ram/strategy/long_pead',
     'ram/strategy/long_pead/constructor',
     'ram/strategy/long_pead/data',
+    'ram/strategy/long_pead/implementation',
     'ram/strategy/long_pead/signals',
     'ram/strategy/momentum',
     'ram/strategy/reversion',

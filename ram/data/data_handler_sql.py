@@ -103,26 +103,7 @@ class DataHandlerSQL(object):
             ids = self._get_filtered_ids(d2, filter_args, self._table)
         else:
             ids = []
-
-        output = pd.DataFrame(columns=['SecCode', 'Date'])
-        # With large numbers of IDs and Features, there is not enough
-        # memory to perform a query. Break up by features
-        batches = range(0, 301, 10)
-        for i1, i2 in zip(batches[:-1], batches[1:]):
-            batch_features = features[i1:i2]
-            if len(batch_features) == 0:
-                break
-            # Get features, and strings for cte and regular query
-            sqlcmd, batch_features = sqlcmd_from_feature_list(
-                batch_features, ids, d1, d3, self._table)
-            univ = self.sql_execute(sqlcmd)
-            univ_df = pd.DataFrame(
-                univ, columns=['SecCode', 'Date'] + batch_features)
-            _check_for_duplicates(univ_df, ['SecCode', 'Date'])
-            output = output.merge(univ_df, on=['SecCode', 'Date'],
-                                  how='outer')
-            _check_for_duplicates(output, ['SecCode', 'Date'])
-        return output
+        return self.get_id_data(ids, features, d1, d3)
 
     @connection_error_handling
     def get_id_data(self,
@@ -143,17 +124,27 @@ class DataHandlerSQL(object):
             With columns ID, Date representing a unique observation.
         """
         # Check user input
-        d1, _, d3 = _format_dates(start_date, None, end_date)
+        start_date, _, end_date = _format_dates(start_date, None, end_date)
 
-        # Get features, and strings for cte and regular query
-        sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids, d1, d3, self._table)
-
-        univ = self.sql_execute(sqlcmd)
-
-        univ_df = pd.DataFrame(univ)
-        univ_df.columns = ['ID', 'Date'] + features
-        return univ_df
+        output = pd.DataFrame(columns=['SecCode', 'Date'])
+        # With large numbers of IDs and Features, there is not enough
+        # memory to perform a query. Break up by features
+        batches = range(0, 301, 10)
+        for i1, i2 in zip(batches[:-1], batches[1:]):
+            batch_features = features[i1:i2]
+            if len(batch_features) == 0:
+                break
+            # Get features, and strings for cte and regular query
+            sqlcmd, batch_features = sqlcmd_from_feature_list(
+                batch_features, ids, start_date, end_date, self._table)
+            univ = self.sql_execute(sqlcmd)
+            univ_df = pd.DataFrame(
+                univ, columns=['SecCode', 'Date'] + batch_features)
+            _check_for_duplicates(univ_df, ['SecCode', 'Date'])
+            output = output.merge(univ_df, on=['SecCode', 'Date'],
+                                  how='outer')
+            _check_for_duplicates(output, ['SecCode', 'Date'])
+        return output
 
     @connection_error_handling
     def get_index_data(self,
