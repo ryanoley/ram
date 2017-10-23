@@ -28,6 +28,9 @@ class TestDataContainer1(unittest.TestCase):
         data2['AdjClose'] = data2.AdjClose * 10
         data = data.append(data2).reset_index(drop=True)
         data['AdjVwap'] = data['AdjClose'].copy()
+        data['LEAD1_AdjVwap'] = data['AdjClose'].copy()
+        data['LEAD11_AdjVwap'] = data['AdjClose'].copy() + \
+                                    np.random.choice([1,-1], len(data))
         self.data = data
 
         dataB = pd.DataFrame()
@@ -40,33 +43,31 @@ class TestDataContainer1(unittest.TestCase):
         dataB = dataB.append(data2).reset_index(drop=True)
         self.dataB = dataB
 
-
-    def test_filter_entry_window(self):
-
-        result = filter_entry_window(self.data, 2)
-        self.assertEqual(len(result), 4)
-        result = filter_entry_window(self.data, 3)
-        self.assertEqual(len(result), 6)
-
     def test_get_previous_ern_return(self):
-        result = get_previous_ern_return(self.dataB, fillna=True)
-        benchmark = np.array([0., 0., .1, .1, .1, .1, .5, .5] * 2)
+        result = get_previous_ern_return(self.dataB)
+        benchmark = np.array([np.nan, np.nan, .1, .1, .1, .1, .5, .5] * 2)
         assert_array_equal(np.round(result.PrevRet, 3), np.round(benchmark, 3))
 
         prev_data = self.dataB.copy()
         prev_data['Date'] = [x - dt.timedelta(356) for x in prev_data.Date]
-        result = get_previous_ern_return(self.dataB, fillna=True,
-                                         prior_data = prev_data)
+        result = get_previous_ern_return(self.dataB, prior_data = prev_data)
         benchmark = np.array([.5, .5, .1, .1, .1, .1, .5, .5] * 2)
         assert_array_equal(np.round(result.PrevRet, 3), np.round(benchmark, 3))
 
-    def test_get_se_revisions(self):
-        result = get_se_revisions(self.data, 'EPSESTIMATE', 'eps', 3)
+    def test_get_cum_delta(self):
+        result = get_cum_delta(self.data, 'EPSESTIMATEFQ1', 'eps', 3)
+        result = np.array(result['eps'])
+        benchmark = np.array([0., 0., 0.25, .35, .35, .0, .0, 0.] * 2)
+        assert_array_equal(np.round(result, 3), np.round(benchmark, 3))
+        
+        result = get_cum_delta(self.data, 'EPSESTIMATE', 'eps', 3,
+                                  smart_est_column=True)
         result = np.array(result['eps'])
         benchmark = np.array([0., 0., 0., .1, .1, 0., 0., 0.] * 2)
         assert_array_equal(np.round(result, 3), np.round(benchmark, 3))
 
-        result = get_se_revisions(self.data, 'EPSESTIMATE', 'eps', 5)
+        result = get_cum_delta(self.data, 'EPSESTIMATE', 'eps', 5,
+                                  smart_est_column=True)
         result = np.array(result['eps'])
         benchmark = np.array([0., 0., 0., .1, .1, .1, .1, 0.] * 2)
         assert_array_equal(np.round(result, 3), np.round(benchmark, 3))
@@ -109,12 +110,19 @@ class TestDataContainer1(unittest.TestCase):
                              [np.nan] * 3 + [40, 40, 50, 60.])
         assert_array_equal(result.anchor_price.values, benchmark)
 
-    def test_make_anchor_ret_rank(self):
+    def test_get_vwap_returns(self):
         data = self.data.copy()
-        data = ern_date_blackout(data, -1, 1)
-        result = make_anchor_ret_rank(data)
-        pass
+        result = get_vwap_returns(data, 10)
+        benchmark = (data.LEAD11_AdjVwap / data.LEAD1_AdjVwap) - 1
+        assert_array_equal(benchmark.values, result.Ret10.values)
 
+        mkt_data = data.copy()
+        mkt_data['SecCode'] = 'spy'
+        mkt_data.drop_duplicates('Date', inplace=True)
+        result = get_vwap_returns(data, 10, hedged=True, market_data=mkt_data)
+        mkt_rets = (mkt_data.LEAD11_AdjVwap / mkt_data.LEAD1_AdjVwap) - 1
+        benchmark =  benchmark.values - mkt_rets.append(mkt_rets).values
+        assert_array_equal(benchmark, result.Ret10.values)
 
 
 if __name__ == '__main__':
