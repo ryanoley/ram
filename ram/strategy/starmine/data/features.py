@@ -22,7 +22,6 @@ def ern_date_blackout(data, offset1=-1, offset2=1):
     data['blackout'] = blackouts
     return data
 
-
 def make_anchor_ret_rank(data, init_offset=1, window=20):
     data = ern_price_anchor(data, init_offset=init_offset,
                             window=window)
@@ -34,7 +33,6 @@ def make_anchor_ret_rank(data, init_offset=1, window=20):
     ranks = ranks.unstack().reset_index()
     ranks.columns = ['SecCode', 'Date', 'anchor_ret_rank']
     return data.merge(ranks)
-
 
 def ern_price_anchor(data, init_offset=1, window=20):
     """
@@ -66,10 +64,8 @@ def ern_price_anchor(data, init_offset=1, window=20):
     data['anchor_ret'] = data.AdjClose / data.anchor_price
     return data
 
-
 # Revisions to Smart Estimates
-def get_cum_delta(data, est_col, out_col, smart_est_column=False,
-                  window=10):
+def get_cum_delta(data, est_col, out_col, window=10, smart_est_column=False):
     '''
     Cumulative sum of estimate changes over window following
     the earnings announcement
@@ -99,55 +95,49 @@ def get_cum_delta(data, est_col, out_col, smart_est_column=False,
     data = data.merge(delta_sum, how='left')
     return data
 
-
-def get_previous_ern_return(data, fillna=False, prior_data=[]):
+def get_previous_ern_return(data, prior_data=pd.DataFrame()):
     '''
     Get prior earnings return, fillna with 0. if specified
     '''
-    req_cols = ['SecCode', 'Date', 'EARNINGSFLAG', 'EARNINGSRETURN']
-    assert set(req_cols).issubset(data.columns)
-    train = data[req_cols].copy()
-
-    if len(prior_data) > 0:
-        assert set(req_cols).issubset(prior_data.columns)
-        prior_data = prior_data[req_cols]
+    data_cols = ['SecCode', 'Date', 'EARNINGSFLAG', 'EARNINGSRETURN']
+    assert set(data_cols).issubset(data.columns)
+    
+    train = data[data_cols].copy()
+    if len(prior_data > 0):
+        assert set(data_cols).issubset(prior_data.columns)
+        prior_data = prior_data[data_cols]
         train = prior_data.append(train).drop_duplicates(['Date','SecCode'])
 
-    ernflag = train.pivot(index='Date', columns='SecCode', values='EARNINGSFLAG')
-    ernret = train.pivot(index='Date', columns='SecCode', values='EARNINGSRETURN')
+    ernflag = train.pivot(index='Date', columns='SecCode',
+                          values='EARNINGSFLAG')
+    ernret = train.pivot(index='Date', columns='SecCode',
+                         values='EARNINGSRETURN')
     ernret[:] = np.where(ernflag==1, ernret, np.nan)
     ernret = ernret.shift(1).fillna(method='pad')
-    prevRets = ernret.unstack().reset_index()
-    prevRets.columns = ['SecCode', 'Date', 'PrevRet']
-    if fillna:
-        prevRets.fillna(0., inplace=True)
-    data = data.merge(prevRets, how='left')
+    prev_rets = ernret.unstack().reset_index()
+    prev_rets.columns = ['SecCode', 'Date', 'PrevRet']
+    data = data.merge(prev_rets, how='left')
     return data
-
 
 def get_vwap_returns(data, days, hedged=False, market_data=None):
     exit_col = 'LEAD{}_AdjVwap'.format(days +  1)
     ret_col = 'Ret{}'.format(days)
     
-    if exit_col not in data.columns:
-        print 'Lead columns not available for {} days'.format(days)
-        return data
+    assert set(['LEAD1_AdjVwap', exit_col]).issubset(data.columns)
     prices  = data[['SecCode', 'Date', exit_col, 'LEAD1_AdjVwap']].copy()
     prices[ret_col] = (prices[exit_col] / prices.LEAD1_AdjVwap)
 
     if hedged:
-        if exit_col not in market_data.columns:
-            print 'SPY Lead columns not available for {} days'.format(days)
-            return data
+        assert set(['LEAD1_AdjVwap', exit_col]).issubset(market_data.columns)
         spy_prices  = market_data[['Date', exit_col, 'LEAD1_AdjVwap']].copy()
         spy_prices['MktRet'] = (spy_prices[exit_col] / spy_prices.LEAD1_AdjVwap)
         prices = prices.merge(spy_prices[['Date', 'MktRet']], how='left')
         prices[ret_col] -= prices.MktRet
+    else:
+        prices[ret_col] -= 1
     
     data = data.merge(prices[['SecCode', 'Date', ret_col]], how='left')
     return data
-
-
 
 ############# RESPONSES ##################
 

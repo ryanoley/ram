@@ -21,7 +21,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20, 30],
+            'response_days': [10, 20, 30],
             'training_qtrs': [-99]
         }
 
@@ -74,8 +74,9 @@ class DataContainer1(object):
         data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
 
         # Previous Earnings Return
-        data = get_previous_ern_return(data, fillna = True,
+        data = get_previous_ern_return(data,
                                        prior_data = self._processed_train_data)
+        data.PrevRet.fillna(0., inplace=True)
 
         # Binary vars for previous wins
         data['ern_ret_bin1'] = ((data.EARNINGSRETURN < -.05) &
@@ -94,7 +95,7 @@ class DataContainer1(object):
 
         # Smart Estimate Revisions
         data = get_cum_delta(data, 'EPSESTIMATE', 'eps_est_change',
-                            smart_est_column=True)
+                                 smart_est_column=True)
         data = get_cum_delta(data, 'EBITDAESTIMATE', 'ebitda_est_change',
                                  smart_est_column=True)
         data = get_cum_delta(data, 'REVENUEESTIMATE', 'rev_est_change',
