@@ -322,7 +322,11 @@ def _get_meta_data_cloud(strategy, version):
     client = storage.Client()
     bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     blob = bucket.get_blob(path)
-    meta = json.loads(blob.download_as_string())
+    try:
+        meta = json.loads(blob.download_as_string())
+    except Exception as e:
+        print('No meta file for {} {}'.format(strategy, version))
+        raise e
     if 'description' not in meta:
         meta['description'] = None
     return meta
