@@ -325,8 +325,10 @@ def _get_meta_data_cloud(strategy, version):
     try:
         meta = json.loads(blob.download_as_string())
     except Exception as e:
-        print('No meta file for {} {}'.format(strategy, version))
-        raise e
+        meta = {
+            'create_date': 'No meta file found',
+            'description': 'No meta file found'
+        }
     if 'description' not in meta:
         meta['description'] = None
     return meta
