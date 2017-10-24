@@ -18,12 +18,19 @@ from ram.analysis.selection import basic_model_selection
 
 class RunManager(object):
 
-    def __init__(self, strategy_class, run_name, start_year=1950,
-                 test_periods=6):
+    def __init__(self,
+                 strategy_class,
+                 run_name,
+                 start_year=1950,
+                 test_periods=6,
+                 drop_params=None,
+                 simulation_data_path=config.SIMULATION_OUTPUT_DIR):
         self.strategy_class = strategy_class
         self.run_name = run_name
         self.start_year = start_year
         self.test_periods = test_periods
+        self.drop_params = drop_params
+        self.simulation_data_path = simulation_data_path
 
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -58,7 +65,8 @@ class RunManager(object):
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def import_return_frame(self, path=config.SIMULATION_OUTPUT_DIR):
+    def import_return_frame(self):
+        path = self.simulation_data_path
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('returns') > 0]
@@ -73,9 +81,23 @@ class RunManager(object):
                 pd.read_csv(os.path.join(ddir, f), index_col=0),
                 fill_value=0)
         returns.index = convert_date_array(returns.index)
+        returns = self._check_import_drop_params(returns)
         self.returns = returns
 
-    def import_stats(self, path=config.SIMULATION_OUTPUT_DIR):
+    def _check_import_drop_params(self, returns):
+        # Do we need to drop parameters as per init?
+        if self.drop_params:
+            if not hasattr(self, 'column_params'):
+                self.import_column_params()
+            cparams = classify_params(self.column_params)
+            cparams = filter_classified_params(cparams, self.drop_params)
+            # Get unique column names
+            cols = get_columns(cparams)
+            returns = returns[cols]
+        return returns
+
+    def import_stats(self):
+        path = self.simulation_data_path
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('stats.json') > 0]
@@ -87,18 +109,21 @@ class RunManager(object):
             self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
                                              in self.column_params}
 
-    def import_column_params(self, path=config.SIMULATION_OUTPUT_DIR):
+    def import_column_params(self):
+        path = self.simulation_data_path
         ppath = os.path.join(path, self.strategy_class, self.run_name,
                              'column_params.json')
         self.column_params = json.load(open(ppath, 'r'))
 
-    def import_meta(self, path=config.SIMULATION_OUTPUT_DIR):
+    def import_meta(self):
+        path = self.simulation_data_path
         ppath = os.path.join(path, self.strategy_class, self.run_name,
                              'meta.json')
         self.meta = json.load(open(ppath, 'r'))
 
     # TEMP??
-    def import_long_short_returns(self, path=config.SIMULATION_OUTPUT_DIR):
+    def import_long_short_returns(self):
+        path = self.simulation_data_path
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('all_output') > 0]
@@ -134,7 +159,8 @@ class RunManager(object):
         returns.index = convert_date_array(returns.index)
         self.long_short_returns = returns
 
-    def import_all_output(self, path=config.SIMULATION_OUTPUT_DIR):
+    def import_all_output(self):
+        path = self.simulation_data_path
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('all_output') > 0]
@@ -247,7 +273,8 @@ class RunManager(object):
 
     # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def add_note(self, note, path=config.SIMULATION_OUTPUT_DIR):
+    def add_note(self, note):
+        path = self.simulation_data_path
         note_path = os.path.join(path, self.strategy_class,
                                  self.run_name, 'notes.json')
         if os.path.isfile(note_path):
@@ -259,7 +286,8 @@ class RunManager(object):
         with open(note_path, 'w') as outfile:
             json.dump(notes, outfile)
 
-    def get_notes(self, path=config.SIMULATION_OUTPUT_DIR):
+    def get_notes(self):
+        path = self.simulation_data_path
         note_path = os.path.join(path, self.strategy_class,
                                  self.run_name, 'notes.json')
         if not os.path.isfile(note_path):
@@ -271,7 +299,8 @@ class RunManager(object):
         out = out.reset_index(drop=True)
         return out
 
-    def add_star(self, path=config.SIMULATION_OUTPUT_DIR):
+    def add_star(self):
+        path = self.simulation_data_path
         star_path = os.path.join(path, self.strategy_class,
                                  self.run_name, 'starred.json')
         now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
@@ -284,10 +313,17 @@ class RunManager(object):
 
 class RunManagerGCP(RunManager):
 
-    def __init__(self, strategy_class, run_name, start_year=1950,
-                 test_periods=6):
+    def __init__(self,
+                 strategy_class,
+                 run_name,
+                 start_year=1950,
+                 test_periods=6,
+                 drop_params=None):
         super(RunManagerGCP, self).__init__(
             strategy_class, run_name, start_year, test_periods)
+        # Delete simulation_data_path as is unneeded in GCP env
+        del self.simulation_data_path
+        # GCP Functionality
         self._gcp_client = storage.Client()
         self._bucket = self._gcp_client.get_bucket(
             config.GCP_STORAGE_BUCKET_NAME)
@@ -366,6 +402,7 @@ class RunManagerGCP(RunManager):
                                index_col=0)
             returns = returns.add(data, fill_value=0)
         returns.index = convert_date_array(returns.index)
+        returns = self._check_import_drop_params(returns)
         self.returns = returns
 
     def import_stats(self):
@@ -658,7 +695,8 @@ def make_correlation_heatmap(data, title=None):
     plt.figure(figsize=(7, 6))
     cmap = sns.diverging_palette(11, 210, as_cmap=True)
     sns.heatmap(corr, mask=mask, cmap=cmap, vmin=-1.0, vmax=1.0, center=0,
-                square=True, linewidths=1.5, cbar_kws={'shrink': 0.8, 'aspect': 50})
+                square=True, linewidths=1.5,
+                cbar_kws={'shrink': 0.8, 'aspect': 50})
     if title:
         plt.title(title)
     plt.show()
