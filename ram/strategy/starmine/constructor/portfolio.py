@@ -32,6 +32,18 @@ class Portfolio(object):
                 size, exec_prices[symbol])
         return
 
+    def get_portfolio_position_totals(self):
+        n_longs = 0
+        n_shorts = 0
+        for position in self.positions.itervalues():
+            if position.symbol == 'spy':
+                continue
+            elif position.shares > 0:
+                n_longs += 1
+            elif position.shares < 0:
+                n_shorts += 1
+        return n_longs, n_shorts
+
     def get_portfolio_exposure(self):
         return sum([abs(pos.exposure) for pos in self.positions.itervalues()])
 

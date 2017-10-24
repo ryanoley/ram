@@ -29,7 +29,7 @@ class SignalModel1(object):
         train_data = data_container.train_data
         test_data = data_container.test_data
     
-        for e in range(data_container._entry_window):
+        for e in range(1, data_container._entry_window):
             e_train = train_data[train_data['T'] == e].copy()
             e_test = test_data[test_data['T'] == e].copy()
 
