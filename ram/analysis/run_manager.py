@@ -81,6 +81,8 @@ class RunManager(object):
                 pd.read_csv(os.path.join(ddir, f), index_col=0),
                 fill_value=0)
         returns.index = convert_date_array(returns.index)
+        # Format columns as strings
+        returns.columns = returns.columns.astype(str)
         returns = self._check_import_drop_params(returns)
         self.returns = returns
 
@@ -91,9 +93,12 @@ class RunManager(object):
                 self.import_column_params()
             cparams = classify_params(self.column_params)
             cparams = filter_classified_params(cparams, self.drop_params)
+            # Need to drop and reclassify
             # Get unique column names
             cols = get_columns(cparams)
             returns = returns[cols]
+            self.column_params = post_drop_params_filter(
+                cols, self.column_params)
         return returns
 
     def import_stats(self):
@@ -113,7 +118,12 @@ class RunManager(object):
         path = self.simulation_data_path
         ppath = os.path.join(path, self.strategy_class, self.run_name,
                              'column_params.json')
-        self.column_params = json.load(open(ppath, 'r'))
+        column_params = json.load(open(ppath, 'r'))
+        # Convert keys to strings
+        new_column_params = {}
+        for k, v in column_params.iteritems():
+            new_column_params[str(k)] = v
+        self.column_params = new_column_params
 
     def import_meta(self):
         path = self.simulation_data_path
@@ -403,6 +413,7 @@ class RunManagerGCP(RunManager):
                                index_col=0)
             returns = returns.add(data, fill_value=0)
         returns.index = convert_date_array(returns.index)
+        returns.columns = returns.columns.astype(str)
         returns = self._check_import_drop_params(returns)
         self.returns = returns
 
@@ -421,7 +432,11 @@ class RunManagerGCP(RunManager):
     def import_column_params(self):
         file_path = self._get_storage_run_files('column_params.json')[0]
         blob = self._bucket.get_blob(file_path)
-        self.column_params = json.loads(blob.download_as_string())
+        column_params = json.loads(blob.download_as_string())
+        new_column_params = {}
+        for k, v in column_params.iteritems():
+            new_column_params[str(k)] = v
+        self.column_params = new_column_params
 
     def import_meta(self):
         file_path = self._get_storage_run_files('meta.json')[0]
@@ -684,8 +699,8 @@ def get_columns(param_dict):
         for vals2 in vals1.values():
             cols.append(vals2)
     cols = list(set(sum(cols, [])))
-    cols.sort()
-    return cols
+    cols = np.array(cols)[np.argsort(np.array(cols, dtype=np.int))]
+    return cols.tolist()
 
 
 def make_correlation_heatmap(data, title=None):
@@ -701,3 +716,10 @@ def make_correlation_heatmap(data, title=None):
     if title:
         plt.title(title)
     plt.show()
+
+
+def post_drop_params_filter(keep_cols, column_params):
+    new_column_params = {}
+    for c in keep_cols:
+        new_column_params[c] = column_params[c]
+    return new_column_params

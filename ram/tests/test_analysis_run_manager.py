@@ -72,6 +72,13 @@ class TestRunManager(unittest.TestCase):
         with open(os.path.join(run_path, 'column_params.json'), 'w') as f:
             json.dump(params, f)
 
+    def test_post_drop_params_filter(self):
+        keep_cols = ['1']
+        column_params = {'0': {'p1': 10, 'p2': 20}, '1': {'p1': 20, 'p2': 30}}
+        result = post_drop_params_filter(keep_cols, column_params)
+        benchmark = {'1': {'p2': 30, 'p1': 20}}
+        self.assertDictEqual(result, benchmark)
+
     def test_import_return_frame_with_drop_params(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
                           drop_params=[('p1', 10)],
@@ -84,6 +91,8 @@ class TestRunManager(unittest.TestCase):
         data.index = convert_date_array(data.index)
         data = data.drop('0', axis=1)
         assert_frame_equal(run1.returns, data)
+        benchmark = {'1': {'p2': 30, 'p1': 20}}
+        self.assertDictEqual(run1.column_params, benchmark)
 
     def test_import_return_frame(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
