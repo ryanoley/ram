@@ -323,6 +323,7 @@ class RunManagerGCP(RunManager):
             strategy_class, run_name, start_year, test_periods)
         # Delete simulation_data_path as is unneeded in GCP env
         del self.simulation_data_path
+        self.drop_params = drop_params
         # GCP Functionality
         self._gcp_client = storage.Client()
         self._bucket = self._gcp_client.get_bucket(
