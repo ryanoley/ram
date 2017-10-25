@@ -21,7 +21,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [10, 20, 30],
+            'response_days': [20],
             'training_qtrs': [-99]
         }
 

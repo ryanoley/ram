@@ -12,17 +12,19 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'long_thresh': [.02, .03, .04],
-            'short_thresh': [.005, .01, .015, .02],
-            'pos_size': [.015, .025],
+            'long_thresh': [.02, .025, .03],
+            'short_thresh': [.0075, .01],
+            'pos_size': [.025, .035],
             'entry_dates': [[3, 4], [2, 3, 4]],
-            'dd_thresh': [-99, -0.15, -.10],
-            'dd_from_zero': [True, False],
-            'close_out': [True, False]
+            'dd_thresh': [-99, -.15],
+            'dd_from_zero': [True],
+            'close_out': [True],
+            'scale_weights': [False]
         }
 
     def get_daily_pl(self, data_container, signals, entry_dates, dd_thresh,
-                     dd_from_zero, long_thresh, short_thresh, **kwargs):
+                     dd_from_zero, long_thresh, short_thresh, scale_weights,
+                     **kwargs):
         """
         Parameters
         ----------
@@ -56,14 +58,14 @@ class PortfolioConstructor1(Constructor):
                 portfolio.close_portfolio_positions()
             else:
                 scores = get_scores(scores_dict, prior_dt, long_thresh,
-                                    short_thresh)
+                                    short_thresh, scale_weights)
                 close_seccodes = get_closing_seccodes(exit_dict, date)
                 dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
-                close_seccodes.update(dd_seccodes)
-                close_seccodes.discard('spy')
+                exit_flag = close_seccodes.union(dd_seccodes)
+                exit_flag.discard('spy')
 
                 positions, net_exposure = self.get_position_sizes(
-                    scores, portfolio, close_seccodes, **kwargs)
+                    scores, portfolio, exit_flag, **kwargs)
                 position_sizes = self._get_position_sizes_dollars(positions)
 
                 portfolio.update_position_sizes(position_sizes, vwaps)
@@ -159,7 +161,8 @@ def make_scores_dict(preds_dict, entry_dates):
 
     return scores_dict
 
-def get_scores(scores_dict, date, long_thresh, short_thresh):
+def get_scores(scores_dict, date, long_thresh, short_thresh,
+               scale_weights=False):
 
     if date not in scores_dict.keys():
         return pd.DataFrame(columns=['score', 'weight'])
@@ -170,10 +173,15 @@ def get_scores(scores_dict, date, long_thresh, short_thresh):
     #                        np.where(scores.score <= -short_thresh, -1., 0.))
     #
     scores['thresh'] = np.where(scores.score >= 0, long_thresh, -short_thresh)
-    scores['weight'] = np.round(scores.score / scores.thresh, 2)
-    scores.loc[scores.weight < 1, 'weight'] = 0.
-    scores.loc[scores.weight > 2, 'weight'] = 2.
-    scores.weight *= np.sign(scores.thresh)
+    if scale_weights:
+        scores['weight'] = np.round(scores.score / scores.thresh, 2)
+        scores.loc[scores.weight < 1, 'weight'] = 0.
+        scores.loc[scores.weight > 2, 'weight'] = 2.
+        scores.weight *= np.sign(scores.thresh)
+    else:
+        scores['weight'] = 0.
+        scores.loc[(scores.score <= scores.thresh) & (scores.score < 0), 'weight'] = -1
+        scores.loc[(scores.score >= scores.thresh) & (scores.score > 0), 'weight'] = 1
 
     return scores[['score', 'weight']]
 

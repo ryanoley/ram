@@ -17,7 +17,7 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'max_features': [0.85],
+            'max_features': [0.80],
             'n_estimators': [100],
             'min_samples_leaf': [25]
         }

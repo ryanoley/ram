@@ -99,9 +99,9 @@ class PostErnStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 ' +
-            'and Close_ >= 15',
-            'univ_size': 1500
+            'where': 'MarketCap >= 50 and GSECTOR = 50 ' +
+            'and Close_ >= 15 and AvgDolVol >= 1',
+            'univ_size': 300
         }
 
     def get_univ_date_parameters(self):
@@ -109,7 +109,7 @@ class PostErnStrategy(Strategy):
             'frequency': 'Q',
             'train_period_length': 1,
             'test_period_length': 1,
-            'start_year': 2000
+            'start_year': 2003
         }
 
     def get_features(self):
