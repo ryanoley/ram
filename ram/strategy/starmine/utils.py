@@ -14,9 +14,8 @@ def make_variable_dict(data, variable, fillna=np.nan):
 
 
 
-def pull_spy_data(output_path):
+def pull_spy_data(output_path, tickers=['SPY']):
     dh = DataHandlerSQL()
-    tickers = ['SPY']
     start_date = dt.datetime(1999,1,1,0,0)
     end_date = dt.datetime(2017,9,1,0,0)
     features = ['SplitFactor', 'RVwap', 'RClose', 'RCashDividend',
