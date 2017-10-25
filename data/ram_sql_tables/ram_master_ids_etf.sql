@@ -20,6 +20,7 @@ insert @ETFS values (59819, 68911)		-- XLP
 insert @ETFS values (59820, 68917)		-- XLU
 insert @ETFS values (59821, 68910)		-- XLV
 insert @ETFS values (103857, 72958)		-- XOP
+insert @ETFS values (59802, 73822)		-- IYH
 
 -------------------------------------------------------------
 -- Create tables
