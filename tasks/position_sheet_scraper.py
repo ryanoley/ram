@@ -6,12 +6,17 @@ import datetime as dt
 
 
 def get_fund_manager_stat_arb_positions():
-
     base_path = os.getenv('DATA2')
     file_path = '/Common Folders/Roundabout/Operations/Roundabout Accounting/'
     file_path += 'Roundabout Daily P&L 2016.xlsx'
     path = base_path + file_path
-    data = pd.read_excel(path).reset_index()
+    data = pd.read_excel(path)
+
+    # Reset index on import doesn't work on server, so adding extra step
+    indexes = data.index.to_frame().reset_index(drop=True)
+    indexes.columns = ['col%s' % s for s in range(indexes.shape[1])]
+    data = data.reset_index(drop=True)
+    data = data.join(indexes)
 
     # Identify correct column numbers for Position, Symbol, Share Count
     for i, d in data.iterrows():
@@ -55,4 +60,3 @@ def get_fund_manager_stat_arb_positions():
 
 if __name__ == '__main__':
     get_fund_manager_stat_arb_positions()
-
