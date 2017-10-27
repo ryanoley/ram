@@ -36,6 +36,10 @@ FUNCS = [
     'SALESQ', 'SALESTTM',
     'SALESGROWTHQ', 'SALESGROWTHTTM',
 
+    # ADJEPS
+    'ADJEPSQ', 'ADJEPSTTM',
+    'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
+    
     # Free Cash
     'FREECASHFLOWQ', 'FREECASHFLOWTTM',
     'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
@@ -728,6 +732,22 @@ def GROSSPROFASSET(arg0, feature_name, arg2, table):
 
 def ASSETS(arg0, feature_name, arg2, table):
     return _ACCOUNTING_FRAMEWORK('ASSETS', feature_name, table)
+
+
+def ADJEPSQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSQ', feature_name, table)
+
+
+def ADJEPSTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSTTM', feature_name, table)
+
+
+def ADJEPSGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSGROWTHQ', feature_name, table)
+
+
+def ADJEPSGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSGROWTHTTM', feature_name, table)
 
 
 # ~~~~~~  Accounting Ratios ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -235,14 +235,7 @@ where				D.GVKey in (select distinct GVKey from ram.dbo.ram_idccode_to_gvkey_map
 select			GVKEY,
 				DATADATE,
 				Item,
-				avg(
-					case 
-						when FyrFlag = 0 then DValue
-						when FyrFlag = 2 then DValue * 2
-						when FyrFlag = 4 then DValue * 4
-						else Value_
-					end
-				) as Value_
+				avg(DValue) as Value_
 from			qai.dbo.CSCoIFndQ
 where			INDFMT = 5
 	and			FyrFlag in (0, 2, 4)
@@ -254,14 +247,7 @@ union
 select			GVKEY,
 				DATADATE,
 				Item,
-				avg(
-					case 
-						when FyrFlag = 0 then DValue
-						when FyrFlag = 2 then DValue * 2
-						when FyrFlag = 4 then DValue * 4
-						else Value_
-					end
-				) as Value_
+				avg(DValue) as Value_
 from			qai.dbo.CSICoIFndQ
 where			INDFMT = 5
 	and			FyrFlag in (0, 2, 4)
