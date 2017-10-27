@@ -28,6 +28,7 @@ class CombinationSearch(object):
         self.runs.aggregate_returns()
         self._create_results_objects(self.runs.returns)
         self._create_training_indexes(self.runs.returns)
+        self._create_epoch_stat_objects()
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
                 # Penalize missing data points to keep aligned columns
@@ -41,6 +42,7 @@ class CombinationSearch(object):
                         t2, train_data, test_data, criteria)
                 self._process_results(
                     t2, test_results, train_scores, combs)
+            self._process_epoch_stats()
 
     def start_dynamic(self, criteria='sharpe',
                       open_thresh=0.0020, close_thresh=-0.0005):
@@ -76,6 +78,7 @@ class CombinationSearch(object):
         # Calculate sharpes
         if criteria == 'sharpe':
             scores = self._get_sharpes(train_data, combs)
+
         elif criteria == 'mean':
             scores = self._get_means(train_data, combs)
         else:
@@ -101,22 +104,17 @@ class CombinationSearch(object):
         # Set seed and update
         np.random.seed(self.params['seed_ind'])
         self.params['seed_ind'] += 1
-
         combs = np.random.randint(
             0, high=n_choices, size=(10000, self.params['strats_per_port']))
-
         # Sort items in each row, then sort rows
         combs = np.sort(combs, axis=1)
         combs = combs[np.lexsort([combs[:, i] for i in
                                   range(combs.shape[1]-1, -1, -1)])]
-
         # Drop repeats in same row
         combs = combs[np.sum(np.diff(combs, axis=1) == 0, axis=1) == 0]
-
         # Drop repeat rows
         combs = combs[np.append(True, np.sum(
             np.diff(combs, axis=0), axis=1) != 0)]
-
         # Make sure the combinations aren't in the current best
         if time_index in self.best_results_combs:
             current_combs = self.best_results_combs[time_index]
@@ -210,6 +208,18 @@ class CombinationSearch(object):
             self.best_results_rets.loc[test_rets.index] = test_rets
             self.best_results_scores[time_index] = scores
             self.best_results_combs[time_index] = combs
+
+    def _create_epoch_stat_objects(self):
+        if not hasattr(self, 'epoch_stats'):
+            self.epoch_stats = pd.DataFrame(columns=['Mean', 'Sharpe'])
+        return
+
+    def _process_epoch_stats(self):
+        i = self.epoch_stats.shape[0]
+        stat1 = self.best_results_rets.mean()[0]
+        stat2 = stat1 / self.best_results_rets.std()[0]
+        self.epoch_stats.loc[i, :] = (stat1, stat2)
+        return
 
     def _get_dynamic_returns(self, train_data, test_data, open_thresh,
                              close_thresh, test_start_date, criteria):
