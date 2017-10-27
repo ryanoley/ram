@@ -139,6 +139,29 @@ def get_vwap_returns(data, days, hedged=False, market_data=None):
     data = data.merge(prices[['SecCode', 'Date', ret_col]], how='left')
     return data
 
+def act_vs_est_missbeat(data, est_col, act_col, out_name, fill_low_est=False):
+    assert set([est_col, act_col, 'EARNINGSFLAG']).issubset(data.columns)
+    
+    ern_flag = data.pivot(index='Date', columns='SecCode',
+                          values='EARNINGSFLAG')
+    estimate = data.pivot(index='Date', columns='SecCode', values=est_col)
+    actual = data.pivot(index='Date', columns='SecCode', values=act_col)
+    
+    if fill_low_est:
+        estimate[:] = np.where(np.abs(estimate) < .10, .10 * np.sign(estimate),
+                               estimate)
+
+    estimate[:] = np.where(ern_flag == 1, estimate, np.nan)
+    estimate.fillna(method='pad', inplace=True)
+    
+    miss_beat = (actual - estimate) / estimate
+    miss_beat = miss_beat.unstack().reset_index()
+    miss_beat.columns = ['SecCode', 'Date', out_name]
+
+    data = data.merge(miss_beat, how='left')
+    return data
+
+
 ############# RESPONSES ##################
 
 def smoothed_responses(data, thresh=.25, days=[2, 3]):

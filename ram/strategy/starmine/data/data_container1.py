@@ -89,9 +89,13 @@ class DataContainer1(object):
         data = ern_price_anchor(data, 1, 15)
         data = make_anchor_ret_rank(data, 1, 15)
 
-        # Revenue As compared to estimate
-        data['RevMissBeat'] = ((data.REVENUEESTIMATEFQ1 - data.SALESQ) /
-                                data.SALESQ).fillna(0.)
+        # Revenue/EPS As compared to estimate
+        data = act_vs_est_missbeat(data, 'EPSESTIMATEFQ1', 'ADJEPSQ',
+                                   'EpsMissBeat', fill_low_est=True)
+        data = act_vs_est_missbeat(data, 'REVENUEESTIMATEFQ1', 'SALESQ',
+                                   'RevMissBeat')
+        data.EpsMissBeat.fillna(0., inplace=True)
+        data.RevMissBeat.fillna(0., inplace=True)
 
         # Smart Estimate Revisions
         data = get_cum_delta(data, 'EPSESTIMATE', 'eps_est_change',
@@ -119,13 +123,13 @@ class DataContainer1(object):
         data = get_cum_delta(data, 'RECMEAN', 'anr_rec_change')
 
         # Add multiple Returns for model training
-        data = get_vwap_returns(data, 10, hedged=True,
+        data = get_vwap_returns(data, 19, hedged=True,
                                 market_data=self._market_data)
         data = get_vwap_returns(data, 20, hedged=True,
                                 market_data=self._market_data)
-        data = get_vwap_returns(data, 30, hedged=True,
+        data = get_vwap_returns(data, 21, hedged=True,
                                 market_data=self._market_data)
-        data = get_vwap_returns(data, 40, hedged=True,
+        data = get_vwap_returns(data, 22, hedged=True,
                                 market_data=self._market_data)
 
         # ~~~~~~ Clean and Filter ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -139,9 +143,10 @@ class DataContainer1(object):
         inf_cols = [
             'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM', 'OPERATINGINCOMEGROWTHQ',
             'OPERATINGINCOMEGROWTHTTM', 'EBITGROWTHQ', 'EBITGROWTHTTM',
-            'SALESGROWTHQ', 'SALESGROWTHTTM',
-            'RevMissBeat', 'eps_est_change', 'ebitda_est_change',
-            'rev_est_change', 'prtgt_est_change', 'prtgt_discount'
+            'SALESGROWTHQ', 'SALESGROWTHTTM', 'ADJEPSGROWTHQ',
+            'ADJEPSGROWTHTTM', 'RevMissBeat', 'EpsMissBeat',
+            'eps_est_change', 'ebitda_est_change', 'rev_est_change',
+            'prtgt_est_change', 'prtgt_discount'
             ]
         data[inf_cols] = data[inf_cols].replace(np.inf, 0.)
         data[inf_cols] = data[inf_cols].replace(-np.inf, 0.)
@@ -191,20 +196,21 @@ class DataContainer1(object):
 
         # Analyst Estimate change variables (Starmine)
         'eps_est_change', 'ebitda_est_change', 'rev_est_change',
-        'RevMissBeat',
+        'RevMissBeat', 'EpsMissBeat',
 
         # Accounting Variables
         'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
         'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
         'EBITGROWTHQ', 'EBITGROWTHTTM',
         'SALESGROWTHQ', 'SALESGROWTHTTM',
+        'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
 
         # Price target changes
         'prtgt_est_change', 'prtgt_discount', 'prtgt_disc_change',
         'anr_rec_change', 'RECMEAN'
         ]
         self.features = features
-        self.ret_cols = ['Ret10', 'Ret20', 'Ret30', 'Ret40']
+        self.ret_cols = ['Ret19', 'Ret20', 'Ret21', 'Ret22']
         return
 
     ###########################################################################

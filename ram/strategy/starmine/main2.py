@@ -99,7 +99,7 @@ class PostErnStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 50 and GSECTOR = 50 ' +
+            'where': 'MarketCap >= 50 and GSECTOR = 45 ' +
             'and Close_ >= 15 and AvgDolVol >= 1',
             'univ_size': 300
         }
@@ -121,8 +121,8 @@ class PostErnStrategy(Strategy):
 
             # Pricing
             'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',
-            'LEAD11_AdjVwap', 'LEAD21_AdjVwap',
-            'LEAD31_AdjVwap', 'LEAD41_AdjVwap',
+            'LEAD20_AdjVwap', 'LEAD21_AdjVwap','LEAD22_AdjVwap',
+            'LEAD23_AdjVwap',
 
             # Pricing Features
             'PRMA10_AdjClose', 'PRMA20_AdjClose', 'PRMA60_AdjClose',
@@ -146,13 +146,16 @@ class PostErnStrategy(Strategy):
             'FREECASHFLOWQ', 'FREECASHFLOWTTM',
             'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
 
+            'ADJEPSQ', 'ADJEPSTTM',
+            'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
+
             # Starmine Features
             'EPSESTIMATEFQ1', 'EPSESTIMATEFQ2', 'EBITDAESTIMATEFQ1',
             'EBITDAESTIMATEFQ2', 'REVENUEESTIMATEFQ1', 'REVENUEESTIMATEFQ2',
 
             # Price Targets
             'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
-            'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
+            'RECMEAN'
         ]
 
 
