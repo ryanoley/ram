@@ -69,7 +69,7 @@ class PortfolioConstructor1(Constructor):
                 portfolio.update_prices(closes, dividends, splits)
 
                 mkt_size = self._get_position_sizes_dollars(
-                                    {'spy':-net_exposure})
+                                    {'HEDGE':-net_exposure})
                 portfolio.update_position_sizes(mkt_size, mkt_vwap)
                 portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
 

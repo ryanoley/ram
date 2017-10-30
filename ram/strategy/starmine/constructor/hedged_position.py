@@ -51,9 +51,9 @@ class HedgedPosition(Position):
         return
 
     def update_mkt_prices(self, market_price):
-        if 'spy' not in market_price.keys():
-            raise ValueError('spy must be in key value in arg')
-        mkt_px = market_price['spy']
+        if 'HEDGE' not in market_price.keys():
+            raise ValueError('HEDGE must be in key value in arg')
+        mkt_px = market_price['HEDGE']
 
         # No position or just closed
         if self.exposure == 0:

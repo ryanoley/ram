@@ -19,13 +19,20 @@ class SignalModel1(object):
         return {
             'max_features': [0.80],
             'n_estimators': [100],
-            'min_samples_leaf': [25]
+            'min_samples_leaf': [25],
+            'drop_ibes': [False]
         }
 
     def rf_signals(self, data_container, max_features, min_samples_leaf,
-                   n_estimators):
+                   n_estimators, drop_ibes):
 
         features = data_container.features
+        if drop_ibes:
+            features = list(set(features) -
+                            set(['prtgt_est_change', 'prtgt_discount',
+                                 'prtgt_disc_change','anr_rec_change',
+                                 'RECMEAN']))
+            
         train_data = data_container.train_data
         test_data = data_container.test_data
     
