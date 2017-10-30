@@ -256,10 +256,16 @@ class Strategy(object):
             all_files = [x.replace(strip_str, '') for x in all_files]
             self._prepped_data_files = [x for x in all_files
                                         if x.find('_data.csv') > 0]
+            self._prepped_data_files = [
+                x for x in self._prepped_data_files
+                if x.find('market_index_data') == -1]
         else:
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
                 x for x in all_files if x[-8:] == 'data.csv']
+            self._prepped_data_files = [
+                x for x in self._prepped_data_files
+                if x.find('market_index_data') == -1]
         self._prepped_data_files.sort()
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
