@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import numpy as np
 import pandas as pd
@@ -15,12 +16,11 @@ class ImplementationTrainingDataPull(object):
     def __init__(self, imp_data_dir=IMPLEMENTATION_DATA_DIR):
         self.raw_data_path = os.path.join(
             _get_data_path(imp_data_dir), 'training')
+        self.dh = DataHandlerSQL()
 
     def start(self):
-        dh = DataHandlerSQL()
-        dates = self.get_ids_query_dates()
         # Query all ids
-        ids = self.get_ids(dates, dh)
+        ids = self.get_ids()
         start_date, end_date = self.get_data_query_dates()
         for sector in config.sectors:
             sector_ids = ids[sector]
@@ -31,8 +31,10 @@ class ImplementationTrainingDataPull(object):
                     end_date=end_date)
             self.write_sector_data(data, sector)
 
-    def get_ids(self, dates, dh):
+    def get_ids(self):
+        dates = self.get_ids_query_dates()
         sector_ids = {}
+        sector_ids_training = {}
         for sector in config.sectors:
             filter_args = {
                 'filter': 'AvgDolVol',
@@ -40,9 +42,10 @@ class ImplementationTrainingDataPull(object):
                          'and GSECTOR = {}'.format(sector),
                 'univ_size': 800}
             sector_ids[sector] = []
+            sector_ids_training[sector] = {}
             for d in dates:
                 start_date = d - dt.timedelta(days=2)
-                univ = dh.get_filtered_univ_data(
+                univ = self.dh.get_filtered_univ_data(
                     features=['AdjClose'],
                     start_date=start_date,
                     end_date=d,
@@ -50,8 +53,11 @@ class ImplementationTrainingDataPull(object):
                     filter_args=filter_args)
                 ids = univ.SecCode.unique()
                 sector_ids[sector].append(ids)
+                sector_ids_training[sector][d.strftime('%Y%m%d')] = ids.tolist()
             sector_ids[sector] = \
                 np.unique(np.concatenate(sector_ids[sector])).tolist()
+        # Write training ids to file
+        self.write_sector_id_data(sector_ids_training)
         return sector_ids
 
     def get_ids_query_dates(self):
@@ -81,6 +87,19 @@ class ImplementationTrainingDataPull(object):
                 output_path,
                 os.path.join(self.raw_data_path, 'archive'), new_file_name)
         data.to_csv(output_path, index=0)
+
+    def write_sector_id_data(self, id_dict):
+        output_path = os.path.join(self.raw_data_path, 'sector_id_data.json')
+        # Check if current file needs to be tagged and moved to archive
+        if os.path.isfile(output_path):
+            datestamp = dt.datetime.now().strftime('%Y%m%d')
+            new_file_name = 'sector_id_data'
+            new_file_name += '_moved_{}.json'.format(datestamp)
+            move_file(
+                output_path,
+                os.path.join(self.raw_data_path, 'archive'), new_file_name)
+        with open(output_path, 'w') as f:
+            json.dump(id_dict, f)
 
 
 class ImplementationDailyDataPull(object):
