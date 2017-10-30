@@ -217,11 +217,11 @@ class CombinationSearch(object):
             self.best_results_rets.to_csv(os.path.join(
                 self.output_dir, 'best_results_rets.csv'))
             scores = self.best_results_scores.copy()
-            scores = {k: list(v) for k, v in scores.iteritems()}
+            scores = {str(k): list(v) for k, v in scores.iteritems()}
             with open(os.path.join(self.output_dir, 'best_results_scores.json'), 'w') as f:
                 json.dump(scores, f)
             combs = self.best_results_combs.copy()
-            combs = {k: v.tolist() for k, v in combs.iteritems()}
+            combs = {str(k): v.tolist() for k, v in combs.iteritems()}
             with open(os.path.join(self.output_dir, 'best_results_combs.json'), 'w') as f:
                 json.dump(combs, f)
             with open(os.path.join(self.output_dir, 'params.json'), 'w') as f:
