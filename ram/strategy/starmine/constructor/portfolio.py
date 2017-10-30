@@ -36,7 +36,7 @@ class Portfolio(object):
         n_longs = 0
         n_shorts = 0
         for position in self.positions.itervalues():
-            if position.symbol == 'spy':
+            if position.symbol == 'HEDGE':
                 continue
             elif position.shares > 0:
                 n_longs += 1
@@ -119,7 +119,7 @@ class Portfolio(object):
         weights = pd.Series(name='weight', index=self.positions.keys())
         for position in self.positions.values():
             weights.loc[position.symbol] = position.weight
-        spy_mask = ~weights.index.isin(['spy'])
+        spy_mask = ~weights.index.isin(['HEDGE'])
         return weights[spy_mask]
 
     def update_position_weights(self, weights):
@@ -129,7 +129,7 @@ class Portfolio(object):
 
     def update_mkt_prices(self, mkt_price):
         for position in self.positions.values():
-            if (position.exposure != 0) & (position.symbol != 'spy'):
+            if (position.exposure != 0) & (position.symbol != 'HEDGE'):
                 position.update_mkt_prices(mkt_price)
         return
 

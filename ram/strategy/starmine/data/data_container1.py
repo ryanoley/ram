@@ -21,13 +21,13 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20],
+            'response_days': [20, 22],
             'training_qtrs': [-99]
         }
 
     def _set_market_pricing_dicts(self):
         spy = read_spy_data()
-        spy.loc[:, 'SecCode'] = 'spy'
+        spy.loc[:, 'SecCode'] = 'HEDGE'
         spy['SplitMultiplier'] = spy.SplitFactor.pct_change().fillna(0) + 1
 
         self.mkt_dividend_dict = make_variable_dict(spy, 'RCashDividend', 0)

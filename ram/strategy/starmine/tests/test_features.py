@@ -117,7 +117,7 @@ class TestDataContainer1(unittest.TestCase):
         assert_array_equal(benchmark.values, result.Ret10.values)
 
         mkt_data = data.copy()
-        mkt_data['SecCode'] = 'spy'
+        mkt_data['SecCode'] = 'HEDGE'
         mkt_data.drop_duplicates('Date', inplace=True)
         result = get_vwap_returns(data, 10, hedged=True, market_data=mkt_data)
         mkt_rets = (mkt_data.LEAD11_AdjVwap / mkt_data.LEAD1_AdjVwap) - 1

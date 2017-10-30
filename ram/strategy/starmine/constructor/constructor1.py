@@ -12,14 +12,14 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'long_thresh': [.02, .025, .03],
-            'short_thresh': [.0075, .01],
-            'pos_size': [.025, .035],
-            'entry_dates': [[3, 4], [2, 3, 4]],
-            'dd_thresh': [-99, -.15],
+            'long_thresh': [0.025, .03, .035],
+            'short_thresh': [.0075, .01, .0125],
+            'pos_size': [.02],
+            'entry_dates': [[2, 3, 4]],
+            'dd_thresh': [-.2, -.15, -.10],
             'dd_from_zero': [True],
             'close_out': [True],
-            'scale_weights': [False]
+            'scale_weights': [True]
         }
 
     def get_daily_pl(self, data_container, signals, entry_dates, dd_thresh,
@@ -62,7 +62,7 @@ class PortfolioConstructor1(Constructor):
                 close_seccodes = get_closing_seccodes(exit_dict, date)
                 dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
                 exit_flag = close_seccodes.union(dd_seccodes)
-                exit_flag.discard('spy')
+                exit_flag.discard('HEDGE')
 
                 positions, net_exposure = self.get_position_sizes(
                     scores, portfolio, exit_flag, **kwargs)
@@ -72,7 +72,7 @@ class PortfolioConstructor1(Constructor):
                 portfolio.update_prices(closes, dividends, splits)
 
                 mkt_size = self._get_position_sizes_dollars(
-                    {'spy':-net_exposure})
+                    {'HEDGE':-net_exposure})
                 portfolio.update_position_sizes(mkt_size, mkt_vwap)
                 portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
 
