@@ -25,9 +25,12 @@ class TestCombinationSearch(unittest.TestCase):
         self.run2 = RunManager('TestStrat', 'run_0002')
         self.run1.returns = data1
         self.run2.returns = data2
+        # Output dir
+        self.output_dir = os.path.dirname(os.path.realpath(__file__))
 
     def test_start(self):
-        comb = CombinationSearch()
+        comb = CombinationSearch(output_dir=self.output_dir,
+                                 checkpoint_n_epochs=1)
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
         comb.add_run(self.run2)
@@ -103,7 +106,10 @@ class TestCombinationSearch(unittest.TestCase):
         assert_array_equal(results.round(5), benchmark.round(5))
 
     def tearDown(self):
-        pass
+        path = os.path.join(self.output_dir, 'combo_search')
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+
 
 if __name__ == '__main__':
     unittest.main()

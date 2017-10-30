@@ -1,4 +1,5 @@
-import numba
+import os
+import json
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -9,7 +10,7 @@ from ram.analysis.run_aggregator import RunAggregator
 
 class CombinationSearch(object):
 
-    def __init__(self):
+    def __init__(self, output_dir=None, checkpoint_n_epochs=10):
         # Default parameters
         self.params = {
             'train_freq': 'm',
@@ -19,6 +20,9 @@ class CombinationSearch(object):
             'seed_ind': 1234
         }
         self.runs = RunAggregator()
+        self.output_dir = os.path.join(output_dir, 'combo_search') if \
+            output_dir else None
+        self.checkpoint_n_epochs = checkpoint_n_epochs
 
     def add_run(self, run):
         self.runs.add_run(run)
@@ -26,15 +30,18 @@ class CombinationSearch(object):
     def start(self, epochs=20, criteria='sharpe'):
         # Merge
         self.runs.aggregate_returns()
-        self._create_results_objects(self.runs.returns)
-        self._create_training_indexes(self.runs.returns)
+        self.returns = self.runs.returns.copy()
+        delattr(self, 'runs')
+        self._create_output_dir()
+        self._create_results_objects(self.returns)
+        self._create_training_indexes(self.returns)
         self._create_epoch_stat_objects()
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
                 # Penalize missing data points to keep aligned columns
-                train_data = self.runs.returns.iloc[t1:t2].copy()
+                train_data = self.returns.iloc[t1:t2].copy()
                 train_data = train_data.fillna(-99)
-                test_data = self.runs.returns.iloc[t2:t3].copy()
+                test_data = self.returns.iloc[t2:t3].copy()
                 test_data = test_data.fillna(0)
                 # Search
                 test_results, train_scores, combs = \
@@ -42,28 +49,7 @@ class CombinationSearch(object):
                         t2, train_data, test_data, criteria)
                 self._process_results(
                     t2, test_results, train_scores, combs)
-            self._process_epoch_stats()
-
-    def start_dynamic(self, criteria='sharpe',
-                      open_thresh=0.0020, close_thresh=-0.0005):
-
-        self.runs.aggregate_returns()
-        self._create_training_indexes(self.runs.returns)
-
-        hold1 = pd.DataFrame()
-
-        for t1, t2, t3 in tqdm(self._time_indexes):
-            train_data = self.runs.returns.iloc[t1:t2].copy()
-            train_data = train_data.fillna(-99)
-            test_data = self.runs.returns.iloc[t2:t3].copy()
-            test_data = test_data.fillna(0)
-            processed = self._get_dynamic_returns(train_data, test_data,
-                                                  open_thresh=open_thresh,
-                                                  close_thresh=close_thresh,
-                                                  test_start_date=t2,
-                                                  criteria=criteria)
-            hold1 = hold1.append(processed)
-        self.dynamic_returns = hold1
+            self._process_epoch_stats(ep)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -169,6 +155,11 @@ class CombinationSearch(object):
 
     # ~~~~~~ Output Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def _create_output_dir(self):
+        if self.output_dir:
+            os.mkdir(self.output_dir)
+            self.returns.to_csv(os.path.join(self.output_dir, 'returns.csv'))
+
     def _create_results_objects(self, data):
         """
         Creates containers to hold the daily returns for the best portfolios,
@@ -214,47 +205,25 @@ class CombinationSearch(object):
             self.epoch_stats = pd.DataFrame(columns=['Mean', 'Sharpe'])
         return
 
-    def _process_epoch_stats(self):
+    def _process_epoch_stats(self, epoch_count):
         i = self.epoch_stats.shape[0]
         stat1 = self.best_results_rets.mean()[0]
         stat2 = stat1 / self.best_results_rets.std()[0]
         self.epoch_stats.loc[i, :] = (stat1, stat2)
+        if (epoch_count % self.checkpoint_n_epochs == 0) & \
+                (self.output_dir is not None):
+            self.epoch_stats.to_csv(os.path.join(
+                self.output_dir, 'epoch_stats.csv'))
+            self.best_results_rets.to_csv(os.path.join(
+                self.output_dir, 'best_results_rets.csv'))
+            scores = self.best_results_scores.copy()
+            scores = {k: list(v) for k, v in scores.iteritems()}
+            with open(os.path.join(self.output_dir, 'best_results_scores.json'), 'w') as f:
+                json.dump(scores, f)
+            combs = self.best_results_combs.copy()
+            combs = {k: v.tolist() for k, v in combs.iteritems()}
+            with open(os.path.join(self.output_dir, 'best_results_combs.json'), 'w') as f:
+                json.dump(combs, f)
+            with open(os.path.join(self.output_dir, 'params.json'), 'w') as f:
+                json.dump(self.params, f)
         return
-
-    def _get_dynamic_returns(self, train_data, test_data, open_thresh,
-                             close_thresh, test_start_date, criteria):
-
-        train_data2 = train_data.append(test_data)
-
-        # Rolling sum
-        index = train_data2.rolling(3).sum().values
-        positions = np.zeros(index.shape)
-        _get_positions(index, positions, open_thresh, close_thresh)
-
-        output = train_data2.copy()
-        output[:] = positions
-        output = output.shift(1).fillna(0)
-
-        train_data_p = train_data * output.loc[train_data.index]
-        test_data_p = test_data * output.loc[test_data.index]
-
-        test_results, train_scores, combs = \
-            self._fit_top_combinations(
-                test_start_date, train_data_p, test_data_p, criteria)
-
-        return test_results
-
-
-@numba.jit(nopython=True)
-def _get_positions(index, positions, open_thresh, close_thresh):
-    n1, n2 = positions.shape
-    # Iterate through columns
-    for i in xrange(n2):
-        pos = 0
-        # Iterate through rows
-        for j in xrange(n1):
-            if index[j, i] >= open_thresh:
-                pos = 1
-            elif index[j, i] <= close_thresh:
-                pos = 0
-            positions[j, i] = pos
