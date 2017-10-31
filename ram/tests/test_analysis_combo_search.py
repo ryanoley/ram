@@ -38,15 +38,28 @@ class TestCombinationSearch(unittest.TestCase):
             'description': 'run2'
         }
         # Output dir
-        self.output_dir = os.path.dirname(os.path.realpath(__file__))
+        self.output_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'combo_search')
 
     def test_start(self):
-        comb = CombinationSearch(output_dir=self.output_dir,
+        comb = CombinationSearch(write_flag=True,
+                                 combo_search_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
         comb.add_run(self.run2)
         comb.start(criteria='sharpe')
+        comb = CombinationSearch(write_flag=True,
+                                 combo_search_output_dir=self.output_dir,
+                                 checkpoint_n_epochs=1)
+        comb.params['n_periods'] = 3
+        comb.add_run(self.run1)
+        comb.add_run(self.run2)
+        comb.start(criteria='sharpe')
+        result = os.listdir(self.output_dir)
+        result.sort()
+        benchmark = ['combo_run_0001', 'combo_run_0002']
+        self.assertEqual(result, benchmark)
 
     def test_create_training_indexes(self):
         comb = CombinationSearch()
@@ -128,9 +141,8 @@ class TestCombinationSearch(unittest.TestCase):
         assert_array_equal(results.round(5), benchmark.round(5))
 
     def tearDown(self):
-        path = os.path.join(self.output_dir, 'combo_search')
-        if os.path.isdir(path):
-            shutil.rmtree(path)
+        if os.path.isdir(self.output_dir):
+            shutil.rmtree(self.output_dir)
 
 
 if __name__ == '__main__':
