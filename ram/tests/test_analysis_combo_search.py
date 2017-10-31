@@ -25,6 +25,18 @@ class TestCombinationSearch(unittest.TestCase):
         self.run2 = RunManager('TestStrat', 'run_0002')
         self.run1.returns = data1
         self.run2.returns = data2
+        self.run1.column_params = \
+            {str(i): {'V1': 1, 'V2': 2} for i in range(12)}
+        self.run2.column_params = \
+            {str(i): {'V1': 1, 'V2': 2} for i in range(10)}
+        self.run1.meta = {
+            'prepped_data_version': 'version_0001',
+            'description': 'run1'
+        }
+        self.run2.meta = {
+            'prepped_data_version': 'version_0002',
+            'description': 'run2'
+        }
         # Output dir
         self.output_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -67,6 +79,16 @@ class TestCombinationSearch(unittest.TestCase):
         run2 = RunManager('TestStrat', 'run_0002')
         run1.returns = data1
         run2.returns = data2
+        run1.column_params = {'V1': {'x': 2}, 'V2': {'x': 4}}
+        run2.column_params = {'V2': {'x': 2}, 'V3': {'x': 4}}
+        run1.meta = {
+            'prepped_data_version': 'version_0001',
+            'description': 'Test'
+        }
+        run2.meta = {
+            'prepped_data_version': 'version_0002',
+            'description': 'Test2'
+        }
         comb = CombinationSearch()
         comb.params['n_periods'] = 3
         comb.params['n_best_ports'] = 1

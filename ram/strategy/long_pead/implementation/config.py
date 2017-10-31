@@ -152,6 +152,21 @@ ids = {
 
 sectors = ['20', '25', '45']
 
+
+sector_data_versions = {
+    '20': ['version_1005', 'version_1009', 'version_1010'],
+    '25': ['version_1006', 'version_1011', 'version_1012'],
+    '45': ['version_1007', 'version_1013', 'version_1014'],
+}
+
+
+sector_params = {
+    '20': [100, 3, 29, 30, 12],
+    '25': [100, 3, 29, 30, 12],
+    '45': [100, 3, 29, 30, 12]
+}
+
+
 features = [
     # Pricing
     'AdjClose', 'AdjVwap', 'RClose', 'RCashDividend', 'SplitFactor',

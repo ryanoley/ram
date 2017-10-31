@@ -1,4 +1,13 @@
 
+## Finding params to train
+
+1. Update all three cycle versions per sector. Data should be up to final day of month
+
+2. Full simulation to decide
+
+3. Run script to get combos, and put into implementation config
+
+
 ## Updating models
 
 1. Pull new data for all sectors, all cycles
@@ -13,7 +22,7 @@ should be the final trading day of the previous month.
 
 2. Upload data and param files to GCP
 
-All `raw_training_data_sector_x` and `column_params_sector_x` files
+All `sector_id_data`, `raw_sector_x` and `column_params_sector_x` files
 should be uploaded to:
 
 ```

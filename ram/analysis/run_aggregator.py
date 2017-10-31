@@ -15,18 +15,31 @@ class RunAggregator(object):
 
     def aggregate_returns(self):
         agg_returns = pd.DataFrame()
+        agg_params = {}
         for run in self.runs:
             # Make sure everything is there
             if not hasattr(run, 'returns'):
                 run.import_return_frame()
+            if not hasattr(run, 'column_params'):
+                run.import_column_params()
+            if not hasattr(run, 'meta'):
+                run.import_meta()
             # Append name to frame
             prefix = '{}_{}'.format(run.strategy_class, run.run_name)
             tmp = run.returns.copy()
             tmp.columns = ['{}_{}'.format(prefix, x) for x in tmp.columns]
             agg_returns = agg_returns.join(tmp, how='outer')
+            for k, v in run.column_params.iteritems():
+                packet = {
+                    'column_params': v,
+                    'prepped_data_version': run.meta['prepped_data_version'],
+                    'description': run.meta['description']
+                }
+                agg_params['{}_{}'.format(prefix, k)] = packet
         if agg_returns.index.value_counts().max() > 1:
             raise 'Merged return series have duplicated dates'
         self.returns = agg_returns
+        self.column_params = agg_params
 
     def basic_model_selection(self, window=30, criteria='mean'):
         if not hasattr(self, 'returns'):

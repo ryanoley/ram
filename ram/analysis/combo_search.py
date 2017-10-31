@@ -30,18 +30,16 @@ class CombinationSearch(object):
     def start(self, epochs=20, criteria='sharpe'):
         # Merge
         self.runs.aggregate_returns()
-        self.returns = self.runs.returns.copy()
-        delattr(self, 'runs')
         self._create_output_dir()
-        self._create_results_objects(self.returns)
-        self._create_training_indexes(self.returns)
+        self._create_results_objects(self.runs.returns)
+        self._create_training_indexes(self.runs.returns)
         self._create_epoch_stat_objects()
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
                 # Penalize missing data points to keep aligned columns
-                train_data = self.returns.iloc[t1:t2].copy()
+                train_data = self.runs.returns.iloc[t1:t2].copy()
                 train_data = train_data.fillna(-99)
-                test_data = self.returns.iloc[t2:t3].copy()
+                test_data = self.runs.returns.iloc[t2:t3].copy()
                 test_data = test_data.fillna(0)
                 # Search
                 test_results, train_scores, combs = \
@@ -158,7 +156,11 @@ class CombinationSearch(object):
     def _create_output_dir(self):
         if self.output_dir:
             os.mkdir(self.output_dir)
-            self.returns.to_csv(os.path.join(self.output_dir, 'returns.csv'))
+            self.runs.returns.to_csv(os.path.join(self.output_dir,
+                                                  'returns.csv'))
+            with open(os.path.join(self.output_dir,
+                                   'column_params.json'), 'w') as f:
+                json.dump(self.runs.column_params, f)
 
     def _create_results_objects(self, data):
         """
@@ -218,12 +220,22 @@ class CombinationSearch(object):
                 self.output_dir, 'best_results_rets.csv'))
             scores = self.best_results_scores.copy()
             scores = {str(k): list(v) for k, v in scores.iteritems()}
-            with open(os.path.join(self.output_dir, 'best_results_scores.json'), 'w') as f:
+            with open(os.path.join(self.output_dir,
+                                   'best_results_scores.json'), 'w') as f:
                 json.dump(scores, f)
             combs = self.best_results_combs.copy()
             combs = {str(k): v.tolist() for k, v in combs.iteritems()}
-            with open(os.path.join(self.output_dir, 'best_results_combs.json'), 'w') as f:
+            with open(os.path.join(self.output_dir,
+                                   'best_results_combs.json'), 'w') as f:
                 json.dump(combs, f)
             with open(os.path.join(self.output_dir, 'params.json'), 'w') as f:
                 json.dump(self.params, f)
+            # Output top params
+            last_time_index = max(self.best_results_combs.keys())
+            best_combs = self.best_results_combs[last_time_index][0]
+            best_combs = self.runs.returns.columns[best_combs]
+            best_combs = {r: self.runs.column_params[r] for r in best_combs}
+            with open(os.path.join(self.output_dir,
+                                   'current_top_params.json'), 'w') as f:
+                json.dump(best_combs, f)
         return
