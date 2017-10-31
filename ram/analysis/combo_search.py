@@ -181,8 +181,11 @@ class CombinationSearch(object):
             strip_str = self._combo_search_output_dir + '/'
             all_files = [x.replace(strip_str, '') for x in all_files]
             all_files = [x for x in all_files if x.find('combo_run') >= 0]
-            new_ind = int(max(all_files).split('/')[0].split('_')[1]) + 1 \
-                if all_files else 1
+            if all_files:
+                new_ind = max([int(x.split('/')[0].strip('combo_run_'))
+                               for x in all_files]) + 1
+            else:
+                new_ind = 1
         elif os.path.isdir(self._combo_search_output_dir):
             all_dirs = [x for x in os.listdir(
                 self._combo_search_output_dir) if x[:9] == 'combo_run']
