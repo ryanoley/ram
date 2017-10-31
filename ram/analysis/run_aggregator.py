@@ -1,4 +1,5 @@
 import pandas as pd
+from tqdm import tqdm
 
 from ram.analysis.run_manager import RunManager
 from ram.analysis.selection import basic_model_selection
@@ -16,7 +17,8 @@ class RunAggregator(object):
     def aggregate_returns(self):
         agg_returns = pd.DataFrame()
         agg_params = {}
-        for run in self.runs:
+        print('Reading and aggregating runs...')
+        for run in tqdm(self.runs):
             # Make sure everything is there
             if not hasattr(run, 'returns'):
                 run.import_return_frame()
@@ -36,6 +38,7 @@ class RunAggregator(object):
                     'description': run.meta['description']
                 }
                 agg_params['{}_{}'.format(prefix, k)] = packet
+        print('Finished aggregating runs...')
         if agg_returns.index.value_counts().max() > 1:
             raise 'Merged return series have duplicated dates'
         self.returns = agg_returns

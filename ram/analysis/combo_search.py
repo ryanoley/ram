@@ -203,7 +203,7 @@ class CombinationSearch(object):
         path1 = os.path.join(self.combo_run_dir, 'all_returns.csv')
         path2 = os.path.join(self.combo_run_dir, 'all_column_params.json')
         if self.write_flag and self.gcp_implementation:
-            to_csv_cloud(self.runs.returns.to_csv(), path1, self._bucket)
+            to_csv_cloud(self.runs.returns, path1, self._bucket)
             write_json_cloud(self.runs.column_params, path2, self._bucket)
         elif self.write_flag and not self.gcp_implementation:
             self.runs.returns.to_csv(path1)
