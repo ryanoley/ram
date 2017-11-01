@@ -1,3 +1,35 @@
+## Model Selection via ComboSearch
+
+When architecting the trade, one must decide which runs will go into the
+final model. Once an architecture has been settled on (i.e. the simulated
+results from ComboSearch are acceptable), the runs (and other assumptions
+like ComboSearch params and drop_params functionality) must be noted.
+
+## (Re-) Training models
+
+1. Update the prepped data versions for the aforementioned runs. This
+can be done by simply running the version through the main command. The `dp`
+with a given version will drop the final period's data, and recreate with
+most up-to-date data.
+
+```
+python main.py -dp version_0018
+```
+
+2. Move updated file.csv and meta.json on local file system to GCP
+
+3. Restart run, which will delete the final file, re-stack data, re-fit
+model and report most up-to-date results.
+
+4. Re-run ComboSearch to get top_params
+
+5. Run xxx.py to train models
+
+6. Download cached models to local file system
+
+
+
+
 
 ## Finding params to train
 

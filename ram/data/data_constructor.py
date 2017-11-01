@@ -44,7 +44,6 @@ class DataConstructor(object):
         path = os.path.join(ddir, 'meta.json')
         with open(path) as data_file:
             meta = json.load(data_file)
-        data_file.close()
         # Extract data to instance variables
         self.constructor_type = meta['constructor_type']
         self.features = meta['features']
@@ -53,6 +52,12 @@ class DataConstructor(object):
             self.date_parameters_univ = meta['date_parameters_univ']
             self.version_files = [
                 x for x in os.listdir(ddir) if x[-3:] == 'csv']
+            # Drop market data file
+            self.version_files = [x for x in self.version_files
+                                  if x.find('market') == -1]
+            # Drop last data file
+            self.version_files = [x for x in self.version_files
+                                  if x != max(self.version_files)]
         elif self.constructor_type in ['etfs', 'ids']:
             self.filter_args_ids = meta['filter_args_ids']
 
@@ -105,6 +110,8 @@ class DataConstructor(object):
                     filter_args=self.filter_args_univ)
                 data['TestFlag'] = data.Date > adj_filter_date
                 self._clean_write_output(data, file_name)
+            # Update meta params
+            self._update_meta_file(data.Date.max())
 
     def run_index_data(self, version_directory):
         args = self.strategy.get_market_index_data_arguments()
@@ -191,7 +198,6 @@ class DataConstructor(object):
         # Flag for testing purposes
         description = prompt_for_description() if description_prompt else None
         git_branch, git_commit = get_git_branch_commit()
-
         meta = {
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),
@@ -202,7 +208,6 @@ class DataConstructor(object):
             'description': description,
             'constructor_type': self.constructor_type
         }
-
         if self.constructor_type == 'universe':
             meta.update({
                 'date_parameters_univ': self.date_parameters_univ,
@@ -212,19 +217,27 @@ class DataConstructor(object):
             meta.update({
                 'filter_args_ids': self.filter_args_ids
             })
+        self._write_meta_file(meta)
 
+    def _update_meta_file(self, max_date):
+        # Read and then rewrite
+        path = os.path.join(self._output_dir, 'meta.json')
+        with open(path) as data_file:
+            meta = json.load(data_file)
+        meta['max_date'] = str(max_date)
+        self._write_meta_file(meta)
+
+    def _write_meta_file(self, meta):
         # Write meta to output directory
         path = os.path.join(self._output_dir, 'meta.json')
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
-        outfile.close()
         # Write meta to archive
         path = os.path.join(self._prepped_data_dir, 'archive',
                             '{}_{}.json'.format(self.strategy_name,
                                                 self.version))
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
-        outfile.close()
 
     def _clean_write_output(self, data, file_name):
         if len(data) > 0:
@@ -381,7 +394,7 @@ def print_strategy_versions(strategy, cloud_flag=False):
     stats = _get_strategy_version_stats(strategy, cloud_flag)
     _print_line_underscore('Available Verions for {}'.format(strategy))
     print('  Key\tVersion\t\t'
-          'File Count\tDir Creation Date\tDescription')
+          'File Count\tMax Data Date\tDescription')
     keys = stats.keys()
     keys.sort()
     for key in keys:
@@ -389,7 +402,7 @@ def print_strategy_versions(strategy, cloud_flag=False):
             key,
             stats[key]['version'],
             stats[key]['file_count'],
-            stats[key]['create_date'],
+            stats[key]['max_date'],
             stats[key]['description']))
     print('\n')
 
@@ -412,10 +425,11 @@ def _get_strategy_version_stats(strategy, cloud_flag=False):
             meta = _get_meta_data(strategy, version)
             stats = _get_min_max_dates_counts(strategy, version)
 
+        max_date = meta['max_date'][:10] if 'max_date' in meta else None
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
-            'create_date': meta['start_time'][:10],
+            'max_date': max_date,
             'description': meta['description']
         }
     return dir_stats
