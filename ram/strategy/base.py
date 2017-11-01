@@ -196,7 +196,6 @@ class Strategy(object):
             meta = read_json_cloud(meta_file_path, self._bucket)
         else:
             meta = read_json(meta_file_path)
-        assert not meta['completed'], '[{}] completed'.format(run_name)
         # Set prepped_data_version
         self._prepped_data_dir = os.path.join(
             os.path.dirname(self._prepped_data_dir),
@@ -212,6 +211,27 @@ class Strategy(object):
             all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
         all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
         self._max_run_time_index = len(all_files) - 1
+        # Delete final file if it isn't same as matching raw data file
+        last_run_file = max(all_files)
+        run_path = os.path.join(self.run_dir, 'index_outputs', last_run_file)
+        data_path = os.path.join(self._prepped_data_dir,
+                                 '{}_data.csv'.format(last_run_file[:8]))
+        if self._gcp_implementation:
+            rdata = read_csv_cloud(run_path, self._bucket)
+            ddata = read_csv_cloud(data_path, self._bucket)
+        else:
+            rdata = pd.read_csv(run_path, index_col=0)
+            ddata = pd.read_csv(data_path)
+        max_run_file_date = convert_date_array(rdata.index).max()
+        max_data_file_date = convert_date_array(ddata.Date).max()
+        # Check if
+        if max_run_file_date < max_data_file_date:
+            self._max_run_time_index -= 1
+            if self._gcp_implementation:
+                blob = self._bucket.blob(run_path)
+                blob.delete()
+            else:
+                os.remove(run_path)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -542,16 +562,13 @@ def make_argument_parser(Strategy):
 
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
-        if args.cloud:
-            version = get_version_name_cloud(Strategy.__name__,
-                                             args.restart_run)
-            strategy = Strategy(gcp_implementation=True, write_flag=True)
-            strategy.restart(version)
+        runs = get_run_data(Strategy.__name__, args.cloud)
+        if args.restart_run in runs.Run:
+            version = args.restart_run
         else:
-            version = get_version_name(Strategy.__name__,
-                                       args.restart_run)
-            strategy = Strategy(write_flag=True)
-            strategy.restart(version)
+            version = runs.Run.iloc[int(args.restart_run)]
+        strategy = Strategy(gcp_implementation=args.cloud, write_flag=True)
+        strategy.restart(version)
 
     elif args.write_simulation:
         if not args.data_version:
