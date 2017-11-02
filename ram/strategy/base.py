@@ -563,7 +563,7 @@ def make_argument_parser(Strategy):
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
         runs = get_run_data(Strategy.__name__, args.cloud)
-        if args.restart_run in runs.Run:
+        if args.restart_run in runs.Run.values:
             version = args.restart_run
         else:
             version = runs.Run.iloc[int(args.restart_run)]
