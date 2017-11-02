@@ -25,16 +25,41 @@ class TestCombinationSearch(unittest.TestCase):
         self.run2 = RunManager('TestStrat', 'run_0002')
         self.run1.returns = data1
         self.run2.returns = data2
+        self.run1.column_params = \
+            {str(i): {'V1': 1, 'V2': 2} for i in range(12)}
+        self.run2.column_params = \
+            {str(i): {'V1': 1, 'V2': 2} for i in range(10)}
+        self.run1.meta = {
+            'prepped_data_version': 'version_0001',
+            'description': 'run1'
+        }
+        self.run2.meta = {
+            'prepped_data_version': 'version_0002',
+            'description': 'run2'
+        }
         # Output dir
-        self.output_dir = os.path.dirname(os.path.realpath(__file__))
+        self.output_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'combo_search')
 
     def test_start(self):
-        comb = CombinationSearch(output_dir=self.output_dir,
+        comb = CombinationSearch(write_flag=True,
+                                 combo_search_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
         comb.add_run(self.run2)
         comb.start(criteria='sharpe')
+        comb = CombinationSearch(write_flag=True,
+                                 combo_search_output_dir=self.output_dir,
+                                 checkpoint_n_epochs=1)
+        comb.params['n_periods'] = 3
+        comb.add_run(self.run1)
+        comb.add_run(self.run2)
+        comb.start(criteria='sharpe')
+        result = os.listdir(self.output_dir)
+        result.sort()
+        benchmark = ['combo_run_0001', 'combo_run_0002']
+        self.assertEqual(result, benchmark)
 
     def test_create_training_indexes(self):
         comb = CombinationSearch()
@@ -67,6 +92,16 @@ class TestCombinationSearch(unittest.TestCase):
         run2 = RunManager('TestStrat', 'run_0002')
         run1.returns = data1
         run2.returns = data2
+        run1.column_params = {'V1': {'x': 2}, 'V2': {'x': 4}}
+        run2.column_params = {'V2': {'x': 2}, 'V3': {'x': 4}}
+        run1.meta = {
+            'prepped_data_version': 'version_0001',
+            'description': 'Test'
+        }
+        run2.meta = {
+            'prepped_data_version': 'version_0002',
+            'description': 'Test2'
+        }
         comb = CombinationSearch()
         comb.params['n_periods'] = 3
         comb.params['n_best_ports'] = 1
@@ -106,9 +141,8 @@ class TestCombinationSearch(unittest.TestCase):
         assert_array_equal(results.round(5), benchmark.round(5))
 
     def tearDown(self):
-        path = os.path.join(self.output_dir, 'combo_search')
-        if os.path.isdir(path):
-            shutil.rmtree(path)
+        if os.path.isdir(self.output_dir):
+            shutil.rmtree(self.output_dir)
 
 
 if __name__ == '__main__':
