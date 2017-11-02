@@ -12,11 +12,11 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'long_thresh': [0.025, .03, .035],
-            'short_thresh': [.0075, .01, .0125],
-            'pos_size': [.02],
-            'entry_dates': [[2, 3, 4]],
-            'dd_thresh': [-.2, -.15, -.10],
+            'long_thresh': [.025, .03, .035],
+            'short_thresh': [.005, .0075, .01],
+            'pos_size': [.03],
+            'entry_dates': [[3, 4], [2, 3, 4], [3,4,5], [2,3,4,5]],
+            'dd_thresh': [-.2],
             'dd_from_zero': [True],
             'close_out': [True],
             'scale_weights': [True]
@@ -36,8 +36,8 @@ class PortfolioConstructor1(Constructor):
         portfolio = Portfolio()
 
         test_dates = data_container.test_dates
-        exit_dict = data_container.exit_dict[max(entry_dates)]
         ind_groups = data_container.ind_groups
+        hold_per = data_container.hold_per
 
         # Output object
         daily_df = pd.DataFrame(index=test_dates.Date, dtype=float)
@@ -59,7 +59,7 @@ class PortfolioConstructor1(Constructor):
             else:
                 scores = get_scores(scores_dict, prior_dt, long_thresh,
                                     short_thresh, scale_weights)
-                close_seccodes = get_closing_seccodes(exit_dict, date)
+                close_seccodes = self.get_closing_seccodes(portfolio, hold_per)
                 dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
                 exit_flag = close_seccodes.union(dd_seccodes)
                 exit_flag.discard('HEDGE')
@@ -95,7 +95,7 @@ class PortfolioConstructor1(Constructor):
         both the long and short sides.
         """
 
-        weights = portfolio.get_position_weights(exclude_spy=True)
+        weights = portfolio.get_position_weights()
         prev_longs = set(weights[weights > 0].index)
         prev_shorts = set(weights[weights < 0].index)
 
@@ -113,6 +113,7 @@ class PortfolioConstructor1(Constructor):
         weights[new_longs] = scores.loc[new_longs, 'weight']
         weights[new_shorts] = scores.loc[new_shorts, 'weight']
         weights[close_seccodes] = 0.
+        portfolio.update_holding_days(weights[weights != 0].to_dict())
 
         ids_to_trade = new_longs.union(new_shorts).union(close_seccodes)
         portfolio.update_position_weights(weights[ids_to_trade].to_dict())
@@ -147,6 +148,14 @@ class PortfolioConstructor1(Constructor):
             for key, value in daily_stats.iteritems():
                 daily_df.loc[date, key] = value
         return daily_df
+
+    def get_closing_seccodes(self, portfolio, hold_per):
+        close_seccodes = set()
+        for position in portfolio.positions.itervalues():
+            if position.hold_days >= (hold_per - 1):
+                close_seccodes.add(position.symbol)
+        return close_seccodes
+
 
 def make_scores_dict(preds_dict, entry_dates):
     scores_dict = {}
@@ -184,10 +193,4 @@ def get_scores(scores_dict, date, long_thresh, short_thresh,
         scores.loc[(scores.score >= scores.thresh) & (scores.score > 0), 'weight'] = 1
 
     return scores[['score', 'weight']]
-
-def get_closing_seccodes(exit_dict, date):
-    if date not in exit_dict.keys():
-        return set()
-    else:
-        return set(exit_dict[date])
 

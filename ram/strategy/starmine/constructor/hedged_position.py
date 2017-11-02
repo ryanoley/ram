@@ -22,6 +22,7 @@ class HedgedPosition(Position):
         self.market_return = 0
         self.sector = np.nan
         self.weight = 0.
+        self.hold_days = -1
 
     def update_position_prices(self, price, dividend, split):
         """
