@@ -357,7 +357,7 @@ class Strategy(object):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
             'and Close_ between 15 and 1000',
-            'univ_size': 500}
+            'univ_size': 10}
 
     def get_univ_date_parameters(self):
         """

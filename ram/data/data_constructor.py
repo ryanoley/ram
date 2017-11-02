@@ -3,11 +3,14 @@ import json
 import shutil
 import itertools
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 from dateutil import parser as dparser
 
 from google.cloud import storage
+
+from gearbox import convert_date_array
 
 from ram import config
 
@@ -25,6 +28,7 @@ class DataConstructor(object):
         self.strategy_name = strategy.__class__.__name__
         self._prepped_data_dir = os.path.join(
             prepped_data_dir, self.strategy_name)
+        self.datahandler = DataHandlerSQL()
 
     def _init_new_run(self):
         self.constructor_type = self.strategy.get_constructor_type()
@@ -47,6 +51,7 @@ class DataConstructor(object):
         # Extract data to instance variables
         self.constructor_type = meta['constructor_type']
         self.features = meta['features']
+
         if self.constructor_type == 'universe':
             self.filter_args_univ = meta['filter_args_univ']
             self.date_parameters_univ = meta['date_parameters_univ']
@@ -55,15 +60,42 @@ class DataConstructor(object):
             # Drop market data file
             self.version_files = [x for x in self.version_files
                                   if x.find('market') == -1]
-            # Drop last data file
-            self.version_files = [x for x in self.version_files
-                                  if x != max(self.version_files)]
+            self.version_files.sort()
         elif self.constructor_type in ['etfs', 'ids']:
             self.filter_args_ids = meta['filter_args_ids']
+
+    def _check_completeness_final_file(self):
+        all_dates = self.datahandler.get_all_dates()
+        df = pd.DataFrame()
+        # Iterate through backwards until first full file given
+        # database dates
+        self._make_date_iterator()
+        files_to_drop = []
+        for file_name in reversed(self.version_files):
+            # Get all unique dates from file
+            path = os.path.join(self._output_dir, file_name)
+            data = pd.read_csv(path)
+            data_dates = data.Date.unique()
+            data_dates = convert_date_array(data_dates)
+            # Match file name with date
+            file_name_2 = file_name.split('_')[0]
+            d = [d for d in self._date_iterator
+                 if d[1].strftime('%Y%m%d') == file_name_2][0]
+            # Get dates
+            period_dates = all_dates[all_dates >= d[1]]
+            period_dates = period_dates[period_dates <= d[2]]
+            # Must have these test dates.
+            if np.all(pd.Series(period_dates).isin(data_dates)):
+                break
+            else:
+                files_to_drop.append(file_name)
+        self.version_files = [x for x in self.version_files
+                              if x not in files_to_drop]
 
     def run(self, rerun_version=None, prompt_description=True):
         if rerun_version:
             self._init_rerun_run(rerun_version)
+            self._check_completeness_final_file()
         else:
             self._init_new_run()
             self._make_output_directory()
@@ -71,10 +103,8 @@ class DataConstructor(object):
 
         self._check_parameters()
 
-        datahandler = DataHandlerSQL()
-
         if self.constructor_type == 'etfs':
-            data = datahandler.get_etf_data(
+            data = self.datahandler.get_etf_data(
                 self.filter_args_ids['ids'],
                 self.features,
                 self.filter_args_ids['start_date'],
@@ -84,7 +114,7 @@ class DataConstructor(object):
             self._clean_write_output(data, file_name)
 
         elif self.constructor_type == 'ids':
-            data = datahandler.get_id_data(
+            data = self.datahandler.get_id_data(
                 self.filter_args_ids['ids'],
                 self.features,
                 self.filter_args_ids['start_date'],
@@ -95,14 +125,16 @@ class DataConstructor(object):
 
         else:
             self._make_date_iterator()
+            created_files = []
             for t1, t2, t3 in tqdm(self._date_iterator):
                 # Check if file already exists in output directory
                 file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
                 if file_name in self.version_files:
                     continue
+                created_files.append(file_name)
                 # Otherwise pull and process data
                 adj_filter_date = t2 - dt.timedelta(days=1)
-                data = datahandler.get_filtered_univ_data(
+                data = self.datahandler.get_filtered_univ_data(
                     features=self.features,
                     start_date=t1,
                     end_date=t3,
@@ -111,7 +143,9 @@ class DataConstructor(object):
                 data['TestFlag'] = data.Date > adj_filter_date
                 self._clean_write_output(data, file_name)
             # Update meta params
-            self._update_meta_file(data.Date.max())
+            self._update_meta_file(data.Date.max(), created_files)
+        self.datahandler.close_connections()
+        return
 
     def run_index_data(self, version_directory):
         args = self.strategy.get_market_index_data_arguments()
@@ -219,12 +253,13 @@ class DataConstructor(object):
             })
         self._write_meta_file(meta)
 
-    def _update_meta_file(self, max_date):
+    def _update_meta_file(self, max_date, created_files):
         # Read and then rewrite
         path = os.path.join(self._output_dir, 'meta.json')
         with open(path) as data_file:
             meta = json.load(data_file)
         meta['max_date'] = str(max_date)
+        meta['newly_created_files'] = created_files
         self._write_meta_file(meta)
 
     def _write_meta_file(self, meta):
