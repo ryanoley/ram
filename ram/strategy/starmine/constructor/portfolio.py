@@ -115,7 +115,7 @@ class Portfolio(object):
                 open_shorts.add(position.symbol)
         return open_longs, open_shorts
 
-    def get_position_weights(self, exclude_spy=False):
+    def get_position_weights(self):
         weights = pd.Series(name='weight', index=self.positions.keys())
         for position in self.positions.values():
             weights.loc[position.symbol] = position.weight
@@ -127,6 +127,12 @@ class Portfolio(object):
             self.positions[symbol].set_weight(weight)
         return
 
+    def update_holding_days(self, hold_days):
+        for symbol, weight in hold_days.items():
+            if weight != 0:
+                self.positions[symbol].hold_days += 1
+        return
+    
     def update_mkt_prices(self, mkt_price):
         for position in self.positions.values():
             if (position.exposure != 0) & (position.symbol != 'HEDGE'):

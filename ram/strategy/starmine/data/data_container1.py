@@ -7,7 +7,7 @@ from ram.strategy.basic.utils import make_variable_dict
 from gearbox import create_time_index, convert_date_array
 
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
-                        'PostErnStrategy', 'spy.csv')
+                        'PostErnStrategy', 'iyh.csv')
 
 
 class DataContainer1(object):
@@ -21,7 +21,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20, 22],
+            'response_days': [20],
             'training_qtrs': [-99]
         }
 
@@ -178,8 +178,8 @@ class DataContainer1(object):
         self.split_mult_dict = make_variable_dict(daily_pl, 'SplitMultiplier',
                                                   1)
         self.liquidity_dict = make_variable_dict(daily_pl, 'AvgDolVol')
-        self.exit_dict = self._make_exit_dict(daily_pl, response_days)
         self.ind_groups = self._make_group_dict(daily_pl)
+        self.hold_per = response_days
         
 
     def _set_features(self):
@@ -253,22 +253,6 @@ class DataContainer1(object):
         entry_offset = entry_offset.unstack().dropna().reset_index()
         entry_offset.columns = ['SecCode', 'Date', 'T']
         return pd.merge(entry_offset, data)
-
-    def _make_exit_dict(self, data, response_days):
-        assert 'EARNINGSFLAG' in data.columns
-        ernflag = data.pivot(index='Date', columns='SecCode',
-                             values='EARNINGSFLAG')
-        exit_dict = {}
-        for i in range(1, self._entry_window + 1):
-            shifted = ernflag.shift(response_days + i).fillna(0)     
-            shifted.iloc[-1] = 1
-            shifted = shifted.unstack().reset_index()
-            shifted.columns = ['SecCode', 'Date', 'ExitFlag']
-            shifted = shifted[shifted.ExitFlag == 1]
-            exit_dict[i] = {k: g["SecCode"].tolist() for k, g
-                                in shifted.groupby("Date")}
-
-        return exit_dict
 
     def _make_group_dict(self, data):
         assert 'GGROUP' in data.columns
