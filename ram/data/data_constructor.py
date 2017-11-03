@@ -57,6 +57,9 @@ class DataConstructor(object):
             self.date_parameters_univ = meta['date_parameters_univ']
             self.version_files = [
                 x for x in os.listdir(ddir) if x[-3:] == 'csv']
+            # If market data in version files, auto update
+            if 'market_index_data.csv' in self.version_files:
+                self.run_index_data(version)
             # Drop market data file
             self.version_files = [x for x in self.version_files
                                   if x.find('market') == -1]
@@ -149,11 +152,11 @@ class DataConstructor(object):
 
     def run_index_data(self, version_directory):
         args = self.strategy.get_market_index_data_arguments()
-        dh = DataHandlerSQL()
-        data = dh.get_index_data(seccodes=args['seccodes'],
-                                 features=args['features'],
-                                 start_date='1990-01-01',
-                                 end_date='2050-04-01')
+        data = self.datahandler.get_index_data(
+            seccodes=args['seccodes'],
+            features=args['features'],
+            start_date='1990-01-01',
+            end_date='2050-04-01')
         self._output_dir = os.path.join(
             self._prepped_data_dir, version_directory)
         self._clean_write_output(data, 'market_index_data.csv')
