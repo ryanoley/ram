@@ -31,4 +31,3 @@ call %SQLDIR%\gvkey_idc_mapping\get_map_data.bat
 
 %SQLCMD% -i %SQLDIR%\table_monitor.sql
 
-exit
