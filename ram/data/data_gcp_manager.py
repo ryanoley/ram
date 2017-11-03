@@ -6,11 +6,12 @@ from google.cloud import storage
 
 from ram import config
 
-client = storage.Client()
-bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
-
 
 def update_prepped_data_gcp(strategy, version):
+
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+
     # GCP Storage files for  Strategy/Version
     gs_files = [x.name for x in bucket.list_blobs()]
     gs_files = [x for x in gs_files if x.find('prepped_data') > -1]
