@@ -45,11 +45,13 @@ class CombinationSearch(object):
 
     def start(self, epochs=20, criteria='sharpe'):
         # Merge
+        if self.write_flag:
+            self._create_output_dir()
+            self._init_output()
         self.runs.aggregate_returns()
-        self._create_output_dir()
         self._create_results_objects(self.runs.returns)
         self._create_training_indexes(self.runs.returns)
-        self._init_output()
+
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
                 # Penalize missing data points to keep aligned columns
