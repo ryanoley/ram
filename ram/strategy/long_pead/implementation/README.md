@@ -13,13 +13,25 @@ with a given version will drop the final period's data, and recreate with
 most up-to-date data.
 
 ```
-python main.py -dp version_0018
+python ram/strategy/long_pead/main.py -lv           # List all version for strategy
+python ram/strategy/long_pead/main.py -dp 10        # Update version
 ```
 
-2. Move updated file.csv and meta.json on local file system to GCP
+2. Upload new files to GCP Storage
+
+```
+python ram/data/data_gcp_manager.py -ls              # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -lv         # List all version for strategy
+python ram/data/data_gcp_manager.py -s 4 -v 17 -up   # Upload
+```
 
 3. Restart run, which will delete the final file, re-stack data, re-fit
 model and report most up-to-date results.
+
+```
+python ram/strategy/long_pead/main.py -c -lr        # List all runs
+python ram/strategy/long_pead/main.py -c -r 10      # Restart run
+```
 
 4. Re-run ComboSearch to get top_params
 

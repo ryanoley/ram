@@ -357,7 +357,7 @@ class Strategy(object):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
             'and Close_ between 15 and 1000',
-            'univ_size': 500}
+            'univ_size': 10}
 
     def get_univ_date_parameters(self):
         """
@@ -563,7 +563,7 @@ def make_argument_parser(Strategy):
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
         runs = get_run_data(Strategy.__name__, args.cloud)
-        if args.restart_run in runs.Run:
+        if args.restart_run in runs.Run.values:
             version = args.restart_run
         else:
             version = runs.Run.iloc[int(args.restart_run)]
