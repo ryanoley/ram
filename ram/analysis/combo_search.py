@@ -65,6 +65,7 @@ class CombinationSearch(object):
                     t2, test_results, train_scores, combs)
             self._process_epoch_stats(ep)
 
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _fit_top_combinations(self, time_index, train_data, test_data,
