@@ -1,5 +1,6 @@
 import os
 import shutil
+from distutils.core import setup
 
 from google.cloud import storage
 
@@ -51,17 +52,9 @@ if __name__ == '__main__':
         # Local destination of source data
         dest = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
                             'strategy', 'long_pead')
-        import pdb; pdb.set_trace()
         if args.cloud:
-            # Folder structure - This is a sucky implementation
             if not os.path.isdir(dest):
                 os.mkdir(dest)
-            if not os.path.isdir(os.path.join(dest, 'constructor')):
-                os.mkdir(os.path.join(dest, 'constructor'))
-            if not os.path.isdir(os.path.join(dest, 'data')):
-                os.mkdir(os.path.join(dest, 'data'))
-            if not os.path.isdir(os.path.join(dest, 'signals')):
-                os.mkdir(os.path.join(dest, 'signals'))
             # Get files from Storage
             client = storage.Client()
             bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
@@ -70,9 +63,19 @@ if __name__ == '__main__':
                                     run_name, 'strategy_source_copy')
             run_files = [x for x in all_files if x.find(run_path) > -1]
             run_files = [x for x in run_files if x.find('.pyc') == -1]
+            import pdb; pdb.set_trace()
             for r in run_files:
                 blob = bucket.blob(r)
                 run_file_name = r.replace(run_path + '/', '')
+                # See if directory exists
+                if len(run_file_name.split('/')) > 1:
+                    dirs = []
+                    for p in run_file_name.split('/')[:-1]:
+                        dirs.append(p)
+                        temp_path = os.path.join(dest, *dirs)
+                        if not os.path.isdir(temp_path):
+                            os.mkdir(temp_path)
+                # Create new file path and download
                 new_path = os.path.join(dest, run_file_name)
                 blob.download_to_filename(new_path)
 
@@ -82,6 +85,27 @@ if __name__ == '__main__':
                                'strategy_source_copy')
 
             shutil.copytree(src, dest)
+
+        import pdb; pdb.set_trace()
+        # Extract new directories
+        new_dirs = [x[0] for x in os.walk(dest)]
+        new_dirs = [x for x in new_dirs if x.find('__pycache__') < 0]
+        new_dirs = [x.replace(dest.replace('/long_pead', '') + '/', '')
+            for x in new_dirs]
+        # Setup
+        DISTNAME = 'ram'
+        PACKAGES = [
+            'ram',
+            'ram/analysis',
+            'ram/aws',
+            'ram/data',
+            'ram/strategy',
+            'ram/utils',
+        ] + new_dirs
+        setup(
+            name=DISTNAME,
+            packages=PACKAGES,
+        )
 
     elif args.delete_strategy_source_code:
         path = os.path.join(find_installed_ram(), 'strategy', 'long_pead')
