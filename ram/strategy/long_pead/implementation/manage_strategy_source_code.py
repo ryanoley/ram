@@ -17,7 +17,7 @@ def _make_setup_file(new_files, path):
     outfile.write("DISTNAME = 'ram'\n")
     outfile.write("PACKAGES = [\n")
     for p in PACKAGES:
-        outfile.write('\t' + p + ',\n')
+        outfile.write("\t'{}',\n".format(p))
     outfile.write("]\n")
     outfile.write("setup(version='0.1.0', name=DISTNAME, packages=PACKAGES)")
     outfile.close()
