@@ -1,10 +1,10 @@
 import os
-import stat
 import shutil
+
 from google.cloud import storage
-from distutils.sysconfig import get_python_lib
 
 from ram import config
+from ram.utils.packages import find_installed_ram
 
 
 if __name__ == '__main__':
@@ -84,7 +84,8 @@ if __name__ == '__main__':
             shutil.copytree(src, dest)
 
     elif args.delete_strategy_source_code:
-        path = os.path.join(get_python_lib(), 'ram', 'strategy', 'long_pead')
+        path = os.path.join(find_installed_ram(), 'ram',
+                            'strategy', 'long_pead')
         if os.path.isdir(path):
             print("Deleting: ", path)
             shutil.rmtree(path)

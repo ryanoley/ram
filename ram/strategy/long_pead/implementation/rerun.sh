@@ -12,7 +12,7 @@ elif [[ $1 == "run" && $2 -gt 0 ]]
 then
 	echo "Re-starting run" $2
 	# Change permissions on site-packages directory
-	path="$(python -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")"
+	path="$(python -c "from ram.utils.packages import find_installed_ram; print find_installed_ram()")"
 	path=$path"/ram/strategy/"
 	sudo chmod -R a+rwx $path
 	# Move original implementation of strategy to temp folder, and delete
