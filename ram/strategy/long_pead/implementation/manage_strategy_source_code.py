@@ -63,7 +63,6 @@ if __name__ == '__main__':
                                     run_name, 'strategy_source_copy')
             run_files = [x for x in all_files if x.find(run_path) > -1]
             run_files = [x for x in run_files if x.find('.pyc') == -1]
-            import pdb; pdb.set_trace()
             for r in run_files:
                 blob = bucket.blob(r)
                 run_file_name = r.replace(run_path + '/', '')
@@ -85,8 +84,6 @@ if __name__ == '__main__':
                                'strategy_source_copy')
 
             shutil.copytree(src, dest)
-
-        import pdb; pdb.set_trace()
         # Extract new directories
         new_dirs = [x[0] for x in os.walk(dest)]
         new_dirs = [x for x in new_dirs if x.find('__pycache__') < 0]
