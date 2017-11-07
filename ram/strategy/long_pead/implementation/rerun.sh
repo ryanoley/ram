@@ -13,7 +13,7 @@ then
 	echo "Re-starting run" $2
 	# Change permissions on site-packages directory
 	path="$(python -c "from ram.utils.packages import find_installed_ram; print find_installed_ram()")"
-	path=$path"/ram/strategy/"
+	path=$path"/strategy/"
 	sudo chmod -R a+rwx $path
 	# Move original implementation of strategy to temp folder, and delete
 	cp -R $GITHUB/ram/ram/strategy/long_pead/ $GITHUB/ram/ram/strategy/long_pead_TEMP/

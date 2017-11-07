@@ -84,8 +84,7 @@ if __name__ == '__main__':
             shutil.copytree(src, dest)
 
     elif args.delete_strategy_source_code:
-        path = os.path.join(find_installed_ram(), 'ram',
-                            'strategy', 'long_pead')
+        path = os.path.join(find_installed_ram(), 'strategy', 'long_pead')
         if os.path.isdir(path):
             print("Deleting: ", path)
             shutil.rmtree(path)
