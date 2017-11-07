@@ -47,7 +47,7 @@ then
 
 elif [ $1 == "list" ]
 then
-	python $GITHUB/ram/ram/strategy/long_pead/implementation/manage_strategy_source_code.py -lr
+	python $GITHUB/ram/ram/strategy/long_pead/implementation/manage_strategy_source_code.py -c -lr
 
 else
 	echo "Incorrect arguments"

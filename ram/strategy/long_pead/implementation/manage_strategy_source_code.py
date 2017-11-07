@@ -36,6 +36,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    if args.cloud:
+        import pdb; pdb.set_trace()
+        x = 10
+
+    y = 20
     import pdb; pdb.set_trace()
 
     if args.list_runs:

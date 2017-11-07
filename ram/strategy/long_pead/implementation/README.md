@@ -22,8 +22,8 @@ python ram/data/data_gcp_manager.py -s 4 -v 17 -up   # Upload
 3. Restart run, which will delete the final file, re-stack data, re-fit model and report most up-to-date results.
 
 ```
-sh ram/strategy/long_pead/implementation/rerun.sh list      # List all runs
-sh ram/strategy/long_pead/implementation/rerun.sh run 10    # List all runs
+bash ram/strategy/long_pead/implementation/rerun.sh list      # List all runs
+bash ram/strategy/long_pead/implementation/rerun.sh run 10    # List all runs
 ```
 
 
