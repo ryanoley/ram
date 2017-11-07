@@ -51,6 +51,7 @@ if __name__ == '__main__':
         # Local destination of source data
         dest = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
                             'strategy', 'long_pead')
+        import pdb; pdb.set_trace()
         if args.cloud:
             # Folder structure - This is a sucky implementation
             if not os.path.isdir(dest):
