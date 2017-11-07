@@ -5,21 +5,24 @@ use ram;
 
 declare @ETFS table (IdcCode int, DsInfoCode int)	
 
-insert @ETFS values (59751, 73987)		-- SPY
-insert @ETFS values (140062, 230116)	-- VXX
-insert @ETFS values (59791, 73898)		-- IWM
-insert @ETFS values (59813, 73559)		-- QQQ
-insert @ETFS values (59743, 73896)		-- DIA
-insert @ETFS values (103854, 49922)		-- KRE
-insert @ETFS values (90592, 73912)		-- GLD
-insert @ETFS values (68130, 73990)		-- TLT
-insert @ETFS values (59816, 68914)		-- XLF
-insert @ETFS values (59817, 68915)		-- XLI
-insert @ETFS values (59818, 68916)		-- XLK
-insert @ETFS values (59819, 68911)		-- XLP
-insert @ETFS values (59820, 68917)		-- XLU
-insert @ETFS values (59821, 68910)		-- XLV
-insert @ETFS values (103857, 72958)		-- XOP
+insert into @ETFS
+values
+    (59751, 73987),		-- SPY
+    (140062, 230116),	-- VXX
+    (59791, 73898), 	-- IWM
+    (59813, 73559),		-- QQQ
+    (59743, 73896),		-- DIA
+    (103854, 49922),	-- KRE
+    (90592, 73912),		-- GLD
+    (68130, 73990),		-- TLT
+    (59816, 68914),		-- XLF
+    (59817, 68915),		-- XLI
+    (59818, 68916),		-- XLK
+    (59819, 68911),		-- XLP
+    (59820, 68917),		-- XLU
+    (59821, 68910),		-- XLV
+    (103857, 72958),	-- XOP
+    (59802, 73822)		-- IYH
 
 -------------------------------------------------------------
 -- Create tables

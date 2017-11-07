@@ -9,7 +9,7 @@ set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 
 >> %LOGFILE% 2>&1(
 echo --------------------------------
-echo REFRESH - RAM Daily Tables - %date%_!time! - Start
+echo REFRESH - RAM Daily Update - %date%_!time! - Start
 
 :: Master ID Tabless
 echo. & echo ~~ ram_master_ids !time!~~
@@ -53,12 +53,16 @@ echo. & echo ~~ ram_starmine_map !time!~~
 %SQLCMD% -i %SQLDIR%\starmine\ram_starmine_map.sql
 
 :: Call GVKEY Mapping Batch File
-echo. & echo ~~ get_map_data !time!~~
+echo. & echo ~~ get_map_data bat !time!~~
 call %SQLDIR%\gvkey_idc_mapping\get_map_data.bat
 
 echo. & echo ~~ table_monitor !time!~~
 %SQLCMD% -i %SQLDIR%\table_monitor.sql
 
-echo. & echo REFRESH - RAM Daily Tables - %date%_!time! - End
+:: Position sheet scraper
+echo. & echo ~~ position_sheet_scraper !time!~~
+python %GITHUB%\ram\tasks\position_sheet_scraper.py
+
+echo. & echo REFRESH - RAM Daily Update - %date%_!time! - End
 )
 
