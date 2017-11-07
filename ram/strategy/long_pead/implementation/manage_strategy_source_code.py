@@ -57,11 +57,11 @@ if __name__ == '__main__':
             # Folder structure - This is a sucky implementation
             if not os.path.isdir(dest):
                 os.mkdir(dest)
-            if not os.path.isdir(os.path.join(dest, 'constructor'))
+            if not os.path.isdir(os.path.join(dest, 'constructor')):
                 os.mkdir(os.path.join(dest, 'constructor'))
-            if not os.path.isdir(os.path.join(dest, 'data'))
+            if not os.path.isdir(os.path.join(dest, 'data')):
                 os.mkdir(os.path.join(dest, 'data'))
-            if not os.path.isdir(os.path.join(dest, 'signals'))
+            if not os.path.isdir(os.path.join(dest, 'signals')):
                 os.mkdir(os.path.join(dest, 'signals'))
             # Get files from Storage
             client = storage.Client()
