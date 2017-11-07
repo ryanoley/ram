@@ -1,7 +1,10 @@
 import os
 import stat
 import shutil
+from google.cloud import storage
 from distutils.sysconfig import get_python_lib
+
+from ram import config
 
 
 if __name__ == '__main__':
@@ -42,18 +45,41 @@ if __name__ == '__main__':
     elif args.copy_run:
         runs = get_run_data('LongPeadStrategy', args.cloud)
         if args.copy_run in runs.Run.values:
-            version = args.restart_run
+            run_name = args.restart_run
         else:
-            version = runs.Run.iloc[int(args.copy_run)]
-
+            run_name = runs.Run.iloc[int(args.copy_run)]
+        # Local destination of source data
+        dest = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
+                            'strategy', 'long_pead')
         if args.cloud:
-            pass
+            # Folder structure - This is a sucky implementation
+            if not os.path.isdir(dest):
+                os.mkdir(dest)
+            if not os.path.isdir(os.path.join(dest, 'constructor'))
+                os.mkdir(os.path.join(dest, 'constructor'))
+            if not os.path.isdir(os.path.join(dest, 'data'))
+                os.mkdir(os.path.join(dest, 'data'))
+            if not os.path.isdir(os.path.join(dest, 'signals'))
+                os.mkdir(os.path.join(dest, 'signals'))
+            # Get files from Storage
+            client = storage.Client()
+            bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+            all_files = [x.name for x in bucket.list_blobs()]
+            run_path = os.path.join('simulations', 'LongPeadStrategy',
+                                    run_name, 'strategy_source_copy')
+            run_files = [x for x in all_files if x.find(run_path) > -1]
+            run_files = [x for x in run_files if x.find('.pyc') == -1]
+            for r in run_files:
+                blob = bucket.blob(r)
+                run_file_name = r.replace(run_path, '')
+                new_path = os.path.join(dest, run_file_name)
+                blob.download_to_filename(new_path)
+
         else:
             src = os.path.join(os.getenv('DATA'), 'ram', 'simulations',
-                               'LongPeadStrategy', version,
+                               'LongPeadStrategy', run_name,
                                'strategy_source_copy')
-            dest = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
-                                'strategy', 'long_pead')
+
             shutil.copytree(src, dest)
 
     elif args.delete_strategy_source_code:
