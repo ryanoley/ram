@@ -92,6 +92,7 @@ if __name__ == '__main__':
         new_dirs = [x for x in new_dirs if x.find('__pycache__') < 0]
         new_dirs = [x.replace(dest.replace('/long_pead', '') + '/', '')
             for x in new_dirs]
+        new_dirs = ['ram/strategy/' + d for d in new_dirs]
         # Setup
         DISTNAME = 'ram'
         PACKAGES = [
