@@ -21,10 +21,10 @@ then
 	rm -r $GITHUB/ram/ram/strategy/long_pead/
 	sleep 1
 	# Copy run source code from simulations directory
-	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py -cr $2
+	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py -c -cr $2
 	sleep 1
 	# Remove long_pead from site-packages directory
-	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py --delete_strategy_source_code
+	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py -c --delete_strategy_source_code
 	sleep 1
 	# Build from implementation setup script.
 	sudo python $GITHUB/ram/setup.py clean --all

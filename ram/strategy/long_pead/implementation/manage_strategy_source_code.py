@@ -36,6 +36,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    import pdb; pdb.set_trace()
+
     if args.list_runs:
         runs = get_run_data('LongPeadStrategy', args.cloud)
         # Adjust column width
