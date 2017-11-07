@@ -72,7 +72,7 @@ if __name__ == '__main__':
             run_files = [x for x in run_files if x.find('.pyc') == -1]
             for r in run_files:
                 blob = bucket.blob(r)
-                run_file_name = r.replace(run_path, '')
+                run_file_name = r.replace(run_path + '/', '')
                 new_path = os.path.join(dest, run_file_name)
                 blob.download_to_filename(new_path)
 
