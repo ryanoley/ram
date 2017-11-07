@@ -1,11 +1,26 @@
 import os
 import shutil
-from distutils.core import setup
+import subprocess
 
 from google.cloud import storage
 
 from ram import config
 from ram.utils.packages import find_installed_ram
+
+
+def _make_setup_file(new_files, path):
+    PACKAGES = ['ram', 'ram/analysis', 'ram/aws', 'ram/data',
+                'ram/strategy', 'ram/utils'] + new_files
+    outfile = open(path, 'w')
+    outfile.write("import os\n")
+    outfile.write("from distutils.core import setup\n\n")
+    outfile.write("DISTNAME = 'ram'\n")
+    outfile.write("PACKAGES = [\n")
+    for p in PACKAGES:
+        outfile.write('\t' + p + ',\n')
+    outfile.write("]\n")
+    outfile.write("setup(version='0.1.0', name=DISTNAME, packages=PACKAGES)")
+    outfile.close()
 
 
 if __name__ == '__main__':
@@ -92,19 +107,9 @@ if __name__ == '__main__':
             for x in new_dirs]
         new_dirs = ['ram/strategy/' + d for d in new_dirs]
         # Setup
-        DISTNAME = 'ram'
-        PACKAGES = [
-            'ram',
-            'ram/analysis',
-            'ram/aws',
-            'ram/data',
-            'ram/strategy',
-            'ram/utils',
-        ] + new_dirs
-        setup(
-            name=DISTNAME,
-            packages=PACKAGES,
-        )
+        setup_file_path = os.path.join(dest, 'setup.py')
+        _make_setup_file(new_dirs, setup_file_path)
+        subprocess.call(['python', setup_file_path, 'install'])
         print('[Manager] - SETUP Complete')
 
     elif args.delete_strategy_source_code:
