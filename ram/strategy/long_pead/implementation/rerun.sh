@@ -30,7 +30,7 @@ then
 	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py -c -cr $2
 	sleep 1
 	# Restart run
-	python $GITHUB/ram/ram/strategy/long_pead/main.py -r $2
+	python $GITHUB/ram/ram/strategy/long_pead/main.py -c -r $2
 	sleep 1
 	# Remove run source code and replace with original, and rebuild
 	rm -r $GITHUB/ram/ram/strategy/long_pead/

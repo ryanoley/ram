@@ -84,6 +84,7 @@ if __name__ == '__main__':
                                'strategy_source_copy')
 
             shutil.copytree(src, dest)
+        print('[Manager] - Copy Complete')
         # Extract new directories
         new_dirs = [x[0] for x in os.walk(dest)]
         new_dirs = [x for x in new_dirs if x.find('__pycache__') < 0]
@@ -104,9 +105,10 @@ if __name__ == '__main__':
             name=DISTNAME,
             packages=PACKAGES,
         )
+        print('[Manager] - SETUP Complete')
 
     elif args.delete_strategy_source_code:
         path = os.path.join(find_installed_ram(), 'strategy', 'long_pead')
         if os.path.isdir(path):
-            print("Deleting: ", path)
+            print("[Manager] - Deleting: " + path)
             shutil.rmtree(path)
