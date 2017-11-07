@@ -8,7 +8,7 @@ set LOGFILE=%LOGDIR%\refresh_ram_tables.log
 set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
 
 >> %LOGFILE% 2>&1(
-echo --------------------------------
+echo. & echo --------------------------------
 echo REFRESH - RAM Daily Update - %date%_!time! - Start
 
 :: Master ID Tabless
