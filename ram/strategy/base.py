@@ -573,7 +573,6 @@ def make_argument_parser(Strategy):
         else:
             version = runs.Run.iloc[int(args.restart_run)]
         strategy = Strategy(gcp_implementation=args.cloud, write_flag=True)
-        import pdb; pdb.set_trace()
         strategy.restart(version)
 
     elif args.write_simulation:
