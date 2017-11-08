@@ -207,9 +207,12 @@ class Strategy(object):
         if self._gcp_implementation:
             all_files = [x.name for x in self._bucket.list_blobs()]
             all_files = [x for x in all_files if x.find(self.run_dir) >= 0]
+            all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
+            all_files = [x.replace(self.run_dir+'/index_outputs/', '')
+                         for x in all_files]
         else:
             all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
-        all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
+            all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
         self._max_run_time_index = len(all_files) - 1
         # Delete final file if it isn't same as matching raw data file
         last_run_file = max(all_files)

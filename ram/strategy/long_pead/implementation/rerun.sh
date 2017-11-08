@@ -41,7 +41,7 @@ then
 	sleep 1
 	sudo python $GITHUB/ram/setup.py clean --all
 	sleep 1
-	sudo python $GITHUB/ram/setup.py install
+	sudo python $GITHUB/ram/setup.py install &> /dev/null
 
 elif [ $1 == "list" ]
 then

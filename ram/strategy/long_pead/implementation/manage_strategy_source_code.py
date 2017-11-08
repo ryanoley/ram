@@ -99,7 +99,7 @@ if __name__ == '__main__':
                                'strategy_source_copy')
 
             shutil.copytree(src, dest)
-        print('[Manager] - Copy Complete')
+        print('[Source Code Manager] - Copy Complete')
         # Extract new directories
         new_dirs = [x[0] for x in os.walk(dest)]
         new_dirs = [x for x in new_dirs if x.find('__pycache__') < 0]
@@ -113,10 +113,10 @@ if __name__ == '__main__':
         retcode = subprocess.call(
             ['sudo', 'python', setup_file_path, 'install'],
             stdout=FNULL, stderr=subprocess.STDOUT)
-        print('[Manager] - SETUP Complete')
+        print('[Source Code Manager] - SETUP Complete')
 
     elif args.delete_strategy_source_code:
         path = os.path.join(find_installed_ram(), 'strategy', 'long_pead')
         if os.path.isdir(path):
-            print("[Manager] - Deleting: " + path)
+            print("[Source Code Manager] - Deleting: " + path)
             shutil.rmtree(path)
