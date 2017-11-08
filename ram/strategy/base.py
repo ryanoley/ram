@@ -3,6 +3,7 @@ import sys
 import json
 import shutil
 import inspect
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import datetime as dt
@@ -213,7 +214,6 @@ class Strategy(object):
         else:
             all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
             all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
-        self._max_run_time_index = len(all_files) - 1
         # Delete final file if it isn't same as matching raw data file
         last_run_file = max(all_files)
         run_path = os.path.join(self.run_dir, 'index_outputs', last_run_file)
@@ -229,14 +229,21 @@ class Strategy(object):
             ddata = pd.read_csv(data_path)
         max_run_file_date = convert_date_array(rdata.index).max()
         max_data_file_date = convert_date_array(ddata.Date).max()
-        # Check if
+        # Check if final file needs to be updated
         if max_run_file_date < max_data_file_date:
-            self._max_run_time_index -= 1
+            # Pop from all_files
+            all_files = all_files[:-1]
             if self._gcp_implementation:
                 blob = self._bucket.blob(run_path)
                 blob.delete()
             else:
                 os.remove(run_path)
+        # Get restart index number number
+        import pdb; pdb.set_trace()
+        max_returns_data = max([int(x.split('_')[0]) for x in all_files])
+        prepped_data_indexes = np.array([int(x.split('_')[0]) for x
+                                         in self._prepped_data_files])
+        self._max_run_time_index = sum(max_returns_data >= prepped_data_indexes)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
