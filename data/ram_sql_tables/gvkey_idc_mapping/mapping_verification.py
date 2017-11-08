@@ -240,10 +240,6 @@ def import_bad_gvkeydata():
     df = import_sql_output(os.path.join(DDIR, 'bad_gvkeydata.txt'))
     df.Changedate = convert_date_array(
         df.Changedate.apply(lambda x: x[:10]))
-    df.MinReportDate = convert_date_array(
-        df.MinReportDate.apply(lambda x: x[:10]))
-    df.MaxReportDate = convert_date_array(
-        df.MaxReportDate.apply(lambda x: x[:10]))
     df.Name = df.Name.apply(lambda x: x.rstrip())
     df.Ticker = df.Ticker.apply(lambda x: x.rstrip())
     df['ShortCusip'] = df.Cusip.apply(lambda x: x[:8])
@@ -257,8 +253,6 @@ def import_bad_idcdata():
     df = import_sql_output(os.path.join(DDIR, 'bad_idcdata.txt'))
     df = df.loc[:, ['Code', 'StartDate', 'EndDate', 'Cusip', 'Ticker',
                       'Issuer', 'Exchange']]
-    df.StartDate = convert_date_array(df.StartDate.apply(lambda x: x[:10]))
-    df.EndDate = convert_date_array(df.EndDate.apply(lambda x: x[:10]))
     df.Cusip = df.Cusip.apply(lambda x: x.rstrip())
     df.Ticker = df.Ticker.apply(lambda x: x.rstrip())
     df.Issuer = df.Issuer.apply(lambda x: x.rstrip())

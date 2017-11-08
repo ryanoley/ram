@@ -16,7 +16,7 @@ def create_sql_table():
     df_filtered.StartDate = convert_date_array(df_filtered.StartDate)
     df_filtered.EndDate = convert_date_array(df_filtered.EndDate)
     # Good data
-    df_good = import_sql_output('good_idcgvkeydata.txt')
+    df_good = import_sql_output(os.path.join(DDIR, 'good_idcgvkeydata.txt'))
     df_good = df_good.drop_duplicates()
     df_good.columns = ['IdcCode', 'GVKey']
     df_good['StartDate'] = df_filtered.StartDate.min()
