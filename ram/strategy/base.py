@@ -239,11 +239,10 @@ class Strategy(object):
             else:
                 os.remove(run_path)
         # Get restart index number number
-        import pdb; pdb.set_trace()
         max_returns_data = max([int(x.split('_')[0]) for x in all_files])
         prepped_data_indexes = np.array([int(x.split('_')[0]) for x
                                          in self._prepped_data_files])
-        self._max_run_time_index = sum(max_returns_data >= prepped_data_indexes)
+        self._max_run_time_index = sum(max_returns_data > prepped_data_indexes)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
