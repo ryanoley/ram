@@ -221,6 +221,8 @@ class Strategy(object):
                                  '{}_data.csv'.format(last_run_file[:8]))
         if self._gcp_implementation:
             rdata = read_csv_cloud(run_path, self._bucket)
+            rdata = rdata.set_index(rdata.columns[0])
+            rdata.index.name = None
             ddata = read_csv_cloud(data_path, self._bucket)
         else:
             rdata = pd.read_csv(run_path, index_col=0)
