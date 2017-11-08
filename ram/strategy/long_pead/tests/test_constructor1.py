@@ -26,7 +26,7 @@ class TestConstructor(unittest.TestCase):
         })
         self.data['Date'] = convert_date_array(self.data.Date)
 
-    def test_get_position_sizes(self):
+    def Xtest_get_position_sizes(self):
         cons = PortfolioConstructor1()
         mrets = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
         result = cons.get_position_sizes(mrets, 1)

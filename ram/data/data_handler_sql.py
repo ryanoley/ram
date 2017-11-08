@@ -103,6 +103,28 @@ class DataHandlerSQL(object):
             ids = self._get_filtered_ids(d2, filter_args, self._table)
         else:
             ids = []
+        return self.get_id_data(ids, features, d1, d3)
+
+    @connection_error_handling
+    def get_id_data(self,
+                    ids,
+                    features,
+                    start_date,
+                    end_date):
+        """
+        Parameters
+        ----------
+        ids : list
+        features : list
+        start_date/end_date : datetime
+
+        Returns
+        -------
+        data : pandas.DataFrame
+            With columns ID, Date representing a unique observation.
+        """
+        # Check user input
+        start_date, _, end_date = _format_dates(start_date, None, end_date)
 
         output = pd.DataFrame(columns=['SecCode', 'Date'])
         # With large numbers of IDs and Features, there is not enough
@@ -114,22 +136,52 @@ class DataHandlerSQL(object):
                 break
             # Get features, and strings for cte and regular query
             sqlcmd, batch_features = sqlcmd_from_feature_list(
-                batch_features, ids, d1, d3, self._table)
+                batch_features, ids, start_date, end_date, self._table)
             univ = self.sql_execute(sqlcmd)
             univ_df = pd.DataFrame(
                 univ, columns=['SecCode', 'Date'] + batch_features)
-            output = output.merge(univ_df, how='outer')
+            _check_for_duplicates(univ_df, ['SecCode', 'Date'])
+            output = output.merge(univ_df, on=['SecCode', 'Date'],
+                                  how='outer')
+            _check_for_duplicates(output, ['SecCode', 'Date'])
         return output
 
     @connection_error_handling
-    def get_id_data(self,
-                    ids,
-                    features,
-                    start_date,
-                    end_date):
+    def get_index_data(self,
+                       seccodes,
+                       features,
+                       start_date,
+                       end_date):
         """
-        Purpose of this class is to provide an interface to get a filtered
-        universe.
+        SP500
+        -----
+        Index (SPX): 50311
+        Growth (SGX): 61258
+        Value (SVX): 61259
+
+        RUSSELL 1000
+        ------------
+        Index (RUI): 11097
+        Growth (RLG): 11099
+        Value (RLV): 11100
+
+        RUSSELL 2000
+        ------------
+        Index (RUT): 10955
+        Growth (RUO): 11101
+        Value (RUJ): 11102
+
+        RUSSELL 3000
+        ------------
+        Index (RUA): 11096
+        Growth (RAG): 11103
+        Value (RAV): 11104
+
+        Volatility
+        ----------
+        CBOE SP500 Volatility, 30 day (VIX): 11113
+        CBOE SP500 Short Term Volatility, 9 day (VXST): 11132814
+        CBOE SP500 3 Month Volatility, 93 day (XVX): 10922530
 
         Parameters
         ----------
@@ -147,12 +199,12 @@ class DataHandlerSQL(object):
 
         # Get features, and strings for cte and regular query
         sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids, d1, d3, self._table)
+            features, seccodes, d1, d3, 'ram.dbo.ram_index_pricing')
 
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
-        univ_df.columns = ['ID', 'Date'] + features
+        univ_df.columns = ['SecCode', 'Date'] + features
         return univ_df
 
     @connection_error_handling
@@ -292,8 +344,7 @@ class DataHandlerSQL(object):
             return self._cursor.fetchall()
         except Exception as e:
             self._disconnect()
-            print('error running sqlcmd: ' + str(e))
-            return []
+            raise Exception(e)
 
     def close_connections(self):
         self._disconnect()
@@ -305,6 +356,18 @@ def _format_dates(start_date, filter_date, end_date):
             check_input_date(end_date)
 
 
+def _check_for_duplicates(dataFrame, columns=['SecCode', 'Date']):
+    if type(columns) is str:
+        columns = [columns]
+    # Check if duplicates exist, if so raise Error
+    if dataFrame.duplicated(subset=columns).sum() > 0:
+        duplicates = dataFrame.loc[dataFrame.duplicated(subset=columns),
+                                   columns]
+        raise ValueError('Duplicate rows in data frame:\n {}'.format(
+            duplicates.to_string()))
+    return
+
+
 if __name__ == '__main__':
 
     # EXAMPLES
@@ -312,7 +375,7 @@ if __name__ == '__main__':
 
     filter_args = {'filter': 'AvgDolVol',
                    'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
-                   'univ_size': 1000}
+                   'univ_size': 10}
 
     univ = dh.get_filtered_univ_data(
         features=['MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
@@ -321,6 +384,12 @@ if __name__ == '__main__':
         end_date='2001-04-01',
         filter_date='2001-01-01',
         filter_args=filter_args)
+
+    data = dh.get_index_data(
+        seccodes=[50311],
+        features=['PRMA10_AdjClose'],
+        start_date='2000-01-01',
+        end_date='2001-04-01')
 
     univ = dh.get_id_data(
         ids=[4760, 78331, 58973],

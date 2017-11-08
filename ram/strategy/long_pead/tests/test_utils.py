@@ -155,6 +155,16 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(result['2010-01-03']['a'], 3.0)
         self.assertEqual(result['2010-01-03']['b'], -99.0)
 
+    def test_responses(self):
+        result = simple_responses(self.data, 2)
+        benchmark = self.data[['SecCode', 'Date']].copy()
+        benchmark = benchmark.sort_values(['Date', 'SecCode'])
+        benchmark = benchmark.reset_index(drop=True)
+        benchmark['Response'] = [1] * 12 + [0] * 4
+        benchmark['TestFlag'] = self.data.TestFlag
+        assert_frame_equal(result, benchmark)
+        result = smoothed_responses(self.data, .25, days=[1, 2])
+
     def tearDown(self):
         pass
 

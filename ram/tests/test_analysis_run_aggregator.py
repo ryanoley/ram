@@ -54,7 +54,8 @@ class TestRunAggregator(unittest.TestCase):
             json.dump(stats, f)
         f.close()
         # Create a meta file
-        meta = {'description': 'Test data', 'start_time': '2010-01-01'}
+        meta = {'description': 'Test data', 'start_time': '2010-01-01',
+                'prepped_data_version': 'version_0010'}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
         f.close()
@@ -62,22 +63,29 @@ class TestRunAggregator(unittest.TestCase):
         params = {0: {'p1': 10, 'p2': 20}, 1: {'p1': 20, 'p2': 30}}
         with open(os.path.join(run_path, 'column_params.json'), 'w') as f:
             json.dump(params, f)
-        f.close()
+        params = {0: {'p1': 10, 'p2': 20}, 1: {'p1': 20, 'p2': 30}}
 
     def test_add_run(self):
-        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
-        rm1.import_return_frame(path=self.base_path)
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                         simulation_data_path=self.base_path)
+        rm1.import_return_frame()
         ra1 = RunAggregator()
         self.assertEqual(len(ra1.runs), 0)
         ra1.add_run(rm1)
         self.assertEqual(len(ra1.runs), 1)
 
     def test_aggregate_returns(self):
-        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
-        rm1.import_return_frame(path=self.base_path)
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                         simulation_data_path=self.base_path)
+        rm1.import_return_frame()
+        rm1.import_column_params()
+        rm1.import_meta()
         # Fake a new strategy by just changing the class name
-        rm2 = RunManager('TestStrategy', 'run_0001', test_periods=0)
-        rm2.import_return_frame(path=self.base_path)
+        rm2 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                         simulation_data_path=self.base_path)
+        rm2.import_return_frame()
+        rm2.import_column_params()
+        rm2.import_meta()
         rm2.strategy_class = 'TestStrategy2'
         ra1 = RunAggregator()
         ra1.add_run(rm1)
@@ -90,13 +98,27 @@ class TestRunAggregator(unittest.TestCase):
                      'TestStrategy2_run_0001_0',
                      'TestStrategy2_run_0001_1']
         self.assertListEqual(ra1.returns.columns.tolist(), benchmark)
+        result = ra1.column_params.keys()
+        result.sort()
+        benchmark.sort()
+        self.assertListEqual(result, benchmark)
+        result = ra1.column_params.values()[0]
+        self.assertTrue('column_params' in result)
+        self.assertTrue('prepped_data_version' in result)
+        self.assertTrue('description' in result)
 
     def test_basic_model_selection(self):
-        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
-        rm1.import_return_frame(path=self.base_path)
+        rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                         simulation_data_path=self.base_path)
+        rm1.import_return_frame()
+        rm1.import_column_params()
+        rm1.import_meta()
         # Fake a new strategy by just changing the class name
-        rm2 = RunManager('TestStrategy', 'run_0001', test_periods=0)
-        rm2.import_return_frame(path=self.base_path)
+        rm2 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                         simulation_data_path=self.base_path)
+        rm2.import_return_frame()
+        rm2.import_column_params()
+        rm2.import_meta()
         rm2.returns *= 4
         rm2.strategy_class = 'TestStrategy2'
         ra1 = RunAggregator()

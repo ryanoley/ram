@@ -1,22 +1,27 @@
+import sys
 import itertools
 import pandas as pd
 import datetime as dt
 
 from ram.strategy.base import Strategy
 
-from ram.strategy.long_pead.data.data_container1 import DataContainer1
+from ram.strategy.long_pead.data.data_container_pairs import DataContainerPairs
+
 from ram.strategy.long_pead.constructor.constructor1 import \
     PortfolioConstructor1
+from ram.strategy.long_pead.constructor.constructor2 import \
+    PortfolioConstructor2
+from ram.strategy.long_pead.constructor.constructor_pairs import \
+    PortfolioConstructorPairs
 
 from ram.strategy.long_pead.signals.signals1 import SignalModel1
-from ram.strategy.long_pead.signals.signals2 import SignalModel2
 
 
 class LongPeadStrategy(Strategy):
 
-    data = DataContainer1()
+    data = DataContainerPairs(pairs_flag=True)
     signals = SignalModel1()
-    constructor = PortfolioConstructor1()
+    constructor = PortfolioConstructorPairs()
 
     def get_column_parameters(self):
         """
@@ -38,6 +43,8 @@ class LongPeadStrategy(Strategy):
 
     def run_index(self, time_index):
 
+        # Attach market data first since it is merged with equity data
+        self.data.add_market_data(self.read_market_index_data())
         # Import, process, and stack data
         self.data.add_data(self.read_data_from_index(time_index), time_index)
 
@@ -45,7 +52,11 @@ class LongPeadStrategy(Strategy):
         if time_index <= self._max_run_time_index:
             return
 
-        # HACK FOR CLOUD
+        # HACK: If training and writing, don't train until 2007, but stack data
+        if self._write_flag and (int(self._prepped_data_files[time_index][:4]) < 2007):
+            return
+
+        # HACK
         if self._gcp_implementation:
             self.signals.NJOBS = -1
 
@@ -63,7 +74,6 @@ class LongPeadStrategy(Strategy):
                 self.signals.generate_signals(self.data, **as_)
 
                 for ac in args_constructor:
-
                     result, stats = self.constructor.get_daily_pl(
                         self.data, self.signals, **ac)
 
@@ -79,7 +89,12 @@ class LongPeadStrategy(Strategy):
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _capture_output(self, results, stats, arg_index):
-        returns = pd.DataFrame(results.PL / self.constructor.booksize)
+        results = results.copy()
+        if hasattr(self.constructor, 'booksize_original'):
+            book = self.constructor.booksize_original
+        else:
+            book = self.constructor.booksize
+        returns = pd.DataFrame(results.PL / book)
         returns.columns = [arg_index]
         # Rename columns
         results.columns = ['{}_{}'.format(x, arg_index)
@@ -100,7 +115,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_filter_args(self):
         return {
             'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 ' +
+            'where': 'MarketCap >= 200 and GSECTOR = 20' +
             'and Close_ between 5 and 500',
             'univ_size': 800
         }
@@ -108,7 +123,7 @@ class LongPeadStrategy(Strategy):
     def get_univ_date_parameters(self):
         return {
             'frequency': 'Q',
-            'train_period_length': 1,
+            'train_period_length': 4,
             'test_period_length': 1,
             'start_year': 2001
         }
@@ -161,7 +176,11 @@ class LongPeadStrategy(Strategy):
             'LAG1_ARM', 'LAG1_ARMREVENUE', 'LAG1_ARMRECS',
             'LAG1_ARMEARNINGS', 'LAG1_ARMEXRECS', 'LAG1_SIRANK',
             'LAG1_SIMARKETCAPRANK', 'LAG1_SISECTORRANK',
-            'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE', 'LAG1_SIINSTOWNERSHIP'
+            'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE', 'LAG1_SIINSTOWNERSHIP',
+
+            'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
+            'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
+
         ]
 
 

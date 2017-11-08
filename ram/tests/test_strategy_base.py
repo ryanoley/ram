@@ -167,6 +167,19 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
+        # Put in a run file
+        dpath = os.path.join(self.strategy.strategy_output_dir,
+                             '20100101_returns.csv')
+        data = pd.DataFrame(
+            {'SecCode': [10, 20, 30], 'V1': [3, 4, 5]},
+            index=['2010-01-01', '2010-01-02', '2010-01-03'])
+        data.to_csv(dpath)
+        dpath = os.path.join(self.strategy.strategy_output_dir,
+                             '20100201_returns.csv')
+        data = pd.DataFrame(
+            {'SecCode': [10, 20], 'V1': [3, 4]},
+            index=['2010-01-01', '2010-01-02'])
+        data.to_csv(dpath)
         # New Strategy
         strategy = TestStrategy(
             prepped_data_dir=self.prepped_data_dir,
@@ -180,13 +193,18 @@ class TestStrategyBase(unittest.TestCase):
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(result, benchmark)
         strategy.restart('run_0001')
+        result = os.listdir(self.strategy.strategy_output_dir)
+        benchmark = ['20100101_returns.csv']
+        self.assertListEqual(result, benchmark)
 
     def test_get_max_run_time_index_for_restart(self):
         self.strategy._write_flag = True
         self.strategy._get_prepped_data_file_names()
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
-        df = pd.DataFrame({'V1': [1, 2, 3, 4]})
+        df = pd.DataFrame(
+            {'v1': [10, 20, 30, 40], 'v2': [3, 4, 5, 6]},
+            index=['2010-01-01', '2010-01-02', '2010-01-03', '2010-01-04'])
         self.strategy.write_index_results(df, 0)
         # New Strategy
         strategy = TestStrategy(

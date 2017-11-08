@@ -3,11 +3,14 @@ import json
 import shutil
 import itertools
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 from dateutil import parser as dparser
 
 from google.cloud import storage
+
+from gearbox import convert_date_array
 
 from ram import config
 
@@ -25,6 +28,7 @@ class DataConstructor(object):
         self.strategy_name = strategy.__class__.__name__
         self._prepped_data_dir = os.path.join(
             prepped_data_dir, self.strategy_name)
+        self.datahandler = DataHandlerSQL()
 
     def _init_new_run(self):
         self.constructor_type = self.strategy.get_constructor_type()
@@ -44,21 +48,57 @@ class DataConstructor(object):
         path = os.path.join(ddir, 'meta.json')
         with open(path) as data_file:
             meta = json.load(data_file)
-        data_file.close()
         # Extract data to instance variables
         self.constructor_type = meta['constructor_type']
         self.features = meta['features']
+
         if self.constructor_type == 'universe':
             self.filter_args_univ = meta['filter_args_univ']
             self.date_parameters_univ = meta['date_parameters_univ']
             self.version_files = [
                 x for x in os.listdir(ddir) if x[-3:] == 'csv']
+            # If market data in version files, auto update
+            if 'market_index_data.csv' in self.version_files:
+                self.run_index_data(version)
+            # Drop market data file
+            self.version_files = [x for x in self.version_files
+                                  if x.find('market') == -1]
+            self.version_files.sort()
         elif self.constructor_type in ['etfs', 'ids']:
             self.filter_args_ids = meta['filter_args_ids']
+
+    def _check_completeness_final_file(self):
+        all_dates = self.datahandler.get_all_dates()
+        df = pd.DataFrame()
+        # Iterate through backwards until first full file given
+        # database dates
+        self._make_date_iterator()
+        files_to_drop = []
+        for file_name in reversed(self.version_files):
+            # Get all unique dates from file
+            path = os.path.join(self._output_dir, file_name)
+            data = pd.read_csv(path)
+            data_dates = data.Date.unique()
+            data_dates = convert_date_array(data_dates)
+            # Match file name with date
+            file_name_2 = file_name.split('_')[0]
+            d = [d for d in self._date_iterator
+                 if d[1].strftime('%Y%m%d') == file_name_2][0]
+            # Get dates
+            period_dates = all_dates[all_dates >= d[1]]
+            period_dates = period_dates[period_dates <= d[2]]
+            # Must have these test dates.
+            if np.all(pd.Series(period_dates).isin(data_dates)):
+                break
+            else:
+                files_to_drop.append(file_name)
+        self.version_files = [x for x in self.version_files
+                              if x not in files_to_drop]
 
     def run(self, rerun_version=None, prompt_description=True):
         if rerun_version:
             self._init_rerun_run(rerun_version)
+            self._check_completeness_final_file()
         else:
             self._init_new_run()
             self._make_output_directory()
@@ -66,10 +106,8 @@ class DataConstructor(object):
 
         self._check_parameters()
 
-        datahandler = DataHandlerSQL()
-
         if self.constructor_type == 'etfs':
-            data = datahandler.get_etf_data(
+            data = self.datahandler.get_etf_data(
                 self.filter_args_ids['ids'],
                 self.features,
                 self.filter_args_ids['start_date'],
@@ -79,7 +117,7 @@ class DataConstructor(object):
             self._clean_write_output(data, file_name)
 
         elif self.constructor_type == 'ids':
-            data = datahandler.get_id_data(
+            data = self.datahandler.get_id_data(
                 self.filter_args_ids['ids'],
                 self.features,
                 self.filter_args_ids['start_date'],
@@ -90,14 +128,16 @@ class DataConstructor(object):
 
         else:
             self._make_date_iterator()
+            created_files = []
             for t1, t2, t3 in tqdm(self._date_iterator):
                 # Check if file already exists in output directory
                 file_name = '{}_data.csv'.format(t2.strftime('%Y%m%d'))
                 if file_name in self.version_files:
                     continue
+                created_files.append(file_name)
                 # Otherwise pull and process data
                 adj_filter_date = t2 - dt.timedelta(days=1)
-                data = datahandler.get_filtered_univ_data(
+                data = self.datahandler.get_filtered_univ_data(
                     features=self.features,
                     start_date=t1,
                     end_date=t3,
@@ -105,6 +145,21 @@ class DataConstructor(object):
                     filter_args=self.filter_args_univ)
                 data['TestFlag'] = data.Date > adj_filter_date
                 self._clean_write_output(data, file_name)
+            # Update meta params
+            self._update_meta_file(data.Date.max(), created_files)
+        self.datahandler.close_connections()
+        return
+
+    def run_index_data(self, version_directory):
+        args = self.strategy.get_market_index_data_arguments()
+        data = self.datahandler.get_index_data(
+            seccodes=args['seccodes'],
+            features=args['features'],
+            start_date='1990-01-01',
+            end_date='2050-04-01')
+        self._output_dir = os.path.join(
+            self._prepped_data_dir, version_directory)
+        self._clean_write_output(data, 'market_index_data.csv')
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -131,12 +186,18 @@ class DataConstructor(object):
     def _make_date_iterator(self):
         # Extract parameters
         frequency = self.date_parameters_univ['frequency']
+        if 'quarter_frequency_month_offset' in self.date_parameters_univ:
+            q_offset = self.date_parameters_univ[
+                'quarter_frequency_month_offset']
+            assert q_offset in (0, 1, 2), 'Quarter offset can only be 0, 1, 2'
+        else:
+            q_offset = 0
         train_period_length = self.date_parameters_univ['train_period_length']
         test_period_length = self.date_parameters_univ['test_period_length']
         start_year = self.date_parameters_univ['start_year']
         # Create
         if frequency == 'Q':
-            periods = [1, 4, 7, 10]
+            periods = np.array([1, 4, 7, 10]) + q_offset
         elif frequency == 'M':
             periods = range(1, 13)
         all_periods = [dt.datetime(y, m, 1) for y, m in itertools.product(
@@ -174,7 +235,6 @@ class DataConstructor(object):
         # Flag for testing purposes
         description = prompt_for_description() if description_prompt else None
         git_branch, git_commit = get_git_branch_commit()
-
         meta = {
             'features': self.features,
             'start_time': str(dt.datetime.utcnow()),
@@ -185,7 +245,6 @@ class DataConstructor(object):
             'description': description,
             'constructor_type': self.constructor_type
         }
-
         if self.constructor_type == 'universe':
             meta.update({
                 'date_parameters_univ': self.date_parameters_univ,
@@ -195,19 +254,28 @@ class DataConstructor(object):
             meta.update({
                 'filter_args_ids': self.filter_args_ids
             })
+        self._write_meta_file(meta)
 
+    def _update_meta_file(self, max_date, created_files):
+        # Read and then rewrite
+        path = os.path.join(self._output_dir, 'meta.json')
+        with open(path) as data_file:
+            meta = json.load(data_file)
+        meta['max_date'] = str(max_date)
+        meta['newly_created_files'] = created_files
+        self._write_meta_file(meta)
+
+    def _write_meta_file(self, meta):
         # Write meta to output directory
         path = os.path.join(self._output_dir, 'meta.json')
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
-        outfile.close()
         # Write meta to archive
         path = os.path.join(self._prepped_data_dir, 'archive',
                             '{}_{}.json'.format(self.strategy_name,
                                                 self.version))
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
-        outfile.close()
 
     def _clean_write_output(self, data, file_name):
         if len(data) > 0:
@@ -219,7 +287,10 @@ class DataConstructor(object):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def clean_directory(strategy, version):
+def clean_directory(strategy, version, cloud_flag):
+    if cloud_flag:
+        print('This functionality not setup. Must delete from GCP Dashboard.')
+        return
     dir_path = os.path.join(config.PREPPED_DATA_DIR, strategy, version)
     print('\n Are you sure you want to delete the following path:')
     print('   ' + dir_path)
@@ -242,6 +313,13 @@ def get_strategy_name(name):
 def get_version_name(strategy, name):
     try:
         return _get_versions(strategy)[int(name)]
+    except:
+        return name
+
+
+def get_version_name_cloud(strategy, name):
+    try:
+        return _get_versions_cloud(strategy)[int(name)]
     except:
         return name
 
@@ -280,11 +358,14 @@ def _get_versions_cloud(strategy):
 def _get_meta_data(strategy, version):
     path = os.path.join(config.PREPPED_DATA_DIR, strategy,
                         version, 'meta.json')
-    with open(path) as data_file:
-        meta = json.load(data_file)
-    if 'description' not in meta:
-        meta['description'] = None
-    return meta
+    try:
+        with open(path) as data_file:
+            meta = json.load(data_file)
+        if 'description' not in meta:
+            meta['description'] = None
+        return meta
+    except:
+        return {}
 
 
 def _get_meta_data_cloud(strategy, version):
@@ -292,7 +373,13 @@ def _get_meta_data_cloud(strategy, version):
     client = storage.Client()
     bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     blob = bucket.get_blob(path)
-    meta = json.loads(blob.download_as_string())
+    try:
+        meta = json.loads(blob.download_as_string())
+    except Exception as e:
+        meta = {
+            'description': 'No meta file found',
+            'start_time': 'No meta file found',
+        }
     if 'description' not in meta:
         meta['description'] = None
     return meta
@@ -341,11 +428,11 @@ def _print_line_underscore(pstring):
     print(' ' + '-' * len(pstring))
 
 
-def print_strategy_versions(strategy):
-    stats = _get_strategy_version_stats(strategy)
+def print_strategy_versions(strategy, cloud_flag=False):
+    stats = _get_strategy_version_stats(strategy, cloud_flag)
     _print_line_underscore('Available Verions for {}'.format(strategy))
     print('  Key\tVersion\t\t'
-          'File Count\tDir Creation Date\tDescription')
+          'File Count\tMax Data Date\tDescription')
     keys = stats.keys()
     keys.sort()
     for key in keys:
@@ -353,36 +440,47 @@ def print_strategy_versions(strategy):
             key,
             stats[key]['version'],
             stats[key]['file_count'],
-            stats[key]['create_date'],
+            stats[key]['max_date'],
             stats[key]['description']))
     print('\n')
 
 
-def _get_strategy_version_stats(strategy):
-    try:
-        versions = _get_versions(strategy)
-    except:
+def _get_strategy_version_stats(strategy, cloud_flag=False):
+
+    if cloud_flag:
         versions = _get_versions_cloud(strategy)
+    else:
+        versions = _get_versions(strategy)
+
     # Get MinMax dates for files
     dir_stats = {}
     for key, version in versions.items():
-        try:
-            meta = _get_meta_data(strategy, version)
-            stats = _get_min_max_dates_counts(strategy, version)
-        except:
+
+        if cloud_flag:
             meta = _get_meta_data_cloud(strategy, version)
             stats = _get_min_max_dates_counts_cloud(strategy, version)
+        else:
+            meta = _get_meta_data(strategy, version)
+            stats = _get_min_max_dates_counts(strategy, version)
+
+        max_date = meta['max_date'][:10] if 'max_date' in meta else None
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
-            'create_date': meta['start_time'][:10],
+            'max_date': max_date,
             'description': meta['description']
         }
     return dir_stats
 
 
-def print_strategy_meta(strategy, version):
-    meta = _get_meta_data(strategy, version)
+def print_strategy_meta(strategy, version, cloud_flag):
+    if cloud_flag:
+        version = get_version_name_cloud(strategy, version)
+        meta = _get_meta_data_cloud(strategy, version)
+    else:
+        version = get_version_name(strategy, version)
+        meta = _get_meta_data(strategy, version)
+    # Print outputs
     _print_line_underscore('Meta data for {} / {}'.format(strategy, version))
     print('   Git Branch:\t' + str(meta['git_branch']))
     print('   Features:\t' + meta['features'][0])
@@ -390,12 +488,13 @@ def print_strategy_meta(strategy, version):
         print('\t\t{}'.format(feature))
     print('\n')
     print('   Filter Arguments: ')
-    print('\tUniverse Size:\t' + str(meta['filter_args']['univ_size']))
-    print('\tFilter:\t\t' + meta['filter_args']['filter'])
-    print('\tWhere:\t\t' + meta['filter_args']['where'])
+    print('\tUniverse Size:\t' + str(meta['filter_args_univ']['univ_size']))
+    print('\tFilter:\t\t' + meta['filter_args_univ']['filter'])
+    print('\tWhere:\t\t' + meta['filter_args_univ']['where'])
     print('\n')
-    print('   Start Year:\t\t' + str(meta['start_year']))
-    print('   Train Period Length:\t' + str(meta['train_period_len']))
-    print('   Test Period Length:\t' + str(meta['test_period_len']))
-    print('   Frequency:\t\t' + str(meta['frequency']))
+    meta_t = meta['date_parameters_univ']
+    print('   Start Year:\t\t' + str(meta_t['start_year']))
+    print('   Train Period Length:\t' + str(meta_t['train_period_length']))
+    print('   Test Period Length:\t' + str(meta_t['test_period_length']))
+    print('   Frequency:\t\t' + str(meta_t['frequency']))
     print('\n')

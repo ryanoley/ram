@@ -11,8 +11,11 @@ FUNCS = [
     'EARNINGSRETURN', 'MKT',
 
     # QUALITATIVE
-    'GSECTOR', 'GGROUP',
-    
+    'GSECTOR', 'GGROUP', 'TICKER', 'CUSIP',
+
+    # DATE COLUMNS
+    'TM', 'T',
+
     # VIX
     'VIX',
 
@@ -33,6 +36,10 @@ FUNCS = [
     'SALESQ', 'SALESTTM',
     'SALESGROWTHQ', 'SALESGROWTHTTM',
 
+    # ADJEPS
+    'ADJEPSQ', 'ADJEPSTTM',
+    'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
+    
     # Free Cash
     'FREECASHFLOWQ', 'FREECASHFLOWTTM',
     'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
@@ -50,8 +57,11 @@ FUNCS = [
     'EPSESTIMATEFQ', 'EPSSURPRISEFQ', 'EBITDAESTIMATEFQ', 'EBITDASURPRISEFQ',
     'REVENUEESTIMATEFQ', 'REVENUESURPRISEFQ', 'SESPLITFACTOR',
     'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-    'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP'
-  
+    'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
+
+    # IBES
+    'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
+    'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
 ]
 
 
@@ -137,7 +147,7 @@ def make_commands(feature_data):
 def make_id_date_filter(ids, start_date, end_date):
     # First pull date ranges. Make this dynamic somehow?
     sdate = start_date - dt.timedelta(days=365)
-    fdate = end_date + dt.timedelta(days=30)
+    fdate = end_date + dt.timedelta(days=90)
     sqlcmd = \
         """
         where A.Date_ between '{0}' and '{1}'
@@ -200,8 +210,7 @@ def parse_input_var(vstring, table, filter_commands):
             sql_func_data_column = arg[0]
 
         # Adjustment irrelevant columns
-        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor',
-                        'HistoricalTicker']:
+        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
             sql_func_data_column = arg[0]
 
         else:
@@ -500,6 +509,27 @@ def GGROUP(arg0, arg1, arg2, table):
     return clean_sql_cmd(sqlcmd)
 
 
+def _MASTER_ID_FIELD(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    M.{0} as {1}
+        from        {2} A
+        join        ram.dbo.ram_master_ids M
+            on      A.SecCode = M.SecCode
+            and     A.Date_ between M.StartDate and M.EndDate
+        """.format(feature, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def TICKER(arg0, feature_name, arg2, table):
+    return _MASTER_ID_FIELD('Ticker', feature_name, table)         
+
+
+def CUSIP(arg0, feature_name, arg2, table):
+    return _MASTER_ID_FIELD('Cusip', feature_name, table)  
+
+
 def EARNINGSFLAG(arg0, feature_name, arg2, table):
     sqlcmd = \
         """
@@ -546,7 +576,24 @@ def SI(arg0, arg1, arg2, table):
             )
         """.format(table)
     return clean_sql_cmd(sqlcmd)
+  
+def _DATE_OFFSET(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{2} as {1}
+        from        {0} A
+        left join   ram.dbo.ram_trading_dates B
+            on      A.Date_ = B.CalendarDate
+        """.format(table, feature_name, feature)
+    return clean_sql_cmd(sqlcmd)
 
+def TM(arg0, feature_name, arg2, table):
+    return _DATE_OFFSET('Tm{}'.format(arg2), feature_name, table)
+
+def T(arg0, feature_name, arg2, table):
+    return _DATE_OFFSET('T{}'.format(arg2), feature_name,table)
 
 # ~~~~~~ Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -685,6 +732,22 @@ def GROSSPROFASSET(arg0, feature_name, arg2, table):
 
 def ASSETS(arg0, feature_name, arg2, table):
     return _ACCOUNTING_FRAMEWORK('ASSETS', feature_name, table)
+
+
+def ADJEPSQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSQ', feature_name, table)
+
+
+def ADJEPSTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSTTM', feature_name, table)
+
+
+def ADJEPSGROWTHQ(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSGROWTHQ', feature_name, table)
+
+
+def ADJEPSGROWTHTTM(arg0, feature_name, arg2, table):
+    return _ACCOUNTING_FRAMEWORK('ADJEPSGROWTHTTM', feature_name, table)
 
 
 # ~~~~~~  Accounting Ratios ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -972,6 +1035,69 @@ def SISHORTSQUEEZE(arg0, feature_name, arg2, table):
   
 def SIINSTOWNERSHIP(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_InstOwnership', feature_name, table)
+
+
+# ~~~~~ IBES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def _PRICETARGET(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{0} as {1}
+        from        {2} A
+        join   ram.dbo.ram_ibes_price_target B
+            on      B.SecCode = A.SecCode
+            and     B.EffectiveDate = (
+                select max(EffectiveDate)
+                from ram.dbo.ram_ibes_price_target C
+                where C.SecCode = A.SecCode
+                    and C.EffectiveDate <= A.Date_
+            )
+        """.format(feature, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def PTARGETMEAN(arg0, feature_name, arg2, table):
+    return _PRICETARGET('MeanEst', feature_name, table)
+
+def PTARGETHIGH(arg0, feature_name, arg2, table):
+    return _PRICETARGET('HighEst', feature_name, table)
+
+def PTARGETLOW(arg0, feature_name, arg2, table):
+    return _PRICETARGET('LowEst', feature_name, table)
+
+def PTARGETUNADJ(arg0, feature_name, arg2, table):
+    return _PRICETARGET('UnAdjMeanEst', feature_name, table)
+
+
+def _ANALYSTREC(feature, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{0} as {1}
+        from        {2} A
+        join   ram.dbo.ram_ibes_recommendation B
+            on      B.SecCode = A.SecCode
+            and     B.EffectiveDate = (
+                select max(EffectiveDate)
+                from ram.dbo.ram_ibes_recommendation C
+                where C.SecCode = A.SecCode
+                    and C.EffectiveDate <= A.Date_
+            )
+        """.format(feature, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
+
+def RECMEAN(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('MeanRec', feature_name, table)
+
+def RECHIGH(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('HighRec', feature_name, table)
+
+def RECLOW(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('LowRec', feature_name, table)
+
+def RECNREC(arg0, feature_name, arg2, table):
+    return _ANALYSTREC('NumRecs', feature_name, table)
 
 
 # ~~~~~~ Utility ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

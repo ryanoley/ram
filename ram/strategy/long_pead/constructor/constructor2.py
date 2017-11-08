@@ -5,114 +5,75 @@ import datetime as dt
 from ram.strategy.long_pead.utils import make_variable_dict
 
 from ram.strategy.long_pead.constructor.portfolio import Portfolio
+from ram.strategy.long_pead.constructor.base_constructor import Constructor
 
 
-class PortfolioConstructor2(object):
-
-    def __init__(self, booksize=10e6):
-        """
-        Parameters
-        ----------
-        booksize : numeric
-            Size of gross position
-        """
-        self.booksize = booksize
+class PortfolioConstructor2(Constructor):
 
     def get_args(self):
         return {
-            'logistic_spread': [0.1, 0.5, 1]
+            'logistic_spread': [0.1, 2],
+            'group_variable': ['Group', 'MarketCap', 'Liquidity', 'Sector']
         }
 
-    def get_daily_pl(self, data_container, signals, logistic_spread):
-        """
-        Parameters
-        ----------
-        """
-        close_dict = make_variable_dict(
-            data_container.test_data, 'RClose')
-        dividend_dict = make_variable_dict(
-            data_container.test_data, 'RCashDividend', 0)
-        split_mult_dict = make_variable_dict(
-            data_container.test_data, 'SplitMultiplier', 1)
-        market_cap_dict = make_variable_dict(
-            data_container.test_data, 'MarketCap', 'pad')
-        scores_dict = make_variable_dict(data_container.test_data, 'preds')
+    def get_position_sizes(self, date, scores, logistic_spread,
+                           group_variable, n_groups=3):
+        # Output should have all the same keys, but can return nan values
+        output_sizes = pd.DataFrame(index=scores.keys(), columns=['weight'])
+        # Reformat input
+        if group_variable == 'MarketCap':
+            scores = pd.Series(scores, name='score').to_frame().join(
+                pd.Series(self.market_cap[date], name='sort_var')).dropna()
+        elif group_variable == 'Liquidity':
+            scores = pd.Series(scores, name='score').to_frame().join(
+                pd.Series(self.liquidity[date], name='sort_var')).dropna()
+        elif group_variable == 'Sector':
+            scores = pd.Series(scores, name='score').to_frame().join(
+                pd.Series(self.sector[date], name='group')).dropna()
+        else:
+            scores = pd.Series(scores, name='score').to_frame().join(
+                pd.Series(self.groups[date], name='group')).dropna()
 
-        portfolio = Portfolio()
+        if group_variable == 'Sector':
+            # Drop anything that isn't real gics sector
+            scores = scores.loc[scores.group.isin(
+                [str(x) for x in range(10, 60, 5)])]
+        elif group_variable == 'Group':
+            pass
+        else:
+            # Sort on market cap
+            scores = scores.sort_values('sort_var')
+            scores['group'] = np.floor(
+                np.arange(len(scores)) / float(
+                    len(scores)) * n_groups).astype(int)
 
-        unique_test_dates = np.unique(data_container.test_data.Date)
+        # Get unique groups and their proportions. This is used for
+        # total allocation to group.
+        groups = scores.groupby('group')['score'].count()
+        groups = groups[groups > 4]
+        groups = groups / float(groups.sum())
+        # Collect weighted output that has been scaled already.
+        output = pd.DataFrame()
+        for g, prop in groups.iteritems():
+            output = output.append(weight_group(
+                scores[scores.group == g], logistic_spread, prop))
+        # Put data into output dictionary for downstream. Preserves nans
+        output_sizes.loc[output.index, 'weight'] = output.weights
+        output_sizes.weight *= self.booksize
+        return output_sizes.weight.fillna(0).to_dict()
 
-        # Output object
-        daily_df = pd.DataFrame(index=unique_test_dates,
-                                columns=['PL', 'Exposure', 'Turnover'],
-                                dtype=float)
 
-        for date in unique_test_dates:
+def weight_group(data, logistic_spread, total_gross):
 
-            closes = close_dict[date]
-            dividends = dividend_dict[date]
-            splits = split_mult_dict[date]
-            scores = scores_dict[date]
-            # Could this be just a simple "Group"
-            mcaps = market_cap_dict[date]
+    def logistic_weight(k):
+        return 2 / (1 + np.exp(-k)) - 1
 
-            # Accounting
-            portfolio.update_prices(closes, dividends, splits)
+    weights = np.apply_along_axis(
+        logistic_weight, 0,
+        np.linspace(-logistic_spread, logistic_spread, len(data)))
+    weights = weights / np.abs(weights).sum() * total_gross
 
-            if date == unique_test_dates[-1]:
-                portfolio.close_portfolio_positions()
-            else:
-                sizes = self._get_position_sizes_with_mcaps(
-                    scores, mcaps, logistic_spread, self.booksize)
-                portfolio.update_position_sizes(sizes, closes)
+    data = data.sort_values('score')
+    data.loc[:, 'weights'] = weights
 
-            daily_pl = portfolio.get_portfolio_daily_pl()
-            daily_turnover = portfolio.get_portfolio_daily_turnover()
-            daily_exposure = portfolio.get_portfolio_exposure()
-
-            daily_df.loc[date, 'PL'] = daily_pl
-            daily_df.loc[date, 'Turnover'] = daily_turnover
-            daily_df.loc[date, 'Exposure'] = daily_exposure
-            daily_df.loc[date, 'OpenPositions'] = sum([
-                1 if x.shares != 0 else 0
-                for x in portfolio.positions.values()])
-
-        # Close everything and begin anew in new quarter
-        return daily_df
-
-    def _get_position_sizes_with_mcaps(self, scores, mcaps,
-                                       logistic_spread, booksize):
-        """
-        Position sizes are determined by the ranking, and for an
-        even number of scores the position sizes should be symmetric on
-        both the long and short sides.
-
-        The weighting scheme takes on the shape of a sigmoid function,
-        and the shape of the sigmoid is modulated by the hyperparameter
-        logistic spread.
-        """
-        scoresA = pd.DataFrame({'scores': scores, 'mcaps': mcaps}).dropna()
-        scoresA = scoresA.sort_values('mcaps')
-        scores1 = scoresA.iloc[:len(scoresA)/2].copy()
-        scores2 = scoresA.iloc[len(scoresA)/2:].copy()
-
-        scores1.sort_values('scores', inplace=True)
-        scores2.sort_values('scores', inplace=True)
-
-        # Simple rank
-        def logistic_weight(k):
-            return 2 / (1 + np.exp(-k)) - 1
-
-        scores1['weights'] = [
-            logistic_weight(x) for x in np.linspace(
-                -logistic_spread, logistic_spread, len(scores1))]
-
-        scores2['weights'] = [
-            logistic_weight(x) for x in np.linspace(
-                -logistic_spread, logistic_spread, len(scores2))]
-
-        weights = scores1.append(scores2).weights
-        allocations = (weights / weights.abs().sum() * booksize).to_dict()
-        output = {x: 0 for x in scores.keys()}
-        output.update(allocations)
-        return output
+    return data

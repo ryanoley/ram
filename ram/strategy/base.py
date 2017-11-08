@@ -196,7 +196,6 @@ class Strategy(object):
             meta = read_json_cloud(meta_file_path, self._bucket)
         else:
             meta = read_json(meta_file_path)
-        assert not meta['completed'], '[{}] completed'.format(run_name)
         # Set prepped_data_version
         self._prepped_data_dir = os.path.join(
             os.path.dirname(self._prepped_data_dir),
@@ -212,6 +211,27 @@ class Strategy(object):
             all_files = os.listdir(os.path.join(self.run_dir, 'index_outputs'))
         all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
         self._max_run_time_index = len(all_files) - 1
+        # Delete final file if it isn't same as matching raw data file
+        last_run_file = max(all_files)
+        run_path = os.path.join(self.run_dir, 'index_outputs', last_run_file)
+        data_path = os.path.join(self._prepped_data_dir,
+                                 '{}_data.csv'.format(last_run_file[:8]))
+        if self._gcp_implementation:
+            rdata = read_csv_cloud(run_path, self._bucket)
+            ddata = read_csv_cloud(data_path, self._bucket)
+        else:
+            rdata = pd.read_csv(run_path, index_col=0)
+            ddata = pd.read_csv(data_path)
+        max_run_file_date = convert_date_array(rdata.index).max()
+        max_data_file_date = convert_date_array(ddata.Date).max()
+        # Check if
+        if max_run_file_date < max_data_file_date:
+            self._max_run_time_index -= 1
+            if self._gcp_implementation:
+                blob = self._bucket.blob(run_path)
+                blob.delete()
+            else:
+                os.remove(run_path)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -256,10 +276,17 @@ class Strategy(object):
             all_files = [x.replace(strip_str, '') for x in all_files]
             self._prepped_data_files = [x for x in all_files
                                         if x.find('_data.csv') > 0]
+            self._prepped_data_files = [
+                x for x in self._prepped_data_files
+                if x.find('market_index_data') == -1]
         else:
             all_files = os.listdir(self._prepped_data_dir)
             self._prepped_data_files = [
                 x for x in all_files if x[-8:] == 'data.csv']
+            self._prepped_data_files = [
+                x for x in self._prepped_data_files
+                if x.find('market_index_data') == -1]
+        self._prepped_data_files.sort()
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -292,9 +319,29 @@ class Strategy(object):
         else:
             DataConstructor(self).run()
 
+    def make_market_index_data(self, data_prep_version):
+        """
+        Parameters
+        ----------
+        data_prep_version : str
+            Will restart data pull if present.
+        """
+        DataConstructor(self).run_index_data(data_prep_version)
+
     @abstractmethod
     def get_features(self):
         raise NotImplementedError('Strategy.get_features')
+
+    def get_market_index_data_arguments(self):
+        return {
+            'features': ['AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
+                         'VOL10_AdjClose', 'VOL20_AdjClose',
+                         'RSI10_AdjClose', 'RSI20_AdjClose',
+                         'BOLL10_AdjClose', 'BOLL20_AdjClose'],
+            'seccodes': [50311, 61258, 61259, 11097, 11099, 11100, 10955,
+                         11101, 11102, 11096, 11103, 11104, 11113,
+                         11132814, 10922530]
+        }
 
     def get_constructor_type(self):
         return 'universe'
@@ -310,7 +357,7 @@ class Strategy(object):
             'filter': 'AvgDolVol',
             'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
             'and Close_ between 15 and 1000',
-            'univ_size': 500}
+            'univ_size': 10}
 
     def get_univ_date_parameters(self):
         """
@@ -352,6 +399,17 @@ class Strategy(object):
         data.SecCode = data.SecCode.astype(int).astype(str)
         return data
 
+    def read_market_index_data(self):
+        dpath = os.path.join(self._prepped_data_dir,
+                             'market_index_data.csv')
+        if self._gcp_implementation:
+            data = read_csv_cloud(dpath, self._bucket)
+        else:
+            data = pd.read_csv(dpath)
+        data.Date = convert_date_array(data.Date)
+        data.SecCode = data.SecCode.astype(int).astype(str)
+        return data
+
     def write_index_results(self, returns_df, index, suffix='returns'):
         """
         This is a wrapper function for cloud implementation.
@@ -360,16 +418,17 @@ class Strategy(object):
         output_path = os.path.join(self.strategy_output_dir, output_name)
         if self._write_flag and self._gcp_implementation:
             to_csv_cloud(returns_df, output_path, self._bucket)
-        else:
+        elif self._write_flag:
             returns_df.to_csv(output_path)
 
     def write_index_stats(self, stats, index):
-        output_name = self._prepped_data_files[index]
-        output_name = output_name.replace('data.csv', 'stats.json')
-        if self._write_flag:
-            with open(os.path.join(self.strategy_output_dir,
-                                   output_name), 'w') as outfile:
-                json.dump(stats, outfile)
+        output_name = self._prepped_data_files[index].replace(
+            'data.csv', 'stats.json')
+        output_path = os.path.join(self.strategy_output_dir, output_name)
+        if self._write_flag and self._gcp_implementation:
+            write_json_cloud(stats, output_path, self._bucket)
+        elif self._write_flag:
+            write_json(stats, output_path)
 
 
 def copytree(src, dst, symlinks=False, ignore=None):
@@ -391,7 +450,6 @@ def write_json(out_dictionary, path):
     assert isinstance(out_dictionary, dict)
     with open(path, 'w') as outfile:
         json.dump(out_dictionary, outfile)
-    outfile.close()
 
 
 def read_json(path):
@@ -428,23 +486,29 @@ def make_argument_parser(Strategy):
     from ram.data.data_constructor import print_strategy_meta
     from ram.data.data_constructor import clean_directory
     from ram.data.data_constructor import get_version_name
-    from ram.analysis.run_manager import RunManager, RunManagerGCP
+    from ram.data.data_constructor import get_version_name_cloud
+    from ram.analysis.run_manager import get_run_data
 
     parser = argparse.ArgumentParser()
+
+    # Cloud tag must be included anytime working in GCP
+    parser.add_argument(
+        '-c', '--cloud', action='store_true',
+        help='Tag must be added for GCP implementation')
 
     # Data Exploration Commands
     parser.add_argument(
         '-lv', '--list_versions', action='store_true',
         help='List all versions of prepped data for a strategy')
     parser.add_argument(
-        '-lr', '--list_runs', action='store_true',
-        help='List all simulations for a strategy')
-    parser.add_argument(
-        '-pm', '--print_meta', type=str,
-        help='Print meta data. i.e version_0001 or Key val')
+        '-pvm', '--print_version_meta', type=str,
+        help='Print meta data for version, i.e version_0001 or Key val')
     parser.add_argument(
         '-cv', '--clean_version', type=str,
         help='Delete version. i.e version_0001 or Key val')
+    parser.add_argument(
+        '-lr', '--list_runs', action='store_true',
+        help='List all simulations for a strategy')
 
     # Simulation Commands
     parser.add_argument(
@@ -457,67 +521,94 @@ def make_argument_parser(Strategy):
         '-s', '--simulation', action='store_true',
         help='Run simulation for debugging')
     parser.add_argument(
-        '--description', default=None,
+        '-d', '--description', default=None,
         help='Run description. Used namely in a batch file')
     parser.add_argument(
-        '--cloud', action='store_true',
-        help='Tag must be added for GCP implementation')
-    parser.add_argument(
-        '--restart_run', type=str, default=None,
+        '-r', '--restart_run', type=str, default=None,
         help='If something craps out, use this tag. Send in run name'
     )
 
     # Data Construction Commands
     parser.add_argument(
-        '-d', '--data_prep', type=str,
+        '-dp', '--data_prep', type=str,
         help='Run DataConstructor. To create new data version, use arg '
              '-1, else to restart use version name or key val, i.e. '
              'version_0001 or Key val')
 
+    parser.add_argument(
+        '-dm', '--market_data', type=str,
+        help='Market data added to directory for version. Input version '
+             'or Key val')
+
     args = parser.parse_args()
 
-    # Data Exploration
+    # ~~~~~~ DATA EXPLORATION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if args.list_versions:
-        print_strategy_versions(Strategy.__name__)
+        print_strategy_versions(Strategy.__name__, args.cloud)
+
+    elif args.print_version_meta:
+        print_strategy_meta(Strategy.__name__,
+                            args.print_version_meta,
+                            args.cloud)
+
+    elif args.clean_version:
+        clean_directory(Strategy.__name__, args.clean_version)
+
     elif args.list_runs:
-        try:
-            runs = RunManager.get_run_names(Strategy.__name__)
-        except:
-            runs = RunManagerGCP.get_run_names(Strategy.__name__)
+        runs = get_run_data(Strategy.__name__, args.cloud)
         # Adjust column width
         runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
         print(runs)
-    elif args.print_meta:
-        version = get_version_name(Strategy.__name__, args.print_meta)
-        print_strategy_meta(Strategy.__name__, version)
-    elif args.clean_version:
-        version = get_version_name(Strategy.__name__, args.clean_version)
-        clean_directory(Strategy.__name__, version)
 
-    # Simulation Commands
+    # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
+        runs = get_run_data(Strategy.__name__, args.cloud)
+        if args.restart_run in runs.Run.values:
+            version = args.restart_run
+        else:
+            version = runs.Run.iloc[int(args.restart_run)]
         strategy = Strategy(gcp_implementation=args.cloud, write_flag=True)
-        strategy.restart(args.restart_run)
+        import pdb; pdb.set_trace()
+        strategy.restart(version)
+
     elif args.write_simulation:
         if not args.data_version:
             print('Data version must be provided')
+            return
+        if args.cloud:
+            version = get_version_name_cloud(Strategy.__name__,
+                                             args.data_version)
         else:
             version = get_version_name(Strategy.__name__, args.data_version)
-            strategy = Strategy(version, True, gcp_implementation=args.cloud)
-            strategy.start(args.description)
+        # Start simulation
+        strategy = Strategy(prepped_data_version=version,
+                            write_flag=True,
+                            gcp_implementation=args.cloud)
+        strategy.start(args.description)
+
     elif args.simulation:
         if not args.data_version:
             print('Data version must be provided')
+            return
+        if args.cloud:
+            version = get_version_name_cloud(Strategy.__name__,
+                                             args.data_version)
         else:
-            import ipdb; ipdb.set_trace()
-            version = get_version_name(Strategy.__name__, args.data_version)
-            strategy = Strategy(version, False, gcp_implementation=args.cloud)
-            strategy.start()
+            version = get_version_name(Strategy.__name__,
+                                       args.data_version)
+        import ipdb; ipdb.set_trace()
+        strategy = Strategy(prepped_data_version=version,
+                            gcp_implementation=args.cloud)
+        strategy.start()
 
-    # Data Construction
+    # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.data_prep:
         if args.data_prep != '-1':
             version = get_version_name(Strategy.__name__, args.data_prep)
             Strategy(prepped_data_version=version).make_data(version)
         else:
             Strategy().make_data()
+
+    elif args.market_data:
+        version = get_version_name(Strategy.__name__, args.market_data)
+        Strategy().make_market_index_data(version)

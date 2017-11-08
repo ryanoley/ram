@@ -1,10 +1,12 @@
 
 import unittest
-import datetime as dt
 import numpy as np
+import pandas as pd
+import datetime as dt
 from numpy.testing import assert_array_equal
 
 from ram.data.data_handler_sql import DataHandlerSQL
+from ram.data.data_handler_sql import _check_for_duplicates
 
 
 class TestDataHandlerSQL(unittest.TestCase):
@@ -29,6 +31,19 @@ class TestDataHandlerSQL(unittest.TestCase):
         result = self.dh._map_ticker_to_id('SPY')
         self.assertEqual(result.SecCode.iloc[0], 61494)
         self.assertEqual(result.Ticker.iloc[0], 'SPY')
+
+    def test_check_for_duplicates(self):
+        test_df = pd.DataFrame(data={
+            'SecCode': [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3],
+            'Date':  pd.date_range('1900-01-01', '1900-01-12'),
+            'Close': range(1, 13)})
+        result = _check_for_duplicates(test_df, 'Date')
+        self.assertEqual(result, None)
+        result = _check_for_duplicates(test_df, ['SecCode', 'Date'])
+        self.assertEqual(result, None)
+        test_df.loc[7:, 'Date'] = pd.Timestamp('19000108')
+        self.assertRaises(ValueError, _check_for_duplicates, test_df,
+                          ['SecCode', 'Date'])
 
     def tearDown(self):
         self.dh.close_connections()

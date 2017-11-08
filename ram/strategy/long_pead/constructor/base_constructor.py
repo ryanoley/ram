@@ -18,14 +18,14 @@ class Constructor(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def get_position_sizes(self):
+    def get_position_sizes(self, scores, **kwargs):
         raise NotImplementedError('Constructor.get_position_sizes')
 
     @abstractmethod
     def get_args(self):
         raise NotImplementedError('Constructor.get_args')
 
-    def __init__(self, booksize=100e6):
+    def __init__(self, booksize=10e6):
         """
         Parameters
         ----------
@@ -42,22 +42,32 @@ class Constructor(object):
         signals
         kwargs
         """
-        # Make available to instance - specifically to get_position_sizes
-        self.data = data_container
-        # Process implementation details
-        close_dict = make_variable_dict(
-            data_container.test_data, 'RClose')
-        dividend_dict = make_variable_dict(
-            data_container.test_data, 'RCashDividend', 0)
-        split_mult_dict = make_variable_dict(
-            data_container.test_data, 'SplitMultiplier', 1)
-        scores_dict = make_variable_dict(data_container.test_data, 'preds')
-
-        liquidity_dict = make_variable_dict(
-            data_container.test_data, 'AvgDolVol')
-
         portfolio = Portfolio()
 
+        # Process needed values into dictionaries for efficiency
+        scores = make_variable_dict(
+            signals.preds_data, 'preds')
+        closes = make_variable_dict(
+            data_container.test_data, 'RClose')
+        dividends = make_variable_dict(
+            data_container.test_data, 'RCashDividend', 0)
+        splits = make_variable_dict(
+            data_container.test_data, 'SplitMultiplier', 1)
+
+        self.liquidity = make_variable_dict(
+            data_container.test_data, 'AvgDolVol')
+        self.market_cap = make_variable_dict(
+            data_container.test_data, 'MarketCap')
+        self.sector = make_variable_dict(
+            data_container.test_data, 'GSECTOR')
+        self.groups = make_variable_dict(
+            data_container.test_data, 'GGROUP')
+
+        self.data_container = data_container
+        self.signals = signals
+        self.portfolio = portfolio
+
+        # Dates to iterate over
         unique_test_dates = np.unique(data_container.test_data.Date)
 
         # Output object
@@ -67,34 +77,33 @@ class Constructor(object):
 
         for i, date in enumerate(unique_test_dates):
 
-            closes = close_dict[date]
-            dividends = dividend_dict[date]
-            splits = split_mult_dict[date]
-            scores = scores_dict[date]
-
             # If a low liquidity value, set score to nan
             # Update every five days
             if i % 5 == 0:
                 low_liquidity_seccodes = filter_seccodes(
-                    liquidity_dict[date], LOW_LIQUIDITY_FILTER)
+                    self.liquidity[date], LOW_LIQUIDITY_FILTER)
             # If close is very low, drop as well
-            low_price_seccodes = filter_seccodes(closes, LOW_PRICE_FILTER)
+            low_price_seccodes = filter_seccodes(
+                closes[date], LOW_PRICE_FILTER)
 
             for seccode in set(low_liquidity_seccodes+low_price_seccodes):
-                scores[seccode] = np.nan
+                scores[date][seccode] = np.nan
 
-            portfolio.update_prices(closes, dividends, splits)
+            portfolio.update_prices(
+                closes[date], dividends[date], splits[date])
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                sizes = self._get_position_sizes_dollars(
-                    self.get_position_sizes(scores, **kwargs))
-                portfolio.update_position_sizes(sizes, closes)
+                sizes = self.get_position_sizes(date, scores[date], **kwargs)
+                portfolio.update_position_sizes(sizes, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()
             daily_exposure = portfolio.get_portfolio_exposure()
+
+            min_pos_size = min([pos.exposure for pos in portfolio.positions.values()])
+            max_pos_size = max([pos.exposure for pos in portfolio.positions.values()])
 
             daily_df.loc[date, 'PL'] = pl_long + pl_short
             daily_df.loc[date, 'LongPL'] = pl_long
@@ -108,18 +117,13 @@ class Constructor(object):
             daily_stats = portfolio.get_portfolio_stats()
             daily_df.loc[date, 'TicketChargePrc'] = \
                 daily_stats['min_ticket_charge_prc']
+            daily_df.loc[date, 'MeanSignal'] = \
+                np.nanmean(scores[date].values())
+            daily_df.loc[date, 'MinPosSize'] = min_pos_size / self.booksize
+            daily_df.loc[date, 'MaxPosSize'] = max_pos_size / self.booksize
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats
-
-    def _get_position_sizes_dollars(self, sizes):
-        """
-        Setup to normalize outputs from derived class. Uses booksize
-        to convert to dollars
-        """
-        if isinstance(sizes, dict):
-            sizes = pd.Series(sizes)
-        return (sizes / sizes.abs().sum() * self.booksize).to_dict()
 
 
 def filter_seccodes(data_dict, min_value):

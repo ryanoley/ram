@@ -16,13 +16,18 @@ class Position(object):
             Commissions
         """
         self.symbol = symbol
-        self.current_price = 0 if np.isnan(price) else float(price)
-        self.comm = comm
-        self.open_position = True
         self.shares = 0
         self.exposure = 0
         self.daily_pl = 0
         self.daily_turnover = 0
+        self.return_peak = 0
+        self.cumulative_return = 0
+        self.comm = comm
+        self.open_position = True
+        self.current_price = float(price)
+        # Check if position should even be opened
+        if np.isnan(price) | (price == 0):
+            self.open_position = False
 
     def update_position_prices(self, price, dividend, split):
         """
@@ -33,7 +38,9 @@ class Position(object):
         or a 700% change. So sp1 will be 7, and the shares should be
         multiplied by 7 and the entry price divided by 7.
         """
-        if np.isnan(price) | (not self.open_position):
+        if not self.open_position:
+            return
+        elif np.isnan(price) | (price == 0):
             self.close_position()
             return
         # Handle splits
@@ -45,10 +52,15 @@ class Position(object):
             self.daily_pl += dividend * self.shares
         self.current_price = float(price)
         self.exposure = self.shares * self.current_price
+        if self.exposure != 0:
+            self.cumulative_return += self.daily_pl / np.abs(self.exposure)
+            self.return_peak = np.max([self.cumulative_return, self.return_peak])
         return
 
     def update_position_size(self, new_size, exec_price):
-        if np.isnan(exec_price) | (not self.open_position):
+        if not self.open_position:
+            return
+        elif np.isnan(exec_price) | (exec_price == 0):
             self.close_position()
             return
         new_shares = int(new_size / self.current_price)
@@ -79,10 +91,13 @@ class Position(object):
         next day open!!!
         """
         daily_pl = float(self.daily_pl)
-        self.daily_pl = 0
         return daily_pl
 
     def get_daily_turnover(self):
         daily_turnover = float(self.daily_turnover)
         self.daily_turnover = 0
         return daily_turnover
+
+    def reset_daily_pl(self):
+        self.daily_pl = 0
+    

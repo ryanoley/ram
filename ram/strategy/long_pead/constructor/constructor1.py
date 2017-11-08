@@ -12,10 +12,13 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'logistic_spread': [0.01, 0.1, 0.5, 1]
+            'logistic_spread': [0.1],
+            'losing_days_kill_switch': [4, 8, 1000],
         }
 
-    def get_position_sizes(self, scores, logistic_spread):
+    def get_position_sizes(self,
+                           date, scores, logistic_spread,
+                           losing_days_kill_switch):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -25,14 +28,19 @@ class PortfolioConstructor1(Constructor):
         and the shape of the sigmoid is modulated by the hyperparameter
         logistic spread.
         """
+        # Check losing days
+        bad_seccodes = [x for x, y in self.portfolio.positions.iteritems()
+                        if y.losing_day_count > losing_days_kill_switch]
+        for sc in bad_seccodes:
+            self.portfolio.positions[sc].close_position()
+            scores[sc] = np.nan
+        # Get scores
         scores = pd.Series(scores).to_frame()
         scores.columns = ['score']
         scores = scores.sort_values('score')
-
         # Simple rank
         def logistic_weight(k):
             return 2 / (1 + np.exp(-k)) - 1
-
         n_good = (~scores.score.isnull()).sum()
         n_bad = scores.score.isnull().sum()
         scores['weights'] = [

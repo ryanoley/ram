@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import shutil
 import unittest
@@ -34,6 +35,17 @@ class TestRunManager(unittest.TestCase):
         data[1] = [6, 7, 8, 9, 10]
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
         data.to_csv(os.path.join(results_path, '20100101_returns.csv'))
+        # All output files
+        data = pd.DataFrame()
+        data['LongPL_0'] = [1, 2, 3, 4, 5]
+        data['ShortPL_0'] = [6, 7, 8, 9, 10]
+        data['Exposure_0'] = [10, 10, 10, 10, 0]
+        data['LongPL_1'] = [5, 4, 3, 2, 1]
+        data['ShortPL_1'] = [25, 24, 23, 22, 21]
+        data['Exposure_1'] = [40, 40, 40, 40, 0]
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
+        data.to_csv(os.path.join(results_path, '20100101_all_output.csv'))
+        # More returns
         data = pd.DataFrame()
         data[0] = [1, 2, 3, 4, 5]
         data[1] = [6, 7, 8, 9, 10]
@@ -45,64 +57,106 @@ class TestRunManager(unittest.TestCase):
             1: {'stat1': 20, 'stat2': 40}}
         with open(os.path.join(results_path, '20100101_stats.json'), 'w') as f:
             json.dump(stats, f)
-        f.close()
         stats = {
             0: {'stat1': 55, 'stat2': 75},
             1: {'stat1': 65, 'stat2': 95}}
         with open(os.path.join(results_path, '20100106_stats.json'), 'w') as f:
             json.dump(stats, f)
-        f.close()
         # Create a meta file
         meta = {'description': 'Test data', 'start_time': '2010-01-01',
                 'completed': True}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
-        f.close()
         # Create column params
         params = {0: {'p1': 10, 'p2': 20}, 1: {'p1': 20, 'p2': 30}}
         with open(os.path.join(run_path, 'column_params.json'), 'w') as f:
             json.dump(params, f)
-        f.close()
+
+    def test_post_drop_params_filter(self):
+        keep_cols = ['1']
+        column_params = {'0': {'p1': 10, 'p2': 20}, '1': {'p1': 20, 'p2': 30}}
+        result = post_drop_params_filter(keep_cols, column_params)
+        benchmark = {'1': {'p2': 30, 'p1': 20}}
+        self.assertDictEqual(result, benchmark)
+
+    def test_import_return_frame_with_drop_params(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          drop_params=[('p1', 10)],
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        data = pd.DataFrame()
+        data['0'] = [1, 2, 3, 4, 5.] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data.index = convert_date_array(data.index)
+        data = data.drop('0', axis=1)
+        assert_frame_equal(run1.returns, data)
+        benchmark = {'1': {'p2': 30, 'p1': 20}}
+        self.assertDictEqual(run1.column_params, benchmark)
 
     def test_import_return_frame(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1)
-        run1.import_return_frame(path=self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.] * 2
         data['1'] = [6, 7, 8, 9, 10.] * 2
         data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=1)
-        run1.import_return_frame(path=self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=1,
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.]
         data['1'] = [6, 7, 8, 9, 10.]
-        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(6, 11)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
 
+    def test_import_long_short_returns(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          simulation_data_path=self.base_path)
+        run1.import_long_short_returns()
+        result = run1.long_short_returns
+        benchmark = pd.Series(
+            [0.1, 0.2, 0.3, 0.4, 0.5],
+            index=['2010-01-{0:02d}'.format(i) for i in range(1, 6)],
+            name='LongRet_0')
+        assert_array_equal(result.LongRet_0.values, benchmark.values)
+
     def test_import_stats(self):
-        run1 = RunManager('TestStrategy', 'run_0001')
-        run1.import_stats(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001',
+                          simulation_data_path=self.base_path)
+        run1.import_stats()
 
     def test_import_meta(self):
-        run1 = RunManager('TestStrategy', 'run_0001')
-        run1.import_meta(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001',
+                          simulation_data_path=self.base_path)
+        run1.import_meta()
         benchmark = {'start_time': '2010-01-01', 'description': 'Test data',
                      'completed': True}
         self.assertDictEqual(run1.meta, benchmark)
 
     def test_import_column_params(self):
-        run1 = RunManager('TestStrategy', 'run_0001')
-        run1.import_column_params(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001',
+                          simulation_data_path=self.base_path)
+        run1.import_column_params()
+
+    def Xtest_analyze_returns(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        run1.import_column_params()
+        run1.analyze_returns(drop_params=[('p1', 20)])
 
     def test_analyze_parameters(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0)
-        run1.import_return_frame(path=self.base_path)
-        run1.import_column_params(self.base_path)
-        run1.import_meta(self.base_path)
-        run1.import_stats(self.base_path)
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        run1.import_column_params()
+        run1.import_meta()
+        run1.import_stats()
         result = run1.analyze_parameters()
         self.assertEqual(result.shape[0], 4)
         # Now drop some
@@ -111,6 +165,15 @@ class TestRunManager(unittest.TestCase):
         self.assertEqual(result.shape[0], 2)
         benchmark = pd.Series(['10', '20'], name='Val')
         assert_series_equal(result.Val, benchmark)
+
+    def test_parameter_correlations(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        run1.import_column_params()
+        run1.import_meta()
+        run1.import_stats()
+        result = run1.parameter_correlations('p2')
 
     def test_filter_classified_params(self):
         cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
@@ -238,6 +301,7 @@ class TestRunManager(unittest.TestCase):
         benchmark['RunDate'] = ['2010-01-01']
         benchmark['Completed'] = True
         benchmark['Description'] = ['Test data']
+        benchmark['Starred'] = ''
         assert_frame_equal(result, benchmark)
 
     def test_get_quarterly_rets(self):
@@ -247,6 +311,15 @@ class TestRunManager(unittest.TestCase):
         data['Ret2'] = range(5, -5, -1)
         result = get_quarterly_rets(data, 'Ret1')
         self.assertEqual(result.values[0].tolist(), [10, 35])
+
+    def test_add_note(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          simulation_data_path=self.base_path)
+        run1.add_note('This is a test note')
+        time.sleep(2)
+        run1.add_note('This is a second test note')
+        result = run1.get_notes()
+        self.assertEqual(result.shape[0], 2)
 
     def tearDown(self):
         shutil.rmtree(self.base_path)

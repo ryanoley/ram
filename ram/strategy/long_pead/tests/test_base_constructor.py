@@ -34,15 +34,6 @@ class TestBaseConstructor(unittest.TestCase):
         })
         self.data['Date'] = convert_date_array(self.data.Date)
 
-    def test_get_position_sizes_dollars(self):
-        cons = ConstructorTest(2800)
-        scores = {'AAPL': 4, 'IBM': 10, 'TSLA': -10, 'BAC': 4, 'GS': np.nan}
-        result = cons._get_position_sizes_dollars(scores)
-        result.pop('GS')
-        benchmark = {'AAPL': 400.0, 'IBM': 1000.0,
-                     'TSLA': -1000.0, 'BAC': 400.0}
-        self.assertDictEqual(result, benchmark)
-
     def test_filter_seccodes(self):
         data = {
             dt.date(2010, 1, 1): {'1': 4, '2': 5, '3': 0.1},
