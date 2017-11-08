@@ -109,7 +109,10 @@ if __name__ == '__main__':
         # Setup
         setup_file_path = os.path.join(dest, 'setup.py')
         _make_setup_file(new_dirs, setup_file_path)
-        subprocess.call(['python', setup_file_path, 'install'])
+        FNULL = open(os.devnull, 'w')
+        retcode = subprocess.call(
+            ['sudo', 'python', setup_file_path, 'install'],
+            stdout=FNULL, stderr=subprocess.STDOUT)
         print('[Manager] - SETUP Complete')
 
     elif args.delete_strategy_source_code:
