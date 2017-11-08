@@ -1,3 +1,8 @@
+
+@echo off
+
+SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
+
 set SQLCMDAUTH="%SQLCMDPATH%\sqlcmd" -S 192.168.2.8 -d ram -U ramuser -P 183madison -s "|"
 
 set SCRIPTS=%GITHUB%\ram\data\ram_sql_tables\gvkey_idc_mapping
