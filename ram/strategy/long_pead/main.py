@@ -41,45 +41,28 @@ class LongPeadStrategy(Strategy):
             output_params[col_ind] = params
         return output_params
 
+    def process_raw_data(self, data, time_index, market_data=None):
+        self.data.add_data(data, time_index)
+        self.data.add_market_data(market_data)
+
     def run_index(self, time_index):
-
-        # Attach market data first since it is merged with equity data
-        self.data.add_market_data(self.read_market_index_data())
-        # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index), time_index)
-
-        # Restart Functionality: check if file already run.
-        if time_index <= self._max_run_time_index:
-            return
-
         # HACK: If training and writing, don't train until 2007, but stack data
-        if self._write_flag and (int(self._prepped_data_files[time_index][:4]) < 2007):
+        if self._write_flag and \
+                (int(self._prepped_data_files[time_index][:4]) < 2007):
             return
-
-        # HACK
-        if self._gcp_implementation:
-            self.signals.NJOBS = -1
-
         args_data = make_arg_iter(self.data.get_args())
         args_signals = make_arg_iter(self.signals.get_args())
         args_constructor = make_arg_iter(self.constructor.get_args())
-
         i = 0
         for ad in args_data:
-
             self.data.prep_data(time_index, **ad)
-
             for as_ in args_signals:
-
                 self.signals.generate_signals(self.data, **as_)
-
                 for ac in args_constructor:
                     result, stats = self.constructor.get_daily_pl(
                         self.data, self.signals, **ac)
-
                     self._capture_output(result, stats, i)
                     i += 1
-
         self.write_index_results(self.output_returns, time_index)
         self.write_index_results(self.output_all_output,
                                  time_index,
