@@ -102,17 +102,15 @@ class Strategy(object):
         self._shutdown_simulation()
 
     def model_cache(self):
-        self._import_run_meta_for_restart(run_name)
         self._print_prepped_data_meta()
         self._get_prepped_data_file_names()
-        self._get_max_run_time_index_for_restart()
         market_data = self.read_market_index_data()
         for time_index in tqdm(range(len(self._prepped_data_files))):
             self.process_raw_data(
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
-        return self.write_cached_model(time_index)
+        return self.cache_model()
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -577,6 +575,10 @@ def make_argument_parser(Strategy):
     parser.add_argument(
         '-r', '--restart_run', type=str, default=None,
         help='If something craps out, use this tag. Send in run name'
+    )
+    parser.add_argument(
+        '-c', '--cache_run', type=str, default=None,
+        help='Invokes cache_models after stacking all data'
     )
 
     # Data Construction Commands
