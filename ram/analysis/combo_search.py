@@ -67,11 +67,9 @@ class CombinationSearch(object):
                 test_data = self.runs.returns.iloc[t2:t3].copy()
                 test_data = test_data.fillna(0)
                 # Search
-                test_results, train_scores, combs = \
-                    self._fit_top_combinations(
-                        t2, train_data, test_data, criteria)
-                self._process_results(
-                    t2, test_results, train_scores, combs)
+                test_results, train_scores, combs = self._fit_top_combinations(
+                    t2, train_data, test_data, criteria)
+                self._process_results(t2, test_results, train_scores, combs)
             self._process_epoch_stats(ep)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -128,7 +126,8 @@ class CombinationSearch(object):
         if time_index in self.best_results_combs:
             current_combs = self.best_results_combs[time_index]
             for c in current_combs:
-                inds = np.sum(combs == c, axis=1) != 5
+                inds = (np.sum(combs == c, axis=1) !=
+                        self.params['strats_per_port'])
                 combs = combs[inds]
         return combs
 

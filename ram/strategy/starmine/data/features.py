@@ -161,6 +161,21 @@ def act_vs_est_missbeat(data, est_col, act_col, out_name, fill_low_est=False):
     data = data.merge(miss_beat, how='left')
     return data
 
+def get_industry_binaries(data):
+    assert('GGROUP' in data.columns)
+    data = data.copy()
+    data['Ind'] = [str(x)[:2] for x in data.GGROUP]
+    inds = data.Ind.unique()
+
+    for i in inds:
+        if i == 'na':
+            continue
+        data['Ind{}'.format(i)] = 0
+        data.loc[data.Ind == i, 'Ind{}'.format(i)] = 1
+    
+    data.drop(labels='Ind', axis=1, inplace=True)
+    return data
+    
 
 ############# RESPONSES ##################
 

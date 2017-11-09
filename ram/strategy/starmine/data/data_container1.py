@@ -21,8 +21,9 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20],
-            'training_qtrs': [-99]
+            'response_days': [19],
+            'training_qtrs': [-99],
+            'ind_vars': [False]
         }
 
     def _set_market_pricing_dicts(self):
@@ -72,6 +73,9 @@ class DataContainer1(object):
 
         # SPLITS
         data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
+
+        # Industry Binary Vars
+        data = get_industry_binaries(data)
 
         # Previous Earnings Return
         data = get_previous_ern_return(data,
@@ -153,7 +157,7 @@ class DataContainer1(object):
 
         return data
 
-    def prep_data(self, response_days, training_qtrs):
+    def prep_data(self, response_days, training_qtrs, ind_vars):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -164,6 +168,9 @@ class DataContainer1(object):
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
         train_data = self._add_response_variables(train_data, response_days)
+        if ind_vars:
+            ind_cols = [x for x in train_data.columns if x[:3] == 'Ind']
+            self.features = list(set(self.features).union(set(ind_cols)))
 
         self.train_data = train_data
         self.test_data = test_data
@@ -180,7 +187,6 @@ class DataContainer1(object):
         self.liquidity_dict = make_variable_dict(daily_pl, 'AvgDolVol')
         self.ind_groups = self._make_group_dict(daily_pl)
         self.hold_per = response_days
-        
 
     def _set_features(self):
         features = [

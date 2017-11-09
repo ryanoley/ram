@@ -88,19 +88,14 @@ class Portfolio(object):
         for position in self.positions.values():
             position.close_position()
 
-    def dd_filter(self, drawdown_pct=-.05, dd_from_zero=False):
+    def dd_filter(self, drawdown_pct=-.05):
         dd_seccodes = set()
         if np.abs(drawdown_pct) > 1:
             return dd_seccodes
-        for position in self.positions.values():
-            if position.exposure != 0:
-                if dd_from_zero:
-                    drawdown = position.cumulative_return
-                else:
-                    drawdown = (position.cumulative_return -
-                                    position.return_peak)
 
-                if drawdown <= drawdown_pct:
+        for position in self.positions.values():
+            if ((position.exposure != 0) &
+                (position.cumulative_return <= drawdown_pct)):
                     dd_seccodes.add(position.symbol)
 
         return dd_seccodes
