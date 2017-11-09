@@ -209,7 +209,8 @@ class CombinationSearch(object):
         self.combo_run_dir = os.path.join(self._combo_search_output_dir,
                                           'combo_run_{0:04d}'.format(new_ind))
         if self.write_flag and not self.gcp_implementation:
-            os.mkdir(self.combo_run_dir)
+            if not os.path.isdir(self.combo_run_dir):
+                os.mkdir(self.combo_run_dir)
 
     def _init_output(self):
         path1 = os.path.join(self.combo_run_dir, 'all_returns.csv')
