@@ -144,6 +144,8 @@ class DataConstructor(object):
                     filter_date=adj_filter_date,
                     filter_args=self.filter_args_univ)
                 data['TestFlag'] = data.Date > adj_filter_date
+                if len(data[data.TestFlag]) == 0:
+                    continue
                 self._clean_write_output(data, file_name)
             # Update meta params
             self._update_meta_file(data.Date.max(), created_files)
