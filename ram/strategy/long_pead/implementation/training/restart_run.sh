@@ -24,10 +24,10 @@ then
 	sudo python $GITHUB/ram/setup.py clean --all
 	sleep 1
 	# Remove long_pead from site-packages directory
-	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py -c --delete_strategy_source_code
+	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/training/manage_strategy_source_code.py -c --delete_strategy_source_code
 	sleep 1
 	# Copy run source code from simulations directory, and build to site-packages
-	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/manage_strategy_source_code.py -c -cr $2
+	python $GITHUB/ram/ram/strategy/long_pead_TEMP/implementation/training/manage_strategy_source_code.py -c -cr $2
 	sleep 1
 	# Restart run
 	python $GITHUB/ram/ram/strategy/long_pead/main.py -c -r $2
@@ -45,7 +45,7 @@ then
 
 elif [ $1 == "list" ]
 then
-	python $GITHUB/ram/ram/strategy/long_pead/implementation/manage_strategy_source_code.py -c -lr
+	python $GITHUB/ram/ram/strategy/long_pead/implementation/training/manage_strategy_source_code.py -c -lr
 
 else
 	echo "Incorrect arguments"

@@ -19,15 +19,18 @@ python ram/data/data_gcp_manager.py -s 4 -lv         # List all version for stra
 python ram/data/data_gcp_manager.py -s 4 -v 17 -up   # Upload
 ```
 
-3. Restart run, which will delete the final file, re-stack data, re-fit model and report most up-to-date results.
+3. Restart run, which will delete the final file, re-stack data, re-fit model and report most up-to-date results. Because the stacking and training can take some time for each model, one can spin up multiple instances. Currently, I think one can get away with running 16 cores, but be sure to use the `highmem` version of this image.
 
 ```
-bash ram/strategy/long_pead/implementation/rerun.sh list      # List all runs
-bash ram/strategy/long_pead/implementation/rerun.sh run 10    # List all runs
+bash ram/strategy/long_pead/implementation/training/restart_run.sh list      # List all runs
+bash ram/strategy/long_pead/implementation/training/restart_run.sh run 10    # List all runs
 ```
 
+4. Re-run ComboSearch to from Python Notebook:
 
-4. Re-run ComboSearch to get top_params
+```
+ram/strategy/long_pead/implementation/Current StatArb Implementation.ipynb
+```
 
 5. Run xxx.py to train models
 

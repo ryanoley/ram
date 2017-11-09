@@ -4,9 +4,15 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from tqdm import tqdm
+import cStringIO
 
 from StringIO import StringIO
 from google.cloud import storage
+
+# For plotting and writing to file. use('agg') is to disable display
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 from ram.analysis.run_aggregator import RunAggregator
 from ram import config
@@ -44,11 +50,12 @@ class CombinationSearch(object):
         self.runs.add_run(run)
 
     def start(self, epochs=20, criteria='sharpe'):
-        # Merge
+        # Import all runs
+        self.runs.aggregate_returns()
+        # If writing out results, setup
         if self.write_flag:
             self._create_output_dir()
             self._init_output()
-        self.runs.aggregate_returns()
         self._create_results_objects(self.runs.returns)
         self._create_training_indexes(self.runs.returns)
 
@@ -64,7 +71,6 @@ class CombinationSearch(object):
                     t2, train_data, test_data, criteria)
                 self._process_results(t2, test_results, train_scores, combs)
             self._process_epoch_stats(ep)
-
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -202,7 +208,8 @@ class CombinationSearch(object):
         self.combo_run_dir = os.path.join(self._combo_search_output_dir,
                                           'combo_run_{0:04d}'.format(new_ind))
         if self.write_flag and not self.gcp_implementation:
-            os.mkdir(self.combo_run_dir)
+            if not os.path.isdir(self.combo_run_dir):
+                os.mkdir(self.combo_run_dir)
 
     def _init_output(self):
         path1 = os.path.join(self.combo_run_dir, 'all_returns.csv')
@@ -277,6 +284,12 @@ class CombinationSearch(object):
             best_combs = self.runs.returns.columns[best_combs]
             best_combs = {r: self.runs.column_params[r] for r in best_combs}
 
+            # Plotted figure of best results
+            plt.figure()
+            plt.plot(self.best_results_rets.dropna().cumsum())
+            plt.title('Best results')
+            plt.grid()
+
             if self.gcp_implementation:
                 to_csv_cloud(self.epoch_stats, os.path.join(
                     self.combo_run_dir, 'epoch_stats.csv'),
@@ -297,6 +310,13 @@ class CombinationSearch(object):
                 write_json_cloud(self.params, os.path.join(
                     self.combo_run_dir, 'combo_serach_params.json'),
                     self._bucket)
+                # Matplotlib
+                sio = cStringIO.StringIO()
+                plt.savefig(sio, format='png')
+                blob = self._bucket.blob(os.path.join(
+                    self.combo_run_dir, 'best_results.png'))
+                blob.upload_from_string(sio.getvalue())
+
             else:
                 self.epoch_stats.to_csv(os.path.join(
                     self.combo_run_dir, 'epoch_stats.csv'))
@@ -311,6 +331,11 @@ class CombinationSearch(object):
                 # This is re-written because seed_ind is constantly updated
                 write_json(self.params, os.path.join(
                     self.combo_run_dir, 'combo_serach_params.json'))
+                # Matplotlib plot
+                plt.savefig(os.path.join(
+                    self.combo_run_dir, 'best_results.png'))
+            # Flush matplotlib
+            plt.close('all')
         return
 
 

@@ -2,6 +2,15 @@ import os
 import json
 import pandas as pd
 
+
+from ram.strategy.long_pead.main import LongPeadStrategy
+
+# Get data and signals components
+data = LongPeadStrategy.data
+signals = LongPeadStrategy.signals
+
+
+"""
 from sklearn.ensemble import ExtraTreesClassifier
 
 from gearbox import convert_date_array
@@ -66,11 +75,4 @@ for sector in config.sectors:
                 drop_market_variables=params['drop_market_variables']
                 )
 
-
-
-
-
-
-
-
-
+"""
