@@ -8,8 +8,8 @@ import datetime as dt
 from pandas.util.testing import assert_frame_equal
 from numpy.testing import assert_array_equal
 
-from ram.analysis.run_manager import RunManager
 from ram.analysis.combo_search import CombinationSearch
+from ram.analysis.run_manager import RunManager
 
 
 class TestCombinationSearch(unittest.TestCase):

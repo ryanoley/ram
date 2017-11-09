@@ -4,9 +4,15 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from tqdm import tqdm
+import cStringIO
 
 from StringIO import StringIO
 from google.cloud import storage
+
+# For plotting and writing to file. use('agg') is to disable display
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 from ram.analysis.run_aggregator import RunAggregator
 from ram import config
@@ -67,7 +73,6 @@ class CombinationSearch(object):
                 self._process_results(
                     t2, test_results, train_scores, combs)
             self._process_epoch_stats(ep)
-
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -279,6 +284,12 @@ class CombinationSearch(object):
             best_combs = self.runs.returns.columns[best_combs]
             best_combs = {r: self.runs.column_params[r] for r in best_combs}
 
+            # Plotted figure of best results
+            plt.figure()
+            plt.plot(self.best_results_rets.dropna().cumsum())
+            plt.title('Best results')
+            plt.grid()
+
             if self.gcp_implementation:
                 to_csv_cloud(self.epoch_stats, os.path.join(
                     self.combo_run_dir, 'epoch_stats.csv'),
@@ -299,6 +310,13 @@ class CombinationSearch(object):
                 write_json_cloud(self.params, os.path.join(
                     self.combo_run_dir, 'combo_serach_params.json'),
                     self._bucket)
+                # Matplotlib
+                sio = cStringIO.StringIO()
+                plt.savefig(sio, format='png')
+                blob = self._bucket.blob(os.path.join(
+                    self.combo_run_dir, 'best_results.png'))
+                blob.upload_from_string(sio.getvalue())
+
             else:
                 self.epoch_stats.to_csv(os.path.join(
                     self.combo_run_dir, 'epoch_stats.csv'))
@@ -313,6 +331,11 @@ class CombinationSearch(object):
                 # This is re-written because seed_ind is constantly updated
                 write_json(self.params, os.path.join(
                     self.combo_run_dir, 'combo_serach_params.json'))
+                # Matplotlib plot
+                plt.savefig(os.path.join(
+                    self.combo_run_dir, 'best_results.png'))
+            # Flush matplotlib
+            plt.close('all')
         return
 
 
