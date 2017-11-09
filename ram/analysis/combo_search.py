@@ -44,11 +44,12 @@ class CombinationSearch(object):
         self.runs.add_run(run)
 
     def start(self, epochs=20, criteria='sharpe'):
-        # Merge
+        # Import all runs
+        self.runs.aggregate_returns()
+        # If writing out results, setup
         if self.write_flag:
             self._create_output_dir()
             self._init_output()
-        self.runs.aggregate_returns()
         self._create_results_objects(self.runs.returns)
         self._create_training_indexes(self.runs.returns)
 

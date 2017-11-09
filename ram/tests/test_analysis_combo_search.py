@@ -42,6 +42,14 @@ class TestCombinationSearch(unittest.TestCase):
             os.path.dirname(os.path.realpath(__file__)), 'combo_search')
 
     def test_start(self):
+        comb = CombinationSearch(write_flag=False,
+                                 combo_search_output_dir=self.output_dir,
+                                 checkpoint_n_epochs=1)
+        comb.params['n_periods'] = 3
+        comb.add_run(self.run1)
+        comb.add_run(self.run2)
+        comb.start(criteria='sharpe')
+        ##
         comb = CombinationSearch(write_flag=True,
                                  combo_search_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
