@@ -9,10 +9,10 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from gearbox import convert_date_array
-from ram.strategy.long_pead.implementation.get_data import *
+from ram.strategy.long_pead.implementation.live.get_data import *
 
 
-class TestImplementationTrainingDataPull(unittest.TestCase):
+class TestImplementationDailyDataPull(unittest.TestCase):
 
     def _delete_path(self):
         path = os.path.join(self.data_dir, 'LongPeadStrategy')
@@ -24,22 +24,26 @@ class TestImplementationTrainingDataPull(unittest.TestCase):
         self._delete_path()
 
     def test_write_sector_data(self):
-        cons = ImplementationTrainingDataPull(imp_data_dir=self.data_dir)
+        import pdb; pdb.set_trace()
+        cons = ImplementationDailyDataPull(imp_data_dir=self.data_dir)
         data = pd.DataFrame({'V1': range(10)})
         cons.write_sector_data(data, '10')
         cons.write_sector_data(data, '10')
-        cons.write_sector_data(data, '10')
+        cons.write_sector_data(data, '30')
+        path = os.path.join(
+            self.data_dir, 'LongPeadStrategy', 'daily',
+            'raw_data_sector_10.csv')
+        assert os.path.isfile(path)
+        stamp = dt.datetime.now().strftime('%Y%m%d')
+        path = os.path.join(
+            self.data_dir, 'LongPeadStrategy', 'daily', 'archive',
+            'raw_data_sector_10_moved_{}.csv'.format(stamp))
+        assert os.path.isfile(path)
         path = os.path.join(self.data_dir,
                             'LongPeadStrategy',
-                            'training',
-                            'raw_sector_10.csv')
+                            'daily',
+                            'raw_data_sector_30.csv')
         assert os.path.isfile(path)
-
-    def test_get_ids_query_dates(self):
-        cons = ImplementationTrainingDataPull(imp_data_dir=self.data_dir)
-        result = cons.get_ids_query_dates()
-        self.assertEqual(len(result), 13)
-        self.assertIsInstance(result[1], dt.date)
 
     def tearDown(self):
         self._delete_path()

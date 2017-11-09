@@ -25,13 +25,15 @@ PACKAGES = [
     'ram/strategy/long_pead/constructor',
     'ram/strategy/long_pead/data',
     'ram/strategy/long_pead/implementation',
+    'ram/strategy/long_pead/implementation/live',
+    'ram/strategy/long_pead/implementation/training',
     'ram/strategy/long_pead/signals',
     'ram/strategy/momentum',
     'ram/strategy/reversion',
     'ram/strategy/vxx',
     'ram/strategy/yearend',
     'ram/utils',
-    
+
     'ram/strategy/starmine',
     'ram/strategy/starmine/constructor',
     'ram/strategy/starmine/data',
