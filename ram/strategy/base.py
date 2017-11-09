@@ -86,7 +86,6 @@ class Strategy(object):
         self._shutdown_simulation()
 
     def restart(self, run_name):
-        import pdb; pdb.set_trace()
         self._import_run_meta_for_restart(run_name)
         self._print_prepped_data_meta()
         self._get_prepped_data_file_names()
