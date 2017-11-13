@@ -13,7 +13,7 @@ class PostErnStrategy(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
-    constructor = PortfolioConstructor1(5e6)
+    constructor = PortfolioConstructor1(10e6)
 
     def get_column_parameters(self):
         """
@@ -33,20 +33,11 @@ class PostErnStrategy(Strategy):
             output_params[col_ind] = params
         return output_params
 
+    def process_raw_data(self, data, time_index, market_data=None):
+        self.data.add_data(data)
+
     def run_index(self, time_index):
-
-        # Import, process, and stack data
-        self.data.add_data(self.read_data_from_index(time_index))
-
-        if len(self.data._processed_train_data) == 0:
-            return
-        if len(self.data._processed_test_data) == 0:
-            return        
-
-        # Restart Functionality: check if file already run.
-        if time_index <= self._max_run_time_index:
-            return
-        if time_index < 8:
+        if self._write_flag and time_index < 8:
             return
 
         args_data = make_arg_iter(self.data.get_args())
