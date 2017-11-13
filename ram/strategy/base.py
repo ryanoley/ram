@@ -457,7 +457,7 @@ class Strategy(object):
             data.SecCode = data.SecCode.astype(int).astype(str)
             return data
         except:
-            return None
+            return pd.DataFrame()
 
     def write_index_results(self, returns_df, index, suffix='returns'):
         """
