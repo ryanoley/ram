@@ -76,8 +76,13 @@ class Strategy(object):
         self._copy_source_code()
         self._create_meta_file(description)
         self._write_column_parameters_file()
-        for i in tqdm(range(len(self._prepped_data_files))):
-            self.run_index(i)
+        market_data = self.read_market_index_data()
+        for time_index in tqdm(range(len(self._prepped_data_files))):
+            self.process_raw_data(
+                self.read_data_from_index(time_index),
+                time_index,
+                market_data.copy())
+            self.run_index(time_index)
         self._shutdown_simulation()
 
     def restart(self, run_name):
@@ -85,9 +90,27 @@ class Strategy(object):
         self._print_prepped_data_meta()
         self._get_prepped_data_file_names()
         self._get_max_run_time_index_for_restart()
-        for i in tqdm(range(len(self._prepped_data_files))):
-            self.run_index(i)
+        market_data = self.read_market_index_data()
+        for time_index in tqdm(range(len(self._prepped_data_files))):
+            self.process_raw_data(
+                self.read_data_from_index(time_index),
+                time_index,
+                market_data.copy())
+            if time_index < self._restart_time_index:
+                continue
+            self.run_index(time_index)
         self._shutdown_simulation()
+
+    def model_cache(self):
+        self._print_prepped_data_meta()
+        self._get_prepped_data_file_names()
+        market_data = self.read_market_index_data()
+        for time_index in tqdm(range(len(self._prepped_data_files))):
+            self.process_raw_data(
+                self.read_data_from_index(time_index),
+                time_index,
+                market_data.copy())
+        return self.cache_model()
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -243,10 +266,11 @@ class Strategy(object):
         prepped_data_indexes = np.array([int(x.split('_')[0]) for x
                                          in self._prepped_data_files])
         # Check if run is necessary
-        if max_returns_data == prepped_data_indexes:
+        if max_returns_data == prepped_data_indexes[-1]:
             print('No updating of run necessary')
             sys.exit()
-        self._max_run_time_index = sum(max_returns_data > prepped_data_indexes)
+        self._restart_time_index = \
+            sum(max_returns_data >= prepped_data_indexes)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -304,6 +328,13 @@ class Strategy(object):
         self._prepped_data_files.sort()
 
     # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @abstractmethod
+    def process_raw_data(self, data, time_index, market_data=None):
+        """
+        Use this method call
+        """
+        raise NotImplementedError('Strategy.process_raw_data')
 
     @abstractmethod
     def run_index(self, index):
@@ -415,15 +446,18 @@ class Strategy(object):
         return data
 
     def read_market_index_data(self):
-        dpath = os.path.join(self._prepped_data_dir,
-                             'market_index_data.csv')
-        if self._gcp_implementation:
-            data = read_csv_cloud(dpath, self._bucket)
-        else:
-            data = pd.read_csv(dpath)
-        data.Date = convert_date_array(data.Date)
-        data.SecCode = data.SecCode.astype(int).astype(str)
-        return data
+        try:
+            dpath = os.path.join(self._prepped_data_dir,
+                                 'market_index_data.csv')
+            if self._gcp_implementation:
+                data = read_csv_cloud(dpath, self._bucket)
+            else:
+                data = pd.read_csv(dpath)
+            data.Date = convert_date_array(data.Date)
+            data.SecCode = data.SecCode.astype(int).astype(str)
+            return data
+        except:
+            return None
 
     def write_index_results(self, returns_df, index, suffix='returns'):
         """
@@ -541,6 +575,10 @@ def make_argument_parser(Strategy):
     parser.add_argument(
         '-r', '--restart_run', type=str, default=None,
         help='If something craps out, use this tag. Send in run name'
+    )
+    parser.add_argument(
+        '-c', '--cache_run', type=str, default=None,
+        help='Invokes cache_models after stacking all data'
     )
 
     # Data Construction Commands

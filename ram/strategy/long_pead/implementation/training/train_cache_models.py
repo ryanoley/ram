@@ -1,13 +1,35 @@
 import os
 import json
+import inspect
 import pandas as pd
-
 
 from ram.strategy.long_pead.main import LongPeadStrategy
 
 # Get data and signals components
 data = LongPeadStrategy.data
 signals = LongPeadStrategy.signals
+
+# Daily pipeline
+
+skl_model = load_skl_model()
+
+data =
+
+signals.generate_signals()
+
+
+
+# Import best params
+
+
+run_name = 'run_'
+
+
+
+
+# Use this to get
+inspect.getargspec
+
 
 
 """

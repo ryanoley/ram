@@ -2,13 +2,13 @@ import numpy as np
 
 from sklearn.ensemble import ExtraTreesClassifier
 
-from ram import config
+from ram.strategy.long_pead.signals.base import BaseSignal
 
 
-class SignalModel1(object):
+class SignalModel1(BaseSignal):
 
-    def __init__(self, njobs=config.SKLEARN_NJOBS):
-        self.NJOBS = njobs
+    def __init__(self):
+        self.skl_model = ExtraTreesClassifier(n_jobs=-1)
 
     def get_args(self):
         return {
@@ -28,6 +28,9 @@ class SignalModel1(object):
             'drop_starmine': [True, False],
             'drop_market_variables': ['constrained']
         }
+
+    def get_skl_model(self):
+        return self.skl_model
 
     def generate_signals(self,
                          data_container,
@@ -73,13 +76,12 @@ class SignalModel1(object):
                 'LAG1_SIINSTOWNERSHIP']
             features = [x for x in features if x not in starmine_vars]
 
-        clf = ExtraTreesClassifier(n_jobs=self.NJOBS, **model_params)
+        self.skl_model.set_params(**model_params)
+        self.skl_model.fit(X=train_data[features],
+                           y=train_data['Response'])
 
-        clf.fit(X=train_data[features],
-                y=train_data['Response'])
-
-        preds = clf.predict_proba(test_data[features])
-        test_data['preds'] = _get_preds(clf, preds)
+        preds = self.skl_model.predict_proba(test_data[features])
+        test_data['preds'] = _get_preds(self.skl_model, preds)
         self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
 
 
