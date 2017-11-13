@@ -14,8 +14,10 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-from ram.analysis.run_aggregator import RunAggregator
+from gearbox import convert_date_array
+
 from ram import config
+from ram.analysis.run_aggregator import RunAggregator
 
 
 class CombinationSearch(object):
@@ -24,20 +26,13 @@ class CombinationSearch(object):
                  write_flag=False,
                  checkpoint_n_epochs=10,
                  combo_search_output_dir=config.COMBO_SEARCH_OUTPUT_DIR,
-                 gcp_implementation=False):
-        # Default parameters
-        self.params = {
-            'train_freq': 'm',
-            'n_periods': 12,
-            'strats_per_port': 5,
-            'n_best_ports': 5,
-            'seed_ind': 1234
-        }
-        self.runs = RunAggregator()
-        # Output related functionality
+                 gcp_implementation=False,
+                 restart_combo_name=None):
+        # Parameters regardless if new or restart
         self.write_flag = write_flag
         self.checkpoint_n_epochs = checkpoint_n_epochs
         self.gcp_implementation = gcp_implementation
+        # Output related functionality
         if self.write_flag and self.gcp_implementation:
             self._gcp_client = storage.Client()
             self._bucket = self._gcp_client.get_bucket(
@@ -45,6 +40,20 @@ class CombinationSearch(object):
             self._combo_search_output_dir = 'combo_search'
         elif self.write_flag:
             self._combo_search_output_dir = combo_search_output_dir
+        self.runs = RunAggregator()
+        # If restarting, load those parameters
+        if restart_combo_name:
+            self.combo_run_dir = os.path.join(combo_search_output_dir,
+                                              restart_combo_name)
+        else:
+            # Default parameters
+            self.params = {
+                'train_freq': 'm',
+                'n_periods': 12,
+                'strats_per_port': 5,
+                'n_best_ports': 5,
+                'seed_ind': 1234
+            }
 
     def add_run(self, run):
         self.runs.add_run(run)
@@ -57,8 +66,14 @@ class CombinationSearch(object):
             self._create_output_dir()
             self._init_output()
         self._create_results_objects(self.runs.returns)
-        self._create_training_indexes(self.runs.returns)
+        self._loop(epochs, criteria)
 
+    def restart(self, epochs=20, criteria='sharpe'):
+        self._init_restart()
+        self._loop(epochs, criteria)
+
+    def _loop(self, epochs, criteria):
+        self._create_training_indexes(self.runs.returns)
         for ep in tqdm(range(epochs)):
             for t1, t2, t3 in self._time_indexes:
                 # Penalize missing data points to keep aligned columns
@@ -159,7 +174,6 @@ class CombinationSearch(object):
         transition_indexes = np.append([0], transition_indexes)
         transition_indexes = np.append(transition_indexes,
                                        [data.shape[0]])
-
         if self.params['n_periods'] < 1:
             # Grow infinitely
             self._time_indexes = zip(
@@ -265,6 +279,7 @@ class CombinationSearch(object):
             self.best_results_combs[time_index] = combs
 
     def _process_epoch_stats(self, epoch_count):
+        # Get row index to append
         i = self.epoch_stats.shape[0]
         stat1 = self.best_results_rets.mean()[0]
         stat2 = stat1 / self.best_results_rets.std()[0]
@@ -297,6 +312,7 @@ class CombinationSearch(object):
                 to_csv_cloud(self.best_results_rets, os.path.join(
                     self.combo_run_dir, 'best_results_rets.csv'),
                     self._bucket)
+
                 write_json_cloud(scores, os.path.join(
                     self.combo_run_dir, 'best_results_scores.json'),
                     self._bucket)
@@ -308,7 +324,7 @@ class CombinationSearch(object):
                     self._bucket)
                 # This is re-written because seed_ind is constantly updated
                 write_json_cloud(self.params, os.path.join(
-                    self.combo_run_dir, 'combo_serach_params.json'),
+                    self.combo_run_dir, 'combo_search_params.json'),
                     self._bucket)
                 # Matplotlib
                 sio = cStringIO.StringIO()
@@ -330,13 +346,55 @@ class CombinationSearch(object):
                     self.combo_run_dir, 'current_top_params.json'))
                 # This is re-written because seed_ind is constantly updated
                 write_json(self.params, os.path.join(
-                    self.combo_run_dir, 'combo_serach_params.json'))
+                    self.combo_run_dir, 'combo_search_params.json'))
                 # Matplotlib plot
                 plt.savefig(os.path.join(
                     self.combo_run_dir, 'best_results.png'))
             # Flush matplotlib
             plt.close('all')
         return
+
+    def _init_restart(self):
+        path1 = os.path.join(self.combo_run_dir, 'all_returns.csv')
+        path2 = os.path.join(self.combo_run_dir, 'epoch_stats.csv')
+        path3 = os.path.join(self.combo_run_dir, 'best_results_rets.csv')
+
+        path4 = os.path.join(self.combo_run_dir, 'best_results_scores.json')
+        path5 = os.path.join(self.combo_run_dir, 'best_results_combs.json')
+        path6 = os.path.join(self.combo_run_dir, 'combo_search_params.json')
+        path7 = os.path.join(self.combo_run_dir, 'all_column_params.json')
+
+        if self.gcp_implementation:
+            self.runs.returns = read_csv_cloud(path1, self._bucket)
+            self.epoch_stats = read_csv_cloud(path2, self._bucket)
+            self.best_results_rets = read_csv_cloud(path3, self._bucket)
+
+            self.best_results_scores = read_json_cloud(path4, self._bucket)
+            self.best_results_combs = read_json_cloud(path5, self._bucket)
+            self.params = read_json_cloud(path6, self._bucket)
+            self.runs.column_params = read_json_cloud(path7, self._bucket)
+        else:
+            self.runs.returns = pd.read_csv(path1)
+            self.epoch_stats = pd.read_csv(path2)
+            self.best_results_rets = pd.read_csv(path3)
+
+            self.best_results_scores = read_json(path4)
+            self.best_results_combs = read_json(path5)
+            self.params = read_json(path6)
+            self.runs.column_params = read_json(path7)
+
+        # Process csv files with dates in indexes
+        self.runs.returns = format_dataframe(self.runs.returns, True)
+        self.epoch_stats = format_dataframe(self.epoch_stats)
+        self.best_results_rets = format_dataframe(self.best_results_rets, True)
+        # Combs and scores must have integer keys and numpy arrays
+        # in values
+        self.best_results_scores = {
+            int(x): np.array(y) for x, y
+            in self.best_results_scores.iteritems()}
+        self.best_results_combs = {
+            int(x): np.array(y) for x, y
+            in self.best_results_combs.iteritems()}
 
 
 # ~~~~~~ Read/Write functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -370,3 +428,11 @@ def read_csv_cloud(path, bucket):
 def to_csv_cloud(data, path, bucket):
     blob = bucket.blob(path)
     blob.upload_from_string(data.to_csv())
+
+
+def format_dataframe(data, date_index=False):
+    data = data.set_index(data.columns[0])
+    del data.index.name
+    if date_index:
+        data.index = convert_date_array(data.index)
+    return data
