@@ -72,6 +72,7 @@ class DataContainerPairs(object):
         """
         Takes in raw data, processes it and caches it
         """
+        XXX = 100
         if self._pairs_flag:
             # Pair data
             pair_info, spreads, zscores = PairSelector().rank_pairs(

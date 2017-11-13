@@ -1,8 +1,15 @@
+import os
 import sys
+import imp
+import json
+import pickle
+import inspect
 import itertools
 import pandas as pd
 import datetime as dt
+from sklearn.externals import joblib
 
+from ram import config
 from ram.strategy.base import Strategy
 
 from ram.strategy.long_pead.data.data_container_pairs import DataContainerPairs
@@ -41,9 +48,7 @@ class LongPeadStrategy(Strategy):
             output_params[col_ind] = params
         return output_params
 
-    def process_raw_data(self, data, time_index, market_data=None):
-        self.data.add_data(data, time_index)
-        self.data.add_market_data(market_data)
+    # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def run_index(self, time_index):
         # HACK: If training and writing, don't train until 2007, but stack data
@@ -69,7 +74,89 @@ class LongPeadStrategy(Strategy):
                                  'all_output')
         self.write_index_stats(self.output_stats, time_index)
 
+    # ~~~~~~ Implementation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def implementation_training(self, run_name):
+        """
+        As of now this is a hard-coded implementation!
+        """
+        if isinstance(run_name, list):
+            run_name = run_name[0]
+        # Load combos
+        if self._gcp_implementation:
+            path = os.path.join('combo_search',
+                                'combo_run_0011', 'current_top_params.json')
+            blob = bucket.get_blob(path)
+            params = json.loads(blob.download_as_string())
+        else:
+            path = os.path.join(config.COMBO_SEARCH_OUTPUT_DIR,
+                                'combo_run_0001', 'current_top_params.json')
+            params = json.load(open(path, 'r'))
+        # Check if run is needed
+        column_params = self._check_run_get_params(run_name, params)
+        # Stack needed data
+        self._implementation_training_stack_run_data(run_name)
+        # With unique runs, import data, import
+        for key, cparams in column_params.iteritems():
+            data_params = self._get_data_params(cparams)
+            signals_params = self._get_signals_params(cparams)
+            time_index = len(self._prepped_data_files) - 1
+            time_index = 1  ## TEMP
+            self.data.prep_data(time_index, **data_params)
+            self.signals.generate_signals(self.data, **signals_params)
+            model = self.signals.get_skl_model()
+            # Cache model
+            if self._gcp_implementation:
+                model_cache_path = os.path.join(
+                    'combo_search', 'combo_run_0011', key+'.pkl')
+                blob = self._bucket.blob(model_cache_path)
+                blob.upload_from_string(pickle.dumps(model))
+            else:
+                model_cache_path = os.path.join(
+                    config.COMBO_SEARCH_OUTPUT_DIR,
+                    'combo_run_0001',
+                    key+'.pkl')
+                joblib.dump(model, model_cache_path)
+
+    def _check_run_get_params(self, run_name, params):
+        # Process runs
+        run_map = {}
+        for key in params.keys():
+            key2 = key.split('_')[1] + '_' + key.split('_')[2]
+            if key2 not in run_map:
+                run_map[key2] = []
+            run_map[key2].append(key)
+        if run_name not in run_map:
+            sys.exit()
+        column_params = {}
+        for key in run_map[run_name]:
+            column_params[key] = params[key]
+        return column_params
+
+    def _get_data_params(self, params):
+        params = params['column_params']
+        interface = inspect.getargspec(self.data.prep_data).args
+        interface = [x for x in interface if x not in ['self', 'time_index']]
+        out = {}
+        for key in interface:
+            out[key] = params[key]
+        return out
+
+    def _get_signals_params(self, params):
+        params = params['column_params']
+        interface = inspect.getargspec(self.signals.generate_signals).args
+        interface = [x for x in interface
+                     if x not in ['self', 'data_container']]
+        out = {}
+        for key in interface:
+            out[key] = params[key]
+        return out
+
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def process_raw_data(self, data, time_index, market_data=None):
+        self.data.add_market_data(market_data)
+        self.data.add_data(data, time_index)
 
     def _capture_output(self, results, stats, arg_index):
         results = results.copy()

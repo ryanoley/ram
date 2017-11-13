@@ -101,8 +101,18 @@ class Strategy(object):
             self.run_index(time_index)
         self._shutdown_simulation()
 
-    def model_cache(self):
-        self._print_prepped_data_meta()
+    def implementation_training(self):
+        """
+        To be overridden by derived class if needed
+        """
+        pass
+
+    def _implementation_training_stack_run_data(self, run_name):
+        """
+        To be used by derived class to prep data
+        """
+        # This function gets correct data version
+        self._import_run_meta_for_restart(run_name)
         self._get_prepped_data_file_names()
         market_data = self.read_market_index_data()
         for time_index in tqdm(range(len(self._prepped_data_files))):
@@ -110,7 +120,9 @@ class Strategy(object):
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
-        return self.cache_model()
+            ## TEMP
+            if time_index == 1:
+                break
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -576,9 +588,11 @@ def make_argument_parser(Strategy):
         '-r', '--restart_run', type=str, default=None,
         help='If something craps out, use this tag. Send in run name'
     )
+
+    # Training for live models
     parser.add_argument(
-        '-c', '--cache_run', type=str, default=None,
-        help='Invokes cache_models after stacking all data'
+        '-it', '--implementation_training', type=str, nargs='*', default=None,
+        help='Invokes implementation script, has optional input'
     )
 
     # Data Construction Commands
@@ -652,6 +666,10 @@ def make_argument_parser(Strategy):
         strategy = Strategy(prepped_data_version=version,
                             gcp_implementation=args.cloud)
         strategy.start()
+
+    elif args.implementation_training:
+        strategy = Strategy(gcp_implementation=args.cloud)
+        strategy.implementation_training(args.implementation_training)
 
     # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.data_prep:
