@@ -86,7 +86,7 @@ class LongPeadStrategy(Strategy):
         if self._gcp_implementation:
             path = os.path.join('combo_search',
                                 'combo_run_0011', 'current_top_params.json')
-            blob = bucket.get_blob(path)
+            blob = self._bucket.get_blob(path)
             params = json.loads(blob.download_as_string())
         else:
             path = os.path.join(config.COMBO_SEARCH_OUTPUT_DIR,
