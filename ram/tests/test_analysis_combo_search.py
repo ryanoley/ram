@@ -41,7 +41,7 @@ class TestCombinationSearch(unittest.TestCase):
         self.output_dir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), 'combo_search')
 
-    def test_start(self):
+    def test_start_restart(self):
         comb = CombinationSearch(write_flag=False,
                                  combo_search_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
@@ -49,7 +49,7 @@ class TestCombinationSearch(unittest.TestCase):
         comb.add_run(self.run1)
         comb.add_run(self.run2)
         comb.start(criteria='sharpe')
-        ##
+        #
         comb = CombinationSearch(write_flag=True,
                                  combo_search_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
@@ -57,6 +57,7 @@ class TestCombinationSearch(unittest.TestCase):
         comb.add_run(self.run1)
         comb.add_run(self.run2)
         comb.start(criteria='sharpe')
+        #
         comb = CombinationSearch(write_flag=True,
                                  combo_search_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
@@ -68,6 +69,11 @@ class TestCombinationSearch(unittest.TestCase):
         result.sort()
         benchmark = ['combo_run_0001', 'combo_run_0002']
         self.assertEqual(result, benchmark)
+        # Restart
+        comb = CombinationSearch(combo_search_output_dir=self.output_dir,
+                                 restart_combo_name='combo_run_0001',
+                                 write_flag=True)
+        comb.restart()
 
     def test_create_training_indexes(self):
         comb = CombinationSearch()

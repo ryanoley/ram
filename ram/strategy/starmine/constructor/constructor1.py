@@ -14,17 +14,15 @@ class PortfolioConstructor1(Constructor):
         return {
             'long_thresh': [.025, .03, .035],
             'short_thresh': [.005, .0075, .01],
-            'pos_size': [.03],
-            'entry_dates': [[3, 4], [2, 3, 4], [3,4,5], [2,3,4,5]],
-            'dd_thresh': [-.2],
-            'dd_from_zero': [True],
+            'pos_size': [.02],
+            'entry_dates': [[2, 3, 4, 5]],
+            'dd_thresh': [-.2, -.1],
             'close_out': [True],
             'scale_weights': [True]
         }
 
     def get_daily_pl(self, data_container, signals, entry_dates, dd_thresh,
-                     dd_from_zero, long_thresh, short_thresh, scale_weights,
-                     **kwargs):
+                     long_thresh, short_thresh, scale_weights, **kwargs):
         """
         Parameters
         ----------
@@ -60,7 +58,7 @@ class PortfolioConstructor1(Constructor):
                 scores = get_scores(scores_dict, prior_dt, long_thresh,
                                     short_thresh, scale_weights)
                 close_seccodes = self.get_closing_seccodes(portfolio, hold_per)
-                dd_seccodes = portfolio.dd_filter(dd_thresh, dd_from_zero)
+                dd_seccodes = portfolio.dd_filter(dd_thresh)
                 exit_flag = close_seccodes.union(dd_seccodes)
                 exit_flag.discard('HEDGE')
 
@@ -170,6 +168,7 @@ def make_scores_dict(preds_dict, entry_dates):
 
     return scores_dict
 
+
 def get_scores(scores_dict, date, long_thresh, short_thresh,
                scale_weights=False):
 
@@ -177,11 +176,8 @@ def get_scores(scores_dict, date, long_thresh, short_thresh,
         return pd.DataFrame(columns=['score', 'weight'])
 
     scores =  pd.Series(scores_dict[date], name='score').to_frame()
-    # Scaling logic/multiple thresh vals can be handled here
-    #scores['weight'] = np.where(scores.score >= long_thresh, 1.,
-    #                        np.where(scores.score <= -short_thresh, -1., 0.))
-    #
     scores['thresh'] = np.where(scores.score >= 0, long_thresh, -short_thresh)
+
     if scale_weights:
         scores['weight'] = np.round(scores.score / scores.thresh, 2)
         scores.loc[scores.weight < 1, 'weight'] = 0.
