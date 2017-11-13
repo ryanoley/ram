@@ -7,7 +7,7 @@ from ram.strategy.basic.utils import make_variable_dict
 from gearbox import create_time_index, convert_date_array
 
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
-                        'PostErnStrategy', 'iyh.csv')
+                        'PostErnStrategy', 'qqq.csv')
 
 
 class DataContainer1(object):
@@ -21,7 +21,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [19],
+            'response_days': [20],
             'training_qtrs': [-99],
             'ind_vars': [False]
         }
@@ -170,6 +170,8 @@ class DataContainer1(object):
         train_data = self._add_response_variables(train_data, response_days)
         if ind_vars:
             ind_cols = [x for x in train_data.columns if x[:3] == 'Ind']
+            train_data.loc[:, ind_cols].fillna(0, inplace=True)
+            test_data.loc[:, ind_cols].fillna(0, inplace=True)
             self.features = list(set(self.features).union(set(ind_cols)))
 
         self.train_data = train_data
