@@ -41,7 +41,7 @@ if __name__ == '__main__':
         help='List all simulations for a strategy')
 
     parser.add_argument(
-        '-cr', '--copy_run', type=int, default=None,
+        '-cr', '--copy_run', type=str, default=None,
         help='If something craps out, use this tag. Send in run name'
     )
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     elif args.copy_run:
         runs = get_run_data('LongPeadStrategy', args.cloud)
         if args.copy_run in runs.Run.values:
-            run_name = args.restart_run
+            run_name = args.copy_run
         else:
             run_name = runs.Run.iloc[int(args.copy_run)]
         # Local destination of source data
