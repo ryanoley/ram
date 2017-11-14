@@ -13,7 +13,7 @@ signals = LongPeadStrategy.signals
 
 skl_model = load_skl_model()
 
-data =
+
 
 signals.generate_signals()
 
@@ -27,8 +27,14 @@ run_name = 'run_'
 
 
 
-# Use this to get
+# Use this to get arguments that are extracted from column_params
 inspect.getargspec
+
+
+
+
+
+
 
 
 

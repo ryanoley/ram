@@ -1,6 +1,11 @@
 ## Model Selection via ComboSearch
 
-When architecting the trade, one must decide which runs will go into the final model. Once an architecture has been settled on (i.e. the simulated results from ComboSearch are acceptable), the runs (and other assumptions like ComboSearch params and drop_params functionality) must be noted.
+The `ram` platform is designed to serve user-defined trading logics, read `Strategies`, with training and testing data, and provide an organizational framework to standardize analysis and increase productivity. As such one of the key outputs is the simulated, out-of-sample daily returns for a Strategy, and oftentimes many versions of that logic with different hyperparameters. This structure is organized as a matrix of returns with dates in the rows, and versions of the logic in the columns.
+
+After this matrix has been generated, `ComboSearch` is used to select the hyperparameters that maximize a performance metric, typically the Sharpe ratio. It is worth noting that `ComboSearch` cares little about the actual hyperparameters (or even Strategy for that matter), but searches over the columns for an optimal time-series. As the name suggests, the algorithm combines multiple time-series columns together to aid generalization and diversify idiosyncratic model-risk. By generating random combinations of `n` time series, it iteratively searches to improve the performance metric. Though it is a brute force mechanism and global optimality is out of reach (for example, combinations of five columns from a set of 250 has approximately 7.8 billion different combinations), the algorithm produces results that improve through time the longer it searches.
+
+As `ComboSearch` grinds away, it will checkpoint the best current results into a file called `current_top_params.json`, which holds the parameters that should be used in production.
+
 
 ## (Re-) Training models
 
@@ -23,7 +28,7 @@ python ram/data/data_gcp_manager.py -s 4 -v 17 -up   # Upload
 
 ```
 bash ram/strategy/long_pead/implementation/training/restart_run.sh list      # List all runs
-bash ram/strategy/long_pead/implementation/training/restart_run.sh run 10    # List all runs
+bash ram/strategy/long_pead/implementation/training/restart_run.sh run 10    # Rerun index 10
 ```
 
 4. Re-run ComboSearch to from Python Notebook:
@@ -32,21 +37,18 @@ bash ram/strategy/long_pead/implementation/training/restart_run.sh run 10    # L
 ram/strategy/long_pead/implementation/Current StatArb Implementation.ipynb
 ```
 
-5. Run xxx.py to train models
+5. Cache models
+
+```
+bash ram/strategy/long_pead/implementation/training/cache_models.sh list      # List all combo runs
+bash ram/strategy/long_pead/implementation/training/cache_models.sh comb 3   # Rerun index 3
+```
 
 6. Download cached models to local file system
 
 
 
 
-
-## Finding params to train
-
-1. Update all three cycle versions per sector. Data should be up to final day of month
-
-2. Full simulation to decide
-
-3. Run script to get combos, and put into implementation config
 
 
 ## Updating models
