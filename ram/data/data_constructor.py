@@ -188,7 +188,7 @@ class DataConstructor(object):
     def _write_archive_meta_data(self,
                                  blueprint,
                                  description=True):
-        description =  description if description else prompt_for_description()
+        description = description if description else prompt_for_description()
         git_branch, git_commit = get_git_branch_commit()
         start_time = str(dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
         meta = {
@@ -288,151 +288,57 @@ class DataConstructor(object):
             assert 'seccodes' in params
         return True
 
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def clean_directory(strategy, version, cloud_flag):
+def get_data_version_name(strategy_name,
+                          version_name,
+                          prepped_data_dir=config.PREPPED_DATA_DIR,
+                          cloud_flag=False):
     if cloud_flag:
-        print('This functionality not setup. Must delete from GCP Dashboard.')
-        return
-    dir_path = os.path.join(config.PREPPED_DATA_DIR, strategy, version)
-    print('\n Are you sure you want to delete the following path:')
-    print('   ' + dir_path)
-    print('\n Type `1234` if you are certain: ')
-    user_input = raw_input()
-    if user_input == '1234':
-        print('\nDeleting\n')
-        shutil.rmtree(dir_path)
+        versions = _get_versions_cloud(strategy_name)
     else:
-        print('\nNo versions deleted\n')
-
-
-def get_strategy_name(name):
+        versions = _get_versions(prepped_data_dir, strategy_name)
     try:
-        return _get_strategies()[int(name)]
+        return versions[int(version_name)]
     except:
-        return name
+        return version_name
 
 
-def get_version_name(strategy, name, cloud_flag=False):
-    if cloud_flag:
-        try:
-            return _get_versions_cloud(strategy)[int(name)]
-        except:
-            return name
-    else:
-        try:
-            return _get_versions(strategy)[int(name)]
-        except:
-            return name
+def _get_versions(prepped_data_dir, strategy_name):
+    path = os.path.join(prepped_data_dir, strategy_name)
 
-
-def _get_directories(path):
-    return [name for name in os.listdir(path)
+    dirs = [name for name in os.listdir(path)
             if os.path.isdir(os.path.join(path, name))]
-
-
-def _get_strategies():
-    dirs = _get_directories(config.PREPPED_DATA_DIR)
-    dirs.sort()
-    return {i: d for i, d in enumerate(dirs)}
-
-
-def _get_versions(strategy):
-    dirs = _get_directories(os.path.join(config.PREPPED_DATA_DIR, strategy))
-    dirs.sort()
     dirs = [x for x in dirs if x.find('version') >= 0]
+    dirs.sort()
     return {i: d for i, d in enumerate(dirs)}
 
 
-def _get_versions_cloud(strategy):
+def _get_versions_cloud(strategy_name):
     client = storage.Client()
     bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     all_files = [x.name for x in bucket.list_blobs()]
     all_files = [x for x in all_files if x.find('prepped_data') >= 0]
     all_files = [x for x in all_files if x.find('version') >= 0]
-    all_files = [x for x in all_files if x.find(strategy) >= 0]
+    all_files = [x for x in all_files if x.find(strategy_name) >= 0]
     all_files = list(set([x.split('/')[2] for x in all_files]))
     all_files = [x for x in all_files if x.find('archive') == -1]
     all_files.sort()
     return {i: d for i, d in enumerate(all_files)}
 
 
-def _get_meta_data(strategy, version):
-    path = os.path.join(config.PREPPED_DATA_DIR, strategy,
-                        version, 'meta.json')
-    try:
-        with open(path) as data_file:
-            meta = json.load(data_file)
-        if 'description' not in meta:
-            meta['description'] = None
-        return meta
-    except:
-        return {}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-def _get_meta_data_cloud(strategy, version):
-    path = os.path.join('prepped_data', strategy, version, 'meta.json')
-    client = storage.Client()
-    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
-    blob = bucket.get_blob(path)
-    try:
-        meta = json.loads(blob.download_as_string())
-    except Exception as e:
-        meta = {
-            'description': 'No meta file found',
-            'start_time': 'No meta file found',
-        }
-    if 'description' not in meta:
-        meta['description'] = None
-    return meta
-
-
-def _get_min_max_dates_counts(strategy, version):
-    files = os.listdir(os.path.join(config.PREPPED_DATA_DIR,
-                                    strategy, version))
-    files = [f for f in files if f.find('_data.csv') > 1]
-    if len(files):
-        dates = [f.split('_')[0] for f in files]
-        dates.sort()
-        return dates[0], dates[-1], len(dates)
+def print_data_versions(strategy_name,
+                        prepped_data_dir=config.PREPPED_DATA_DIR,
+                        cloud_flag=False):
+    if cloud_flag:
+        stats = _get_strategy_version_stats_cloud(strategy_name)
     else:
-        return 'No Files', 'No Files', 0
-
-
-def _get_min_max_dates_counts_cloud(strategy, version):
-    client = storage.Client()
-    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
-    all_files = [x.name for x in bucket.list_blobs()]
-    all_files = [x for x in all_files if x.find('prepped_data') >= 0]
-    all_files = [x for x in all_files if x.find(version) >= 0]
-    all_files = [x for x in all_files if x.find(strategy) >= 0]
-    all_files = [x for x in all_files if x.find('_data.csv') >= 0]
-    all_files = list(set([x.split('/')[-1] for x in all_files]))
-    all_files.sort()
-    if len(all_files):
-        dates = [f.split('_')[0] for f in all_files]
-        dates.sort()
-        return dates[0], dates[-1], len(dates)
-    else:
-        return 'No Files', 'No Files', 0
-
-
-def print_strategies():
-    dirs = _get_strategies()
-    _print_line_underscore('Available Strategies with prepped data')
-    for i, name in dirs.items():
-        print('  [{}] '.format(i)+name)
-    print('\n')
-
-
-def _print_line_underscore(pstring):
-    print('\n ' + pstring)
-    print(' ' + '-' * len(pstring))
-
-
-def print_strategy_data_versions(strategy, cloud_flag=False):
-    stats = _get_strategy_version_stats(strategy, cloud_flag)
-    _print_line_underscore('Available Verions for {}'.format(strategy))
+        stats = _get_strategy_version_stats(strategy_name, prepped_data_dir)
+    # Presentation
+    _print_line_underscore('Available Verions for {}'.format(strategy_name))
     print('  Key\tVersion\t\t'
           'File Count\tMax Data Date\tDescription')
     keys = stats.keys()
@@ -447,25 +353,15 @@ def print_strategy_data_versions(strategy, cloud_flag=False):
     print('\n')
 
 
-def _get_strategy_version_stats(strategy, cloud_flag=False):
-
-    if cloud_flag:
-        versions = _get_versions_cloud(strategy)
-    else:
-        versions = _get_versions(strategy)
-
+def _get_strategy_version_stats(strategy_name, prepped_data_dir):
+    versions = _get_versions(prepped_data_dir, strategy_name)
     # Get MinMax dates for files
     dir_stats = {}
     for key, version in versions.items():
-
-        if cloud_flag:
-            meta = _get_meta_data_cloud(strategy, version)
-            stats = _get_min_max_dates_counts_cloud(strategy, version)
-        else:
-            meta = _get_meta_data(strategy, version)
-            stats = _get_min_max_dates_counts(strategy, version)
-
-        max_date = meta['max_date'][:10] if 'max_date' in meta else None
+        meta = _get_meta_data(prepped_data_dir, strategy_name, version)
+        stats = _get_min_max_dates_counts(
+            prepped_data_dir, strategy_name, version)
+        max_date = meta['max_date'] if 'max_date' in meta else None
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
@@ -475,28 +371,56 @@ def _get_strategy_version_stats(strategy, cloud_flag=False):
     return dir_stats
 
 
-def print_strategy_meta(strategy, version, cloud_flag):
-    if cloud_flag:
-        version = get_version_name_cloud(strategy, version)
-        meta = _get_meta_data_cloud(strategy, version)
+def _get_meta_data(prepped_data_dir, strategy_name, version):
+    path = os.path.join(prepped_data_dir, strategy_name,
+                        version, 'meta.json')
+    meta = json.load(open(path, 'r'))
+    if 'description' not in meta:
+        meta['description'] = None
+    return meta
+
+
+def _get_meta_data_cloud(strategy_name, version):
+    path = os.path.join('prepped_data', strategy_name, version, 'meta.json')
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    blob = bucket.get_blob(path)
+    meta = json.loads(blob.download_as_string())
+    if 'description' not in meta:
+        meta['description'] = None
+    return meta
+
+
+def _get_min_max_dates_counts(prepped_data_dir, strategy_name, version):
+    files = os.listdir(os.path.join(prepped_data_dir,
+                                    strategy_name, version))
+    files = [f for f in files if f.find('_data.csv') > 1]
+    if len(files):
+        dates = [f.split('_')[0] for f in files]
+        dates.sort()
+        return dates[0], dates[-1], len(dates)
     else:
-        version = get_version_name(strategy, version)
-        meta = _get_meta_data(strategy, version)
-    # Print outputs
-    _print_line_underscore('Meta data for {} / {}'.format(strategy, version))
-    print('   Git Branch:\t' + str(meta['git_branch']))
-    print('   Features:\t' + meta['features'][0])
-    for feature in meta['features'][1:]:
-        print('\t\t{}'.format(feature))
-    print('\n')
-    print('   Filter Arguments: ')
-    print('\tUniverse Size:\t' + str(meta['filter_args_univ']['univ_size']))
-    print('\tFilter:\t\t' + meta['filter_args_univ']['filter'])
-    print('\tWhere:\t\t' + meta['filter_args_univ']['where'])
-    print('\n')
-    meta_t = meta['date_parameters_univ']
-    print('   Start Year:\t\t' + str(meta_t['start_year']))
-    print('   Train Period Length:\t' + str(meta_t['train_period_length']))
-    print('   Test Period Length:\t' + str(meta_t['test_period_length']))
-    print('   Frequency:\t\t' + str(meta_t['frequency']))
-    print('\n')
+        return 'No Files', 'No Files', 0
+
+
+def _get_min_max_dates_counts_cloud(strategy_name, version):
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    all_files = [x.name for x in bucket.list_blobs()]
+    all_files = [x for x in all_files if x.find('prepped_data') >= 0]
+    all_files = [x for x in all_files if x.find(version) >= 0]
+    all_files = [x for x in all_files if x.find(strategy_name) >= 0]
+    all_files = [x for x in all_files if x.find('_data.csv') >= 0]
+    all_files = list(set([x.split('/')[-1] for x in all_files]))
+    all_files.sort()
+    if len(all_files):
+        dates = [f.split('_')[0] for f in all_files]
+        dates.sort()
+        return dates[0], dates[-1], len(dates)
+    else:
+        return 'No Files', 'No Files', 0
+
+
+def _print_line_underscore(pstring):
+    print('\n ' + pstring)
+    print(' ' + '-' * len(pstring))

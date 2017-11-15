@@ -6,7 +6,13 @@ import pandas as pd
 import datetime as dt
 
 from ram import config
-from ram.data.data_constructor import DataConstructor
+from ram.data.data_constructor import *
+from ram.data.data_constructor import _get_versions
+from ram.data.data_constructor import _get_meta_data
+from ram.data.data_constructor import _get_min_max_dates_counts
+from ram.data.data_constructor import _get_strategy_version_stats
+
+
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 
@@ -123,6 +129,50 @@ class TestDataConstructor(unittest.TestCase):
         result = os.listdir(os.path.join(self.prepped_data_dir,
                                          'GeneralOutput', 'version_0001'))
         self.assertTrue('market_index_data.csv' in result)
+
+    def test_random_functions(self):
+        blueprint = DataConstructorBlueprint('universe')
+        dc = DataConstructor(self.prepped_data_dir)
+        dc._make_output_directory(blueprint)
+        dc._write_archive_meta_data(blueprint, description='Test')
+        dc._make_output_directory(blueprint)
+        dc._write_archive_meta_data(blueprint, description='Test2')
+        result = _get_versions(self.prepped_data_dir, 'GeneralOutput')
+        benchmark = {0: 'version_0001', 1: 'version_0002'}
+        self.assertDictEqual(result, benchmark)
+        result = get_data_version_name('GeneralOutput', 0,
+                                       prepped_data_dir=self.prepped_data_dir)
+        self.assertEqual(result, 'version_0001')
+        result = get_data_version_name('GeneralOutput', '0',
+                                       prepped_data_dir=self.prepped_data_dir)
+        self.assertEqual(result, 'version_0001')
+        result = get_data_version_name('GeneralOutput', 'version_0001',
+                                       prepped_data_dir=self.prepped_data_dir)
+        self.assertEqual(result, 'version_0001')
+        df = pd.DataFrame({'V1': range(4)})
+        df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
+                               'version_0001', '20101010_data.csv'))
+        df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
+                               'version_0001', '20111010_data.csv'))
+        result = _get_meta_data(self.prepped_data_dir,
+                                'GeneralOutput',
+                                'version_0001')
+        result = _get_min_max_dates_counts(self.prepped_data_dir,
+                                           'GeneralOutput',
+                                           'version_0001')
+        self.assertEqual(result[0], '20101010')
+        self.assertEqual(result[1], '20111010')
+        self.assertEqual(result[2], 2)
+        result = _get_min_max_dates_counts(self.prepped_data_dir,
+                                           'GeneralOutput',
+                                           'version_0002')
+        self.assertEqual(result[0], 'No Files')
+        self.assertEqual(result[1], 'No Files')
+        self.assertEqual(result[2], 0)
+        result = _get_strategy_version_stats('GeneralOutput',
+                                             self.prepped_data_dir)
+        print_data_versions('GeneralOutput',
+                            prepped_data_dir=self.prepped_data_dir)
 
     def tearDown(self):
         if os.path.isdir(self.prepped_data_dir):
