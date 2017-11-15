@@ -25,61 +25,7 @@ class DataConstructor(object):
     def __init__(self, prepped_data_dir=config.PREPPED_DATA_DIR):
         self._prepped_data_dir = prepped_data_dir
 
-    def _init_run(self, blueprint):
-        if blueprint.constructor_type == 'universe':
-            self._version_files = []
-
-    def _init_rerun(self, output_dir_name, rerun_version):
-        # Import meta data
-        output_dir = os.path.join(self._prepped_data_dir,
-                                  output_dir_name,
-                                  rerun_version)
-        path = os.path.join(output_dir, 'meta.json')
-        meta = json.load(open(path, 'r'))
-        blueprint = DataConstructorBlueprint(blueprint_json=meta['blueprint'])
-        # Set instance variables for outputs
-        self._version = rerun_version
-        self._output_dir = output_dir
-        if blueprint.constructor_type == 'universe':
-            self._version_files = [x for x in os.listdir(output_dir)
-                                   if x[-9:] == '_data.csv']
-            self._version_files.sort()
-        return blueprint
-
-    def _check_file_completeness(self, blueprint):
-        dh = DataHandlerSQL()
-        all_dates = dh.get_all_dates()
-        dh.close_connections()
-        df = pd.DataFrame()
-        # Iterate through backwards until first full file given
-        # database dates
-        date_iterator = self._make_date_iterator(blueprint)
-        files_to_drop = []
-        for file_name in reversed(self._version_files):
-            # Get all unique dates from file
-            path = os.path.join(self._output_dir, file_name)
-            data = pd.read_csv(path)
-            data_dates = data.Date.unique()
-            data_dates = convert_date_array(data_dates)
-            # Match file name with date
-            file_name_2 = file_name.split('_')[0]
-            d = [d for d in date_iterator
-                 if d[1].strftime('%Y%m%d') == file_name_2][0]
-            # Get dates
-            period_dates = all_dates[all_dates >= d[1]]
-            period_dates = period_dates[period_dates <= d[2]]
-            # Must have these test dates.
-            if np.all(pd.Series(period_dates).isin(data_dates)):
-                break
-            else:
-                files_to_drop.append(file_name)
-        self._version_files = [x for x in self._version_files
-                               if x not in files_to_drop]
-
-    def rerun(self, output_dir_name, rerun_version):
-        blueprint = self._init_rerun(output_dir_name, rerun_version)
-        self._check_file_completeness(blueprint)
-        self._make_data(blueprint)
+    # ~~~~~~ Interface ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def run(self, blueprint, description=None):
         self._check_parameters(blueprint)
@@ -87,6 +33,13 @@ class DataConstructor(object):
         self._make_output_directory(blueprint)
         self._write_archive_meta_data(blueprint, description)
         self._make_data(blueprint)
+
+    def rerun(self, output_dir_name, rerun_version):
+        blueprint = self._init_rerun(output_dir_name, rerun_version)
+        self._check_file_completeness(blueprint)
+        self._make_data(blueprint)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _make_data(self, blueprint):
 
@@ -138,8 +91,72 @@ class DataConstructor(object):
                 self._clean_and_write_output(data, file_name)
             # Update meta params
             self._update_meta_file(data.Date.max(), created_files)
+
+        # Market data
+        if hasattr(blueprint, 'market_data_params'):
+            params = blueprint.market_data_params
+            data = dh.get_index_data(
+                seccodes=params['seccodes'],
+                features=params['features'],
+                start_date='1990-01-01',
+                end_date='2050-04-01')
+            self._clean_and_write_output(data, 'market_index_data.csv')
+
         dh.close_connections()
         return
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _init_run(self, blueprint):
+        if blueprint.constructor_type == 'universe':
+            self._version_files = []
+
+    def _init_rerun(self, output_dir_name, rerun_version):
+        # Import meta data
+        output_dir = os.path.join(self._prepped_data_dir,
+                                  output_dir_name,
+                                  rerun_version)
+        path = os.path.join(output_dir, 'meta.json')
+        meta = json.load(open(path, 'r'))
+        blueprint = DataConstructorBlueprint(blueprint_json=meta['blueprint'])
+        # Set instance variables for outputs
+        self._version = rerun_version
+        self._output_dir = output_dir
+        if blueprint.constructor_type == 'universe':
+            self._version_files = [x for x in os.listdir(output_dir)
+                                   if x[-9:] == '_data.csv']
+            self._version_files.sort()
+        return blueprint
+
+    def _check_file_completeness(self, blueprint):
+        dh = DataHandlerSQL()
+        all_dates = dh.get_all_dates()
+        dh.close_connections()
+        df = pd.DataFrame()
+        # Iterate through backwards until first full file given
+        # database dates
+        date_iterator = self._make_date_iterator(blueprint)
+        files_to_drop = []
+        for file_name in reversed(self._version_files):
+            # Get all unique dates from file
+            path = os.path.join(self._output_dir, file_name)
+            data = pd.read_csv(path)
+            data_dates = data.Date.unique()
+            data_dates = convert_date_array(data_dates)
+            # Match file name with date
+            file_name_2 = file_name.split('_')[0]
+            d = [d for d in date_iterator
+                 if d[1].strftime('%Y%m%d') == file_name_2][0]
+            # Get dates
+            period_dates = all_dates[all_dates >= d[1]]
+            period_dates = period_dates[period_dates <= d[2]]
+            # Must have these test dates.
+            if np.all(pd.Series(period_dates).isin(data_dates)):
+                break
+            else:
+                files_to_drop.append(file_name)
+        self._version_files = [x for x in self._version_files
+                               if x not in files_to_drop]
 
     # ~~~~~~ Output functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -109,6 +109,21 @@ class TestDataConstructor(unittest.TestCase):
         benchmark = result[-2:]
         self.assertListEqual(result, benchmark)
 
+    def test_run_market_data(self):
+        # Don't execute on cloud instance
+        if config.GCP_CLOUD_IMPLEMENTATION:
+            return
+        blueprint = DataConstructorBlueprint('universe',
+                                             market_data_flag=True)
+        blueprint.market_data_params['features'] = ['AdjClose']
+        blueprint.market_data_params['seccodes'] = [50311, 10955]
+        blueprint.universe_date_parameters['train_period_length'] = 1
+        dc = DataConstructor(self.prepped_data_dir)
+        dc.run(blueprint, description='Test')
+        result = os.listdir(os.path.join(self.prepped_data_dir,
+                                         'GeneralOutput', 'version_0001'))
+        self.assertTrue('market_index_data.csv' in result)
+
     def tearDown(self):
         if os.path.isdir(self.prepped_data_dir):
             shutil.rmtree(self.prepped_data_dir)
