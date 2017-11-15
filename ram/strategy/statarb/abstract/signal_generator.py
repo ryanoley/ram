@@ -14,5 +14,5 @@ class BaseSignal(object):
         raise NotImplementedError('BaseSignal.get_skl_model')
 
     @abstractmethod
-    def generate_signals(self, data, **kwargs):
+    def generate_signals(self, data_container, **kwargs):
         raise NotImplementedError('BaseSignal.generate_signals')

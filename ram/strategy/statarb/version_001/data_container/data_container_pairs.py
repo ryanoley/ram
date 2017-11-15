@@ -13,6 +13,7 @@ from ram.strategy.long_pead.utils import make_variable_dict
 from ram.strategy.long_pead.utils import simple_responses
 from ram.strategy.long_pead.utils import smoothed_responses
 
+from ram.strategy.long_pead.data.base import BaseDataContainer
 from ram.strategy.long_pead.data.pairs_selector import PairSelector
 from ram.strategy.long_pead.data.pairs_selector_filter import \
     PairSelectorFilter
@@ -20,10 +21,9 @@ from ram.strategy.long_pead.data.pairs_selector_filter import \
 from gearbox import create_time_index, convert_date_array
 
 
-class DataContainerPairs(object):
+class DataContainerPairs(BaseDataContainer):
 
-    def __init__(self, pairs_flag=True):
-        self._pairs_flag = pairs_flag
+    def __init__(self):
         self._time_index_data_for_responses = {}
         self._time_index_response_data = {}
         # Deliverable
@@ -72,28 +72,23 @@ class DataContainerPairs(object):
         """
         Takes in raw data, processes it and caches it
         """
-        XXX = 100
-        if self._pairs_flag:
-            # Pair data
-            pair_info, spreads, zscores = PairSelector().rank_pairs(
-                data, 20, filter_n_pairs_per_seccode=30)
-            self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
-            self.zscores_pair_info = pair_info
-
+        # Pair data
+        pair_info, spreads, zscores = PairSelector().rank_pairs(
+            data, 20, filter_n_pairs_per_seccode=30)
+        self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
+        self.zscores_pair_info = pair_info
         # Trim only one quarter's worth of training data
         min_date = data.Date[data.TestFlag].min()
         trim_date = min_date - dt.timedelta(days=80)
         trim_date = dt.date(trim_date.year, trim_date.month, 1)
         data = data[data.Date >= trim_date].copy()
-
         # Separated for testing ease
         data, features = self._process_data(data)
         # Add market data
-        if hasattr(self, '_market_data') and np.any(self._market_data):
-            data = data.merge(self._market_data, how='left').fillna(0)
-            features_mkt = self._market_data.columns.tolist()
-            features_mkt.remove('Date')
-            features += features_mkt
+        data = data.merge(self._market_data, how='left').fillna(0)
+        features_mkt = self._market_data.columns.tolist()
+        features_mkt.remove('Date')
+        features += features_mkt
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(data[~data.TestFlag])

@@ -13,26 +13,19 @@ from ram import config
 from ram.strategy.base import Strategy
 
 from ram.strategy.long_pead.data.data_container_pairs import DataContainerPairs
-
-from ram.strategy.long_pead.constructor.constructor1 import \
-    PortfolioConstructor1
-from ram.strategy.long_pead.constructor.constructor2 import \
-    PortfolioConstructor2
-from ram.strategy.long_pead.constructor.constructor_pairs import \
-    PortfolioConstructorPairs
-
+from ram.strategy.long_pead.constructor.constructor_pairs import PortfolioConstructorPairs
 from ram.strategy.long_pead.signals.signals1 import SignalModel1
 
 
 class LongPeadStrategy(Strategy):
 
-    data = DataContainerPairs(pairs_flag=True)
+    data = DataContainerPairs()
     signals = SignalModel1()
     constructor = PortfolioConstructorPairs()
 
     def get_column_parameters(self):
         """
-        These are written to file
+        Organized so params for three components above are separate.
         """
         args1 = make_arg_iter(self.data.get_args())
         args2 = make_arg_iter(self.signals.get_args())
@@ -42,9 +35,10 @@ class LongPeadStrategy(Strategy):
         for col_ind, (x, y, z) in enumerate(itertools.product(args1,
                                                               args2,
                                                               args3)):
-            params = dict(x)
-            params.update(y)
-            params.update(z)
+            params = {}
+            params['data'] = x
+            params['signals'] = y
+            params['constructor'] = z
             output_params[col_ind] = params
         return output_params
 
@@ -76,21 +70,20 @@ class LongPeadStrategy(Strategy):
 
     # ~~~~~~ Implementation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def implementation_training(self, run_name):
+    def implementation_training(self, cli_input):
         """
         As of now this is a hard-coded implementation!
         """
-        if isinstance(run_name, list):
-            run_name = run_name[0]
+        combo_name, run_name = cli_input[0], cli_input[1]
         # Load combos
         if self._gcp_implementation:
             path = os.path.join('combo_search',
-                                'combo_run_0011', 'current_top_params.json')
+                                combo_name, 'current_top_params.json')
             blob = self._bucket.get_blob(path)
             params = json.loads(blob.download_as_string())
         else:
             path = os.path.join(config.COMBO_SEARCH_OUTPUT_DIR,
-                                'combo_run_0001', 'current_top_params.json')
+                                combo_name, 'current_top_params.json')
             params = json.load(open(path, 'r'))
         # Check if run is needed
         column_params = self._check_run_get_params(run_name, params)
@@ -108,14 +101,13 @@ class LongPeadStrategy(Strategy):
             # Cache model
             if self._gcp_implementation:
                 model_cache_path = os.path.join(
-                    'combo_search', 'combo_run_0011', key+'.pkl')
+                    'combo_search', combo_name, key+'.pkl')
                 blob = self._bucket.blob(model_cache_path)
                 blob.upload_from_string(pickle.dumps(model))
             else:
                 model_cache_path = os.path.join(
                     config.COMBO_SEARCH_OUTPUT_DIR,
-                    'combo_run_0001',
-                    key+'.pkl')
+                    combo_name, key+'.pkl')
                 joblib.dump(model, model_cache_path)
 
     def _check_run_get_params(self, run_name, params):

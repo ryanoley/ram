@@ -15,3 +15,5 @@ ERN_PEAD_DIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'temp_ern_pead')
 SKLEARN_NJOBS = 2
 
 GCP_STORAGE_BUCKET_NAME = 'ram_data'
+
+GCP_CLOUD_IMPLEMENTATION = False

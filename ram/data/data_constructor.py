@@ -14,6 +14,7 @@ from gearbox import convert_date_array
 
 from ram import config
 
+from ram.strategy.base import Strategy
 from ram.data.data_handler_sql import DataHandlerSQL
 from ram.utils.documentation import get_git_branch_commit
 from ram.utils.documentation import prompt_for_description
@@ -26,15 +27,19 @@ class DataConstructor(object):
                  prepped_data_dir=config.PREPPED_DATA_DIR):
         self.strategy = strategy
         self.strategy_name = strategy.__class__.__name__
+
         self._prepped_data_dir = os.path.join(
             prepped_data_dir, self.strategy_name)
         self.datahandler = DataHandlerSQL()
 
+
     def _init_new_run(self):
         self.constructor_type = self.strategy.get_constructor_type()
         self.features = self.strategy.get_features()
+
         if self.constructor_type in ['etfs', 'ids']:
             self.filter_args_ids = self.strategy.get_ids_filter_args()
+
         else:
             self.filter_args_univ = self.strategy.get_univ_filter_args()
             self.date_parameters_univ = \
@@ -312,18 +317,17 @@ def get_strategy_name(name):
         return name
 
 
-def get_version_name(strategy, name):
-    try:
-        return _get_versions(strategy)[int(name)]
-    except:
-        return name
-
-
-def get_version_name_cloud(strategy, name):
-    try:
-        return _get_versions_cloud(strategy)[int(name)]
-    except:
-        return name
+def get_version_name(strategy, name, cloud_flag=False):
+    if cloud_flag:
+        try:
+            return _get_versions_cloud(strategy)[int(name)]
+        except:
+            return name
+    else:
+        try:
+            return _get_versions(strategy)[int(name)]
+        except:
+            return name
 
 
 def _get_directories(path):
@@ -430,7 +434,7 @@ def _print_line_underscore(pstring):
     print(' ' + '-' * len(pstring))
 
 
-def print_strategy_versions(strategy, cloud_flag=False):
+def print_strategy_data_versions(strategy, cloud_flag=False):
     stats = _get_strategy_version_stats(strategy, cloud_flag)
     _print_line_underscore('Available Verions for {}'.format(strategy))
     print('  Key\tVersion\t\t'

@@ -8,7 +8,7 @@ from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from gearbox import convert_date_array
 
-from ram.strategy.long_pead.utils import *
+from ram.strategy.statarb.utils import *
 
 
 class TestUtils(unittest.TestCase):

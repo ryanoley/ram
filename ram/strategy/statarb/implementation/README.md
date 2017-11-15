@@ -27,8 +27,10 @@ python ram/data/data_gcp_manager.py -s 4 -v 17 -up   # Upload
 3. Restart run, which will delete the final file, re-stack data, re-fit model and report most up-to-date results. Because the stacking and training can take some time for each model, one can spin up multiple instances. Currently, I think one can get away with running 16 cores, but be sure to use the `highmem` version of this image.
 
 ```
-bash ram/strategy/long_pead/implementation/training/restart_run.sh list      # List all runs
-bash ram/strategy/long_pead/implementation/training/restart_run.sh run 10    # Rerun index 10
+d=ram/strategy/long_pead/implementation/training/
+
+bash $d/01_update_runs.sh list      # List all runs
+bash $d/01_update_runs.sh run 10    # Rerun index 10
 ```
 
 4. Re-run ComboSearch to from Python Notebook:
@@ -37,11 +39,12 @@ bash ram/strategy/long_pead/implementation/training/restart_run.sh run 10    # R
 ram/strategy/long_pead/implementation/Current StatArb Implementation.ipynb
 ```
 
-5. Cache models
+5. If satisfied with the most recent ComboSearch, point the following script at the name of the directory where the data was stored.
 
 ```
-bash ram/strategy/long_pead/implementation/training/cache_models.sh list      # List all combo runs
-bash ram/strategy/long_pead/implementation/training/cache_models.sh comb 3   # Rerun index 3
+d=ram/strategy/long_pead/implementation/training/
+
+bash $d/02_train_implementation_models.sh combo_9898
 ```
 
 6. Download cached models to local file system

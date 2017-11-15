@@ -11,6 +11,14 @@ class TestMain(unittest.TestCase):
     def setUp(self):
         pass
 
+    def test_get_column_params(self):
+        strategy = LongPeadStrategy()
+        result = strategy.get_column_parameters()
+        result = result[0]
+        self.assertTrue('signals' in result)
+        self.assertTrue('data' in result)
+        self.assertTrue('constructor' in result)
+
     def test_get_univ_filter_args(self):
         strategy = LongPeadStrategy()
         result = strategy.get_univ_filter_args()

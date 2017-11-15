@@ -26,17 +26,46 @@ class Strategy(object):
 
     __metaclass__ = ABCMeta
 
+    # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @abstractmethod
+    def process_raw_data(self, data, time_index, market_data=None):
+        """
+        Use this method call
+        """
+        raise NotImplementedError('Strategy.process_raw_data')
+
+    @abstractmethod
+    def run_index(self, index):
+        """
+        Takes in integer
+        """
+        raise NotImplementedError('Strategy.run_index')
+
+    @abstractmethod
+    def get_column_parameters(self):
+        """
+        Takes in integer
+        """
+        raise NotImplementedError('Strategy.get_column_parameters')
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def __init__(self,
+                 strategy_code_version=None,
                  prepped_data_version='NODATA',
                  write_flag=False,
                  prepped_data_dir=config.PREPPED_DATA_DIR,
-                 simulation_output_dir=config.SIMULATION_OUTPUT_DIR,
-                 gcp_implementation=False):
+                 simulation_output_dir=config.SIMULATION_OUTPUT_DIR):
         """
         Parameters
         ----------
+        strategy_code_version : str
+            A parameter that can be used to select different versions of
+            the strategy code
         prepped_data_version : str
             This is the name of the prepped data version, e.g.: version_0002
+
         write_flag : bool
             Whether to create an output directory and write results to file
         prepped_data_dir : str
@@ -47,9 +76,12 @@ class Strategy(object):
             Location of where written output will go. Defaults to what is in
             the global config file
         """
+        self._gcp_implementation = config.GCP_CLOUD_IMPLEMENTATION
+
+        self._strategy_code_version = strategy_code_version
         self._write_flag = write_flag
         self._data_version = prepped_data_version
-        self._gcp_implementation = gcp_implementation
+
         self._max_run_time_index = -1  # This is for restart functionality
         if self._gcp_implementation:
             self._gcp_client = storage.Client()
@@ -101,7 +133,7 @@ class Strategy(object):
             self.run_index(time_index)
         self._shutdown_simulation()
 
-    def implementation_training(self):
+    def implementation_training(self, **kwargs):
         """
         To be overridden by derived class if needed
         """
@@ -339,43 +371,13 @@ class Strategy(object):
                 if x.find('market_index_data') == -1]
         self._prepped_data_files.sort()
 
-    # ~~~~~~ To Be Overwritten ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    @abstractmethod
-    def process_raw_data(self, data, time_index, market_data=None):
-        """
-        Use this method call
-        """
-        raise NotImplementedError('Strategy.process_raw_data')
-
-    @abstractmethod
-    def run_index(self, index):
-        """
-        Takes in integer
-        """
-        raise NotImplementedError('Strategy.run_index')
-
-    @abstractmethod
-    def get_column_parameters(self):
-        """
-        Takes in integer
-        """
-        raise NotImplementedError('Strategy.get_column_parameters')
-
     # ~~~~~~ DataConstructor Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def make_data(self, data_prep_version=None):
-        """
-        Parameters
-        ----------
-        data_prep_version : str
-            Will restart data pull if present.
-        """
-        if data_prep_version:
-            DataConstructor(self).run(
-                rerun_version=data_prep_version)
-        else:
-            DataConstructor(self).run()
+    def make_data(self, data_version=None):
+        DataConstructor(self).run()
+
+    def make_data_rerun(self, rerun_version):
+        DataConstructor(self).run(rerun_version=rerun_version)
 
     def make_market_index_data(self, data_prep_version):
         """
@@ -543,51 +545,61 @@ def to_csv_cloud(data, path, bucket):
 def make_argument_parser(Strategy):
 
     import argparse
-    from ram.data.data_constructor import print_strategy_versions
-    from ram.data.data_constructor import print_strategy_meta
+
+    from ram.analysis.run_manager import get_run_data
     from ram.data.data_constructor import clean_directory
     from ram.data.data_constructor import get_version_name
-    from ram.data.data_constructor import get_version_name_cloud
-    from ram.analysis.run_manager import get_run_data
+    from ram.data.data_constructor import print_strategy_data_versions
 
     parser = argparse.ArgumentParser()
 
-    # Cloud tag must be included anytime working in GCP
+    # Run and data exploration
     parser.add_argument(
-        '-c', '--cloud', action='store_true',
-        help='Tag must be added for GCP implementation')
+        '-lsr', '--list_simulation_runs', action='store_true',
+        help='List all simulation runs')
+    parser.add_argument(
+        '-lsd', '--list_data_versions', action='store_true',
+        help='List all versions of prepped data')
+    parser.add_argument(
+        '-rmd', '--remove_data_version', type=str,
+        help='Delete version, input as name (version_0001) or key val')
 
-    # Data Exploration Commands
+    # Data Construction
     parser.add_argument(
-        '-lv', '--list_versions', action='store_true',
-        help='List all versions of prepped data for a strategy')
+        '-dp', '--data_prep', type=str,
+        help='Run DataConstructor for new data. If strategy has versioned '
+             'data blueprint, an index can be provided.')
     parser.add_argument(
-        '-pvm', '--print_version_meta', type=str,
-        help='Print meta data for version, i.e version_0001 or Key val')
+        '-dr', '--data_restart', type=str,
+        help='Run DataConstructor to restart. Use version name or key val, '
+             'i.e. version_0001 or Key val. Used for implementation.')
     parser.add_argument(
-        '-cv', '--clean_version', type=str,
-        help='Delete version. i.e version_0001 or Key val')
-    parser.add_argument(
-        '-lr', '--list_runs', action='store_true',
-        help='List all simulations for a strategy')
+        '-dm', '--market_data', type=str,
+        help='Market data added to directory for version. Input version '
+             'or Key val')
 
     # Simulation Commands
     parser.add_argument(
-        '-v', '--data_version',
+        '-sd', '--simulation_data_version',
         help='Version number of simulation.')
+
     parser.add_argument(
-        '-w', '--write_simulation', action='store_true',
-        help='Write simulation')
-    parser.add_argument(
-        '-s', '--simulation', action='store_true',
+        '-sv', '--simulation_strategy_version', action='store_true',
         help='Run simulation for debugging')
-    parser.add_argument(
-        '-d', '--description', default=None,
-        help='Run description. Used namely in a batch file')
+
     parser.add_argument(
         '-r', '--restart_run', type=str, default=None,
         help='If something craps out, use this tag. Send in run name'
     )
+
+    parser.add_argument(
+        '-w', '--write_simulation', action='store_true',
+        help='Write simulation')
+
+    parser.add_argument(
+        '--description', default=None,
+        help='Run description. Used namely in a batch file')
+
 
     # Training for live models
     parser.add_argument(
@@ -595,90 +607,84 @@ def make_argument_parser(Strategy):
         help='Invokes implementation script, has optional input'
     )
 
-    # Data Construction Commands
-    parser.add_argument(
-        '-dp', '--data_prep', type=str,
-        help='Run DataConstructor. To create new data version, use arg '
-             '-1, else to restart use version name or key val, i.e. '
-             'version_0001 or Key val')
 
-    parser.add_argument(
-        '-dm', '--market_data', type=str,
-        help='Market data added to directory for version. Input version '
-             'or Key val')
+
+
 
     args = parser.parse_args()
 
+
+
+
+
     # ~~~~~~ DATA EXPLORATION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if args.list_versions:
-        print_strategy_versions(Strategy.__name__, args.cloud)
-
-    elif args.print_version_meta:
-        print_strategy_meta(Strategy.__name__,
-                            args.print_version_meta,
-                            args.cloud)
-
-    elif args.clean_version:
-        clean_directory(Strategy.__name__, args.clean_version)
-
-    elif args.list_runs:
-        runs = get_run_data(Strategy.__name__, args.cloud)
+    if args.list_simulation_runs:
+        runs = get_run_data(Strategy.__name__,
+                            config.GCP_CLOUD_IMPLEMENTATION)
         # Adjust column width
         runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
         print(runs)
 
+    elif args.list_data_versions:
+        print_strategy_data_versions(Strategy.__name__,
+                                     config.GCP_CLOUD_IMPLEMENTATION)
+
+    elif args.remove_data_version:
+        clean_directory(Strategy.__name__, args.remove_data_version)
+
+    # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    elif args.data_prep:
+        Strategy().make_data(args.data_prep)
+
+    elif args.data_restart:
+        version = get_version_name(Strategy.__name__, args.data_prep)
+        Strategy(prepped_data_version=version).make_data(version)
+
+    elif args.market_data:
+        version = get_version_name(Strategy.__name__, args.market_data)
+        Strategy().make_market_index_data(version)
+
+
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif args.restart_run:
-        runs = get_run_data(Strategy.__name__, args.cloud)
+
+        runs = get_run_data(Strategy.__name__,
+                            config.GCP_CLOUD_IMPLEMENTATION)
         if args.restart_run in runs.Run.values:
             version = args.restart_run
         else:
             version = runs.Run.iloc[int(args.restart_run)]
-        strategy = Strategy(gcp_implementation=args.cloud, write_flag=True)
+        strategy = Strategy(write_flag=True)
         strategy.restart(version)
 
     elif args.write_simulation:
         if not args.data_version:
             print('Data version must be provided')
             return
-        if args.cloud:
-            version = get_version_name_cloud(Strategy.__name__,
-                                             args.data_version)
-        else:
-            version = get_version_name(Strategy.__name__, args.data_version)
+        version = get_version_name(Strategy.__name__,
+                                   args.data_version,
+                                   config.GCP_CLOUD_IMPLEMENTATION)
         # Start simulation
-        strategy = Strategy(prepped_data_version=version,
-                            write_flag=True,
-                            gcp_implementation=args.cloud)
+        strategy = Strategy(strategy_code_version=None,
+                            prepped_data_version=version,
+                            write_flag=True)
         strategy.start(args.description)
 
     elif args.simulation:
         if not args.data_version:
             print('Data version must be provided')
             return
-        if args.cloud:
-            version = get_version_name_cloud(Strategy.__name__,
-                                             args.data_version)
-        else:
-            version = get_version_name(Strategy.__name__,
-                                       args.data_version)
+        version = get_version_name(Strategy.__name__,
+                                   args.data_version,
+                                   config.GCP_CLOUD_IMPLEMENTATION)
+
         import ipdb; ipdb.set_trace()
-        strategy = Strategy(prepped_data_version=version,
-                            gcp_implementation=args.cloud)
+        strategy = Strategy(strategy_code_version=None,
+                            prepped_data_version=version)
         strategy.start()
 
     elif args.implementation_training:
-        strategy = Strategy(gcp_implementation=args.cloud)
+        strategy = Strategy()
         strategy.implementation_training(args.implementation_training)
 
-    # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif args.data_prep:
-        if args.data_prep != '-1':
-            version = get_version_name(Strategy.__name__, args.data_prep)
-            Strategy(prepped_data_version=version).make_data(version)
-        else:
-            Strategy().make_data()
-
-    elif args.market_data:
-        version = get_version_name(Strategy.__name__, args.market_data)
-        Strategy().make_market_index_data(version)
