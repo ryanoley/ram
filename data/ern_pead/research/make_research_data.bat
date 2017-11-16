@@ -13,6 +13,8 @@ set OUTPUTS_PEAD=%DATA%\ram\data\temp_ern_pead\pead
 %SQLCMD% -v trade=1 -i %SCRIPTS%\report_dates_returns.sql > %OUTPUTS_ERN%\report_dates_returns.txt
 %SQLCMD% -v trade=2 -i %SCRIPTS%\report_dates_returns.sql > %OUTPUTS_PEAD%\report_dates_returns.txt
 
+exit
+
 %SQLCMD% -v trade=1 -i %SCRIPTS%\technical_vars_1.sql > %OUTPUTS_ERN%\technical_vars_1.txt
 %SQLCMD% -v trade=2 -i %SCRIPTS%\technical_vars_1.sql > %OUTPUTS_PEAD%\technical_vars_1.txt
 
