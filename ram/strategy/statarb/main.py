@@ -10,20 +10,28 @@ import datetime as dt
 from sklearn.externals import joblib
 
 from ram import config
-from ram.strategy.base import Strategy
+from ram.strategy.base import Strategy, StrategyVersionContainer
 from ram.strategy.statarb.utils import make_arg_iter
 
 from ram.strategy.statarb.data_blueprints import blueprint_container
+
+# HELPER
+strategy_versions = StrategyVersionContainer()
+strategy_versions.add_version('version_001', 'Current implementation')
 
 
 class StatArbStrategy(Strategy):
 
     def strategy_init(self):
         # Set source code versions
-        print(self.strategy_code_version)
-        self.data = None
-        self.signals = None
-        self.constructor = None
+        if self.strategy_code_version == 'version_001':
+            from ram.strategy.statarb.version_001 import main
+            self.data = main.data
+            self.signals = main.signals
+            self.constructor = main.constructor
+        else:
+            print('Correct strategy code not specified')
+            sys.exit()
         # Set args
         self._data_args = make_arg_iter(self.data.get_args())
         self._signals_args = make_arg_iter(self.signals.get_args())
@@ -41,7 +49,7 @@ class StatArbStrategy(Strategy):
         Should return a dictionary with descriptions in values and any
         labels as keys.
         """
-        return ['version_0001']
+        return strategy_versions
 
     def get_column_parameters(self):
         output_params = {}
@@ -55,7 +63,6 @@ class StatArbStrategy(Strategy):
         return output_params
 
     def process_raw_data(self, data, time_index, market_data=None):
-        return None
         self.data.add_market_data(market_data)
         self.data.add_data(data, time_index)
 

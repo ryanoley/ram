@@ -456,6 +456,50 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copy2(s, d)
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class StrategyVersionContainer(object):
+
+    def __init__(self):
+        self._index = 0
+        self._versions = {}
+
+    def add_version(self, version_name, description):
+        self._versions[version_name] = {
+            'description': description,
+            'key': self._index,
+        }
+        self._index += 1
+
+    def get_version_by_name_or_index(self, index):
+        try:
+            index = int(index)
+        except:
+            pass
+        if isinstance(index, str):
+            if index in self._versions:
+                return index
+            else:
+                return None
+        else:
+            for k, b in self._versions.iteritems():
+                if b['key'] == index:
+                    return k
+            return None
+
+    def __repr__(self):
+        out_string = ' ~~ Available Strategy Versions ~~\n'
+        out_string += ' Key\tVersion\t\tDescription\n'
+        out_string += ' ---\t-------\t\t-----------\n'
+        keys = self._versions.keys()
+        keys.sort()
+        for k in keys:
+            b = self._versions[k]
+            out_string += ' [{}]\t{}\t{}\n'.format(
+                b['key'], k, b['description'])
+        return out_string
+
+
 # ~~~~~~ Read/Write functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def write_json(out_dictionary, path):
@@ -586,8 +630,11 @@ def make_argument_parser(Strategy):
 
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    elif args.strategy_version & args.data_version:
-        strategy_version = args.strategy_version
+    elif (args.strategy_version is not None) & (args.data_version is not None):
+        strategy_versions = Strategy().get_strategy_source_versions()
+        strategy_version = strategy_versions.get_version_by_name_or_index(
+            args.strategy_version)
+
         data_version = get_data_version_name(
             strategy_name=Strategy.__name__,
             version_name=args.data_version,
