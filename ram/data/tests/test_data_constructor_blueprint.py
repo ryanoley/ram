@@ -6,6 +6,8 @@ import pandas as pd
 import datetime as dt
 
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
+from ram.data.data_constructor_blueprint import \
+    DataConstructorBlueprintContainer
 
 
 class TestDataConstructorBlueprint(unittest.TestCase):
@@ -50,6 +52,18 @@ class TestDataConstructorBlueprint(unittest.TestCase):
             dcb.etfs_filter_arguments['start_date'], '2010-01-01')
         self.assertEqual(
             dcb.etfs_filter_arguments['end_date'], '2015-01-01')
+
+    def test_container(self):
+        container = DataConstructorBlueprintContainer()
+        dcb = DataConstructorBlueprint('universe')
+        container.add_blueprint(dcb, 'container 1')
+        container.add_blueprint(dcb, 'container 2')
+        result = container._blueprints.keys()
+        result.sort()
+        benchmark = ['blueprint_0001', 'blueprint_0002']
+        self.assertListEqual(result, benchmark)
+        bp = container.get_blueprint_by_name_or_index('blueprint_0002')
+        bp = container.get_blueprint_by_name_or_index(0)
 
     def test_to_from_json(self):
         dcb = DataConstructorBlueprint('universe')

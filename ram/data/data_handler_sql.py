@@ -56,6 +56,7 @@ class DataHandlerSQL(object):
             self._cursor.close()
             self._connection.close()
         except:
+            print('No connection closed')
             pass
         self._cursor = None
         self._connection = None
@@ -100,21 +101,22 @@ class DataHandlerSQL(object):
             filter_args = {'univ_size': univ_size}
 
         if filter_date:
-            ids = self._get_filtered_ids(d2, filter_args, self._table)
+            seccodes = self._get_filtered_seccodes(d2, filter_args,
+                                                   self._table)
         else:
-            ids = []
-        return self.get_id_data(ids, features, d1, d3)
+            seccodes = []
+        return self.get_seccode_data(seccodes, features, d1, d3)
 
     @connection_error_handling
-    def get_id_data(self,
-                    ids,
-                    features,
-                    start_date,
-                    end_date):
+    def get_seccode_data(self,
+                         seccodes,
+                         features,
+                         start_date,
+                         end_date):
         """
         Parameters
         ----------
-        ids : list
+        seccodes : list
         features : list
         start_date/end_date : datetime
 
@@ -127,7 +129,7 @@ class DataHandlerSQL(object):
         start_date, _, end_date = _format_dates(start_date, None, end_date)
 
         output = pd.DataFrame(columns=['SecCode', 'Date'])
-        # With large numbers of IDs and Features, there is not enough
+        # With large numbers of SecCodes and Features, there is not enough
         # memory to perform a query. Break up by features
         batches = range(0, 301, 10)
         for i1, i2 in zip(batches[:-1], batches[1:]):
@@ -136,7 +138,7 @@ class DataHandlerSQL(object):
                 break
             # Get features, and strings for cte and regular query
             sqlcmd, batch_features = sqlcmd_from_feature_list(
-                batch_features, ids, start_date, end_date, self._table)
+                batch_features, seccodes, start_date, end_date, self._table)
             univ = self.sql_execute(sqlcmd)
             univ_df = pd.DataFrame(
                 univ, columns=['SecCode', 'Date'] + batch_features)
@@ -185,7 +187,7 @@ class DataHandlerSQL(object):
 
         Parameters
         ----------
-        ids : list
+        seccodes : list
         features : list
         start_date/end_date : datetime
 
@@ -219,7 +221,7 @@ class DataHandlerSQL(object):
 
         Parameters
         ----------
-        ids : list
+        tickers : list
         features : list
         start_date/end_date : datetime
 
@@ -231,16 +233,17 @@ class DataHandlerSQL(object):
         # Check user input
         d1, _, d3 = _format_dates(start_date, None, end_date)
 
-        ids = self._map_ticker_to_id(tickers)
+        seccodes = self._map_ticker_to_seccode(tickers)
 
         # Get features, and strings for cte and regular query
         sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids.SecCode.tolist(), d1, d3, 'ram.dbo.ram_etf_pricing')
+            features, seccodes.SecCode.tolist(), d1, d3,
+            'ram.dbo.ram_etf_pricing')
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
         univ_df.columns = ['SecCode', 'Date'] + features
-        univ_df = univ_df.merge(ids)
+        univ_df = univ_df.merge(seccodes)
         univ_df.ID = univ_df.Ticker
         univ_df = univ_df.drop('Ticker', axis=1)
         return univ_df
@@ -258,7 +261,7 @@ class DataHandlerSQL(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_filtered_ids(self, filter_date, args, table):
+    def _get_filtered_seccodes(self, filter_date, args, table):
         univ_size = args['univ_size']
         filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
         where = 'and {0}'.format(args['where']) if 'where' in args else ''
@@ -266,9 +269,9 @@ class DataHandlerSQL(object):
         all_dates = self.get_all_dates()
         filter_date = all_dates[all_dates <= filter_date][-1]
 
-        # Get IDs using next business date(filter_date). First CTE
+        # Get SecCodess using next business date(filter_date). First CTE
         # filters top ID for unique Company (Issuer).
-        ids = np.array(self.sql_execute(
+        seccodes = np.array(self.sql_execute(
             """
             ; with tempdata as (
             select      ID.Issuer, M.SecCode, M.{3},
@@ -295,16 +298,16 @@ class DataHandlerSQL(object):
             order by {3} desc;
             """.format(univ_size, filter_date, where, filter_col, table)
         )).flatten()
-        return ids
+        return seccodes
 
-    def _map_ticker_to_id(self, tickers):
+    def _map_ticker_to_seccode(self, tickers):
         if isinstance(tickers, str):
             tickers = [tickers]
         # Get Ticker, IdcCode mapping
-        ids = pd.DataFrame(self.sql_execute(
+        seccodes = pd.DataFrame(self.sql_execute(
             "select distinct SecCode, Ticker "
             "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
-        return ids[ids.Ticker.isin(tickers)]
+        return seccodes[seccodes.Ticker.isin(tickers)]
 
     @connection_error_handling
     def prior_trading_date(self, t0_dates=dt.date.today()):
@@ -391,8 +394,8 @@ if __name__ == '__main__':
         start_date='2000-01-01',
         end_date='2001-04-01')
 
-    univ = dh.get_id_data(
-        ids=[4760, 78331, 58973],
+    univ = dh.get_seccodes_data(
+        seccodes=[4760, 78331, 58973],
         features=['GSECTOR', 'AdjClose', 'AvgDolVol', 'MarketCap'],
         start_date='1996-04-17',
         end_date='1997-03-31')

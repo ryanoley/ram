@@ -6,7 +6,7 @@ class DataConstructorBlueprint(object):
     def __init__(self,
                  constructor_type=None,
                  market_data_flag=False,
-                 strategy=None,
+                 strategy_name=None,
                  blueprint_json=None):
         """
         Parameters
@@ -15,8 +15,8 @@ class DataConstructorBlueprint(object):
             ['etfs', 'seccodes', 'universe']
         market_data_flag : bool
             Whether to create market data for data version
-        strategy : Strategy
-            Used to extract class name, otherwise the blueprint will output
+        strategy_name : str
+            Name of strategy, otherwise the blueprint will output
             to a standardized directory
         blueprint_json : dict
             From outputted, so to init from file
@@ -25,8 +25,8 @@ class DataConstructorBlueprint(object):
             self.from_json(blueprint_json)
             return
 
-        if strategy:
-            self.output_dir_name = strategy.__class__.__name__
+        if strategy_name:
+            self.output_dir_name = strategy_name
         else:
             self.output_dir_name = 'GeneralOutput'
 
@@ -119,3 +119,39 @@ class DataConstructorBlueprint(object):
         for key, val in blueprint_json.iteritems():
             setattr(self, key, val)
         return
+
+
+class DataConstructorBlueprintContainer(object):
+
+    def __init__(self):
+        self._index = 0
+        self._blueprints = {}
+
+    def add_blueprint(self, blueprint, description):
+        name = 'blueprint_{:04d}'.format(self._index+1)
+        self._blueprints[name] = {
+            'blueprint': blueprint,
+            'description': description,
+            'key': self._index,
+        }
+        self._index += 1
+
+    def get_blueprint_by_name_or_index(self, index):
+        if isinstance(index, str):
+            return self._blueprints[index]['blueprint']
+        else:
+            for k, b in self._blueprints.iteritems():
+                if b['key'] == index:
+                    return b['blueprint']
+
+    def __repr__(self):
+        out_string = ' ~~ Available Blueprints ~~\n'
+        out_string += ' Key\tVersion\t\tDescription\n'
+        out_string += ' ---\t-------\t\t-----------\n'
+        keys = self._blueprints.keys()
+        keys.sort()
+        for k in keys:
+            b = self._blueprints[k]
+            out_string += ' [{}]\t{}\t{}\n'.format(
+                b['key'], k, b['description'])
+        return out_string

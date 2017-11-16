@@ -6,7 +6,7 @@ PREPPED_DATA_DIR = os.path.join(BASE_DIR, 'prepped_data')
 
 IMPLEMENTATION_DATA_DIR = os.path.join(BASE_DIR, 'implementation')
 
-SIMULATION_OUTPUT_DIR = os.path.join(BASE_DIR, 'simulations')
+SIMULATIONS_DATA_DIR = os.path.join(BASE_DIR, 'simulations')
 
 COMBO_SEARCH_OUTPUT_DIR = os.path.join(BASE_DIR, 'combo_search')
 

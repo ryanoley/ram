@@ -12,6 +12,7 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.strategy.base import *
+from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 
 class TestStrategy(Strategy):
@@ -22,45 +23,39 @@ class TestStrategy(Strategy):
     def get_column_parameters(self):
         return {0: {'V1': 1, 'V2': 2}, 1: {'V1': 3, 'V2': 5}}
 
-    def get_features(self):
-        return ['AvgDolVol', 'PRMA10_Close']
+    def process_raw_data(self, data, time_index, market_data=None):
+        pass
 
-    def get_date_parameters(self):
-        return {
-            'frequency': 'Q',
-            'test_period_length': 2,
-            'train_period_length': 4,
-            'start_year': 2017
-        }
+    def get_data_blueprints(self):
+        bp = DataConstructorBlueprint()
+        return {'version_0001': bp}
 
-    def get_filter_args(self):
-        return {
-            'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR not in (55) ' +
-            'and Close_ between 15 and 1000',
-            'univ_size': 10}
+    def get_strategy_source_versions(self):
+        return {'version_0001': 'sector 20',
+                'version_0002': 'pairs sector 30'}
 
 
 class TestStrategyBase(unittest.TestCase):
 
     def setUp(self):
-
-        self.prepped_data_dir = os.path.join(
-            os.getenv('GITHUB'), 'ram', 'ram', 'tests', 'prepped_data')
-        self.output_dir = os.path.join(
-            os.getenv('GITHUB'), 'ram', 'ram', 'tests', 'simulations')
+        self.test_data_dir = os.path.join(os.getenv('GITHUB'), 'ram',
+                                          'ram', 'test_data')
+        self.prepped_data_dir = os.path.join(self.test_data_dir,
+                                             'prepped_data')
+        self.simulation_output_dir = os.path.join(self.test_data_dir,
+                                                  'simulations')
 
         # DELETE LEFTOVER DIRECTORIES
-        if os.path.exists(self.output_dir):
-            shutil.rmtree(self.output_dir)
-        if os.path.exists(self.prepped_data_dir):
-            shutil.rmtree(self.prepped_data_dir)
+        if os.path.exists(self.test_data_dir):
+            shutil.rmtree(self.test_data_dir)
 
         # CREATE PREPPED DATA DIRECTORY
+        os.mkdir(self.test_data_dir)
         os.mkdir(self.prepped_data_dir)
+        os.mkdir(self.simulation_output_dir)
 
         strategy_dir = os.path.join(self.prepped_data_dir, 'TestStrategy')
-        data_version_dir = os.path.join(strategy_dir, 'version_001')
+        data_version_dir = os.path.join(strategy_dir, 'version_0001')
 
         os.mkdir(strategy_dir)
         os.mkdir(data_version_dir)
@@ -72,42 +67,38 @@ class TestStrategyBase(unittest.TestCase):
                     index=False)
         data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'),
                     index=False)
-
-        meta = {
-            'features': ['F1', 'F2'],
-            'date_parameters_univ': {
-                'train_period_length': 2,
-                'test_period_length': 2,
-                'frequency': 'Q',
-                'start_year': 2000
-            },
-            'filter_args_univ': {
-                'filter': 'AvgDolVol',
-                'where': 'Market Cap >= 200',
-                'univ_size': 10
-            },
-            'strategy_name': 'TestStrategy',
-            'version': 'version_0001',
-            'git_branch': 'master',
-            'git_commit': 'adfad14324213',
-        }
-        with open(os.path.join(data_version_dir, 'meta.json'), 'w') as outfile:
-            json.dump(meta, outfile)
-        outfile.close()
-
+        # meta = {
+        #     'features': ['F1', 'F2'],
+        #     'date_parameters_univ': {
+        #         'train_period_length': 2,
+        #         'test_period_length': 2,
+        #         'frequency': 'Q',
+        #         'start_year': 2000
+        #     },
+        #     'filter_args_univ': {
+        #         'filter': 'AvgDolVol',
+        #         'where': 'Market Cap >= 200',
+        #         'univ_size': 10
+        #     },
+        #     'strategy_name': 'TestStrategy',
+        #     'version': 'version_0001',
+        #     'git_branch': 'master',
+        #     'git_commit': 'adfad14324213',
+        # }
+        # with open(os.path.join(data_version_dir, 'meta.json'), 'w') as outfile:
+        #     json.dump(meta, outfile)
+        # outfile.close()
         self.strategy = TestStrategy(
-            prepped_data_version='version_001',
+            strategy_code_version='version_0002',
+            prepped_data_version='version_0001',
             write_flag=False,
-            prepped_data_dir=self.prepped_data_dir,
-            simulation_output_dir=self.output_dir)
+            ram_prepped_data_dir=self.prepped_data_dir,
+            ram_simulations_dir=self.simulation_output_dir)
 
     def test_get_prepped_data_files(self):
         self.strategy._get_prepped_data_file_names()
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(self.strategy._prepped_data_files, benchmark)
-
-    def test_print_prepped_data_meta(self):
-        self.strategy._print_prepped_data_meta()
 
     def test_read_data_from_index(self):
         result = self.strategy.read_data_from_index(1)
@@ -121,33 +112,36 @@ class TestStrategyBase(unittest.TestCase):
     def test_create_run_output_dir(self):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
-        self.assertEqual(os.listdir(self.output_dir)[0], 'TestStrategy')
-        result = os.listdir(os.path.join(self.output_dir, 'TestStrategy'))[0]
+        self.assertEqual(os.listdir(self.simulation_output_dir)[0],
+                         'TestStrategy')
+        result = os.listdir(os.path.join(self.simulation_output_dir,
+                                         'TestStrategy'))[0]
         self.assertEqual(result, 'run_0001')
-        result = os.listdir(os.path.join(self.output_dir, 'TestStrategy',
-                            'run_0001'))[0]
+        result = os.listdir(os.path.join(self.simulation_output_dir,
+                                         'TestStrategy', 'run_0001'))[0]
         self.assertEqual(result, 'index_outputs')
 
     def test_create_meta_file(self):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
-        result = json.load(open(os.path.join(self.output_dir,
+        result = json.load(open(os.path.join(self.simulation_output_dir,
                                              'TestStrategy', 'run_0001',
                                              'meta.json'), 'r'))
         self.assertEqual(result['completed'], False)
         self.assertTrue('latest_git_commit' in result)
         self.assertTrue('prepped_data_version' in result)
+        self.assertTrue('strategy_code_version' in result)
         self.assertTrue('description' in result)
         self.assertTrue('git_branch' in result)
         self.assertTrue('start_time' in result)
-        self.assertEqual(len(result), 6)
+        self.assertEqual(len(result), 7)
 
     def test_write_column_parameters_file(self):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
         self.strategy._write_column_parameters_file()
-        result = json.load(open(os.path.join(self.output_dir,
+        result = json.load(open(os.path.join(self.simulation_output_dir,
                                              'TestStrategy', 'run_0001',
                                              'column_params.json'), 'r'))
         self.assertDictEqual(result, {'0': {'V1': 1, 'V2': 2},
@@ -158,7 +152,7 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
         self.strategy._shutdown_simulation()
-        result = json.load(open(os.path.join(self.output_dir,
+        result = json.load(open(os.path.join(self.simulation_output_dir,
                                              'TestStrategy', 'run_0001',
                                              'meta.json'), 'r'))
         self.assertEqual(result['completed'], True)
@@ -167,14 +161,17 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
+
         # Put in a run file
-        dpath = os.path.join(self.strategy.strategy_output_dir,
+        dpath = os.path.join(self.strategy.strategy_run_output_dir,
+                             'index_outputs',
                              '20100101_returns.csv')
         data = pd.DataFrame(
             {'SecCode': [10, 20, 30], 'V1': [3, 4, 5]},
             index=['2010-01-01', '2010-01-02', '2010-01-03'])
         data.to_csv(dpath)
-        dpath = os.path.join(self.strategy.strategy_output_dir,
+        dpath = os.path.join(self.strategy.strategy_run_output_dir,
+                             'index_outputs',
                              '20100201_returns.csv')
         data = pd.DataFrame(
             {'SecCode': [10, 20], 'V1': [3, 4]},
@@ -182,18 +179,20 @@ class TestStrategyBase(unittest.TestCase):
         data.to_csv(dpath)
         # New Strategy
         strategy = TestStrategy(
-            prepped_data_dir=self.prepped_data_dir,
-            simulation_output_dir=self.output_dir)
+            ram_prepped_data_dir=self.prepped_data_dir,
+            ram_simulations_dir=self.simulation_output_dir)
         strategy._import_run_meta_for_restart('run_0001')
-        benchmark = os.path.join(self.output_dir, 'TestStrategy',
-                                 'run_0001', 'index_outputs')
-        self.assertEqual(strategy.strategy_output_dir, benchmark)
+        benchmark = os.path.join(self.simulation_output_dir,
+                                 'TestStrategy',
+                                 'run_0001')
+        self.assertEqual(strategy.strategy_run_output_dir, benchmark)
         strategy._get_prepped_data_file_names()
         result = strategy._prepped_data_files
         benchmark = ['20100101_data.csv', '20100201_data.csv']
         self.assertListEqual(result, benchmark)
         strategy.restart('run_0001')
-        result = os.listdir(self.strategy.strategy_output_dir)
+        result = os.listdir(os.path.join(
+            self.strategy.strategy_run_output_dir, 'index_outputs'))
         benchmark = ['20100101_returns.csv']
         self.assertListEqual(result, benchmark)
 
@@ -209,12 +208,26 @@ class TestStrategyBase(unittest.TestCase):
         # New Strategy
         strategy = TestStrategy(
             write_flag=True,
-            prepped_data_dir=self.prepped_data_dir,
-            simulation_output_dir=self.output_dir)
+            ram_prepped_data_dir=self.prepped_data_dir,
+            ram_simulations_dir=self.simulation_output_dir)
         strategy._import_run_meta_for_restart('run_0001')
         strategy._get_prepped_data_file_names()
         strategy._get_max_run_time_index_for_restart()
-        self.assertEqual(strategy._max_run_time_index, 0)
+        self.assertEqual(strategy._restart_time_index, 1)
+        df = pd.DataFrame(
+            {'v1': [10, 20], 'v2': [3, 4]},
+            index=['2010-01-01', '2010-01-02'])
+        self.strategy.write_index_results(df, 0)
+        strategy = TestStrategy(
+            write_flag=True,
+            ram_prepped_data_dir=self.prepped_data_dir,
+            ram_simulations_dir=self.simulation_output_dir)
+        strategy._import_run_meta_for_restart('run_0001')
+        strategy._get_prepped_data_file_names()
+        strategy._get_max_run_time_index_for_restart()
+        self.assertEqual(strategy._restart_time_index, 0)
+        path = os.path.join(strategy.strategy_run_output_dir, 'index_outputs')
+        self.assertEqual(len(os.listdir(path)), 0)
 
     def test_read_write_json(self):
         meta = {'V1': 2, 'V2': 4}
@@ -227,9 +240,8 @@ class TestStrategyBase(unittest.TestCase):
         pass
 
     def tearDown(self):
-        shutil.rmtree(self.prepped_data_dir)
-        if os.path.exists(self.output_dir):
-            shutil.rmtree(self.output_dir)
+        if os.path.exists(self.test_data_dir):
+            shutil.rmtree(self.test_data_dir)
 
 
 if __name__ == '__main__':

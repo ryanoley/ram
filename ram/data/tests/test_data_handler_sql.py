@@ -27,8 +27,8 @@ class TestDataHandlerSQL(unittest.TestCase):
         result = self.dh.prior_trading_date('notadate')
         self.assertTrue(np.isnan(result))
 
-    def test_map_ticker_to_id(self):
-        result = self.dh._map_ticker_to_id('SPY')
+    def test_map_ticker_to_seccode(self):
+        result = self.dh._map_ticker_to_seccode('SPY')
         self.assertEqual(result.SecCode.iloc[0], 61494)
         self.assertEqual(result.Ticker.iloc[0], 'SPY')
 

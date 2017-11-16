@@ -1,6 +1,12 @@
+import itertools
 import numpy as np
 import pandas as pd
 import datetime as dt
+
+
+def make_arg_iter(variants):
+    return [{x: y for x, y in zip(variants.keys(), vals)}
+            for vals in itertools.product(*variants.values())]
 
 
 def ern_date_blackout(data, offset1=-1, offset2=2):

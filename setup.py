@@ -29,9 +29,9 @@ PACKAGES = [
     'ram/strategy/statarb/implementation',
     'ram/strategy/statarb/implementation/live',
     'ram/strategy/statarb/implementation/training',
-    'ram/strategy/statarb/version_0001/data_container',
-    'ram/strategy/statarb/version_0001/portfolio_constructor',
-    'ram/strategy/statarb/version_0001/signal_generator',
+    'ram/strategy/statarb/version_001/data_container',
+    'ram/strategy/statarb/version_001/portfolio_constructor',
+    'ram/strategy/statarb/version_001/signal_generator',
     # ~~~~~~~~~~~~~~~
     'ram/strategy/vxx',
     'ram/strategy/yearend',
