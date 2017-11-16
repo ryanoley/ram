@@ -4,8 +4,8 @@ import json
 class DataConstructorBlueprint(object):
 
     def __init__(self,
-                 constructor_type,
-                 description,
+                 constructor_type=None,
+                 description=None,
                  market_data_flag=False,
                  strategy_name=None,
                  blueprint_json=None):
@@ -31,6 +31,7 @@ class DataConstructorBlueprint(object):
         else:
             self.output_dir_name = 'GeneralOutput'
 
+        assert description, 'Description must be provided'
         self.description = description
 
         # Features are set by default

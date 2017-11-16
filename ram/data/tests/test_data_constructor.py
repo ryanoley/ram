@@ -26,7 +26,7 @@ class TestDataConstructor(unittest.TestCase):
             shutil.rmtree(self.prepped_data_dir)
 
     def test_make_output_directory(self):
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         dc._make_output_directory(blueprint)
         dc._make_output_directory(blueprint)
@@ -36,10 +36,10 @@ class TestDataConstructor(unittest.TestCase):
         self.assertListEqual(result, benchmark)
 
     def test_write_archive_meta_data(self):
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         dc._make_output_directory(blueprint)
-        dc._write_archive_meta_data(blueprint, description='Test')
+        dc._write_archive_meta_data(blueprint)
         path = os.path.join(self.prepped_data_dir, 'GeneralOutput',
                             'archive', 'version_0001.json')
         self.assertTrue(os.path.isfile(path))
@@ -48,7 +48,7 @@ class TestDataConstructor(unittest.TestCase):
         self.assertTrue(os.path.isfile(path))
 
     def test_write_archive_meta_data(self):
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         self.assertTrue(dc._check_parameters(blueprint))
         del blueprint.universe_filter_arguments['filter']
@@ -56,7 +56,7 @@ class TestDataConstructor(unittest.TestCase):
             dc._check_parameters(blueprint),
 
     def test_make_date_iterator(self):
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         blueprint.universe_date_parameters['train_period_length'] = 1
         blueprint.universe_date_parameters['start_year'] = 2017
         dc = DataConstructor(self.prepped_data_dir)
@@ -67,10 +67,10 @@ class TestDataConstructor(unittest.TestCase):
         self.assertEqual(result[2], dt.datetime(2017, 4, 30))
 
     def test_init_rerun(self):
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         dc._make_output_directory(blueprint)
-        dc._write_archive_meta_data(blueprint, description='Test')
+        dc._write_archive_meta_data(blueprint)
         # Write some dummy data files
         df = pd.DataFrame({'V1': range(4)})
         df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
@@ -86,10 +86,10 @@ class TestDataConstructor(unittest.TestCase):
         # Don't execute on cloud instance
         if config.GCP_CLOUD_IMPLEMENTATION:
             return
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         blueprint.universe_date_parameters['train_period_length'] = 1
         dc = DataConstructor(self.prepped_data_dir)
-        dc.run(blueprint, description='Test')
+        dc.run(blueprint)
         # Get files
         result = os.listdir(os.path.join(
             self.prepped_data_dir, 'GeneralOutput', 'version_0001'))
@@ -119,24 +119,24 @@ class TestDataConstructor(unittest.TestCase):
         # Don't execute on cloud instance
         if config.GCP_CLOUD_IMPLEMENTATION:
             return
-        blueprint = DataConstructorBlueprint('universe',
+        blueprint = DataConstructorBlueprint('universe', 'Test description',
                                              market_data_flag=True)
         blueprint.market_data_params['features'] = ['AdjClose']
         blueprint.market_data_params['seccodes'] = [50311, 10955]
         blueprint.universe_date_parameters['train_period_length'] = 1
         dc = DataConstructor(self.prepped_data_dir)
-        dc.run(blueprint, description='Test')
+        dc.run(blueprint)
         result = os.listdir(os.path.join(self.prepped_data_dir,
                                          'GeneralOutput', 'version_0001'))
         self.assertTrue('market_index_data.csv' in result)
 
     def test_random_functions(self):
-        blueprint = DataConstructorBlueprint('universe')
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         dc._make_output_directory(blueprint)
-        dc._write_archive_meta_data(blueprint, description='Test')
+        dc._write_archive_meta_data(blueprint)
         dc._make_output_directory(blueprint)
-        dc._write_archive_meta_data(blueprint, description='Test2')
+        dc._write_archive_meta_data(blueprint)
         result = _get_versions(self.prepped_data_dir, 'GeneralOutput')
         benchmark = {0: 'version_0001', 1: 'version_0002'}
         self.assertDictEqual(result, benchmark)

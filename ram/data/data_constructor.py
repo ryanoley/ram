@@ -17,7 +17,6 @@ from ram.data.data_handler_sql import DataHandlerSQL
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 from ram.utils.documentation import get_git_branch_commit
-from ram.utils.documentation import prompt_for_description
 
 
 class DataConstructor(object):
@@ -27,11 +26,11 @@ class DataConstructor(object):
 
     # ~~~~~~ Interface ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def run(self, blueprint, description=None):
+    def run(self, blueprint):
         self._check_parameters(blueprint)
         self._init_run(blueprint)
         self._make_output_directory(blueprint)
-        self._write_archive_meta_data(blueprint, description)
+        self._write_archive_meta_data(blueprint)
         self._make_data(blueprint)
 
     def rerun(self, output_dir_name, rerun_version):
@@ -185,10 +184,7 @@ class DataConstructor(object):
             self._version = version
         os.mkdir(self._output_dir)
 
-    def _write_archive_meta_data(self,
-                                 blueprint,
-                                 description=True):
-        description = description if description else prompt_for_description()
+    def _write_archive_meta_data(self, blueprint):
         git_branch, git_commit = get_git_branch_commit()
         start_time = str(dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
         meta = {
@@ -196,7 +192,6 @@ class DataConstructor(object):
             'version': self._version,
             'git_branch': git_branch,
             'git_commit': git_commit,
-            'description': description,
             'blueprint': blueprint.to_json()
         }
         # Write meta to output directory
@@ -375,8 +370,8 @@ def _get_meta_data(prepped_data_dir, strategy_name, version):
     path = os.path.join(prepped_data_dir, strategy_name,
                         version, 'meta.json')
     meta = json.load(open(path, 'r'))
-    if 'description' not in meta:
-        meta['description'] = None
+    if 'blueprint' in meta:
+        meta['description'] = meta['blueprint']['description']
     return meta
 
 
@@ -386,8 +381,8 @@ def _get_meta_data_cloud(strategy_name, version):
     bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     blob = bucket.get_blob(path)
     meta = json.loads(blob.download_as_string())
-    if 'description' not in meta:
-        meta['description'] = None
+    if 'blueprint' in meta:
+        meta['description'] = meta['blueprint'].description
     return meta
 
 
