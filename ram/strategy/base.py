@@ -575,7 +575,7 @@ def make_argument_parser(Strategy):
         blueprints = Strategy().get_data_blueprint_container()
         blueprint = blueprints.get_blueprint_by_name_or_index(
             args.data_make_from_blueprint)
-        DataConstructor().run(blueprint, args.description)
+        DataConstructor().run(blueprint)
 
     elif args.data_update_version:
         update_data_version = get_data_version_name(
