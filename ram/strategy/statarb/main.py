@@ -73,11 +73,13 @@ class StatArbStrategy(Strategy):
             return
         # Iterate
         i = 0
-        for ad in self._data_args:
-            self.data.prep_data(time_index, **ad)
+        for args1 in self._data_args:
+            self.data.prep_data(time_index, **args1)
 
-            for as_ in self._signals_args:
-                self.signals.generate_signals(self.data, **as_)
+            for args2 in self._signals_args:
+                self.signals.set_args(self.data, **args2)
+                self.signals.fit_model()
+                self.signals.get_preds()
 
                 for ac in self._constructor_args:
                     result, stats = self.constructor.get_daily_pl(
@@ -90,6 +92,47 @@ class StatArbStrategy(Strategy):
                                  time_index,
                                  'all_output')
         self.write_index_stats(self.output_stats, time_index)
+
+
+
+
+class StatArbStrategyImplementation(object):
+
+    def __init__(self):
+        self.import_skl_models()
+        self.import_raw_data()
+        self.append_live_prices_process_features()
+        self.get_capital_allocations()
+
+    def import_skl_models():
+        pass
+
+    def import_raw_data(self):
+        pass
+
+    def append_live_prices_process_features(self):
+        # Wait until user presses enter. Gathers prices, appends,
+        # and processes
+
+        # Process technical factors
+        # Recalculate Z-Scores for pairs
+
+    def get_capital_allocations(self):
+        """
+        After most up to date prices have been merged and appropriate
+        features have been processed, take in data and return capital
+        allocations
+        """
+        for model in models:
+            self.signals.set_args(self.data, model['data'])
+            self.signals.get_preds()
+            self.constructor.set_args(model['constructor'])
+            allocations = self.constructor.get_daily_allocations(
+                self.data, self.signals)
+        # Aggregate allocations, send to file, pass downstream
+        agg_allocations = sum(allocations)
+        return agg_allocations
+
 
     # ~~~~~~ Implementation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -148,50 +191,56 @@ class StatArbStrategy(Strategy):
     #         column_params[key] = params[key]
     #     return column_params
 
-    def _get_data_params(self, params):
-        params = params['column_params']
-        interface = inspect.getargspec(self.data.prep_data).args
-        interface = [x for x in interface if x not in ['self', 'time_index']]
-        out = {}
-        for key in interface:
-            out[key] = params[key]
-        return out
+    # def _get_data_params(self, params):
+    #     params = params['column_params']
+    #     interface = inspect.getargspec(self.data.prep_data).args
+    #     interface = [x for x in interface if x not in ['self', 'time_index']]
+    #     out = {}
+    #     for key in interface:
+    #         out[key] = params[key]
+    #     return out
 
-    def _get_signals_params(self, params):
-        params = params['column_params']
-        interface = inspect.getargspec(self.signals.generate_signals).args
-        interface = [x for x in interface
-                     if x not in ['self', 'data_container']]
-        out = {}
-        for key in interface:
-            out[key] = params[key]
-        return out
+    # def _get_signals_params(self, params):
+    #     params = params['column_params']
+    #     interface = inspect.getargspec(self.signals.generate_signals).args
+    #     interface = [x for x in interface
+    #                  if x not in ['self', 'data_container']]
+    #     out = {}
+    #     for key in interface:
+    #         out[key] = params[key]
+    #     return out
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _capture_output(self, results, stats, arg_index):
-        results = results.copy()
-        if hasattr(self.constructor, 'booksize_original'):
-            book = self.constructor.booksize_original
-        else:
-            book = self.constructor.booksize
-        returns = pd.DataFrame(results.PL / book)
-        returns.columns = [arg_index]
-        # Rename columns
-        results.columns = ['{}_{}'.format(x, arg_index)
-                           for x in results.columns]
-        if arg_index == 0:
-            self.output_returns = returns
-            self.output_all_output = results
-            self.output_stats = {}
-        else:
-            self.output_returns = self.output_returns.join(returns,
-                                                           how='outer')
-            self.output_all_output = self.output_all_output.join(
-                results, how='outer')
-        self.output_stats[arg_index] = stats
+    # def _capture_output(self, results, stats, arg_index):
+    #     results = results.copy()
+    #     if hasattr(self.constructor, 'booksize_original'):
+    #         book = self.constructor.booksize_original
+    #     else:
+    #         book = self.constructor.booksize
+    #     returns = pd.DataFrame(results.PL / book)
+    #     returns.columns = [arg_index]
+    #     # Rename columns
+    #     results.columns = ['{}_{}'.format(x, arg_index)
+    #                        for x in results.columns]
+    #     if arg_index == 0:
+    #         self.output_returns = returns
+    #         self.output_all_output = results
+    #         self.output_stats = {}
+    #     else:
+    #         self.output_returns = self.output_returns.join(returns,
+    #                                                        how='outer')
+    #         self.output_all_output = self.output_all_output.join(
+    #             results, how='outer')
+    #     self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
 
 
 

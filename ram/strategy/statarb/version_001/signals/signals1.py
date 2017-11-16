@@ -32,22 +32,18 @@ class SignalModel1(BaseSignal):
     def get_skl_model(self):
         return self.skl_model
 
-    def generate_signals(self,
-                         data_container,
-                         model_params,
-                         drop_ibes,
-                         drop_accounting,
-                         drop_extremes,
-                         drop_starmine,
-                         drop_market_variables):
-
-        train_data = data_container.train_data
-        test_data = data_container.test_data
+    def set_signal_generator_arguments(self,
+                                       data_container,
+                                       model_params,
+                                       drop_ibes,
+                                       drop_accounting,
+                                       drop_extremes,
+                                       drop_starmine,
+                                       drop_market_variables):
+        # FEATURES
         features = data_container.features
-
         if drop_ibes:
             features = [x for x in features if x[:4] != 'IBES']
-
         if drop_accounting:
             accounting_vars = [
                 'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM',
@@ -75,14 +71,21 @@ class SignalModel1(BaseSignal):
                 'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
                 'LAG1_SIINSTOWNERSHIP']
             features = [x for x in features if x not in starmine_vars]
-
+        self.features = features
         self.skl_model.set_params(**model_params)
-        self.skl_model.fit(X=train_data[features],
-                           y=train_data['Response'])
+        self.data_container = data_container
 
+    def get_preds(self):
+        test_data = self.data_container.test_data
         preds = self.skl_model.predict_proba(test_data[features])
         test_data['preds'] = _get_preds(self.skl_model, preds)
         self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
+
+    def fit_model(self):
+        train_data = self.data_container.train_data
+        self.skl_model.fit(X=train_data[features],
+                           y=train_data['Response'])
+
 
 
 def _get_preds(classifier, preds):
