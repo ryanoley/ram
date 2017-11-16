@@ -4,7 +4,8 @@ import json
 class DataConstructorBlueprint(object):
 
     def __init__(self,
-                 constructor_type=None,
+                 constructor_type,
+                 description,
                  market_data_flag=False,
                  strategy_name=None,
                  blueprint_json=None):
@@ -29,6 +30,8 @@ class DataConstructorBlueprint(object):
             self.output_dir_name = strategy_name
         else:
             self.output_dir_name = 'GeneralOutput'
+
+        self.description = description
 
         # Features are set by default
         self.features = ['PRMA10_Close']
@@ -92,6 +95,7 @@ class DataConstructorBlueprint(object):
         output = {}
         output['output_dir_name'] = self.output_dir_name
         output['features'] = self.features
+        output['description'] = self.description
         if self.constructor_type == 'universe':
             output['constructor_type'] = 'universe'
             output['universe_filter_arguments'] = \
@@ -127,11 +131,10 @@ class DataConstructorBlueprintContainer(object):
         self._index = 0
         self._blueprints = {}
 
-    def add_blueprint(self, blueprint, description):
+    def add_blueprint(self, blueprint):
         name = 'blueprint_{:04d}'.format(self._index+1)
         self._blueprints[name] = {
             'blueprint': blueprint,
-            'description': description,
             'key': self._index,
         }
         self._index += 1
@@ -157,5 +160,5 @@ class DataConstructorBlueprintContainer(object):
         for k in keys:
             b = self._blueprints[k]
             out_string += ' [{}]\t{}\t{}\n'.format(
-                b['key'], k, b['description'])
+                b['key'], k, b['blueprint'].description)
         return out_string

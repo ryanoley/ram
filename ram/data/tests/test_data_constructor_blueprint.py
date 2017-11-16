@@ -16,8 +16,9 @@ class TestDataConstructorBlueprint(unittest.TestCase):
         pass
 
     def test_init(self):
-        dcb = DataConstructorBlueprint('universe')
+        dcb = DataConstructorBlueprint('universe', 'Test description')
         self.assertEqual(dcb.constructor_type, 'universe')
+        self.assertEqual(dcb.description, 'Test description')
         self.assertEqual(dcb.universe_filter_arguments['filter'], 'AvgDolVol')
         self.assertEqual(dcb.universe_filter_arguments['univ_size'], 10)
         self.assertEqual(dcb.universe_filter_arguments['where'],
@@ -32,10 +33,11 @@ class TestDataConstructorBlueprint(unittest.TestCase):
         self.assertFalse(hasattr(dcb, 'market_data_params'))
         self.assertEqual(dcb.output_dir_name, 'GeneralOutput')
         #
-        dcb = DataConstructorBlueprint('universe', market_data_flag=True)
+        dcb = DataConstructorBlueprint('universe', 'Test description',
+                                       market_data_flag=True)
         self.assertTrue(hasattr(dcb, 'market_data_params'))
         #
-        dcb = DataConstructorBlueprint('seccodes')
+        dcb = DataConstructorBlueprint('seccodes', 'Test description')
         self.assertEqual(dcb.constructor_type, 'seccodes')
         self.assertEqual(
             dcb.seccodes_filter_arguments['seccodes'], [6027, 36799])
@@ -44,7 +46,7 @@ class TestDataConstructorBlueprint(unittest.TestCase):
         self.assertEqual(
             dcb.seccodes_filter_arguments['end_date'], '2015-01-01')
         #
-        dcb = DataConstructorBlueprint('etfs')
+        dcb = DataConstructorBlueprint('etfs', 'Test description')
         self.assertEqual(dcb.constructor_type, 'etfs')
         self.assertEqual(
             dcb.etfs_filter_arguments['tickers'], ['SPY'])
@@ -55,20 +57,19 @@ class TestDataConstructorBlueprint(unittest.TestCase):
 
     def test_container(self):
         container = DataConstructorBlueprintContainer()
-        dcb = DataConstructorBlueprint('universe')
-        container.add_blueprint(dcb, 'container 1')
-        container.add_blueprint(dcb, 'container 2')
+        dcb = DataConstructorBlueprint('universe', 'Test description')
+        container.add_blueprint(dcb)
+        container.add_blueprint(dcb)
         result = container._blueprints.keys()
         result.sort()
         benchmark = ['blueprint_0001', 'blueprint_0002']
         self.assertListEqual(result, benchmark)
-        import pdb; pdb.set_trace()
         bp = container.get_blueprint_by_name_or_index('blueprint_0002')
         bp = container.get_blueprint_by_name_or_index(0)
         bp = container.get_blueprint_by_name_or_index('0')
 
     def test_to_from_json(self):
-        dcb = DataConstructorBlueprint('universe')
+        dcb = DataConstructorBlueprint('universe', 'Test')
         result = dcb.to_json()
         dcb2 = DataConstructorBlueprint(blueprint_json=result)
         self.assertDictEqual(result, dcb2.to_json())

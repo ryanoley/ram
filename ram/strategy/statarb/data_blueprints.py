@@ -5,6 +5,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint, \
 
 # BASE
 base = DataConstructorBlueprint(constructor_type='universe',
+                                description='TEMP',
                                 market_data_flag=True,
                                 strategy_name='StatArbStrategy')
 
@@ -72,42 +73,51 @@ base.features = [
 
 # SECTOR 20
 sector20_0 = deepcopy(base)
+sector20_0.description = 'Sector 20, Jan/Apr/Jul/Oct'
 sector20_0.universe_filter_arguments['where'] += ' and GSECTOR = 20'
 sector20_0.universe_date_parameters['quarter_frequency_month_offset'] = 0
 
 sector20_1 = deepcopy(base)
+sector20_0.description = 'Sector 20, Feb/May/Aug/Nov'
 sector20_1.universe_filter_arguments['where'] += ' and GSECTOR = 20'
 sector20_1.universe_date_parameters['quarter_frequency_month_offset'] = 1
 
 sector20_2 = deepcopy(base)
+sector20_0.description = 'Sector 20, Mar/Jun/Sep/Dec'
 sector20_2.universe_filter_arguments['where'] += ' and GSECTOR = 20'
 sector20_2.universe_date_parameters['quarter_frequency_month_offset'] = 2
 
 
 # SECTOR 25
 sector25_0 = deepcopy(base)
+sector20_0.description = 'Sector 25, Jan/Apr/Jul/Oct'
 sector25_0.universe_filter_arguments['where'] += ' and GSECTOR = 25'
 sector25_0.universe_date_parameters['quarter_frequency_month_offset'] = 0
 
 sector25_1 = deepcopy(base)
+sector20_0.description = 'Sector 25, Feb/May/Aug/Nov'
 sector25_1.universe_filter_arguments['where'] += ' and GSECTOR = 25'
 sector25_1.universe_date_parameters['quarter_frequency_month_offset'] = 1
 
 sector25_2 = deepcopy(base)
+sector20_0.description = 'Sector 25, Mar/Jun/Sep/Dec'
 sector25_2.universe_filter_arguments['where'] += ' and GSECTOR = 25'
 sector25_2.universe_date_parameters['quarter_frequency_month_offset'] = 2
 
 
 # SECTOR 45
 sector45_0 = deepcopy(base)
+sector20_0.description = 'Sector 45, Jan/Apr/Jul/Oct'
 sector45_0.universe_filter_arguments['where'] += ' and GSECTOR = 45'
 sector45_0.universe_date_parameters['quarter_frequency_month_offset'] = 0
 
 sector45_1 = deepcopy(base)
+sector20_0.description = 'Sector 45, Feb/May/Aug/Nov'
 sector45_1.universe_filter_arguments['where'] += ' and GSECTOR = 45'
 sector45_1.universe_date_parameters['quarter_frequency_month_offset'] = 1
 
 sector45_2 = deepcopy(base)
+sector20_0.description = 'Sector 45, Mar/Jun/Sep/Dec'
 sector45_2.universe_filter_arguments['where'] += ' and GSECTOR = 45'
 sector45_2.universe_date_parameters['quarter_frequency_month_offset'] = 2
 
@@ -116,14 +126,14 @@ sector45_2.universe_date_parameters['quarter_frequency_month_offset'] = 2
 
 blueprint_container = DataConstructorBlueprintContainer()
 
-blueprint_container.add_blueprint(sector20_0, 'Sector 20, Jan/Apr/Jul/Oct')
-blueprint_container.add_blueprint(sector20_1, 'Sector 20, Feb/May/Aug/Nov')
-blueprint_container.add_blueprint(sector20_2, 'Sector 20, Mar/Jun/Sep/Dec')
+blueprint_container.add_blueprint(sector20_0)
+blueprint_container.add_blueprint(sector20_1)
+blueprint_container.add_blueprint(sector20_2)
 
-blueprint_container.add_blueprint(sector25_0, 'Sector 25, Jan/Apr/Jul/Oct')
-blueprint_container.add_blueprint(sector25_1, 'Sector 25, Feb/May/Aug/Nov')
-blueprint_container.add_blueprint(sector25_2, 'Sector 25, Mar/Jun/Sep/Dec')
+blueprint_container.add_blueprint(sector25_0)
+blueprint_container.add_blueprint(sector25_1)
+blueprint_container.add_blueprint(sector25_2)
 
-blueprint_container.add_blueprint(sector45_0, 'Sector 45, Jan/Apr/Jul/Oct')
-blueprint_container.add_blueprint(sector45_1, 'Sector 45, Feb/May/Aug/Nov')
-blueprint_container.add_blueprint(sector45_2, 'Sector 45, Mar/Jun/Sep/Dec')
+blueprint_container.add_blueprint(sector45_0)
+blueprint_container.add_blueprint(sector45_1)
+blueprint_container.add_blueprint(sector45_2)
