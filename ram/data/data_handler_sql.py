@@ -394,7 +394,7 @@ if __name__ == '__main__':
         start_date='2000-01-01',
         end_date='2001-04-01')
 
-    univ = dh.get_seccodes_data(
+    univ = dh.get_seccode_data(
         seccodes=[4760, 78331, 58973],
         features=['GSECTOR', 'AdjClose', 'AvgDolVol', 'MarketCap'],
         start_date='1996-04-17',
