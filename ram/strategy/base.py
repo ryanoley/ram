@@ -573,7 +573,7 @@ def make_argument_parser(Strategy):
 
     elif args.data_make_from_blueprint:
         blueprints = Strategy().get_data_blueprint_container()
-        blueprint = blueprint.get_blueprint_by_name_or_index(
+        blueprint = blueprints.get_blueprint_by_name_or_index(
             args.data_make_from_blueprint)
         DataConstructor().run(blueprint, args.description)
 

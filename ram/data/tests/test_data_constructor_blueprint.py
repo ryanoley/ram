@@ -62,8 +62,10 @@ class TestDataConstructorBlueprint(unittest.TestCase):
         result.sort()
         benchmark = ['blueprint_0001', 'blueprint_0002']
         self.assertListEqual(result, benchmark)
+        import pdb; pdb.set_trace()
         bp = container.get_blueprint_by_name_or_index('blueprint_0002')
         bp = container.get_blueprint_by_name_or_index(0)
+        bp = container.get_blueprint_by_name_or_index('0')
 
     def test_to_from_json(self):
         dcb = DataConstructorBlueprint('universe')

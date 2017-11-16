@@ -137,6 +137,10 @@ class DataConstructorBlueprintContainer(object):
         self._index += 1
 
     def get_blueprint_by_name_or_index(self, index):
+        try:
+            index = int(index)
+        except:
+            pass
         if isinstance(index, str):
             return self._blueprints[index]['blueprint']
         else:
