@@ -2,10 +2,10 @@ import numpy as np
 
 from sklearn.ensemble import ExtraTreesClassifier
 
-from ram.strategy.long_pead.signals.base import BaseSignal
+from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
 
 
-class SignalModel1(BaseSignal):
+class SignalModel1(BaseSignalGenerator):
 
     def __init__(self):
         self.skl_model = ExtraTreesClassifier(n_jobs=-1)
@@ -28,6 +28,9 @@ class SignalModel1(BaseSignal):
             'drop_starmine': [True, False],
             'drop_market_variables': ['constrained']
         }
+
+    def generate_signals(self):
+        pass
 
     def get_skl_model(self):
         return self.skl_model

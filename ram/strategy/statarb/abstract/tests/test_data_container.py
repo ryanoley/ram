@@ -79,12 +79,7 @@ class DataContainer(BaseDataContainer):
         close = clean_pivot_raw_data(data, 'AdjClose')
         volume = clean_pivot_raw_data(data, 'AdjVolume')
         # Set correct method for training or live implementation
-        if live_flag:
-            prma = PRMA()
-            prma.fit = prma.calculate_last_date
-        else:
-            prma = PRMA()
-            prma.fit = prma.calculate_all_dates
+        prma = PRMA(live_flag)
         # Create variables
         v1 = prma.fit(close, 2)
         v2 = prma.fit(close, 4)

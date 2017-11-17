@@ -607,10 +607,11 @@ def make_argument_parser(Strategy):
 
     elif args.strategy_list_runs:
         # TODO
-        runs = get_run_data(Strategy.__name__,
-                            config.GCP_CLOUD_IMPLEMENTATION)
-        # Adjust column width
-        runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
+        # runs = get_run_data(Strategy.__name__,
+        #                     config.GCP_CLOUD_IMPLEMENTATION)
+        # # Adjust column width
+        # runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
+        runs = ['NOT CONNECTED']
         print(runs)
 
     # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -653,6 +654,6 @@ def make_argument_parser(Strategy):
         strategy = Strategy(write_flag=True)
         strategy.restart(run_name)
 
-    elif args.implementation_training:
-        strategy = Strategy()
-        strategy.implementation_training(args.implementation_training)
+    # elif args.implementation_training:
+    #     strategy = Strategy()
+    #     strategy.implementation_training(args.implementation_training)

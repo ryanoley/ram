@@ -4,12 +4,14 @@ import pandas as pd
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
-def clean_pivot_raw_data(data, format_column):
+def clean_pivot_raw_data(data, format_column, lag=0):
     """
     """
     assert 'Date' in data
     assert 'SecCode' in data
-    data = data.pivot(index='Date', columns='SecCode', values=format_column)
+    assert lag >= 0
+    data = data.pivot(index='Date', columns='SecCode',
+                      values=format_column).shift(lag)
     # CLEAN
     daily_median = data.median(axis=1)
     # Allow to fill up to five days of missing data if there was a
@@ -58,6 +60,12 @@ def unstack_label_data(data, label):
 class BaseTechnicalFeature(object):
 
     __metaclass__ = ABCMeta
+
+    def __init__(self, live_flag=False):
+        if live_flag:
+            self.fit = self.calculate_last_date
+        else:
+            self.fit = self.calculate_all_dates
 
     @abstractmethod
     def calculate_all_dates(self):
@@ -135,7 +143,10 @@ class MFI(BaseTechnicalFeature):
         mf_pos = mf_pos.rolling(window).sum()
         mf_neg = pd.DataFrame(np.where(typ_price < lag_typ_price, raw_mf, 0))
         mf_neg = mf_neg.rolling(window).sum()
-        return 100 - 100 / (1 + (mf_pos / mf_neg))
+        mfi = 100 - 100 / (1 + (mf_pos / mf_neg))
+        mfi.columns = typ_price.columns
+        mfi.index = typ_price.index
+        return mfi
 
     def calculate_last_date(self, high, low, close, volume, window):
         window = window + 1
@@ -147,7 +158,9 @@ class MFI(BaseTechnicalFeature):
         mf_pos = mf_pos.sum()
         mf_neg = pd.DataFrame(np.where(typ_price < lag_typ_price, raw_mf, 0))
         mf_neg = mf_neg.sum()
-        return 100 - 100 / (1 + (mf_pos / mf_neg))
+        mfi = 100 - 100 / (1 + (mf_pos / mf_neg))
+        mfi.index = typ_price.columns
+        return mfi
 
 
 class RSI(BaseTechnicalFeature):
@@ -161,7 +174,10 @@ class RSI(BaseTechnicalFeature):
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.rolling(window).mean()
         avg_loss = loss.rolling(window).mean()
-        return 100 - 100 / (1 + (avg_gain / avg_loss))
+        rsi = 100 - 100 / (1 + (avg_gain / avg_loss))
+        rsi.columns = changes.columns
+        rsi.index = changes.index
+        return rsi
 
     def calculate_last_date(self, data, window):
         window = window + 1
@@ -170,4 +186,6 @@ class RSI(BaseTechnicalFeature):
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.mean()
         avg_loss = loss.mean()
-        return 100 - 100 / (1 + (avg_gain / avg_loss))
+        rsi = 100 - 100 / (1 + (avg_gain / avg_loss))
+        rsi.index = changes.columns
+        return rsi
