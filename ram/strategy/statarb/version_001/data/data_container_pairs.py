@@ -5,17 +5,18 @@ import datetime as dt
 
 from scipy.stats.mstats import winsorize
 
-from ram.strategy.long_pead.utils import ern_date_blackout
-from ram.strategy.long_pead.utils import make_anchor_ret_rank
-from ram.strategy.long_pead.utils import ern_return
-from ram.strategy.long_pead.utils import outlier_rank
-from ram.strategy.long_pead.utils import make_variable_dict
-from ram.strategy.long_pead.utils import simple_responses
-from ram.strategy.long_pead.utils import smoothed_responses
 
-from ram.strategy.long_pead.data.base import BaseDataContainer
-from ram.strategy.long_pead.data.pairs_selector import PairSelector
-from ram.strategy.long_pead.data.pairs_selector_filter import \
+from ram.strategy.statarb.abstract.data_container import BaseDataContainer
+
+from ram.strategy.statarb.utils import ern_date_blackout
+from ram.strategy.statarb.utils import make_anchor_ret_rank
+from ram.strategy.statarb.utils import ern_return
+from ram.strategy.statarb.utils import smoothed_responses
+from ram.strategy.statarb.utils import make_variable_dict
+
+from ram.strategy.statarb.data.base import BaseDataContainer
+from ram.strategy.statarb.data.pairs_selector import PairSelector
+from ram.strategy.statarb.data.pairs_selector_filter import \
     PairSelectorFilter
 
 from gearbox import create_time_index, convert_date_array
@@ -45,7 +46,7 @@ class DataContainerPairs(BaseDataContainer):
             'training_qtrs': [-99, 20]
         }
 
-    def prep_data(self, time_index, response_params, training_qtrs):
+    def set_args(self, time_index, response_params, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the
@@ -68,37 +69,76 @@ class DataContainerPairs(BaseDataContainer):
         self.test_data = test_data
         self.features = features
 
-    def add_data(self, data, time_index):
-        """
-        Takes in raw data, processes it and caches it
-        """
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_training_data(self):
+        return self._processed_train_data
+
+    def get_training_feature_names(self):
+        return ['a', 'b', 'c']
+
+    def get_test_data(self):
+        return self._processed_test_data
+
+    def get_simulation_feature_dictionary(self):
+        return {'pricing': self._processed_simulation_data,
+                'pairs': pd.DataFrame()}
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def process_training_data(self, data, time_index):
+
         # Pair data
         pair_info, spreads, zscores = PairSelector().rank_pairs(
             data, 20, filter_n_pairs_per_seccode=30)
-        self.zscores = zscores.loc[data.Date[data.TestFlag].unique()]
-        self.zscores_pair_info = pair_info
-        # Trim only one quarter's worth of training data
-        min_date = data.Date[data.TestFlag].min()
-        trim_date = min_date - dt.timedelta(days=80)
-        trim_date = dt.date(trim_date.year, trim_date.month, 1)
-        data = data[data.Date >= trim_date].copy()
+        zscores = zscores.loc[data.Date[data.TestFlag].unique()]
+        zscores_pair_info = pair_info
+
+        data = self._trim_to_one_quarter(data)
+
         # Separated for testing ease
-        data, features = self._process_data(data)
+        pdata, features = data[['SecCode', 'Date', 'TestFlag']].merge(
+            self._make_features(data))
+
         # Add market data
-        data = data.merge(self._market_data, how='left').fillna(0)
+        pdata = pdata.merge(self._market_data, how='left').fillna(0)
         features_mkt = self._market_data.columns.tolist()
         features_mkt.remove('Date')
         features += features_mkt
+
         # Separate training from test data
         self._processed_train_data = \
-            self._processed_train_data.append(data[~data.TestFlag])
-        self._processed_test_data = data[data.TestFlag]
+            self._processed_train_data.append(pdata[~pdata.TestFlag])
+        self._processed_test_data = pdata[pdata.TestFlag]
         self.features = features
-        self._time_index_data_for_responses[time_index] = \
-            data[['SecCode', 'Date', 'AdjClose', 'TestFlag', 'RClose',
-                  'AvgDolVol', 'MarketCap']]
 
-    def _process_data(self, data):
+        # Container for when args. DOES THIS NEED A TIME_INDEX?
+        self._time_index_data_for_responses[time_index] = \
+            data[['SecCode', 'Date', 'AdjClose', 'TestFlag']]
+
+
+
+        ##  MODEL
+        # Process some data
+
+        sim_features = ['MarketCap', 'AvgDolVol', 'RClose',
+                        'RCashDividend', 'SplitMultiplier']
+        self._processed_simulation_data = data[data.TestFlag][sim_features]
+
+
+
+
+
+    def process_training_market_data(self, add_market_data):
+        return None
+
+
+
+
+
+
+
+    def _make_features(self, data):
         """
         Separated from add data for testing purposes
         """
@@ -230,6 +270,14 @@ class DataContainerPairs(BaseDataContainer):
         self._market_data = market_data.reset_index()
 
     ###########################################################################
+
+    def _trim_to_one_quarter(self, data):
+        # Trim only one quarter's worth of training data
+        min_date = data.Date[data.TestFlag].min()
+        trim_date = min_date - dt.timedelta(days=80)
+        trim_date = dt.date(trim_date.year, trim_date.month, 1)
+        data = data[data.Date >= trim_date].copy()
+        return data
 
     def _get_train_test_features(self):
         return (

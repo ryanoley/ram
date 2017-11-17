@@ -27,15 +27,30 @@ def outlier_rank(pdata, outlier_std=4):
     code it as a 1 or -1 depending on side and force rank to median for
     the date.
     """
-    daily_median = pdata.median(axis=1)
+    # For single day ranking
+    if isinstance(pdata, pd.Series):
+        pdata = pdata.to_frame().T
+    daily_median = pdata.median(axis=1).fillna(0)
     # Get extreme value cutoffs
-    daily_min = daily_median - outlier_std * pdata.std(axis=1)
-    daily_max = daily_median + outlier_std * pdata.std(axis=1)
+    std_pdata = pdata.std(axis=1).fillna(0)
+    daily_min = daily_median - outlier_std * std_pdata
+    daily_max = daily_median + outlier_std * std_pdata
     # FillNans are to avoid warning
     extremes = pdata.fillna(-99999).gt(daily_max, axis=0).astype(int) - \
         pdata.fillna(99999).lt(daily_min, axis=0).astype(int)
     ranks = (pdata.rank(axis=1) - 1) / (pdata.shape[1] - 1)
     return ranks, extremes
+
+
+def unstack_label_data(data, label):
+    # Series for single day
+    if isinstance(data, pd.Series):
+        data = data.reset_index()
+        data.columns = ['SecCode', label]
+    else:
+        data = data.unstack().reset_index()
+        data.columns = ['SecCode', 'Date', label]
+    return data
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

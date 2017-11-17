@@ -63,18 +63,20 @@ class StatArbStrategy(Strategy):
         return output_params
 
     def process_raw_data(self, data, time_index, market_data=None):
-        self.data.add_market_data(market_data)
-        self.data.add_data(data, time_index)
+        self.data.process_training_market_data(market_data)
+        self.data.process_training_data(data, time_index)
 
     def run_index(self, index):
         # HACK: If training and writing, don't train until 2007, but stack data
         if self._write_flag and \
                 (int(self._prepped_data_files[time_index][:4]) < 2007):
             return
+
         # Iterate
         i = 0
         for args1 in self._data_args:
-            self.data.prep_data(time_index, **args1)
+
+            self.data.set_args(time_index, **args1)
 
             for args2 in self._signals_args:
                 self.signals.set_args(self.data, **args2)
@@ -96,63 +98,63 @@ class StatArbStrategy(Strategy):
 
 
 
-class StatArbStrategyImplementation(object):
+# class StatArbStrategyImplementation(object):
 
-    def __init__(self):
-        self.import_skl_models()
-        self.import_raw_data()
-        self.append_live_prices_process_features()
-        self.get_capital_allocations()
+#     def __init__(self):
+#         self.import_skl_models()
+#         self.import_raw_data()
+#         self.append_live_prices_process_features()
+#         self.get_capital_allocations()
 
-    def import_skl_models():
-        pass
+#     def import_skl_models():
+#         pass
 
-    def import_raw_data(self):
-        pass
+#     def import_raw_data(self):
+#         pass
 
-    def append_live_prices_process_features(self):
-        # Wait until user presses enter. Gathers prices, appends,
-        # and processes
+#     def append_live_prices_process_features(self):
+#         # Wait until user presses enter. Gathers prices, appends,
+#         # and processes
 
-        # Process technical factors
-        # Recalculate Z-Scores for pairs
+#         # Process technical factors
+#         # Recalculate Z-Scores for pairs
 
-    def get_capital_allocations(self):
-        """
-        After most up to date prices have been merged and appropriate
-        features have been processed, take in data and return capital
-        allocations
-        """
-        for model in models:
-            self.signals.set_args(self.data, model['data'])
-            self.signals.get_preds()
-            self.constructor.set_args(model['constructor'])
-            allocations = self.constructor.get_daily_allocations(
-                self.data, self.signals)
-        # Aggregate allocations, send to file, pass downstream
-        agg_allocations = sum(allocations)
-        return agg_allocations
+#     def get_capital_allocations(self):
+#         """
+#         After most up to date prices have been merged and appropriate
+#         features have been processed, take in data and return capital
+#         allocations
+#         """
+#         for model in models:
+#             self.signals.set_args(self.data, model['data'])
+#             self.signals.get_preds()
+#             self.constructor.set_args(model['constructor'])
+#             allocations = self.constructor.get_daily_allocations(
+#                 self.data, self.signals)
+#         # Aggregate allocations, send to file, pass downstream
+#         agg_allocations = sum(allocations)
+#         return agg_allocations
 
 
-class StatArbStrategyImplementationTraining(object):
+# class StatArbStrategyImplementationTraining(object):
 
-    def __init__(self):
-        self.import_run_parameters()
-        self.stack_data()
+#     def __init__(self):
+#         self.import_run_parameters()
+#         self.stack_data()
 
-    def import_run_parameters(self):
-        pass
+#     def import_run_parameters(self):
+#         pass
 
-    def stack_data(self):
-        # Should be able to call Strategy method
-        pass
+#     def stack_data(self):
+#         # Should be able to call Strategy method
+#         pass
 
-    def train_models(self):
-        # With full dataset, shoudl be able to
-        for run in runs:
-            self.signals.set_args(**run['args'])
-            self.signals.fit_model()
-            self.cache_model(self.signals.get_skl_model(), run)
+#     def train_models(self):
+#         # With full dataset, shoudl be able to
+#         for run in runs:
+#             self.signals.set_args(**run['args'])
+#             self.signals.fit_model()
+#             self.cache_model(self.signals.get_skl_model(), run)
 
 
 
