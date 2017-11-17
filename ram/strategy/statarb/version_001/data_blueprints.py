@@ -22,7 +22,7 @@ base.universe_date_parameters['start_year'] = 2001
 
 base.features = [
     # Pricing
-    'AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap',
+    'AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap', 'AdjVolume',
     'RClose', 'RCashDividend', 'SplitFactor',
 
     'MarketCap', 'AvgDolVol',
