@@ -44,6 +44,16 @@ class DataConstructor(object):
 
         dh = DataHandlerSQL()
 
+        # Market data - Do first to facilitate dev while doing data pull
+        if hasattr(blueprint, 'market_data_params'):
+            params = blueprint.market_data_params
+            data = dh.get_index_data(
+                seccodes=params['seccodes'],
+                features=params['features'],
+                start_date='1990-01-01',
+                end_date='2050-04-01')
+            self._clean_and_write_output(data, 'market_index_data.csv')
+
         if blueprint.constructor_type == 'etfs':
             start_date = blueprint.etfs_filter_arguments['start_date']
             data = dh.get_etf_data(
@@ -90,16 +100,6 @@ class DataConstructor(object):
                 self._clean_and_write_output(data, file_name)
             # Update meta params
             self._update_meta_file(data.Date.max(), created_files)
-
-        # Market data
-        if hasattr(blueprint, 'market_data_params'):
-            params = blueprint.market_data_params
-            data = dh.get_index_data(
-                seccodes=params['seccodes'],
-                features=params['features'],
-                start_date='1990-01-01',
-                end_date='2050-04-01')
-            self._clean_and_write_output(data, 'market_index_data.csv')
 
         dh.close_connections()
         return

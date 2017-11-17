@@ -92,6 +92,7 @@ class DataContainerPairs(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def process_training_data(self, data, time_index):
+        import pdb; pdb.set_trace()
         # First cleanup
         data = self._initial_clean(data)
         # Get pairs from 252 days worth of data
@@ -494,11 +495,6 @@ def simple_responses(data, days=2):
     return output
 
 
-
-
-
-
-
 accounting_features = [
     'NETINCOMEQ', 'NETINCOMETTM',
     'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
@@ -521,6 +517,7 @@ accounting_features = [
 
     'PE', 'FCFMARKETCAP', 'CASHEV',
 ]
+
 
 starmine_features = [
     'ARM', 'ARMREVENUE', 'ARMRECS',
