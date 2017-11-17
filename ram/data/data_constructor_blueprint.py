@@ -118,6 +118,10 @@ class DataConstructorBlueprint(object):
             output['constructor_type'] = 'indexes'
             output['indexes_filter_arguments'] = \
                 self.indexes_filter_arguments
+
+        if hasattr(self, 'market_data_params'):
+            output['market_data_params'] = self.market_data_params
+
         return output
 
     def from_json(self, blueprint_json):
