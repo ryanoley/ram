@@ -45,6 +45,12 @@ class TestDataContainerPairs(unittest.TestCase):
         data['AdjVwap'] = data['AdjClose'].copy()
         self.data3 = data
 
+    def test_make_responses(self):
+        dc = DataContainerPairs()
+        dc._make_responses(self.data)
+        dc._processed_train_responses
+        dc._response_arg_map
+
     def test_append_ern_date_blackout(self):
         result = append_ern_date_blackout(self.data3, -1, 1)
         benchmark = np.array([0, 1, 1, 1, 0, 0, 0, 0]*2)
@@ -59,7 +65,6 @@ class TestDataContainerPairs(unittest.TestCase):
     def test_make_anchor_ret(self):
         data = self.data3.copy()
         data = append_ern_date_blackout(data, -1, 1)
-        import pdb; pdb.set_trace()
         result = make_anchor_ret(data)
 
     def test_make_ern_return(self):

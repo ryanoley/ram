@@ -23,6 +23,7 @@ class DataContainerPairs(BaseDataContainer):
         self._time_index_response_data = {}
         # Deliverable
         self._processed_train_data = pd.DataFrame()
+        self._processed_train_responses = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
         self._features = []
 
@@ -35,7 +36,7 @@ class DataContainerPairs(BaseDataContainer):
                 {'type': 'smoothed',
                  'response_days': [2],
                  'response_thresh': 0.4},
-                # {'type': 'simple', 'response_days': 2},
+                {'type': 'simple', 'response_days': 2},
             ],
             'training_qtrs': [-99, 20]
         }
@@ -61,7 +62,6 @@ class DataContainerPairs(BaseDataContainer):
         test_data = test_data.merge(response_data)
         self.train_data = train_data
         self.test_data = test_data
-        self.features = features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -72,14 +72,13 @@ class DataContainerPairs(BaseDataContainer):
         return 0
 
     def get_training_feature_names(self):
-        return ['a', 'b', 'c']
+        return self._features
 
     def get_test_data(self):
         return self._processed_test_data
 
     def get_simulation_feature_dictionary(self):
-        return {'pricing': self._processed_simulation_data,
-                'pairs': pd.DataFrame()}
+        return self._constructor_data
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -92,82 +91,53 @@ class DataContainerPairs(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def process_training_data(self, data, time_index):
-        import pdb; pdb.set_trace()
         # First cleanup
         data = self._initial_clean(data)
         # Get pairs from 252 days worth of data
         pair_info, zscores = self._get_pairs_info(data)
         # Create process training data, and get features
-        pdata = self._make_features(data)
+        pdata, features = self._make_features(data)
         # Trim to just one quarter's data
         pdata = self._trim_to_one_quarter(pdata)
-
-        # Add market data
-        # pdata = pdata.merge(self._market_data, how='left').fillna(0)
-        # features_mkt = self._market_data.columns.tolist()
-        # features_mkt.remove('Date')
-        # features += features_mkt
-
+        # Merge market data
+        pdata, features = self._merge_market_data(pdata, features)
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(pdata[~pdata.TestFlag])
         self._processed_test_data = pdata[pdata.TestFlag]
-        self.features = features
-
-        # Container for when args. DOES THIS NEED A TIME_INDEX?
-        self._time_index_data_for_responses[time_index] = \
-            data[['SecCode', 'Date', 'AdjClose', 'TestFlag']]
-
-        ##  MODEL
+        self._features = features
+        # Process responses - Get order correct
+        data2 = pdata[['SecCode', 'Date', 'TestFlag']].merge(
+            data[['SecCode', 'Date', 'AdjClose']], how='left')
+        assert np.all(data2.SecCode == pdata.SecCode)
+        assert np.all(data2.Date == pdata.Date)
+        self._make_responses(data2)
         # Process some data
+        self._constructor_data = {
+            'pricing': data[data.TestFlag][['MarketCap', 'AvgDolVol',
+                                            'RClose', 'RCashDividend',
+                                            'SplitMultiplier']],
+            'pair_info': pair_info,
+            'zscores': zscores
+        }
 
-        sim_features = ['MarketCap', 'AvgDolVol', 'RClose',
-                        'RCashDividend', 'SplitMultiplier']
-        self._processed_simulation_data = data[data.TestFlag][sim_features]
-
-    def process_training_market_data(self, market_data):
-
-        return None
-
+    def process_training_market_data(self, data):
         if hasattr(self, '_market_data'):
             return
-
-        name_map = pd.DataFrame([
-            ('11132814', 'ShortVIX'),
-            ('11113', 'VIX'),
-            ('10922530', 'LongVIX'),
-
-            ('11097', 'R1000Index'),
-            ('11099', 'R1000Growth'),
-            ('11100', 'R1000Value'),
-
-            ('10955',  'R2000Index'),
-            ('11101', 'R2000Growth'),
-            ('11102', 'R2000Value'),
-
-            ('11096', 'R3000Index'),
-            ('11103', 'R3000Growth'),
-            ('11104', 'R3000Value'),
-
-            ('50311', 'SP500Index'),
-            ('61258', 'SP500Growth'),
-            ('61259', 'SP500Value'),
-        ], columns=['SecCode', 'IndexName'])
-        data = data.merge(name_map)
-
+        # index name map at the bottom of the file
+        data = data.merge(index_name_map)
         features = [
             'AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
             'VOL10_AdjClose', 'VOL20_AdjClose', 'RSI10_AdjClose',
             'RSI20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose'
         ]
-
         market_data = pd.DataFrame()
         for f in features:
             pdata = data.pivot(index='Date', columns='IndexName', values=f)
             # Only keep levels (AdjClose) for VIX indexes
             if f == 'AdjClose':
                 pdata = pdata[['ShortVIX', 'VIX', 'LongVIX']]
-            pdata.columns = ['Mkt_{}_{}'.format(
+            pdata.columns = ['MKT_{}_{}'.format(
                 col, f.replace('_AdjClose', '')) for col in pdata.columns]
             market_data = market_data.join(pdata, how='outer')
         # Nan Values set to medians of rows
@@ -175,6 +145,30 @@ class DataContainerPairs(BaseDataContainer):
         self._market_data = market_data.reset_index()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _make_responses(self, data):
+        # Just training data
+        data = data[~data.TestFlag]
+        # Response arg map
+        self._response_arg_map = {}
+        # Container for when args. DOES THIS NEED A TIME_INDEX?
+        responses = data[['SecCode', 'Date']]
+        for i, args in enumerate(self.get_args()['response_params']):
+            self._response_arg_map[str(args)] = i
+            # Get name
+            if args['type'] == 'smoothed':
+                resp = smoothed_responses(
+                    data,
+                    thresh=args['response_thresh'],
+                    days=args['response_days'])
+
+            elif args['type'] == 'simple':
+                resp = simple_responses(data, days=args['response_days'])
+            resp.columns = ['SecCode', 'Date', i]
+            responses = responses.merge(resp)
+        # Append
+        self._processed_train_responses = \
+            self._processed_train_responses.append(responses)
 
     def _make_features(self, data, live_flag=False):
         # TECHNICAL VARIABLES
@@ -274,11 +268,14 @@ class DataContainerPairs(BaseDataContainer):
         v = clean_pivot_raw_data(data, 'IBES_Target_Decrease', lag)
         pdata = pdata.merge(unstack_label_data(v, 'IBES_Target_Decrease'))
 
+        # Earnings related variables
         pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Blackout']])
         pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_AnchorRet']])
         pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Ret']])
 
-        return pdata
+        # Extract features
+        features = pdata.columns[3:].tolist()
+        return pdata, features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -290,7 +287,7 @@ class DataContainerPairs(BaseDataContainer):
         data = data.drop('SplitFactor', axis=1)
         data['GGROUP'] = data.GGROUP.fillna(0).astype(int).astype(str)
         data['GSECTOR'] = data.GGROUP.apply(lambda x: x[:2])
-         # IBES feature processing
+        # IBES feature processing
         data = data.merge(make_ibes_increases_decreases(data))
         data = data.merge(make_ibes_discount(data))
         # Earnings related fields
@@ -313,6 +310,13 @@ class DataContainerPairs(BaseDataContainer):
         zscores = zscores.loc[data.Date[data.TestFlag].unique()]
         return pair_info, zscores
 
+    def _merge_market_data(self, pdata, features):
+        pdata = pdata.merge(self._market_data, how='left').fillna(0)
+        features_mkt = self._market_data.columns.tolist()
+        features_mkt.remove('Date')
+        features += features_mkt
+        return pdata, features
+
     def _get_train_test_features(self):
         return (
             self._processed_train_data.copy(),
@@ -326,30 +330,6 @@ class DataContainerPairs(BaseDataContainer):
         inds = create_time_index(data.Date)
         max_ind = np.max(inds)
         return data.iloc[inds > (max_ind-training_qtrs)]
-
-    def _get_smoothed_response_data(self, time_index, response_days,
-                                    response_thresh):
-        # Process input
-        if not isinstance(response_days, list):
-            response_days = [response_days]
-        resp_dict = self._time_index_response_data
-        # Cached data exist for this particular quarter?
-        if time_index not in resp_dict:
-            resp_dict[time_index] = {}
-        data_name = str((response_days, response_thresh))
-        if data_name not in resp_dict[time_index]:
-            resp_dict[time_index][data_name] = smoothed_responses(
-                self._time_index_data_for_responses[time_index],
-                days=response_days, thresh=response_thresh)
-        # Stack time indexes
-        time_indexes = resp_dict.keys()
-        time_indexes.sort()
-        responses = pd.DataFrame()
-        for t in time_indexes[:-1]:
-            temp_r = resp_dict[t][data_name]
-            responses = responses.append(temp_r[~temp_r.TestFlag])
-        t = time_indexes[-1]
-        return responses.append(resp_dict[t][data_name])
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -462,7 +442,6 @@ def make_anchor_ret(data, init_offset=1, window=20):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
-    test_date_map = data[['Date', 'TestFlag']].drop_duplicates()
     if not isinstance(days, list):
         days = [days]
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
@@ -477,7 +456,6 @@ def smoothed_responses(data, thresh=.25, days=[2, 4, 6]):
         (final_ranks <= thresh).astype(int)
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
-    output = output.merge(test_date_map)
     return output
 
 
@@ -485,13 +463,11 @@ def simple_responses(data, days=2):
     """
     Just return 1 or 0 for Position or Negative return
     """
-    test_date_map = data[['Date', 'TestFlag']].drop_duplicates()
     assert isinstance(days, int)
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
     rets2 = (rets.pct_change(days).shift(-days) >= 0).astype(int)
     output = rets2.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response']
-    output = output.merge(test_date_map)
     return output
 
 
@@ -531,3 +507,26 @@ ibes_features = [
     'IBES_Target_Increase', 'IBES_Target_Decrease',
     'IBES_Discount', 'IBES_Discount_Smooth'
 ]
+
+
+index_name_map = pd.DataFrame([
+    ('11132814', 'ShortVIX'),
+    ('11113', 'VIX'),
+    ('10922530', 'LongVIX'),
+
+    ('11097', 'R1000Index'),
+    ('11099', 'R1000Growth'),
+    ('11100', 'R1000Value'),
+
+    ('10955',  'R2000Index'),
+    ('11101', 'R2000Growth'),
+    ('11102', 'R2000Value'),
+
+    ('11096', 'R3000Index'),
+    ('11103', 'R3000Growth'),
+    ('11104', 'R3000Value'),
+
+    ('50311', 'SP500Index'),
+    ('61258', 'SP500Growth'),
+    ('61259', 'SP500Value'),
+], columns=['SecCode', 'IndexName'])
