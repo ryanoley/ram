@@ -134,6 +134,30 @@ class StatArbStrategyImplementation(object):
         return agg_allocations
 
 
+class StatArbStrategyImplementationTraining(object):
+
+    def __init__(self):
+        self.import_run_parameters()
+        self.stack_data()
+
+    def import_run_parameters(self):
+        pass
+
+    def stack_data(self):
+        # Should be able to call Strategy method
+        pass
+
+    def train_models(self):
+        # With full dataset, shoudl be able to
+        for run in runs:
+            self.signals.set_args(**run['args'])
+            self.signals.fit_model()
+            self.cache_model(self.signals.get_skl_model(), run)
+
+
+
+
+
     # ~~~~~~ Implementation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # def implementation_training(self, cli_input):
@@ -235,6 +259,15 @@ class StatArbStrategyImplementation(object):
     #     self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
 
 
 

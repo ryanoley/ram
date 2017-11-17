@@ -14,5 +14,9 @@ class BaseDataContainer(object):
         raise NotImplementedError('BaseDataContainer.add_data')
 
     @abstractmethod
+    def add_market_data(self, data):
+        raise NotImplementedError('BaseDataContainer.add_market_data')
+
+    @abstractmethod
     def prep_data(self, time_index, **kwargs):
         raise NotImplementedError('BaseDataContainer.prep_data')
