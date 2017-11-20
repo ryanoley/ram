@@ -37,7 +37,7 @@ def update_prepped_data_gcp(strategy, version):
             ('market_index_data.csv' not in upload_files) and \
             (len(upload_files) > 0):
         upload_files.extend('market_index_data.csv')
-
+    upload_files = list(set(upload_files))
     upload_files.sort()
     if upload_files:
         print('Confirm upload of the following files: ')
