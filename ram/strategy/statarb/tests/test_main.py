@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.long_pead.main import LongPeadStrategy, make_arg_iter
+from ram.strategy.statarb.main import StatArbStrategy
 
 
 class TestMain(unittest.TestCase):
@@ -12,34 +12,25 @@ class TestMain(unittest.TestCase):
         pass
 
     def test_get_column_params(self):
-        strategy = LongPeadStrategy()
+        strategy = StatArbStrategy(strategy_code_version='version_001')
+        strategy.strategy_init()
         result = strategy.get_column_parameters()
         result = result[0]
         self.assertTrue('signals' in result)
         self.assertTrue('data' in result)
         self.assertTrue('constructor' in result)
 
-    def test_get_univ_filter_args(self):
-        strategy = LongPeadStrategy()
-        result = strategy.get_univ_filter_args()
-        self.assertEqual(result['filter'], 'AvgDolVol')
-        self.assertTrue(result['where'].find('MarketCap') > -1)
-        self.assertTrue('univ_size' in result)
-
-    def test_get_univ_date_parameters(self):
-        strategy = LongPeadStrategy()
-        result = strategy.get_univ_date_parameters()
-        self.assertTrue('start_year' in result)
-        self.assertTrue('train_period_length' in result)
-        self.assertTrue('frequency' in result)
-        self.assertTrue('test_period_length' in result)
-
-    def test_make_arg_iter(self):
-        parameters = {'V1': [1, 2], 'V2': [3, 4]}
-        result = make_arg_iter(parameters)
-        benchmark = [{'V1': 1, 'V2': 3}, {'V1': 1, 'V2': 4},
-                     {'V1': 2, 'V2': 3}, {'V1': 2, 'V2': 4}]
-        self.assertListEqual(result, benchmark)
+    def test_capture_output(self):
+        strategy = StatArbStrategy(strategy_code_version='version_001')
+        strategy.strategy_init()
+        stats = {}
+        results = pd.DataFrame({'PL': [1, 2, 3]})
+        results.index = ['2010-01-01', '2010-01-02', '2010-01-03']
+        strategy._capture_output(results, stats, arg_index=0)
+        strategy._capture_output(results, stats, arg_index=1)
+        self.assertListEqual(strategy.output_returns.columns.tolist(), [0, 1])
+        self.assertListEqual(strategy.output_all_output.columns.tolist(),
+                             ['PL_0', 'PL_1'])
 
     def tearDown(self):
         pass

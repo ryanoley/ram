@@ -73,19 +73,21 @@ class StatArbStrategy(Strategy):
             return
         # Iterate
         i = 0
-        import pdb; pdb.set_trace()
         for args1 in self._data_args:
 
             self.data.set_args(time_index, **args1)
 
             for args2 in self._signals_args:
+
                 self.signals.set_data_args(self.data, **args2)
                 self.signals.fit_model()
                 signals = self.signals.get_signals()
 
                 for ac in self._constructor_args:
-                    result, stats = self.constructor.get_daily_pl(
-                        self.data, self.signals, **ac)
+
+                    result, stats = self.constructor.get_period_daily_pl(
+                        time_index, self.data, signals, **ac)
+
                     self._capture_output(result, stats, i)
                     i += 1
 
@@ -95,6 +97,26 @@ class StatArbStrategy(Strategy):
                                  'all_output')
         self.write_index_stats(self.output_stats, time_index)
 
+    # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _capture_output(self, results, stats, arg_index):
+        results = results.copy()
+        book = self.constructor.booksize
+        returns = pd.DataFrame(results.PL / book)
+        returns.columns = [arg_index]
+        # Rename columns
+        results.columns = ['{}_{}'.format(x, arg_index)
+                           for x in results.columns]
+        if arg_index == 0:
+            self.output_returns = returns
+            self.output_all_output = results
+            self.output_stats = {}
+        else:
+            self.output_returns = self.output_returns.join(returns,
+                                                           how='outer')
+            self.output_all_output = self.output_all_output.join(
+                results, how='outer')
+        self.output_stats[arg_index] = stats
 
 
 
@@ -126,11 +148,14 @@ class StatArbStrategy(Strategy):
 #         allocations
 #         """
 #         for model in models:
-#             self.signals.set_args(self.data, model['data'])
+#             self.signals.set_args(self.data, **kwargs)
+#             self.signals.set_model(model['data'])
 #             self.signals.get_preds()
+
 #             self.constructor.set_args(model['constructor'])
 #             allocations = self.constructor.get_daily_allocations(
 #                 self.data, self.signals)
+
 #         # Aggregate allocations, send to file, pass downstream
 #         agg_allocations = sum(allocations)
 #         return agg_allocations
@@ -235,30 +260,6 @@ class StatArbStrategy(Strategy):
     #     for key in interface:
     #         out[key] = params[key]
     #     return out
-
-    # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    # def _capture_output(self, results, stats, arg_index):
-    #     results = results.copy()
-    #     if hasattr(self.constructor, 'booksize_original'):
-    #         book = self.constructor.booksize_original
-    #     else:
-    #         book = self.constructor.booksize
-    #     returns = pd.DataFrame(results.PL / book)
-    #     returns.columns = [arg_index]
-    #     # Rename columns
-    #     results.columns = ['{}_{}'.format(x, arg_index)
-    #                        for x in results.columns]
-    #     if arg_index == 0:
-    #         self.output_returns = returns
-    #         self.output_all_output = results
-    #         self.output_stats = {}
-    #     else:
-    #         self.output_returns = self.output_returns.join(returns,
-    #                                                        how='outer')
-    #         self.output_all_output = self.output_all_output.join(
-    #             results, how='outer')
-    #     self.output_stats[arg_index] = stats
 
     # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

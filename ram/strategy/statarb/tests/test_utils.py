@@ -30,6 +30,13 @@ class TestUtils(unittest.TestCase):
         data['AdjVwap'] = data['AdjClose'].copy()
         self.data = data
 
+    def test_make_arg_iter(self):
+        parameters = {'V1': [1, 2], 'V2': [3, 4]}
+        result = make_arg_iter(parameters)
+        benchmark = [{'V1': 1, 'V2': 3}, {'V1': 1, 'V2': 4},
+                     {'V1': 2, 'V2': 3}, {'V1': 2, 'V2': 4}]
+        self.assertListEqual(result, benchmark)
+
     def test_make_variable_dict(self):
         dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04']
         data = pd.DataFrame({

@@ -7,37 +7,37 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.utils.time_funcs import convert_date_array
-from ram.strategy.long_pead.constructor.constructor_pairs import *
-from ram.strategy.long_pead.constructor.constructor_pairs import \
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import *
+
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import \
     _select_port_and_offsets
-from ram.strategy.long_pead.constructor.constructor_pairs import \
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import \
     _merge_scores_zscores_data
-from ram.strategy.long_pead.constructor.constructor_pairs import \
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import \
     _format_scores_dict
-from ram.strategy.long_pead.constructor.constructor_pairs import \
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import \
     _extract_zscore_data
-from ram.strategy.long_pead.constructor.constructor_pairs import \
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import \
     _get_weighting
-from ram.strategy.long_pead.constructor.constructor_pairs import \
+from ram.strategy.statarb.version_001.constructor.constructor_pairs import \
     _zscore_rank
-
-
-class DataContainer(object):
-    zscores = pd.DataFrame(index=[dt.date(2010, 1, 1), dt.date(2010, 1, 2)])
-    zscores['A~B'] = [10, 12]
-    zscores['A~C'] = [-10, -12]
-    zscores['B~C'] = [2, 4]
-    zscores_pair_info = pd.DataFrame()
-    zscores_pair_info['pair'] = ['A~B', 'A~C', 'B~C']
-    zscores_pair_info['Leg1'] = ['A', 'A', 'B']
-    zscores_pair_info['Leg2'] = ['B', 'C', 'C']
-    zscores_pair_info['distances'] = [1, 2, 3]
 
 
 class TestConstructorPairs(unittest.TestCase):
 
     def setUp(self):
-        pass
+        zscores = pd.DataFrame(index=[dt.date(2010, 1, 1), dt.date(2010, 1, 2)])
+        zscores['A~B'] = [10, 12]
+        zscores['A~C'] = [-10, -12]
+        zscores['B~C'] = [2, 4]
+        zscores_pair_info = pd.DataFrame()
+        zscores_pair_info['pair'] = ['A~B', 'A~C', 'B~C']
+        zscores_pair_info['Leg1'] = ['A', 'A', 'B']
+        zscores_pair_info['Leg2'] = ['B', 'C', 'C']
+        zscores_pair_info['distances'] = [1, 2, 3]
+        self.data = {}
+        self.data['zscores'] = zscores
+        self.data['pair_info'] = zscores_pair_info
 
     def Xtest_select_port_and_offsets(self):
         data = pd.DataFrame()
@@ -49,8 +49,7 @@ class TestConstructorPairs(unittest.TestCase):
         data['zscore'] = [-1.5, -1.5, -3, 2, 0, 10]
 
     def test_extract_zscore_data(self):
-        data_container = DataContainer()
-        result = _extract_zscore_data(data_container, dt.date(2010, 1, 2))
+        result = _extract_zscore_data(self.data, dt.date(2010, 1, 2))
         benchmark = pd.DataFrame()
         benchmark['pair'] = ['A~B', 'A~C', 'B~C']
         benchmark['zscore'] = [12, -12, 4]

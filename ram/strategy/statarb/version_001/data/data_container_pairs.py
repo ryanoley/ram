@@ -116,7 +116,8 @@ class DataContainerPairs(BaseDataContainer):
         self._make_responses(data2)
         # Process some data
         self.constructor_data = {
-            'pricing': data[data.TestFlag][['MarketCap', 'AvgDolVol',
+            'pricing': data[data.TestFlag][['SecCode', 'Date',
+                                            'MarketCap', 'AvgDolVol',
                                             'RClose', 'RCashDividend',
                                             'SplitMultiplier']],
             'pair_info': pair_info,

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import itertools as it
 
-from ram.strategy.long_pead.data.pairs_selector_filter import \
+from ram.strategy.statarb.version_001.data.pairs_selector_filter import \
     PairSelectorFilter
 
 

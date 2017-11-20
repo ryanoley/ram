@@ -41,10 +41,7 @@ def update_prepped_data_gcp(strategy, version):
     upload_files = list(set(upload_files))
     upload_files.sort()
     if upload_files:
-        print('Confirm upload of the following files: ')
-        print(upload_files)
-        user_input = raw_input('Continue? Type `1234`: ')
-        if user_input != '1234':
+        if not confirm(upload_files):
             return
         for f in upload_files:
             # Upload
@@ -56,6 +53,20 @@ def update_prepped_data_gcp(strategy, version):
 
     else:
         print('\nNo new files to upload for {}/{}\n'.format(strategy, version))
+
+
+def confirm(upload_files):
+
+    print('\nConfirm upload of the following files:')
+    temp = upload_files + ['', '']
+    for i in range(len(temp) / 3):
+        print('{}\t{}\t{}'.format(*temp[(i*3):((i+1)*3)]))
+    print('\n')
+    user_input = raw_input('Continue? Type `1234`: ')
+    if user_input != '1234':
+        return False
+    else:
+        return True
 
 
 if __name__ == '__main__':

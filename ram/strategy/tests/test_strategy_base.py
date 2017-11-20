@@ -12,10 +12,28 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.strategy.base import *
-from ram.data.data_constructor_blueprint import DataConstructorBlueprint
+from ram.data.data_constructor_blueprint import DataConstructorBlueprint, \
+    DataConstructorBlueprintContainer
+from ram.strategy.base import StrategyVersionContainer
 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+strategy_versions = StrategyVersionContainer()
+strategy_versions.add_version('version_001', 'Current implementation')
+
+blueprint_container = DataConstructorBlueprintContainer()
+bp = DataConstructorBlueprint(constructor_type='universe',
+                              description='Test')
+blueprint_container.add_blueprint(bp)
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class TestStrategy(Strategy):
+
+    def strategy_init(self):
+        pass
 
     def run_index(self, index):
         pass
@@ -26,13 +44,11 @@ class TestStrategy(Strategy):
     def process_raw_data(self, data, time_index, market_data=None):
         pass
 
-    def get_data_blueprints(self):
-        bp = DataConstructorBlueprint()
-        return {'version_0001': bp}
+    def get_data_blueprint_container(self):
+        return blueprint_container
 
     def get_strategy_source_versions(self):
-        return {'version_0001': 'sector 20',
-                'version_0002': 'pairs sector 30'}
+        return strategy_versions
 
 
 class TestStrategyBase(unittest.TestCase):
@@ -67,27 +83,7 @@ class TestStrategyBase(unittest.TestCase):
                     index=False)
         data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'),
                     index=False)
-        # meta = {
-        #     'features': ['F1', 'F2'],
-        #     'date_parameters_univ': {
-        #         'train_period_length': 2,
-        #         'test_period_length': 2,
-        #         'frequency': 'Q',
-        #         'start_year': 2000
-        #     },
-        #     'filter_args_univ': {
-        #         'filter': 'AvgDolVol',
-        #         'where': 'Market Cap >= 200',
-        #         'univ_size': 10
-        #     },
-        #     'strategy_name': 'TestStrategy',
-        #     'version': 'version_0001',
-        #     'git_branch': 'master',
-        #     'git_commit': 'adfad14324213',
-        # }
-        # with open(os.path.join(data_version_dir, 'meta.json'), 'w') as outfile:
-        #     json.dump(meta, outfile)
-        # outfile.close()
+
         self.strategy = TestStrategy(
             strategy_code_version='version_0002',
             prepped_data_version='version_0001',

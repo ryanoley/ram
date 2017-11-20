@@ -3,13 +3,12 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.long_pead.utils import make_variable_dict
+from ram.strategy.statarb.utils import make_variable_dict
 
-from ram.strategy.long_pead.constructor.portfolio import Portfolio
-from ram.strategy.long_pead.constructor.base_constructor import Constructor
+from ram.strategy.statarb.abstract.portfolio_constructor import BasePortfolioConstructor
 
 
-class PortfolioConstructorPairs(Constructor):
+class PortfolioConstructorPairs(BasePortfolioConstructor):
 
     def get_args(self):
         return {
@@ -36,7 +35,7 @@ class PortfolioConstructorPairs(Constructor):
             ]
         }
 
-    def get_position_sizes(self, date, scores, params):
+    def get_day_position_sizes(self, date, scores, params):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -52,8 +51,9 @@ class PortfolioConstructorPairs(Constructor):
 
         # Format and Retrieve Scores and ZScores
         scores = _format_scores_dict(scores)
-        zscores = _extract_zscore_data(self.data_container, date)
+        zscores = _extract_zscore_data(self.data, date)
         scores = _merge_scores_zscores_data(scores, zscores)
+
         # Get scores
         scores = _select_port_and_offsets(scores, params)
 
@@ -229,11 +229,10 @@ def _zscore_rank_numba(ranks, seccodes):
         ranks[i] = rank
 
 
-def _extract_zscore_data(data_container, date):
-    zscores = pd.DataFrame({'zscore': data_container.zscores.loc[date]})
-    zscores = zscores.reset_index()
+def _extract_zscore_data(data, date):
+    zscores = data['zscores'].loc[date].reset_index()
     zscores.columns = ['pair', 'zscore']
-    zscores = zscores.merge(data_container.zscores_pair_info)
+    zscores = zscores.merge(data['pair_info'])
     return zscores
 
 

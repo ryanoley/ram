@@ -6,8 +6,8 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.long_pead.data.pairs_selector import PairSelector
-from ram.strategy.long_pead.data.pairs_selector import get_abs_distance
+from ram.strategy.statarb.version_001.data.pairs_selector import \
+    PairSelector, get_abs_distance
 
 
 class TestPairSelector(unittest.TestCase):
