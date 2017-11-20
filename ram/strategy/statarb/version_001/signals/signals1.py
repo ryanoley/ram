@@ -3,6 +3,8 @@ import numpy as np
 from sklearn.ensemble import ExtraTreesClassifier
 
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
+from ram.strategy.statarb.version_001.data.data_container_pairs import \
+    accounting_features, starmine_features, ibes_features
 
 
 class SignalModel1(BaseSignalGenerator):
@@ -15,80 +17,71 @@ class SignalModel1(BaseSignalGenerator):
             'model_params': [
                 {'min_samples_leaf': 200,
                  'n_estimators': 100,
-                 'max_features': 0.8,
-                },
+                 'max_features': 0.8},
                 {'min_samples_leaf': 50,
                  'n_estimators': 30,
-                 'max_features': 0.6,
-                },
+                 'max_features': 0.6},
             ],
             'drop_ibes': [True],
             'drop_accounting': [True],
-            'drop_extremes': [True],
             'drop_starmine': [True, False],
             'drop_market_variables': ['constrained']
         }
 
-    def generate_signals(self):
-        pass
-
-    def get_skl_model(self):
-        return self.skl_model
-
-    def set_signal_generator_arguments(self,
-                                       data_container,
-                                       model_params,
-                                       drop_ibes,
-                                       drop_accounting,
-                                       drop_extremes,
-                                       drop_starmine,
-                                       drop_market_variables):
-        # FEATURES
-        features = data_container.features
-        if drop_ibes:
-            features = [x for x in features if x[:4] != 'IBES']
-        if drop_accounting:
-            accounting_vars = [
-                'NETINCOMEQ', 'NETINCOMETTM', 'SALESQ', 'SALESTTM',
-                'ASSETS', 'CASHEV', 'FCFMARKETCAP', 'NETINCOMEGROWTHQ',
-                'NETINCOMEGROWTHTTM', 'OPERATINGINCOMEGROWTHQ',
-                'OPERATINGINCOMEGROWTHTTM', 'EBITGROWTHQ', 'EBITGROWTHTTM',
-                'SALESGROWTHQ', 'SALESGROWTHTTM', 'FREECASHFLOWGROWTHQ',
-                'FREECASHFLOWGROWTHTTM', 'GROSSPROFASSET', 'GROSSMARGINTTM',
-                'EBITDAMARGIN', 'PE']
-            features = [x for x in features if x not in accounting_vars]
-        if drop_extremes:
-            features = [x for x in features if x.find('extreme') == -1]
-        if drop_market_variables == 'constrained':
-            features = [x for x in features if x.find('Mkt_') == -1]
-            features.extend(['Mkt_VIX_AdjClose', 'Mkt_VIX_PRMA10',
-                             'Mkt_SP500Index_VOL10', 'Mkt_SP500Index_PRMA10',
-                             'Mkt_SP500Index_BOLL20'])
-        elif drop_market_variables:
-            features = [x for x in features if x.find('Mkt_') == -1]
-        if drop_starmine:
-            starmine_vars = [
-                'LAG1_ARM', 'LAG1_ARMREVENUE', 'LAG1_ARMRECS',
-                'LAG1_ARMEARNINGS', 'LAG1_ARMEXRECS', 'LAG1_SIRANK',
-                'LAG1_SIMARKETCAPRANK', 'LAG1_SISECTORRANK',
-                'LAG1_SIUNADJRANK', 'LAG1_SISHORTSQUEEZE',
-                'LAG1_SIINSTOWNERSHIP']
-            features = [x for x in features if x not in starmine_vars]
-        self.features = features
+    def set_data_args(self,
+                      data_container,
+                      model_params,
+                      drop_ibes,
+                      drop_accounting,
+                      drop_starmine,
+                      drop_market_variables):
+        # MODEL PARAMS
         self.skl_model.set_params(**model_params)
-        self.data_container = data_container
 
-    def get_preds(self):
-        test_data = self.data_container.test_data
-        preds = self.skl_model.predict_proba(test_data[features])
-        test_data['preds'] = _get_preds(self.skl_model, preds)
-        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
+        # FEATURES
+        features = data_container.get_training_feature_names()
+
+        if drop_ibes:
+            features = [x for x in features if x not in ibes_features]
+
+        if drop_accounting:
+            features = [x for x in features if x not in accounting_features]
+
+        if drop_starmine:
+            features = [x for x in features if x not in starmine_features]
+
+        if drop_market_variables == 'constrained':
+            features = [x for x in features if x.find('MKT_') == -1]
+            features.extend(['MKT_VIX_AdjClose', 'MKT_VIX_PRMA10',
+                             'MKT_SP500Index_VOL10', 'MKT_SP500Index_PRMA10',
+                             'MKT_SP500Index_BOLL20'])
+        elif drop_market_variables:
+            features = [x for x in features if x.find('MKT_') == -1]
+
+        self._features = features
+        self._train_data = data_container.get_training_data()
+        self._train_responses = data_container.get_training_responses()
+        self._test_data = data_container.get_test_data()
+
+    # ~~~~~~ Model related functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def fit_model(self):
-        train_data = self.data_container.train_data
-        self.skl_model.fit(X=train_data[features],
-                           y=train_data['Response'])
+        self.skl_model.fit(X=self._train_data[self._features],
+                           y=self._train_responses['Response'])
 
+    def get_model(self):
+        return self.skl_model
+
+    def set_model(self):
+        raise NotImplementedError('BaseSignalGenerator.set_model')
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_signals(self):
+        output = self._test_data[['SecCode', 'Date']]
+        preds = self.skl_model.predict_proba(self._test_data[self._features])
+        output['preds'] = _get_preds(self.skl_model, preds)
+        return output
 
 
 def _get_preds(classifier, preds):

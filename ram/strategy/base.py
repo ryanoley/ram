@@ -546,10 +546,10 @@ def make_argument_parser(Strategy):
 
     # DataConstructor related functionality
     parser.add_argument(
-        '-d_bls', '--data_list_blueprints', action='store_true',
+        '-db', '--data_list_blueprints', action='store_true',
         help='List all Strategy data blueprints')
     parser.add_argument(
-        '-d_vls', '--data_list_versions', action='store_true',
+        '-dv', '--data_list_versions', action='store_true',
         help='List all Strategy data versions')
     parser.add_argument(
         '-d_make', '--data_make_from_blueprint', type=str,
@@ -562,10 +562,10 @@ def make_argument_parser(Strategy):
 
     # Strategy related functionality
     parser.add_argument(
-        '-s_vls', '--strategy_list_source_versions', action='store_true',
+        '-sv', '--strategy_list_source_versions', action='store_true',
         help='List all Strategy source code versions')
     parser.add_argument(
-        '-s_rls', '--strategy_list_runs', action='store_true',
+        '-sr', '--strategy_list_runs', action='store_true',
         help='List all Strategy runs')
 
     # Simulation functionality

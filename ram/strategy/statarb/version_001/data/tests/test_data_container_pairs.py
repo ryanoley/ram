@@ -18,6 +18,7 @@ class TestDataContainerPairs(unittest.TestCase):
         self.data = pd.DataFrame({
             'SecCode': ['AAPL'] * 6,
             'Date': dates,
+            'TimeIndex': 1,
             'AdjClose': [10, 9, 5, 5, 10, 4],
             'RClose': [10, 9, 5, 5, 10, 3],
             'V1': range(6),
@@ -45,11 +46,44 @@ class TestDataContainerPairs(unittest.TestCase):
         data['AdjVwap'] = data['AdjClose'].copy()
         self.data3 = data
 
+    def test_set_args(self):
+        dc = DataContainerPairs()
+        # Setup
+        response_params = {'asdf': '1234'}
+        dc._response_arg_map = {}
+        dc._response_arg_map[str(response_params)] = 0
+        dc._processed_train_responses = pd.DataFrame({
+            'SecCode': ['A', 'B', 'C'] * 2,
+            'Date': ['d'] * 6,
+            'TimeIndex': [0, 0, 0, 1, 1, 1],
+            0: [0, 1, 0] * 2
+        })
+        dc._processed_train_data = pd.DataFrame({
+            'SecCode': ['A', 'B', 'C'] * 2,
+            'Date': ['d'] * 6,
+            'TimeIndex': [0, 0, 0, 1, 1, 1],
+            'V1': range(6)
+        })
+        dc._processed_test_data = pd.DataFrame({
+            'SecCode': ['A', 'B', 'C'] * 2,
+            'Date': ['d'] * 6,
+            'TimeIndex': [2] * 6,
+            'V1': range(6)
+        })
+        dc.set_args(1, response_params, training_qtrs=1)
+        dc.get_training_data()
+        dc.get_training_responses()
+        dc.get_test_data()
+
     def test_make_responses(self):
         dc = DataContainerPairs()
         dc._make_responses(self.data)
-        dc._processed_train_responses
-        dc._response_arg_map
+        result = dc._processed_train_responses.columns.tolist()
+        benchmark = ['SecCode', 'TimeIndex', 'Date', 0, 1, 2]
+        self.assertListEqual(result, benchmark)
+        result = dc._response_arg_map.values()
+        result.sort()
+        self.assertListEqual(result, [0, 1, 2])
 
     def test_append_ern_date_blackout(self):
         result = append_ern_date_blackout(self.data3, -1, 1)

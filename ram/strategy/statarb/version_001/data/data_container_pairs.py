@@ -13,8 +13,6 @@ from ram.strategy.statarb.version_001.data.pairs_selector import PairSelector
 from ram.strategy.statarb.version_001.data.pairs_selector_filter import \
     PairSelectorFilter
 
-from gearbox import create_time_index, convert_date_array
-
 
 class DataContainerPairs(BaseDataContainer):
 
@@ -47,38 +45,42 @@ class DataContainerPairs(BaseDataContainer):
         down stream. Signals and the portfolio constructor expect the
         train/test_data and features objects.
         """
-        response_data = self._get_smoothed_response_data(
-            time_index,
-            response_params['response_days'],
-            response_params['response_thresh'])
-
+        response_cols = ['SecCode', 'Date', 'TimeIndex',
+                         self._response_arg_map[str(response_params)]]
+        responses = self._processed_train_responses[response_cols].copy()
+        responses.columns = ['SecCode', 'Date', 'TimeIndex', 'Response']
         # Fresh copies of processed raw data
-        train_data, test_data, features = self._get_train_test_features()
-
+        train_data, test_data = self._get_train_test()
         # Adjust per hyperparameters
-        train_data = self._trim_training_data(train_data, training_qtrs)
+        train_data, responses = self._trim_training_response_data(
+            train_data, responses, training_qtrs)
+        # Make sure training and responses are aligned
+        responses = train_data[['SecCode', 'TimeIndex', 'Date']].merge(
+            responses, how='left')
+        assert np.all(train_data.SecCode.values == responses.SecCode.values)
+        assert np.all(train_data.Date.values == responses.Date.values)
+        responses.index = train_data.index
         # Merge response data
-        train_data = train_data.merge(response_data)
-        test_data = test_data.merge(response_data)
         self.train_data = train_data
+        self.train_data_responses = responses
         self.test_data = test_data
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_training_data(self):
-        return self._processed_train_data
+        return self.train_data
 
     def get_training_responses(self):
-        return 0
+        return self.train_data_responses
 
     def get_training_feature_names(self):
         return self._features
 
     def get_test_data(self):
-        return self._processed_test_data
+        return self.test_data
 
     def get_simulation_feature_dictionary(self):
-        return self._constructor_data
+        return self.constructor_data
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -92,7 +94,7 @@ class DataContainerPairs(BaseDataContainer):
 
     def process_training_data(self, data, time_index):
         # First cleanup
-        data = self._initial_clean(data)
+        data = self._initial_clean(data, time_index)
         # Get pairs from 252 days worth of data
         pair_info, zscores = self._get_pairs_info(data)
         # Create process training data, and get features
@@ -107,13 +109,13 @@ class DataContainerPairs(BaseDataContainer):
         self._processed_test_data = pdata[pdata.TestFlag]
         self._features = features
         # Process responses - Get order correct
-        data2 = pdata[['SecCode', 'Date', 'TestFlag']].merge(
+        data2 = pdata[['SecCode', 'Date', 'TimeIndex', 'TestFlag']].merge(
             data[['SecCode', 'Date', 'AdjClose']], how='left')
         assert np.all(data2.SecCode == pdata.SecCode)
         assert np.all(data2.Date == pdata.Date)
         self._make_responses(data2)
         # Process some data
-        self._constructor_data = {
+        self.constructor_data = {
             'pricing': data[data.TestFlag][['MarketCap', 'AvgDolVol',
                                             'RClose', 'RCashDividend',
                                             'SplitMultiplier']],
@@ -151,8 +153,7 @@ class DataContainerPairs(BaseDataContainer):
         data = data[~data.TestFlag]
         # Response arg map
         self._response_arg_map = {}
-        # Container for when args. DOES THIS NEED A TIME_INDEX?
-        responses = data[['SecCode', 'Date']]
+        responses = data[['SecCode', 'TimeIndex', 'Date']]
         for i, args in enumerate(self.get_args()['response_params']):
             self._response_arg_map[str(args)] = i
             # Get name
@@ -188,7 +189,7 @@ class DataContainerPairs(BaseDataContainer):
         vol = VOL(live_flag)
         discount = DISCOUNT(live_flag)
 
-        pdata = data[['SecCode', 'Date', 'TestFlag']]
+        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
 
         v = outlier_rank(prma.fit(close, 10))[0]
         pdata = pdata.merge(unstack_label_data(v, 'PRMA10'))
@@ -279,7 +280,8 @@ class DataContainerPairs(BaseDataContainer):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _initial_clean(self, data):
+    def _initial_clean(self, data, time_index):
+        data['TimeIndex'] = time_index
         # SPLITS: Instead of using the levels, use the CHANGE in levels.
         # This is necessary for the updating of positions and prices downstream
         data.loc[:, 'SplitMultiplier'] = \
@@ -317,19 +319,19 @@ class DataContainerPairs(BaseDataContainer):
         features += features_mkt
         return pdata, features
 
-    def _get_train_test_features(self):
+    def _get_train_test(self):
         return (
             self._processed_train_data.copy(),
-            self._processed_test_data.copy(),
-            self.features
+            self._processed_test_data.copy()
         )
 
-    def _trim_training_data(self, data, training_qtrs):
+    def _trim_training_response_data(self, data, responses, training_qtrs):
         if training_qtrs == -99:
-            return data
-        inds = create_time_index(data.Date)
-        max_ind = np.max(inds)
-        return data.iloc[inds > (max_ind-training_qtrs)]
+            return data, responses
+        max_ind = data.TimeIndex.max()
+        inds1 = data.TimeIndex > (max_ind-training_qtrs)
+        inds2 = responses.TimeIndex > (max_ind-training_qtrs)
+        return data[inds1], responses[inds2]
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -10,9 +10,25 @@ class BaseSignalGenerator(object):
         raise NotImplementedError('BaseSignalGenerator.get_args')
 
     @abstractmethod
-    def get_skl_model(self):
-        raise NotImplementedError('BaseSignalGenerator.get_skl_model')
+    def set_data_args(self, data_container, **kargs):
+        raise NotImplementedError('BaseSignalGenerator.set_data_args')
+
+    # ~~~~~~ Model related functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @abstractmethod
-    def generate_signals(self, data_container, **kwargs):
-        raise NotImplementedError('BaseSignalGenerator.generate_signals')
+    def fit_model(self):
+        raise NotImplementedError('BaseSignalGenerator.fit_model')
+
+    @abstractmethod
+    def get_model(self):
+        raise NotImplementedError('BaseSignalGenerator.get_model')
+
+    @abstractmethod
+    def set_model(self):
+        raise NotImplementedError('BaseSignalGenerator.set_model')
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @abstractmethod
+    def get_signals(self):
+        raise NotImplementedError('BaseSignalGenerator.get_signals')

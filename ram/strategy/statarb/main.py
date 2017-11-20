@@ -66,22 +66,22 @@ class StatArbStrategy(Strategy):
         self.data.process_training_market_data(market_data)
         self.data.process_training_data(data, time_index)
 
-    def run_index(self, index):
+    def run_index(self, time_index):
         # HACK: If training and writing, don't train until 2007, but stack data
         if self._write_flag and \
                 (int(self._prepped_data_files[time_index][:4]) < 2007):
             return
-
         # Iterate
         i = 0
+        import pdb; pdb.set_trace()
         for args1 in self._data_args:
 
             self.data.set_args(time_index, **args1)
 
             for args2 in self._signals_args:
-                self.signals.set_args(self.data, **args2)
+                self.signals.set_data_args(self.data, **args2)
                 self.signals.fit_model()
-                self.signals.get_preds()
+                signals = self.signals.get_signals()
 
                 for ac in self._constructor_args:
                     result, stats = self.constructor.get_daily_pl(
