@@ -327,6 +327,55 @@ def _get_versions_cloud(strategy_name):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def print_strategies(prepped_data_dir=config.PREPPED_DATA_DIR,
+                     cloud_flag=False):
+    if cloud_flag:
+        strategies = _get_strategies_cloud()
+    else:
+        strategies = _get_strategies(prepped_data_dir)
+    _print_line_underscore('Available Strategies with prepped data')
+    for i, name in enumerate(strategies):
+        print(' [{}]\t{}'.format(i, name))
+    return
+
+
+def get_strategy_name(strategy_name,
+                      prepped_data_dir=config.PREPPED_DATA_DIR,
+                      cloud_flag=False):
+    if cloud_flag:
+        strategies = _get_strategies_cloud()
+    else:
+        strategies = _get_strategies(prepped_data_dir)
+    if strategy_name in strategies:
+        return strategy_name
+    try:
+        strategy_index = int(strategy_name)
+    except:
+        return strategy_name
+    for i, strategy in enumerate(strategies):
+        if i == strategy_index:
+            return strategy
+
+
+def _get_strategies(prepped_data_dir):
+    dirs = [name for name in os.listdir(prepped_data_dir)
+            if os.path.isdir(os.path.join(prepped_data_dir, name))]
+    dirs.sort()
+    return dirs
+
+
+def _get_strategies_cloud():
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    all_files = [x.name for x in bucket.list_blobs()
+                 if x.name.find('prepped_data') > -1]
+    dirs = list(set([x.split('/')[1] for x in all_files]))
+    dirs.sort()
+    return dirs
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def print_data_versions(strategy_name,
                         prepped_data_dir=config.PREPPED_DATA_DIR,
                         cloud_flag=False):
@@ -417,6 +466,8 @@ def _get_min_max_dates_counts_cloud(strategy_name, version):
     else:
         return 'No Files', 'No Files', 0
 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _print_line_underscore(pstring):
     print('\n ' + pstring)
