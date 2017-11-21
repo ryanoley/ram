@@ -780,6 +780,7 @@ def make_argument_parser(Strategy):
 
     elif args.strategy_version and args.data_version:
 
+        import pdb; pdb.set_trace()
         strategy_versions = Strategy().get_strategy_source_versions()
         strategy_version = strategy_versions.get_version_by_name_or_index(
             args.strategy_version)
