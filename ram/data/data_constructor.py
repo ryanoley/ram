@@ -452,11 +452,14 @@ def _get_meta_data_cloud(strategy_name, version):
     client = storage.Client()
     bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     blob = bucket.get_blob(path)
-    meta = json.loads(blob.download_as_string())
-    if 'blueprint' in meta:
-        meta['description'] = meta['blueprint'].description
-    return meta
-
+    try:
+        meta = json.loads(blob.download_as_string())
+        if 'blueprint' in meta:
+            meta['description'] = meta['blueprint'].description
+        return meta
+    except:
+        meta = {'description': 'NO META DATA FOUND'}
+        return meta
 
 def _get_min_max_dates_counts(prepped_data_dir, strategy_name, version):
     files = os.listdir(os.path.join(prepped_data_dir,
