@@ -300,7 +300,10 @@ def get_data_version_name(strategy_name,
     try:
         return versions[int(version_name)]
     except:
-        return version_name
+        if version_name in versions.values():
+            return version_name
+        else:
+            raise Exception('Version not found')
 
 
 def _get_versions(prepped_data_dir, strategy_name):

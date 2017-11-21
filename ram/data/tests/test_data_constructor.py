@@ -149,6 +149,9 @@ class TestDataConstructor(unittest.TestCase):
         result = get_data_version_name('GeneralOutput', 'version_0001',
                                        prepped_data_dir=self.prepped_data_dir)
         self.assertEqual(result, 'version_0001')
+        with self.assertRaises(Exception) as context:
+            get_data_version_name('GeneralOutput', 'version_0010',
+                                  prepped_data_dir=self.prepped_data_dir)
         df = pd.DataFrame({'V1': range(4)})
         df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
                                'version_0001', '20101010_data.csv'))
