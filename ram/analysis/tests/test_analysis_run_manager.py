@@ -18,8 +18,8 @@ from ram.analysis.run_manager import *
 class TestRunManager(unittest.TestCase):
 
     def setUp(self):
-        self.base_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
-                                      'tests', 'test_simulations')
+        self.base_path = os.path.join(os.getenv('GITHUB'), 'ram',
+                                      'test_simulations')
         if os.path.isdir(self.base_path):
             shutil.rmtree(self.base_path)
         os.mkdir(self.base_path)

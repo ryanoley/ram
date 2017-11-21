@@ -70,7 +70,7 @@ class TestDataContainerPairs(unittest.TestCase):
             'TimeIndex': [2] * 6,
             'V1': range(6)
         })
-        dc.set_args(1, response_params, training_qtrs=1)
+        dc.set_args(response_params, training_qtrs=1)
         dc.get_training_data()
         dc.get_training_responses()
         dc.get_test_data()

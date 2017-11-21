@@ -14,8 +14,7 @@ from ram.data.intraday_data_manager import IntradayDataManager
 class TestDataHandlerSQL(unittest.TestCase):
 
     def setUp(self):
-        self.base_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
-                                      'tests', 'test_data')
+        self.base_path = os.path.join(os.getenv('GITHUB'), 'ram', 'test_data')
         if os.path.isdir(self.base_path):
             shutil.rmtree(self.base_path)
         os.mkdir(self.base_path)

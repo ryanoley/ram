@@ -125,7 +125,8 @@ class DataConstructor(object):
             self._version_files = [x for x in os.listdir(output_dir)
                                    if x[-9:] == '_data.csv']
             self._version_files.sort()
-            self._version_files.remove('market_index_data.csv')
+            if 'market_index_data.csv' in self._version_files:
+                self._version_files.remove('market_index_data.csv')
         print('[DataConstructor] - Restarting {}'.format(rerun_version))
         return blueprint
 

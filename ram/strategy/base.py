@@ -195,6 +195,7 @@ class Strategy(object):
                 market_data.copy())
             self.run_index(time_index)
         self._shutdown_simulation()
+        return
 
     def restart(self, run_name):
         self.strategy_init()
@@ -211,6 +212,7 @@ class Strategy(object):
                 continue
             self.run_index(time_index)
         self._shutdown_simulation()
+        return
 
     # ~~~~~~ Implementation Training Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -251,9 +253,6 @@ class Strategy(object):
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
-            ## TEMP
-            if time_index == 0:
-                break
         return
 
     def import_run_column_params(self, run_name):
@@ -431,16 +430,20 @@ class Strategy(object):
     def _get_max_run_time_index_for_restart(self):
         if self._gcp_implementation:
             all_files = [x.name for x in self._gcp_bucket.list_blobs()]
-            all_files = [x for x in all_files if x.find(self.strategy_run_output_dir) >= 0]
+            all_files = [x for x in all_files
+                         if x.find(self.strategy_run_output_dir) >= 0]
             all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
-            all_files = [x.replace(self.strategy_run_output_dir+'/index_outputs/', '')
-                         for x in all_files]
+            all_files = [
+                x.replace(self.strategy_run_output_dir+'/index_outputs/', '')
+                for x in all_files]
         else:
-            all_files = os.listdir(os.path.join(self.strategy_run_output_dir, 'index_outputs'))
+            all_files = os.listdir(os.path.join(self.strategy_run_output_dir,
+                                                'index_outputs'))
             all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
         # Delete final file if it isn't same as matching raw data file
         last_run_file = max(all_files)
-        run_path = os.path.join(self.strategy_run_output_dir, 'index_outputs', last_run_file)
+        run_path = os.path.join(self.strategy_run_output_dir,
+                                'index_outputs', last_run_file)
         data_path = os.path.join(self.data_version_dir,
                                  '{}_data.csv'.format(last_run_file[:8]))
         if self._gcp_implementation:
@@ -649,7 +652,7 @@ def _byteify(data, ignore_dicts=False):
         return data.encode('utf-8')
     # if this is a list of values, return list of byteified values
     if isinstance(data, list):
-        return [ _byteify(item, ignore_dicts=True) for item in data ]
+        return [_byteify(item, ignore_dicts=True) for item in data]
     # if this is a dictionary, return dictionary of byteified keys and values
     # but only if we haven't already byteified it
     if isinstance(data, dict) and not ignore_dicts:
@@ -682,6 +685,7 @@ def make_argument_parser(Strategy):
 
     from ram.data.data_constructor import get_data_version_name
     from ram.data.data_constructor import print_data_versions
+    from ram.analysis.run_manager import get_run_data
 
     parser = argparse.ArgumentParser()
 
@@ -751,11 +755,10 @@ def make_argument_parser(Strategy):
 
     elif args.strategy_list_runs:
         # TODO
-        # runs = get_run_data(Strategy.__name__,
-        #                     config.GCP_CLOUD_IMPLEMENTATION)
-        # # Adjust column width
-        # runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
-        runs = ['NOT CONNECTED']
+        runs = get_run_data(Strategy.__name__,
+                            config.GCP_CLOUD_IMPLEMENTATION)
+        # Adjust column width
+        runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
         print(runs)
 
     # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

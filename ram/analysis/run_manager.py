@@ -24,7 +24,7 @@ class RunManager(object):
                  start_year=1950,
                  test_periods=6,
                  drop_params=None,
-                 simulation_data_path=config.SIMULATION_OUTPUT_DIR):
+                 simulation_data_path=config.SIMULATIONS_DATA_DIR):
         self.strategy_class = strategy_class
         self.run_name = run_name
         self.start_year = start_year
@@ -35,12 +35,12 @@ class RunManager(object):
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @staticmethod
-    def get_strategies(path=config.SIMULATION_OUTPUT_DIR):
+    def get_strategies(path=config.SIMULATIONS_DATA_DIR):
         return [x for x in os.listdir(path) if
                 os.path.isdir(os.path.join(path, x))]
 
     @staticmethod
-    def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):
+    def get_run_names(strategy_class, path=config.SIMULATIONS_DATA_DIR):
         ddir = os.path.join(path, strategy_class)
         dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
         output = pd.DataFrame({'Run': dirs, 'Description': np.nan,
