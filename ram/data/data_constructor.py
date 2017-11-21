@@ -418,6 +418,23 @@ def _get_strategy_version_stats(strategy_name, prepped_data_dir):
     return dir_stats
 
 
+def _get_strategy_version_stats_cloud(strategy_name):
+    versions = _get_versions_cloud(strategy_name)
+    # Get MinMax dates for files
+    dir_stats = {}
+    for key, version in versions.items():
+        meta = _get_meta_data_cloud(strategy_name, version)
+        stats = _get_min_max_dates_counts_cloud(strategy_name, version)
+        max_date = meta['max_date'] if 'max_date' in meta else None
+        dir_stats[key] = {
+            'version': version,
+            'file_count': stats[2],
+            'max_date': max_date,
+            'description': meta['description']
+        }
+    return dir_stats
+
+
 def _get_meta_data(prepped_data_dir, strategy_name, version):
     path = os.path.join(prepped_data_dir, strategy_name,
                         version, 'meta.json')
