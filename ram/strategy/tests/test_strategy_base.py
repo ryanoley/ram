@@ -102,6 +102,7 @@ class TestStrategyBase(unittest.TestCase):
             ram_prepped_data_dir=self.prepped_data_dir,
             ram_simulations_dir=self.simulation_output_dir,
             ram_implementation_dir=self.implementation_output_dir)
+        self.strategy._gcp_implementation = False
 
     def test_implementation_output_dir(self):
         self.strategy._create_implementation_output_dir()
