@@ -246,7 +246,8 @@ class TestStrategyBase(unittest.TestCase):
         # New Strategy
         strategy = TestStrategy(
             ram_prepped_data_dir=self.prepped_data_dir,
-            ram_simulations_dir=self.simulation_output_dir)
+            ram_simulations_dir=self.simulation_output_dir,
+            ram_implementation_dir=self.implementation_output_dir)
         strategy._import_run_meta_for_restart('run_0001')
         benchmark = os.path.join(self.simulation_output_dir,
                                  'TestStrategy',
@@ -275,7 +276,8 @@ class TestStrategyBase(unittest.TestCase):
         strategy = TestStrategy(
             write_flag=True,
             ram_prepped_data_dir=self.prepped_data_dir,
-            ram_simulations_dir=self.simulation_output_dir)
+            ram_simulations_dir=self.simulation_output_dir,
+            ram_implementation_dir=self.implementation_output_dir)
         strategy._import_run_meta_for_restart('run_0001')
         strategy._get_prepped_data_file_names()
         strategy._get_max_run_time_index_for_restart()
@@ -287,7 +289,8 @@ class TestStrategyBase(unittest.TestCase):
         strategy = TestStrategy(
             write_flag=True,
             ram_prepped_data_dir=self.prepped_data_dir,
-            ram_simulations_dir=self.simulation_output_dir)
+            ram_simulations_dir=self.simulation_output_dir,
+            ram_implementation_dir=self.implementation_output_dir)
         strategy._import_run_meta_for_restart('run_0001')
         strategy._get_prepped_data_file_names()
         strategy._get_max_run_time_index_for_restart()
