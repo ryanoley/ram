@@ -10,7 +10,8 @@ from ram.strategy.statarb.version_001.data.data_container_pairs import \
 class SignalModel1(BaseSignalGenerator):
 
     def __init__(self):
-        self.skl_model = ExtraTreesClassifier(n_jobs=-1)
+        self.skl_model = ExtraTreesClassifier(n_jobs=-1,
+                                              random_state=123)
 
     def get_args(self):
         return {

@@ -8,6 +8,8 @@ import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 
+from sklearn.externals import joblib
+
 from StringIO import StringIO
 from google.cloud import storage
 
@@ -73,6 +75,20 @@ class Strategy(object):
         """
         raise NotImplementedError('Strategy.get_column_parameters')
 
+    @abstractmethod
+    def implementation_training(self):
+        """
+        This function should simply be used to load the names of the
+        parameters that need to be training.
+
+        Load through: implementation_training_cache_params
+
+        Input should be list with items in the following format:
+        `Strategy_run_RUNNUM_COLNUM`, as they are printed out from
+        combo_search.
+        """
+        raise NotImplementedError('Strategy.implementation_training')
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def __init__(self,
@@ -80,7 +96,8 @@ class Strategy(object):
                  prepped_data_version=None,
                  write_flag=False,
                  ram_prepped_data_dir=config.PREPPED_DATA_DIR,
-                 ram_simulations_dir=config.SIMULATIONS_DATA_DIR):
+                 ram_simulations_dir=config.SIMULATIONS_DATA_DIR,
+                 ram_implementation_dir=config.IMPLEMENTATION_DATA_DIR):
         """
         Parameters
         ----------
@@ -102,18 +119,21 @@ class Strategy(object):
             the global config file
         """
         self.strategy_code_version = strategy_code_version
-        self._prepped_data_version = prepped_data_version
+        self.prepped_data_version = prepped_data_version
+        self._write_flag = write_flag
+        # Base ram directories for data
         self._ram_prepped_data_dir = ram_prepped_data_dir
         self._ram_simulations_dir = ram_simulations_dir
-        self._write_flag = write_flag
+        self._ram_implementation_dir = ram_implementation_dir
         self._init_gcp_implementation()
         self._init_prepped_data_dir()
         self._init_simulations_output_dir()
+        self._init_implementation_dir()
 
     def _init_gcp_implementation(self):
         self._gcp_implementation = config.GCP_CLOUD_IMPLEMENTATION
         # Only connect to GCP instance if prepped data is there
-        if self._gcp_implementation & (self._prepped_data_version is not None):
+        if self._gcp_implementation & (self.prepped_data_version is not None):
             self._gcp_client = storage.Client()
             self._gcp_bucket = self._gcp_client.get_bucket(
                 config.GCP_STORAGE_BUCKET_NAME)
@@ -121,18 +141,18 @@ class Strategy(object):
 
     def _init_prepped_data_dir(self):
         # If no prepped data was assigned, there will be no calling of start
-        if self._prepped_data_version is None:
+        if self.prepped_data_version is None:
             return
         if self._gcp_implementation:
             self.data_version_dir = os.path.join(
                 'prepped_data',
                 self.__class__.__name__,
-                self._prepped_data_version)
+                self.prepped_data_version)
         else:
             self.data_version_dir = os.path.join(
                 self._ram_prepped_data_dir,
                 self.__class__.__name__,
-                self._prepped_data_version)
+                self.prepped_data_version)
 
     def _init_simulations_output_dir(self):
         if self._gcp_implementation:
@@ -143,6 +163,20 @@ class Strategy(object):
             self._strategy_output_dir = os.path.join(
                 self._ram_simulations_dir,
                 self.__class__.__name__)
+
+    def _init_implementation_dir(self):
+        if self._gcp_implementation:
+            self._implementation_output_dir = os.path.join(
+                'implementation',
+                self.__class__.__name__)
+        else:
+            self._implementation_output_dir = os.path.join(
+                self._ram_implementation_dir,
+                self.__class__.__name__)
+            if not os.path.isdir(self._ram_implementation_dir):
+                os.mkdir(self._ram_implementation_dir)
+            if not os.path.isdir(self._implementation_output_dir):
+                os.mkdir(self._implementation_output_dir)
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -178,18 +212,38 @@ class Strategy(object):
             self.run_index(time_index)
         self._shutdown_simulation()
 
-    def implementation_training(self, **kwargs):
-        """
-        To be overridden by derived class if needed
-        """
-        pass
+    # ~~~~~~ Implementation Training Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _implementation_training_stack_run_data(self, run_name):
+    def implementation_training_prep(self, top_params):
+        """
+        param_name, run_name, strategy_version, data_version
+        """
+        top_params = clean_top_params(top_params)
+        output = pd.DataFrame(columns=['param_name', 'run_name',
+                                       'strategy_version', 'data_version',
+                                       'column_name'])
+        for i, (param, run) in enumerate(zip(*top_params)):
+            output.loc[i, 'param_name'] = param
+            output.loc[i, 'run_name'] = run
+            meta = self._import_run_meta(run)
+            output.loc[i, 'strategy_version'] = meta['strategy_code_version']
+            output.loc[i, 'data_version'] = meta['prepped_data_version']
+            output.loc[i, 'column_name'] = param.split('_')[-1]
+        # Unique versions of strategy/data need their own data stack
+        output['stack_index'] = 0
+        for i in range(len(output)):
+            output.loc[i, 'stack_index'] = '{}~{}'.format(
+                output.loc[i, 'strategy_version'],
+                output.loc[i, 'data_version'])
+        output = output.sort_values('stack_index').reset_index(drop=True)
+        return output
+
+    def implementation_training_stack_version_data(self, data_version):
         """
         To be used by derived class to prep data
         """
-        # This function gets correct data version
-        self._import_run_meta_for_restart(run_name)
+        self.prepped_data_version = data_version
+        self._init_prepped_data_dir()
         self._get_prepped_data_file_names()
         market_data = self.read_market_index_data()
         for time_index in tqdm(range(len(self._prepped_data_files))):
@@ -198,8 +252,38 @@ class Strategy(object):
                 time_index,
                 market_data.copy())
             ## TEMP
-            if time_index == 1:
+            if time_index == 0:
                 break
+        return
+
+    def import_run_column_params(self, run_name):
+        path = os.path.join(self._strategy_output_dir,
+                            run_name,
+                            'column_params.json')
+        if self._gcp_implementation:
+            column_params = read_json_cloud(path, self._gcp_bucket)
+        else:
+            column_params = read_json(path)
+        return column_params
+
+    def implementation_training_write_params_model(self,
+                                                   run_name,
+                                                   params,
+                                                   model):
+        # Set paths for output files
+        model_cache_path = os.path.join(self.implementation_output_dir,
+                                        run_name + '_skl_model.pkl')
+        params_path = os.path.join(self.implementation_output_dir,
+                                   run_name + '_params.json')
+        # Write
+        if self._gcp_implementation:
+            blob = self._bucket.blob(model_cache_path)
+            blob.upload_from_string(pickle.dumps(model))
+            write_json_cloud(params, params_path, self._gcp_bucket)
+        else:
+            joblib.dump(model, model_cache_path)
+            write_json(params, params_path)
+        return
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -236,6 +320,26 @@ class Strategy(object):
             os.mkdir(os.path.join(self.strategy_run_output_dir,
                                   'index_outputs'))
 
+    def _create_implementation_output_dir(self):
+        """
+        Creates the directory structure for implementation output
+        """
+        # Get run names
+        if self._gcp_implementation:
+            all_files = [x.name for x in self._gcp_bucket.list_blobs()
+                         if x.name.find(self.implementation_output_dir) > -1]
+            # TODO: find all
+        elif os.path.isdir(self._implementation_output_dir):
+            all_dirs = [x for x in os.listdir(
+                self._implementation_output_dir) if x[:3] == 'imp']
+            new_ind = int(max(all_dirs).split('_')[1]) + 1 if all_dirs else 1
+        else:
+            new_ind = 1
+        # Get all run versions for increment for this run
+        self.implementation_output_dir = os.path.join(
+            self._implementation_output_dir, 'imp_{0:04d}'.format(new_ind))
+        os.mkdir(self.implementation_output_dir)
+
     def _copy_source_code(self):
         if self._write_flag and not self._gcp_implementation:
             # Copy source code for Strategy
@@ -259,7 +363,7 @@ class Strategy(object):
             git_branch, git_commit = get_git_branch_commit()
             # Create meta object
             meta = {
-                'prepped_data_version': self._prepped_data_version,
+                'prepped_data_version': self.prepped_data_version,
                 'strategy_code_version': self.strategy_code_version,
                 'latest_git_commit': git_commit,
                 'git_branch': git_branch,
@@ -307,16 +411,20 @@ class Strategy(object):
             else:
                 write_json(meta, meta_file_path)
 
-    def _import_run_meta_for_restart(self, run_name):
-        self.strategy_run_output_dir = os.path.join(self._strategy_output_dir,
-                                                    run_name)
-        meta_file_path = os.path.join(self.strategy_run_output_dir, 'meta.json')
+    def _import_run_meta(self, run_name):
+        self.strategy_run_output_dir = os.path.join(
+            self._strategy_output_dir, run_name)
+        meta_file_path = os.path.join(
+            self.strategy_run_output_dir, 'meta.json')
         if self._gcp_implementation:
-            meta = read_json_cloud(meta_file_path, self._gcp_bucket)
+            return read_json_cloud(meta_file_path, self._gcp_bucket)
         else:
-            meta = read_json(meta_file_path)
+            return read_json(meta_file_path)
+
+    def _import_run_meta_for_restart(self, run_name):
+        meta = self._import_run_meta(run_name)
         # Set prepped_data_version
-        self._prepped_data_version = meta['prepped_data_version']
+        self.prepped_data_version = meta['prepped_data_version']
         self.strategy_code_version = meta['strategy_code_version']
         self._init_prepped_data_dir()
 
@@ -509,7 +617,7 @@ def write_json(out_dictionary, path):
 
 
 def read_json(path):
-    return json.load(open(path, 'r'))
+    return json.load(open(path, 'r'), object_hook=_byteify)
 
 
 def write_json_cloud(out_dictionary, path, bucket):
@@ -520,7 +628,8 @@ def write_json_cloud(out_dictionary, path, bucket):
 
 def read_json_cloud(path, bucket):
     blob = bucket.get_blob(path)
-    return json.loads(blob.download_as_string())
+    # json.dumps is to get rid of unicode
+    return json.loads(blob.download_as_string(), object_hook=_byteify)
 
 
 def read_csv_cloud(path, bucket):
@@ -531,6 +640,38 @@ def read_csv_cloud(path, bucket):
 def to_csv_cloud(data, path, bucket):
     blob = bucket.blob(path)
     blob.upload_from_string(data.to_csv())
+
+
+def _byteify(data, ignore_dicts=False):
+    # From stack exchange:  http://bit.ly/2zneXGP
+    # if this is a unicode string, return its string representation
+    if isinstance(data, unicode):
+        return data.encode('utf-8')
+    # if this is a list of values, return list of byteified values
+    if isinstance(data, list):
+        return [ _byteify(item, ignore_dicts=True) for item in data ]
+    # if this is a dictionary, return dictionary of byteified keys and values
+    # but only if we haven't already byteified it
+    if isinstance(data, dict) and not ignore_dicts:
+        return {
+            _byteify(key, ignore_dicts=True):
+            _byteify(value, ignore_dicts=True)
+            for key, value in data.iteritems()
+        }
+    # if it's anything else, return it in its original form
+    return data
+
+
+# ~~~~~~  Implementation  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def clean_top_params(top_params):
+    # Clean
+    ind = top_params[0].split('_').index('run')
+    split_runs = [y.split('_') for y in top_params]
+    top_params = ['{}_{}_{}'.format(x[ind], x[ind+1], x[ind+2])
+                  for x in split_runs]
+    run_names = ['{}_{}'.format(x[ind], x[ind+1]) for x in split_runs]
+    return top_params, run_names
 
 
 # ~~~~~~  Make ArgParser  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -584,6 +725,9 @@ def make_argument_parser(Strategy):
         '-r', '--restart_run', action='store_true',
         help='Restart run')
     parser.add_argument(
+        '-i', '--implementation_training', action='store_true',
+        help='Restart run')
+    parser.add_argument(
         '--description', default=None,
         help='Run description. Used namely in a batch file')
 
@@ -631,7 +775,8 @@ def make_argument_parser(Strategy):
 
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    elif (args.strategy_version is not None) & (args.data_version is not None):
+    elif args.strategy_version and args.data_version:
+
         strategy_versions = Strategy().get_strategy_source_versions()
         strategy_version = strategy_versions.get_version_by_name_or_index(
             args.strategy_version)
@@ -641,12 +786,13 @@ def make_argument_parser(Strategy):
             version_name=args.data_version,
             cloud_flag=config.GCP_CLOUD_IMPLEMENTATION)
 
-        if not args.write_flag:
-            import pdb; pdb.set_trace()
-
         strategy = Strategy(strategy_code_version=strategy_version,
                             prepped_data_version=data_version,
                             write_flag=args.write_flag)
+
+        if not args.write_flag:
+            import pdb; pdb.set_trace()
+
         strategy.start(args.description)
 
     elif args.restart_run:
@@ -654,6 +800,7 @@ def make_argument_parser(Strategy):
         strategy = Strategy(write_flag=True)
         strategy.restart(run_name)
 
-    # elif args.implementation_training:
-    #     strategy = Strategy()
-    #     strategy.implementation_training(args.implementation_training)
+    elif args.implementation_training:
+        strategy = Strategy()
+        strategy._create_implementation_output_dir()
+        strategy.implementation_training()

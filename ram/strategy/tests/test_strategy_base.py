@@ -8,6 +8,8 @@ import datetime as dt
 
 from gearbox import convert_date_array
 
+from sklearn.linear_model import LinearRegression
+
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
@@ -21,10 +23,14 @@ from ram.strategy.base import StrategyVersionContainer
 
 strategy_versions = StrategyVersionContainer()
 strategy_versions.add_version('version_001', 'Current implementation')
+strategy_versions.add_version('version_002', 'Alternative implementation')
 
 blueprint_container = DataConstructorBlueprintContainer()
 bp = DataConstructorBlueprint(constructor_type='universe',
-                              description='Test')
+                              description='Test1')
+blueprint_container.add_blueprint(bp)
+bp = DataConstructorBlueprint(constructor_type='universe',
+                              description='Test2')
 blueprint_container.add_blueprint(bp)
 
 
@@ -50,6 +56,9 @@ class TestStrategy(Strategy):
     def get_strategy_source_versions(self):
         return strategy_versions
 
+    def implementation_training(self):
+        pass
+
 
 class TestStrategyBase(unittest.TestCase):
 
@@ -60,7 +69,8 @@ class TestStrategyBase(unittest.TestCase):
                                              'prepped_data')
         self.simulation_output_dir = os.path.join(self.test_data_dir,
                                                   'simulations')
-
+        self.implementation_output_dir = os.path.join(self.test_data_dir,
+                                                      'implementation')
         # DELETE LEFTOVER DIRECTORIES
         if os.path.exists(self.test_data_dir):
             shutil.rmtree(self.test_data_dir)
@@ -69,6 +79,7 @@ class TestStrategyBase(unittest.TestCase):
         os.mkdir(self.test_data_dir)
         os.mkdir(self.prepped_data_dir)
         os.mkdir(self.simulation_output_dir)
+        os.mkdir(self.implementation_output_dir)
 
         strategy_dir = os.path.join(self.prepped_data_dir, 'TestStrategy')
         data_version_dir = os.path.join(strategy_dir, 'version_0001')
@@ -89,7 +100,66 @@ class TestStrategyBase(unittest.TestCase):
             prepped_data_version='version_0001',
             write_flag=False,
             ram_prepped_data_dir=self.prepped_data_dir,
-            ram_simulations_dir=self.simulation_output_dir)
+            ram_simulations_dir=self.simulation_output_dir,
+            ram_implementation_dir=self.implementation_output_dir)
+
+    def test_implementation_output_dir(self):
+        self.strategy._create_implementation_output_dir()
+        self.strategy._create_implementation_output_dir()
+        # Check if directories exist
+        result = os.listdir(os.path.join(self.implementation_output_dir,
+                                         'TestStrategy'))
+        benchmark = ['imp_0001', 'imp_0002']
+        self.assertListEqual(result, benchmark)
+        self.assertEqual(
+            self.strategy.implementation_output_dir.split('/')[-1], 'imp_0002')
+        # Write something
+        model = LinearRegression()
+        model.fit(X=[[1, 2],[3, 4], [-3, 10]], y=[1, 5, 2])
+        benchmark = model.coef_
+        self.strategy.implementation_training_write_params_model(
+            'run_0001_14', {'param1': [1], 'param2': 3}, model)
+        path = os.path.join(self.implementation_output_dir,
+                            'TestStrategy', 'imp_0002',
+                            'run_0001_14_skl_model.pkl')
+        model = joblib.load(path)
+        assert_array_equal(model.coef_, benchmark)
+
+    def test_implementation_training_prep(self):
+        self.strategy._write_flag = True
+        self.strategy._get_prepped_data_file_names()
+        # Create four distinct meta files to represent runs
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test')
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test2')
+        # Change strategy
+        self.strategy.prepped_data_version = 'version_9999'
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test3')
+        self.strategy.strategy_code_version = 'version_7676'
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test4')
+        top_params = ['TestStrategy_run_0001_10',
+                      'TestStrategy_run_0002_20',
+                      'TestStrategy_run_0003_30',
+                      'TestStrategy_run_0004_40']
+        result = self.strategy.implementation_training_prep(top_params)
+        benchmark = pd.DataFrame()
+        benchmark['param_name'] = ['run_0001_10', 'run_0002_20',
+                                   'run_0003_30', 'run_0004_40']
+        benchmark['run_name'] = ['run_0001', 'run_0002',
+                                 'run_0003', 'run_0004']
+        benchmark['strategy_version'] = ['version_0002', 'version_0002',
+                                         'version_0002', 'version_7676']
+        benchmark['data_version'] = ['version_0001', 'version_0001',
+                                     'version_9999', 'version_9999']
+        benchmark['column_name'] = ['10', '20', '30', '40']
+        benchmark['stack_index'] = ['version_0002~version_0001',
+                                    'version_0002~version_0001',
+                                    'version_0002~version_9999',
+                                    'version_7676~version_9999']
+        assert_frame_equal(result, benchmark)
 
     def test_get_prepped_data_files(self):
         self.strategy._get_prepped_data_file_names()

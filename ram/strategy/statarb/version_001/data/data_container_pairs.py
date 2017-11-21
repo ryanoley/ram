@@ -39,7 +39,7 @@ class DataContainerPairs(BaseDataContainer):
             'training_qtrs': [-99, 20]
         }
 
-    def set_args(self, time_index, response_params, training_qtrs):
+    def set_args(self, response_params, training_qtrs):
         """
         This is the function that adjust the hyperparameters for further
         down stream. Signals and the portfolio constructor expect the

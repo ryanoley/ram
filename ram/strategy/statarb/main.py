@@ -7,9 +7,11 @@ import inspect
 import itertools
 import pandas as pd
 import datetime as dt
-from sklearn.externals import joblib
+from copy import deepcopy
 
 from ram import config
+from ram.strategy.statarb import statarb_config
+
 from ram.strategy.base import Strategy, StrategyVersionContainer
 from ram.strategy.statarb.utils import make_arg_iter
 
@@ -26,9 +28,9 @@ class StatArbStrategy(Strategy):
         # Set source code versions
         if self.strategy_code_version == 'version_001':
             from ram.strategy.statarb.version_001 import main
-            self.data = main.data
-            self.signals = main.signals
-            self.constructor = main.constructor
+            self.data = deepcopy(main.data)
+            self.signals = deepcopy(main.signals)
+            self.constructor = deepcopy(main.constructor)
         else:
             print('Correct strategy code not specified')
             sys.exit()
@@ -66,6 +68,8 @@ class StatArbStrategy(Strategy):
         self.data.process_training_market_data(market_data)
         self.data.process_training_data(data, time_index)
 
+    # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def run_index(self, time_index):
         # HACK: If training and writing, don't train until 2007, but stack data
         if self._write_flag and \
@@ -75,7 +79,7 @@ class StatArbStrategy(Strategy):
         i = 0
         for args1 in self._data_args:
 
-            self.data.set_args(time_index, **args1)
+            self.data.set_args(**args1)
 
             for args2 in self._signals_args:
 
@@ -96,6 +100,34 @@ class StatArbStrategy(Strategy):
                                  time_index,
                                  'all_output')
         self.write_index_stats(self.output_stats, time_index)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def implementation_training(self):
+        # Import top params from wherever
+        top_params = statarb_config.implementation_top_models
+        # Process
+        run_map = self.implementation_training_prep(top_params)
+        # Placeholder to determine if data should be reloaded
+        current_stack_index = None
+        for i, vals in run_map.iterrows():
+            if vals.stack_index != current_stack_index:
+                self.strategy_code_version = vals.strategy_version
+                self.prepped_data_version = vals.data_version
+                current_stack_index = vals.stack_index
+                print('[[Stacking data]]')
+                self.strategy_init()
+                self.implementation_training_stack_version_data(
+                    vals.data_version)
+                all_params = self.import_run_column_params(
+                    vals.run_name)
+            params = all_params[vals.column_name]
+            # Fit model and cache
+            self.data.set_args(**params['data'])
+            self.signals.set_data_args(self.data, **params['signals'])
+            self.signals.fit_model()
+            self.implementation_training_write_params_model(
+                vals.param_name, params, self.signals.get_model())
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -159,120 +191,6 @@ class StatArbStrategy(Strategy):
 #         # Aggregate allocations, send to file, pass downstream
 #         agg_allocations = sum(allocations)
 #         return agg_allocations
-
-
-# class StatArbStrategyImplementationTraining(object):
-
-#     def __init__(self):
-#         self.import_run_parameters()
-#         self.stack_data()
-
-#     def import_run_parameters(self):
-#         pass
-
-#     def stack_data(self):
-#         # Should be able to call Strategy method
-#         pass
-
-#     def train_models(self):
-#         # With full dataset, shoudl be able to
-#         for run in runs:
-#             self.signals.set_args(**run['args'])
-#             self.signals.fit_model()
-#             self.cache_model(self.signals.get_skl_model(), run)
-
-
-
-
-
-    # ~~~~~~ Implementation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    # def implementation_training(self, cli_input):
-    #     """
-    #     As of now this is a hard-coded implementation!
-    #     """
-    #     combo_name, run_name = cli_input[0], cli_input[1]
-    #     # Load combos
-    #     if self._gcp_implementation:
-    #         path = os.path.join('combo_search',
-    #                             combo_name, 'current_top_params.json')
-    #         blob = self._bucket.get_blob(path)
-    #         params = json.loads(blob.download_as_string())
-    #     else:
-    #         path = os.path.join(config.COMBO_SEARCH_OUTPUT_DIR,
-    #                             combo_name, 'current_top_params.json')
-    #         params = json.load(open(path, 'r'))
-    #     # Check if run is needed
-    #     column_params = self._check_run_get_params(run_name, params)
-    #     # Stack needed data
-    #     self._implementation_training_stack_run_data(run_name)
-    #     # With unique runs, import data, import
-    #     for key, cparams in column_params.iteritems():
-    #         data_params = self._get_data_params(cparams)
-    #         signals_params = self._get_signals_params(cparams)
-    #         time_index = len(self._prepped_data_files) - 1
-    #         time_index = 1  ## TEMP
-    #         self.data.prep_data(time_index, **data_params)
-    #         self.signals.generate_signals(self.data, **signals_params)
-    #         model = self.signals.get_skl_model()
-    #         # Cache model
-    #         if self._gcp_implementation:
-    #             model_cache_path = os.path.join(
-    #                 'combo_search', combo_name, key+'.pkl')
-    #             blob = self._bucket.blob(model_cache_path)
-    #             blob.upload_from_string(pickle.dumps(model))
-    #         else:
-    #             model_cache_path = os.path.join(
-    #                 config.COMBO_SEARCH_OUTPUT_DIR,
-    #                 combo_name, key+'.pkl')
-    #             joblib.dump(model, model_cache_path)
-
-    # def _check_run_get_params(self, run_name, params):
-    #     # Process runs
-    #     run_map = {}
-    #     for key in params.keys():
-    #         key2 = key.split('_')[1] + '_' + key.split('_')[2]
-    #         if key2 not in run_map:
-    #             run_map[key2] = []
-    #         run_map[key2].append(key)
-    #     if run_name not in run_map:
-    #         sys.exit()
-    #     column_params = {}
-    #     for key in run_map[run_name]:
-    #         column_params[key] = params[key]
-    #     return column_params
-
-    # def _get_data_params(self, params):
-    #     params = params['column_params']
-    #     interface = inspect.getargspec(self.data.prep_data).args
-    #     interface = [x for x in interface if x not in ['self', 'time_index']]
-    #     out = {}
-    #     for key in interface:
-    #         out[key] = params[key]
-    #     return out
-
-    # def _get_signals_params(self, params):
-    #     params = params['column_params']
-    #     interface = inspect.getargspec(self.signals.generate_signals).args
-    #     interface = [x for x in interface
-    #                  if x not in ['self', 'data_container']]
-    #     out = {}
-    #     for key in interface:
-    #         out[key] = params[key]
-    #     return out
-
-    # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
-
-
-
-
-
-
-
-
 
 
 

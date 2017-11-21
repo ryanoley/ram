@@ -10,7 +10,7 @@ class BaseDataContainer(object):
         raise NotImplementedError('BaseDataContainer.get_args')
 
     @abstractmethod
-    def set_args(self, time_index, **kwargs):
+    def set_args(self, **kwargs):
         raise NotImplementedError('BaseDataContainer.set_args')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
