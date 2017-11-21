@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint, \
     DataConstructorBlueprintContainer
 
