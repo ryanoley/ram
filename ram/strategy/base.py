@@ -163,20 +163,30 @@ class Strategy(object):
             self._strategy_output_dir = os.path.join(
                 self._ram_simulations_dir,
                 self.__class__.__name__)
+            if not os.path.isdir(self._ram_simulations_dir):
+                os.mkdir(self._ram_simulations_dir)
 
     def _init_implementation_dir(self):
         if self._gcp_implementation:
-            self._implementation_output_dir = os.path.join(
+            self._strategy_implementation_model_dir = os.path.join(
                 'implementation',
-                self.__class__.__name__)
+                self.__class__.__name__,
+                'trained_models')
         else:
-            self._implementation_output_dir = os.path.join(
-                self._ram_implementation_dir,
-                self.__class__.__name__)
+            # Create folders if they do not exist
+            #  - implementation/
+            #    -  Strategy/
+            #      -  trained_models/
             if not os.path.isdir(self._ram_implementation_dir):
                 os.mkdir(self._ram_implementation_dir)
-            if not os.path.isdir(self._implementation_output_dir):
-                os.mkdir(self._implementation_output_dir)
+            path = os.path.join(self._ram_implementation_dir,
+                                self.__class__.__name__)
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            path = os.path.join(path, 'trained_models')
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            self._strategy_implementation_model_dir = path
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -325,18 +335,18 @@ class Strategy(object):
         """
         # Get run names
         if self._gcp_implementation:
-            all_files = [x.name for x in self._gcp_bucket.list_blobs()
-                         if x.name.find(self.implementation_output_dir) > -1]
-            # TODO: find all
-        elif os.path.isdir(self._implementation_output_dir):
-            all_dirs = [x for x in os.listdir(
-                self._implementation_output_dir) if x[:3] == 'imp']
-            new_ind = int(max(all_dirs).split('_')[1]) + 1 if all_dirs else 1
+            all_files = [x.name for x in self._gcp_bucket.list_blobs() if
+                         x.name.find(
+                             self._strategy_implementation_model_dir) > -1]
+            # TODO: get new_ind
         else:
-            new_ind = 1
+            all_dirs = [x for x in os.listdir(
+                self._strategy_implementation_model_dir) if x[:7] == 'models_']
+            new_ind = int(max(all_dirs).split('_')[1]) + 1 if all_dirs else 1
         # Get all run versions for increment for this run
         self.implementation_output_dir = os.path.join(
-            self._implementation_output_dir, 'imp_{0:04d}'.format(new_ind))
+            self._strategy_implementation_model_dir,
+            'models_{0:04d}'.format(new_ind))
         os.mkdir(self.implementation_output_dir)
 
     def _copy_source_code(self):

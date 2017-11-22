@@ -79,7 +79,6 @@ class TestStrategyBase(unittest.TestCase):
         os.mkdir(self.test_data_dir)
         os.mkdir(self.prepped_data_dir)
         os.mkdir(self.simulation_output_dir)
-        os.mkdir(self.implementation_output_dir)
 
         strategy_dir = os.path.join(self.prepped_data_dir, 'TestStrategy')
         data_version_dir = os.path.join(strategy_dir, 'version_0001')
@@ -109,11 +108,12 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._create_implementation_output_dir()
         # Check if directories exist
         result = os.listdir(os.path.join(self.implementation_output_dir,
-                                         'TestStrategy'))
-        benchmark = ['imp_0001', 'imp_0002']
+                                         'TestStrategy', 'trained_models'))
+        benchmark = ['models_0001', 'models_0002']
         self.assertListEqual(result, benchmark)
         self.assertEqual(
-            self.strategy.implementation_output_dir.split('/')[-1], 'imp_0002')
+            self.strategy.implementation_output_dir.split('/')[-1],
+            'models_0002')
         # Write something
         model = LinearRegression()
         model.fit(X=[[1, 2],[3, 4], [-3, 10]], y=[1, 5, 2])
@@ -121,8 +121,8 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy.implementation_training_write_params_model(
             'run_0001_14', {'param1': [1], 'param2': 3}, model)
         path = os.path.join(self.implementation_output_dir,
-                            'TestStrategy', 'imp_0002',
-                            'run_0001_14_skl_model.pkl')
+                            'TestStrategy', 'trained_models',
+                            'models_0002', 'run_0001_14_skl_model.pkl')
         model = joblib.load(path)
         assert_array_equal(model.coef_, benchmark)
 
