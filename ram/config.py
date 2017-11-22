@@ -1,4 +1,5 @@
 import os
+import sys
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 try:
@@ -18,6 +19,8 @@ except:
         f.write('FLAG = False')
         f.close()
         GCP_CLOUD_IMPLEMENTATION = False
+    print("Re-install python package before running")
+    sys.exit()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
