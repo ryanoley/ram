@@ -115,8 +115,10 @@ class Strategy(object):
             Strategy or version provided. Defaults to what is in the global
             config file
         ram_simulations_dir : str
-            Location of where written output will go. Defaults to what is in
+            Location where written output will go. Defaults to what is in
             the global config file
+        ram_implementation_dir : str
+            Location where implementation model training output will go.
         """
         self.strategy_code_version = strategy_code_version
         self.prepped_data_version = prepped_data_version
@@ -129,64 +131,6 @@ class Strategy(object):
         self._init_prepped_data_dir()
         self._init_simulations_output_dir()
         self._init_implementation_dir()
-
-    def _init_gcp_implementation(self):
-        self._gcp_implementation = config.GCP_CLOUD_IMPLEMENTATION
-        # Only connect to GCP instance if prepped data is there
-        if self._gcp_implementation & (self.prepped_data_version is not None):
-            self._gcp_client = storage.Client()
-            self._gcp_bucket = self._gcp_client.get_bucket(
-                config.GCP_STORAGE_BUCKET_NAME)
-        return
-
-    def _init_prepped_data_dir(self):
-        # If no prepped data was assigned, there will be no calling of start
-        if self.prepped_data_version is None:
-            return
-        if self._gcp_implementation:
-            self.data_version_dir = os.path.join(
-                'prepped_data',
-                self.__class__.__name__,
-                self.prepped_data_version)
-        else:
-            self.data_version_dir = os.path.join(
-                self._ram_prepped_data_dir,
-                self.__class__.__name__,
-                self.prepped_data_version)
-
-    def _init_simulations_output_dir(self):
-        if self._gcp_implementation:
-            self._strategy_output_dir = os.path.join(
-                'simulations',
-                self.__class__.__name__)
-        else:
-            self._strategy_output_dir = os.path.join(
-                self._ram_simulations_dir,
-                self.__class__.__name__)
-            if not os.path.isdir(self._ram_simulations_dir):
-                os.mkdir(self._ram_simulations_dir)
-
-    def _init_implementation_dir(self):
-        if self._gcp_implementation:
-            self._strategy_implementation_model_dir = os.path.join(
-                'implementation',
-                self.__class__.__name__,
-                'trained_models')
-        else:
-            # Create folders if they do not exist
-            #  - implementation/
-            #    -  Strategy/
-            #      -  trained_models/
-            if not os.path.isdir(self._ram_implementation_dir):
-                os.mkdir(self._ram_implementation_dir)
-            path = os.path.join(self._ram_implementation_dir,
-                                self.__class__.__name__)
-            if not os.path.isdir(path):
-                os.mkdir(path)
-            path = os.path.join(path, 'trained_models')
-            if not os.path.isdir(path):
-                os.mkdir(path)
-            self._strategy_implementation_model_dir = path
 
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -223,6 +167,53 @@ class Strategy(object):
             self.run_index(time_index)
         self._shutdown_simulation()
         return
+
+    # ~~~~~~ GCP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _init_gcp_implementation(self):
+        self._gcp_implementation = config.GCP_CLOUD_IMPLEMENTATION
+        # Only connect to GCP instance if prepped data is there
+        if self._gcp_implementation & (self.prepped_data_version is not None):
+            self._gcp_client = storage.Client()
+            self._gcp_bucket = self._gcp_client.get_bucket(
+                config.GCP_STORAGE_BUCKET_NAME)
+        return
+
+    # ~~~~~~ Paths to files ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _init_prepped_data_dir(self):
+        # If no prepped data was assigned, there will be no calling of start
+        if self.prepped_data_version is None:
+            return
+        if self._gcp_implementation:
+            path = os.path.join('prepped_data',
+                                self.__class__.__name__,
+                                self.prepped_data_version)
+        else:
+            path = os.path.join(self._ram_prepped_data_dir,
+                                self.__class__.__name__,
+                                self.prepped_data_version)
+        self.data_version_dir = path
+
+    def _init_simulations_output_dir(self):
+        if self._gcp_implementation:
+            path = os.path.join('simulations',
+                                self.__class__.__name__)
+        else:
+            path = os.path.join(self._ram_simulations_dir,
+                                self.__class__.__name__)
+        self._strategy_output_dir = path
+
+    def _init_implementation_dir(self):
+        if self._gcp_implementation:
+            path = os.path.join('implementation',
+                                self.__class__.__name__,
+                                'trained_models')
+        else:
+            path = os.path.join(self._ram_implementation_dir,
+                                self.__class__.__name__,
+                                'trained_models')
+        self._strategy_implementation_model_dir = path
 
     # ~~~~~~ Implementation Training Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -301,7 +292,9 @@ class Strategy(object):
         Creates the directory structure for the output and crucially
         sets the `strategy_run_output_dir`.
         """
-        # Get run names
+        if not self._write_flag:
+            return
+        # Get all run versions for increment for this run
         if self._gcp_implementation:
             all_files = [x.name for x in self._gcp_bucket.list_blobs()]
             all_files = [x for x in all_files if x.startswith(
@@ -311,43 +304,58 @@ class Strategy(object):
             all_files = [x for x in all_files if x.find('run') >= 0]
             new_ind = int(max(all_files).split('/')[0].split('_')[1]) + 1 \
                 if all_files else 1
-        elif os.path.isdir(self._strategy_output_dir):
+            path = os.path.join(
+                self._strategy_output_dir, 'run_{0:04d}'.format(new_ind))
+        else:
+            # Check if directory structure exists
+            if not os.path.isdir(self._ram_simulations_dir):
+                os.mkdir(self._ram_simulations_dir)
+            if not os.path.isdir(self._strategy_output_dir):
+                os.mkdir(self._strategy_output_dir)
+            # Search for new ind
             all_dirs = [x for x in os.listdir(
                 self._strategy_output_dir) if x[:3] == 'run']
             new_ind = int(max(all_dirs).split('_')[1]) + 1 if all_dirs else 1
-        elif self._write_flag:
-            os.makedirs(self._strategy_output_dir)
-            new_ind = 1
-        else:
-            new_ind = 1
-        # Get all run versions for increment for this run
-        self.strategy_run_output_dir = os.path.join(
-            self._strategy_output_dir, 'run_{0:04d}'.format(new_ind))
-        # Create directories
-        if self._write_flag and not self._gcp_implementation:
-            os.mkdir(self.strategy_run_output_dir)
-            os.mkdir(os.path.join(self.strategy_run_output_dir,
-                                  'index_outputs'))
+            path = os.path.join(
+                self._strategy_output_dir, 'run_{0:04d}'.format(new_ind))
+            # Create directories
+            os.mkdir(path)
+            os.mkdir(os.path.join(path, 'index_outputs'))
+
+        self.strategy_run_output_dir = path
 
     def _create_implementation_output_dir(self):
         """
         Creates the directory structure for implementation output
         """
+        if not self._write_flag:
+            return
         # Get run names
         if self._gcp_implementation:
             all_files = [x.name for x in self._gcp_bucket.list_blobs() if
                          x.name.find(
                              self._strategy_implementation_model_dir) > -1]
             # TODO: get new_ind
+            path = None
         else:
+            # Check if directory structure exists
+            if not os.path.isdir(self._ram_implementation_dir):
+                os.mkdir(self._ram_implementation_dir)
+            path = os.path.join(self._ram_implementation_dir,
+                                self.__class__.__name__)
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            path = os.path.join(path, 'trained_models')
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            # Search for new ind
             all_dirs = [x for x in os.listdir(
                 self._strategy_implementation_model_dir) if x[:7] == 'models_']
             new_ind = int(max(all_dirs).split('_')[1]) + 1 if all_dirs else 1
-        # Get all run versions for increment for this run
-        self.implementation_output_dir = os.path.join(
-            self._strategy_implementation_model_dir,
-            'models_{0:04d}'.format(new_ind))
-        os.mkdir(self.implementation_output_dir)
+            path = os.path.join(self._strategy_implementation_model_dir,
+                                'models_{0:04d}'.format(new_ind))
+            os.mkdir(path)
+        self.implementation_output_dir = path
 
     def _copy_source_code(self):
         if self._write_flag and not self._gcp_implementation:
@@ -814,6 +822,6 @@ def make_argument_parser(Strategy):
         strategy.restart(run_name)
 
     elif args.implementation_training:
-        strategy = Strategy()
+        strategy = Strategy(write_flag=args.write_flag)
         strategy._create_implementation_output_dir()
         strategy.implementation_training()

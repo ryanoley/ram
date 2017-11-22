@@ -97,10 +97,11 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy = TestStrategy(
             strategy_code_version='version_0002',
             prepped_data_version='version_0001',
-            write_flag=False,
+            write_flag=True,
             ram_prepped_data_dir=self.prepped_data_dir,
             ram_simulations_dir=self.simulation_output_dir,
             ram_implementation_dir=self.implementation_output_dir)
+        # Force this to false regardless of where it is being tested
         self.strategy._gcp_implementation = False
 
     def test_implementation_output_dir(self):
@@ -116,7 +117,7 @@ class TestStrategyBase(unittest.TestCase):
             'models_0002')
         # Write something
         model = LinearRegression()
-        model.fit(X=[[1, 2],[3, 4], [-3, 10]], y=[1, 5, 2])
+        model.fit(X=[[1, 2], [3, 4], [-3, 10]], y=[1, 5, 2])
         benchmark = model.coef_
         self.strategy.implementation_training_write_params_model(
             'run_0001_14', {'param1': [1], 'param2': 3}, model)
@@ -205,6 +206,7 @@ class TestStrategyBase(unittest.TestCase):
         self.assertEqual(len(result), 7)
 
     def test_write_column_parameters_file(self):
+
         self.strategy._write_flag = True
         self.strategy._create_run_output_dir()
         self.strategy._write_column_parameters_file()
@@ -265,7 +267,6 @@ class TestStrategyBase(unittest.TestCase):
         self.assertListEqual(result, benchmark)
 
     def test_get_max_run_time_index_for_restart(self):
-        self.strategy._write_flag = True
         self.strategy._get_prepped_data_file_names()
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
@@ -279,6 +280,7 @@ class TestStrategyBase(unittest.TestCase):
             ram_prepped_data_dir=self.prepped_data_dir,
             ram_simulations_dir=self.simulation_output_dir,
             ram_implementation_dir=self.implementation_output_dir)
+        strategy._init_simulations_output_dir()
         strategy._import_run_meta_for_restart('run_0001')
         strategy._get_prepped_data_file_names()
         strategy._get_max_run_time_index_for_restart()
