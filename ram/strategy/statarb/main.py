@@ -151,54 +151,6 @@ class StatArbStrategy(Strategy):
         self.output_stats[arg_index] = stats
 
 
-
-# class StatArbStrategyImplementation(object):
-
-#     def __init__(self):
-#         self.import_skl_models()
-#         self.import_raw_data()
-#         self.append_live_prices_process_features()
-#         self.get_capital_allocations()
-
-#     def import_skl_models():
-#         pass
-
-#     def import_raw_data(self):
-#         pass
-
-#     def append_live_prices_process_features(self):
-#         # Wait until user presses enter. Gathers prices, appends,
-#         # and processes
-
-#         # Process technical factors
-#         # Recalculate Z-Scores for pairs
-
-#     def get_capital_allocations(self):
-#         """
-#         After most up to date prices have been merged and appropriate
-#         features have been processed, take in data and return capital
-#         allocations
-#         """
-#         for model in models:
-#             self.signals.set_args(self.data, **kwargs)
-#             self.signals.set_model(model['data'])
-#             self.signals.get_preds()
-
-#             self.constructor.set_args(model['constructor'])
-#             allocations = self.constructor.get_daily_allocations(
-#                 self.data, self.signals)
-
-#         # Aggregate allocations, send to file, pass downstream
-#         agg_allocations = sum(allocations)
-#         return agg_allocations
-
-
-
-
-
-
-
-
 if __name__ == '__main__':
 
     from ram.strategy.base import make_argument_parser

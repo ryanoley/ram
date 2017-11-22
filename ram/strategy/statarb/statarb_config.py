@@ -1,6 +1,11 @@
 
+# PRODUCTION SETTINGS
+
 implementation_top_models = [
-	'StatArbStrategy_run_0044_10',
-    'StatArbStrategy_run_0045_15',
-    'StatArbStrategy_run_0046_15'
+	'StatArbStrategy_run_0003_10',
+    'StatArbStrategy_run_0004_15',
 ]
+
+trained_models_dir_name = 'models_001'
+
+preprocessed_data_dir = 'preprocess_003'

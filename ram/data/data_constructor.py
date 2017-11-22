@@ -21,8 +21,11 @@ from ram.utils.documentation import get_git_branch_commit
 
 class DataConstructor(object):
 
-    def __init__(self, prepped_data_dir=config.PREPPED_DATA_DIR):
-        self._prepped_data_dir = prepped_data_dir
+    def __init__(self,
+                 ram_prepped_data_dir=config.PREPPED_DATA_DIR,
+                 ram_implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+        self._prepped_data_dir = ram_prepped_data_dir
+        self._implementation_dir = ram_implementation_dir
 
     # ~~~~~~ Interface ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

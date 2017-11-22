@@ -336,7 +336,9 @@ class Strategy(object):
                          x.name.find(
                              self._strategy_implementation_model_dir) > -1]
             # TODO: get new_ind
-            path = None
+            new_ind = 1
+            path = os.path.join(self._strategy_implementation_model_dir,
+                                'models_{0:04d}'.format(new_ind))
         else:
             # Check if directory structure exists
             if not os.path.isdir(self._ram_implementation_dir):

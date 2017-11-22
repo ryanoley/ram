@@ -1,80 +1,36 @@
-# import os
-# import json
-# import shutil
-# import numpy as np
-# import pandas as pd
-# import datetime as dt
-# from tqdm import tqdm
+import os
+import json
+import datetime as dt
 
-# from ram.config import IMPLEMENTATION_DATA_DIR
-# from ram.data.data_handler_sql import DataHandlerSQL
-# from ram.strategy.long_pead.implementation import config
+from ram import config
+from ram.strategy.statarb import statarb_config
 
+from ram.data.data_constructor import DataConstructor
+from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
-# class ImplementationDailyDataPull(object):
-
-#     def __init__(self,
-#                  imp_data_dir=IMPLEMENTATION_DATA_DIR):
-#         self.raw_data_path = os.path.join(
-#             _get_data_path(imp_data_dir), 'daily')
-
-#     def start(self):
-#         features = config.features
-#         dh = DataHandlerSQL()
-#         end_date = dt.datetime.now().date()
-#         start_date = end_date - dt.timedelta(days=6)
-#         for sector in config.sectors:
-#             ids = config.ids[sector]
-#             data = dh.get_id_data(ids, features, start_date, end_date)
-#             self.write_sector_data(data, sector)
-
-#     def write_sector_data(self, data, sector):
-#         output_path = os.path.join(
-#             self.raw_data_path,
-#             'raw_data_sector_{}.csv'.format(sector))
-#         # Check if current file needs to be tagged and moved to archive
-#         if os.path.isfile(output_path):
-#             datestamp = dt.datetime.now().strftime('%Y%m%d')
-#             new_file_name = 'raw_data_sector_{}'.format(sector)
-#             new_file_name += '_moved_{}.csv'.format(datestamp)
-#             move_file(
-#                 output_path,
-#                 os.path.join(self.raw_data_path, 'archive'), new_file_name)
-#         data.to_csv(output_path, index=0)
+from ram.strategy.statarb.statarb_config import implementation_top_models
 
 
-# def move_file(old_path, new_dir, new_name):
-#     new_path = os.path.join(new_dir, new_name)
-#     count = 0
-#     while os.path.exists(new_path):
-#         count += 1
-#         name1, name2 = new_name.split('.')
-#         new_name_2 = '{}_{}.{}'.format(name1, count, name2)
-#         new_path = os.path.join(new_dir, new_name_2)
-#     os.rename(old_path, new_path)
+blueprints_path = os.path.join(
+    config.IMPLEMENTATION_DATA_DIR,
+    'StatArbStrategy',
+    'preprocessed_data',
+    statarb_config.preprocessed_data_dir)
+
+blueprints = os.listdir(blueprints_path)
 
 
-# def _get_data_path(imp_data_dir):
-#     path1 = os.path.join(imp_data_dir, 'LongPeadStrategy')
-#     if not os.path.isdir(path1):
-#         os.mkdir(path1)
-#     path2 = os.path.join(path1, 'daily')
-#     if not os.path.isdir(path2):
-#         os.mkdir(path2)
-#     # Archives for both
-#     path3 = os.path.join(path2, 'archive')
-#     if not os.path.isdir(path3):
-#         os.mkdir(path3)
-#     return path1
+b = json.load(open(os.path.join(blueprints_path, blueprints[0]), 'r'))
+blueprint = DataConstructorBlueprint(blueprint_json=b)
 
+# Set date parameters
+start_date = dt.datetime.utcnow() - dt.timedelta(days=380)
+end_date = dt.datetime.utcnow() - dt.timedelta(days=1)
+blueprint.seccodes_filter_arguments['start_date'] = start_date.strftime('%Y-%m-%d')
+blueprint.seccodes_filter_arguments['end_date'] = end_date.strftime('%Y-%m-%d')
 
-# if __name__ == '__main__':
+# Update date and time
 
-#     import argparse
-
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('--daily_pull', action='store_true')
-#     args = parser.parse_args()
-
-#     if args.daily_pull:
-#         ImplementationDailyDataPull().start()
+# Run in the morning
+dc = DataConstructor()
+dc.run(blueprint)
