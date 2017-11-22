@@ -173,7 +173,7 @@ class Strategy(object):
     def _init_gcp_implementation(self):
         self._gcp_implementation = config.GCP_CLOUD_IMPLEMENTATION
         # Only connect to GCP instance if prepped data is there
-        if self._gcp_implementation & (self.prepped_data_version is not None):
+        if self._gcp_implementation:
             self._gcp_client = storage.Client()
             self._gcp_bucket = self._gcp_client.get_bucket(
                 config.GCP_STORAGE_BUCKET_NAME)
