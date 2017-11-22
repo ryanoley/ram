@@ -335,8 +335,11 @@ class Strategy(object):
             all_files = [x.name for x in self._gcp_bucket.list_blobs() if
                          x.name.find(
                              self._strategy_implementation_model_dir) > -1]
-            # TODO: get new_ind
-            new_ind = 1
+            strip_str = self._strategy_implementation_model_dir+'/'
+            all_files = [x.replace(strip_str, '') for x in all_files]
+            all_files = [x.split('/')[0] for x in all_files]
+            max_model = max(all_files)
+            new_ind = int(max_model.replace('models_', '')) + 1
             path = os.path.join(self._strategy_implementation_model_dir,
                                 'models_{0:04d}'.format(new_ind))
         else:
