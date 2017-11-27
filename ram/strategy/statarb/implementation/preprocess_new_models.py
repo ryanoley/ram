@@ -64,6 +64,9 @@ def check_implementation_folder_structure(
     path = os.path.join(statarb_path, 'preprocessed_data')
     if not os.path.isdir(path):
         os.mkdir(path)
+    path = os.path.join(statarb_path, 'trained_models')
+    if not os.path.isdir(path):
+        os.mkdir(path)
     # Each time this is run it creates a new version
     all_files = os.listdir(path)
     if all_files:

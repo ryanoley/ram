@@ -4,23 +4,24 @@ import datetime as dt
 
 from ram import config
 from ram.strategy.statarb import statarb_config
+from ram.strategy.base import read_json
 
 from ram.data.data_constructor import DataConstructor
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
-from ram.strategy.statarb.statarb_config import implementation_top_models
 
+base_path = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 
-blueprints_path = os.path.join(
-    config.IMPLEMENTATION_DATA_DIR,
-    'StatArbStrategy',
-    'preprocessed_data',
-    statarb_config.preprocessed_data_dir)
+raw_data_path = os.path.join(base_path, 'daily_raw_data')
+
+blueprints_path = os.path.join(base_path, 'preprocessed_data',
+                               statarb_config.preprocessed_data_dir)
 
 blueprints = os.listdir(blueprints_path)
+blueprints = [x for x in blueprints if x.find('blueprint') > -1]
 
-
-b = json.load(open(os.path.join(blueprints_path, blueprints[0]), 'r'))
+# Iterate
+b = read_json(os.path.join(blueprints_path, blueprints[0]))
 blueprint = DataConstructorBlueprint(blueprint_json=b)
 
 # Set date parameters
@@ -33,4 +34,7 @@ blueprint.seccodes_filter_arguments['end_date'] = end_date.strftime('%Y-%m-%d')
 
 # Run in the morning
 dc = DataConstructor()
-dc.run(blueprint)
+dc.run_live(blueprint, 'StatArbStrategy')
+
+
+

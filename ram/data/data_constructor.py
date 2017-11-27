@@ -41,6 +41,11 @@ class DataConstructor(object):
         self._check_file_completeness(blueprint)
         self._make_data(blueprint)
 
+    def run_live(self, blueprint, strategy_name):
+        self._check_parameters(blueprint)
+        self._init_run_live(strategy_name)
+        self._make_data(blueprint)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _make_data(self, blueprint):
@@ -58,23 +63,23 @@ class DataConstructor(object):
             self._clean_and_write_output(data, 'market_index_data.csv')
 
         if blueprint.constructor_type == 'etfs':
-            start_date = blueprint.etfs_filter_arguments['start_date']
             data = dh.get_etf_data(
                 tickers=blueprint.etfs_filter_arguments['tickers'],
                 features=blueprint.features,
-                start_date=start_date,
+                start_date=blueprint.etfs_filter_arguments['start_date'],
                 end_date=blueprint.etfs_filter_arguments['end_date'])
-            file_name = '{}_data.csv'.format(start_date)
+            file_name = '{}.csv'.format(
+                blueprint.etfs_filter_arguments['output_file_name'])
             self._clean_and_write_output(data, file_name)
 
         elif blueprint.constructor_type == 'seccodes':
-            start_date = blueprint.seccodes_filter_arguments['start_date']
             data = dh.get_seccode_data(
                 seccodes=blueprint.seccodes_filter_arguments['seccodes'],
                 features=blueprint.features,
-                start_date=start_date,
+                start_date=blueprint.seccodes_filter_arguments['start_date'],
                 end_date=blueprint.seccodes_filter_arguments['end_date'])
-            file_name = '{}_data.csv'.format(start_date)
+            file_name = '{}.csv'.format(
+                blueprint.seccodes_filter_arguments['output_file_name'])
             self._clean_and_write_output(data, file_name)
 
         elif blueprint.constructor_type == 'indexes':
@@ -162,6 +167,16 @@ class DataConstructor(object):
                 files_to_drop.append(file_name)
         self._version_files = [x for x in self._version_files
                                if x not in files_to_drop]
+
+    def _init_run_live(self, strategy_name):
+        # Check if directories exist
+        path = os.path.join(self._implementation_dir, strategy_name)
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        path = os.path.join(path, 'daily_raw_data')
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        self._output_dir = path
 
     # ~~~~~~ Output functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -275,13 +290,20 @@ class DataConstructor(object):
             assert 'start_year' in params
 
         elif blueprint.constructor_type == 'etfs':
-            pass
+            assert 'start_date' in params
+            assert 'end_date' in params
+            assert 'tickers' in params
+            assert 'output_file_name' in params
 
         elif blueprint.constructor_type == 'indexes':
             pass
 
         elif blueprint.constructor_type == 'seccodes':
-            pass
+            params = blueprint.seccodes_filter_arguments
+            assert 'start_date' in params
+            assert 'end_date' in params
+            assert 'seccodes' in params
+            assert 'output_file_name' in params
 
         if hasattr(blueprint, 'market_data_params'):
             params = blueprint.market_data_params

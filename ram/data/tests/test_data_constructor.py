@@ -22,8 +22,15 @@ class TestDataConstructor(unittest.TestCase):
         self.prepped_data_dir = os.path.join(os.getenv('GITHUB'), 'ram',
                                              'ram', 'data',
                                              'test_prepped_data')
+        self.implementation_data_dir = os.path.join(
+            os.getenv('GITHUB'), 'ram', 'ram', 'data',
+            'implementation')
+        # Make data directories
         if os.path.isdir(self.prepped_data_dir):
             shutil.rmtree(self.prepped_data_dir)
+        if os.path.isdir(self.implementation_data_dir):
+            shutil.rmtree(self.implementation_data_dir)
+        os.mkdir(self.implementation_data_dir)
 
     def test_make_output_directory(self):
         blueprint = DataConstructorBlueprint('universe', 'Test description')
@@ -177,10 +184,21 @@ class TestDataConstructor(unittest.TestCase):
         print_data_versions('GeneralOutput',
                             prepped_data_dir=self.prepped_data_dir)
 
+    def test_run_live(self):
+        blueprint = DataConstructorBlueprint('seccodes', 'Test description')
+        blueprint.seccodes_filter_arguments['output_file_name'] = 'asdf'
+        dc = DataConstructor(
+            ram_implementation_dir=self.implementation_data_dir)
+        dc.run_live(blueprint, 'TestStrategy')
+        path = os.path.join(self.implementation_data_dir, 'TestStrategy',
+                            'daily_raw_data', 'asdf.csv')
+        self.assertTrue(os.path.isfile(path))
+
     def tearDown(self):
         if os.path.isdir(self.prepped_data_dir):
             shutil.rmtree(self.prepped_data_dir)
-
+        if os.path.isdir(self.implementation_data_dir):
+            shutil.rmtree(self.implementation_data_dir)
 
 if __name__ == '__main__':
     unittest.main()

@@ -58,7 +58,8 @@ class DataConstructorBlueprint(object):
             self.etfs_filter_arguments = {
                 'tickers': ['SPY'],
                 'start_date': '2010-01-01',
-                'end_date': '2015-01-01'
+                'end_date': '2015-01-01',
+                'output_file_name': 'etf_pull'
             }
 
         elif constructor_type == 'seccodes':
@@ -66,7 +67,8 @@ class DataConstructorBlueprint(object):
             self.seccodes_filter_arguments = {
                 'seccodes': [6027, 36799],
                 'start_date': '2010-01-01',
-                'end_date': '2015-01-01'
+                'end_date': '2015-01-01',
+                'output_file_name': 'seccode_pull'
             }
 
         elif constructor_type == 'indexes':
@@ -74,7 +76,8 @@ class DataConstructorBlueprint(object):
             self.indexes_filter_arguments = {
                 'seccodes': [50311],
                 'start_date': '2010-01-01',
-                'end_date': '2015-01-01'
+                'end_date': '2015-01-01',
+                'output_file_name': 'index_pull'
             }
 
         else:
