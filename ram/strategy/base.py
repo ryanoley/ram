@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import shutil
+import pickle
 import inspect
 import numpy as np
 import pandas as pd
