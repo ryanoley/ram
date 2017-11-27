@@ -5,6 +5,7 @@ import pandas as pd
 from google.cloud import storage
 
 from ram import config
+from ram.data.data_constructor import _print_line_underscore
 
 
 def update_prepped_data_gcp(strategy, version):
@@ -55,6 +56,45 @@ def update_prepped_data_gcp(strategy, version):
         print('\nNo new files to upload for {}/{}\n'.format(strategy, version))
 
 
+def print_trained_model_dirs(strategy):
+    gs_model_dirs = get_trained_model_dirs(strategy)
+    headline = 'Available Trained Model Directories for {}'.format(strategy)
+    _print_line_underscore(headline)
+    for i, model in enumerate(gs_model_dirs):
+        print(" [{}]\t{}".format(i, model))
+    print('\n')
+
+
+def get_trained_model_dirs(strategy):
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    # GCP Directories for implementation
+    gs_files = [x.name for x in bucket.list_blobs()]
+    gs_files = [x for x in gs_files if x.find('implementation') > -1]
+    gs_files = [x for x in gs_files if x.find(strategy) > -1]
+    gs_files = [x for x in gs_files if x.find('trained_models') > -1]
+    gs_model_dirs = list(set([x.split('/')[3] for x in gs_files]))
+    return gs_model_dirs
+
+
+def get_trained_model_name(strategy, name_num):
+    model_dirs = get_trained_model_dirs(strategy)
+    if name_num in model_dirs:
+        return name_num
+    else:
+        return model_dirs[int(name_num)]
+
+
+def download_trained_models_gcp(strategy, model_dir_name):
+    gcp_path = "gs://ram_data/implementation/{}/trained_models/{}".format(
+        strategy, model_dir_name)
+    local_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                              strategy, 'trained_models')
+
+    copy_string = "gsutil -m cp -r {} {}".format(gcp_path, local_path)
+    os.system(copy_string)
+
+
 def confirm(upload_files):
 
     print('\nConfirm upload of the following files:')
@@ -95,8 +135,20 @@ if __name__ == '__main__':
         help='Version to be uploaded')
 
     parser.add_argument(
+        '-lm', '--list_trained_models', action='store_true',
+        help='List all directories on GCP platform in '
+        'implementation/trained_models')
+    parser.add_argument(
+        '-m', '--trained_models_dir', type=str,
+        help='Directory of models to be downloaded')
+
+    parser.add_argument(
         '--upload', action='store_true',
         help='This flag must be included to upload data to GCP')
+
+    parser.add_argument(
+        '--download', action='store_true',
+        help='This flag must be included to download data from GCP')
 
     args = parser.parse_args()
 
@@ -110,7 +162,19 @@ if __name__ == '__main__':
             strategy = get_strategy_name(args.strategy_name)
             print_data_versions(strategy)
 
+    elif args.list_trained_models:
+        if args.strategy_name is None:
+            print '\n[ERROR] - Name or index must be included via `-s`\n'
+        else:
+            strategy = get_strategy_name(args.strategy_name)
+            print_trained_model_dirs(strategy)
+
     elif args.strategy_name and args.data_version and args.upload:
         strategy = get_strategy_name(args.strategy_name)
         version = get_data_version_name(strategy, args.data_version)
         update_prepped_data_gcp(strategy=strategy, version=version)
+
+    elif args.strategy_name and args.trained_models_dir and args.download:
+        strategy = get_strategy_name(args.strategy_name)
+        model_dir = get_trained_model_name(strategy, args.trained_models_dir)
+        download_trained_models_gcp(strategy, model_dir)

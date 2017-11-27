@@ -19,6 +19,10 @@ def connection_error_handling(f):
             getattr(self, '_disconnect')()
             print('Decorator Exception')
             raise Exception(e)
+        except KeyboardInterrupt:
+            getattr(self, '_disconnect')()
+            print('Decorator Keyboard Interrupt')
+            raise KeyboardInterrupt
     new_f.__name__ = f.__name__
     new_f.__doc__ = f.__doc__
     return new_f

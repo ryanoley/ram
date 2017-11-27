@@ -11,6 +11,6 @@ implementation_top_models = [
 
 
 # Live trading
-trained_models_dir_name = 'models_001'
+trained_models_dir_name = 'models_0004'
 
 preprocessed_data_dir = 'preprocess_009'
