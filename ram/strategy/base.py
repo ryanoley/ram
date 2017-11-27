@@ -218,7 +218,7 @@ class Strategy(object):
 
     # ~~~~~~ Implementation Training Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def implementation_training_prep(self, top_params):
+    def implementation_training_prep(self, top_params, write_flag=False):
         """
         param_name, run_name, strategy_version, data_version
         """
@@ -240,6 +240,15 @@ class Strategy(object):
                 output.loc[i, 'strategy_version'],
                 output.loc[i, 'data_version'])
         output = output.sort_values('stack_index').reset_index(drop=True)
+        # Write to file - THIS IS TERRIBLE IMPLEMENTATION. MOVE at some point
+        if write_flag & self._gcp_implementation:
+            path = os.path.join(self.implementation_output_dir,
+                                'run_map.csv')
+            to_csv_cloud(output, path, self._gcp_bucket)
+        elif write_flag:
+            path = os.path.join(self.implementation_output_dir,
+                                'run_map.csv')
+            output.to_csv(path, index=None)
         return output
 
     def implementation_training_stack_version_data(self, data_version):

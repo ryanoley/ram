@@ -107,7 +107,7 @@ class StatArbStrategy(Strategy):
         # Import top params from wherever
         top_params = statarb_config.implementation_top_models
         # Process
-        run_map = self.implementation_training_prep(top_params)
+        run_map = self.implementation_training_prep(top_params, True)
         # Placeholder to determine if data should be reloaded
         current_stack_index = None
         for i, vals in run_map.iterrows():
