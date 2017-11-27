@@ -277,7 +277,7 @@ class Strategy(object):
                                    run_name + '_params.json')
         # Write
         if self._gcp_implementation:
-            blob = self._bucket.blob(model_cache_path)
+            blob = self._gcp_bucket.blob(model_cache_path)
             blob.upload_from_string(pickle.dumps(model))
             write_json_cloud(params, params_path, self._gcp_bucket)
         else:
