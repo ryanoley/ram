@@ -7,47 +7,43 @@ After this matrix has been generated, `ComboSearch` is used to select the hyperp
 As `ComboSearch` grinds away, it will checkpoint the best current results into a file called `current_top_params.json`, which holds the parameters that should be used in production.
 
 
+## Find Top Params
+
+Collect the top runs from `current_top_params.json` and update the `implementation_top_models` in `statarb_configs.py`. NOTE: Be sure these configs are on the cloud platform (also committed) before re-training models.
+
+
 ## (Re-) Training models
 
-1. Update the prepped data versions for the aforementioned runs. This can be done by simply running the version through the main command. The `dp` with a given version will drop the final period's data, and recreate with most up-to-date data.
+1. On local client, update the prepped data versions for the aforementioned runs. This can be done by simply running the version through the main command. The `d_update` with a given version will drop the final period's data, and recreate with most up-to-date data:
 
 ```
-python ram/strategy/long_pead/main.py -lv          # List all version for strategy
-python ram/strategy/long_pead/main.py -dp 10       # Update version
+python ram/strategy/statarb/main.py -dv          	  # List all version for strategy
+python ram/strategy/statarb/main.py -d_update 10      # Update version
 ```
 
-2. Upload new files to GCP Storage
+2. Upload new files to GCP Storage:
 
 ```
-python ram/data/data_gcp_manager.py -ls              # List all strategies
-python ram/data/data_gcp_manager.py -s 4 -lv         # List all version for strategy
-python ram/data/data_gcp_manager.py -s 4 -v 17 -up   # Upload
+python ram/data/data_gcp_manager.py -ls                 # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for strategy
+python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 ```
 
-3. Restart run, which will delete the final file, re-stack data, re-fit model and report most up-to-date results. Because the stacking and training can take some time for each model, one can spin up multiple instances. Currently, I think one can get away with running 16 cores, but be sure to use the `highmem` version of this image.
+3. Check that `statarb_configs.py` is updated
+
+4. Train models by simply invoking:
 
 ```
-d=ram/strategy/long_pead/implementation/training/
-
-bash $d/01_update_runs.sh list      # List all runs
-bash $d/01_update_runs.sh run 10    # Rerun index 10
+python ram/strategy/statarb/main.py -i
 ```
 
-4. Re-run ComboSearch to from Python Notebook:
+5. Download cached models to local file system
 
 ```
-ram/strategy/long_pead/implementation/Current StatArb Implementation.ipynb
+python ram/data/data_gcp_manager.py -ls                 # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -lc            # List data versions for strategy
+python ram/data/data_gcp_manager.py -s 4 -c 17 --download
 ```
-
-5. If satisfied with the most recent ComboSearch, point the following script at the name of the directory where the data was stored.
-
-```
-d=ram/strategy/long_pead/implementation/training/
-
-bash $d/02_train_implementation_models.sh combo_9898
-```
-
-6. Download cached models to local file system
 
 
 
