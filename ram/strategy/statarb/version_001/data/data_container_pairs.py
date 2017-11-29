@@ -169,6 +169,10 @@ class DataContainerPairs(BaseDataContainer):
         assert np.all(data2.SecCode == pdata.SecCode)
         assert np.all(data2.Date == pdata.Date)
         self._make_responses(data2)
+        assert np.all(self._processed_train_data.SecCode.values ==
+                      self._processed_train_responses.SecCode.values)
+        assert np.all(self._processed_train_data.Date.values ==
+                      self._processed_train_responses.Date.values)
         # Process some data
         self.constructor_data = {
             'pricing': data[data.TestFlag][['SecCode', 'Date',
@@ -253,6 +257,7 @@ class DataContainerPairs(BaseDataContainer):
             feat.add_feature(outlier_rank(temp)[0], feature)
 
         pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        n_id_features = pdata.shape[1]  # For capturing added features
         if live_flag:
             max_date = pdata.Date.max()
             pdata = pdata[pdata.Date == max_date]
@@ -264,17 +269,23 @@ class DataContainerPairs(BaseDataContainer):
 
         if live_flag:
             # Earnings related variables
-            pdata = pdata.merge(mdata[['SecCode', 'Date', 'EARNINGS_Blackout']])
-            pdata = pdata.merge(mdata[['SecCode', 'Date', 'EARNINGS_AnchorRet']])
-            pdata = pdata.merge(mdata[['SecCode', 'Date', 'EARNINGS_Ret']])
+            pdata = pdata.merge(mdata[['SecCode', 'Date',
+                                       'EARNINGS_Blackout']])
+            pdata = pdata.merge(mdata[['SecCode', 'Date',
+                                       'EARNINGS_AnchorRet']])
+            pdata = pdata.merge(mdata[['SecCode', 'Date',
+                                       'EARNINGS_Ret']])
 
         else:
             # Earnings related variables
-            pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Blackout']])
-            pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_AnchorRet']])
-            pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Ret']])
+            pdata = pdata.merge(data[['SecCode', 'Date',
+                                      'EARNINGS_Blackout']])
+            pdata = pdata.merge(data[['SecCode', 'Date',
+                                      'EARNINGS_AnchorRet']])
+            pdata = pdata.merge(data[['SecCode', 'Date',
+                                      'EARNINGS_Ret']])
 
-        features = pdata.columns[4:].tolist()
+        features = pdata.columns[n_id_features:].tolist()
         return pdata, features
 
     def _make_technical_features(self, data, live_flag=False):
@@ -301,17 +312,23 @@ class DataContainerPairs(BaseDataContainer):
         feat.add_feature(outlier_rank(prma.fit(close, 20))[0], 'PRMA20')
         feat.add_feature(outlier_rank(prma.fit(close, 60))[0], 'PRMA60')
 
-        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 10))[0], 'PRMA10_AvgDolVol')
-        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 20))[0], 'PRMA20_AvgDolVol')
-        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 60))[0], 'PRMA60_AvgDolVol')
+        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 10))[0],
+                         'PRMA10_AvgDolVol')
+        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 20))[0],
+                         'PRMA20_AvgDolVol')
+        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 60))[0],
+                         'PRMA60_AvgDolVol')
 
         feat.add_feature(outlier_rank(boll.fit(close, 10))[0], 'BOLL10')
         feat.add_feature(outlier_rank(boll.fit(close, 20))[0], 'BOLL20')
         feat.add_feature(outlier_rank(boll.fit(close, 60))[0], 'BOLL60')
 
-        feat.add_feature(outlier_rank(mfi.fit(high, low, close, volume, 10))[0], 'MFI10')
-        feat.add_feature(outlier_rank(mfi.fit(high, low, close, volume, 20))[0], 'MFI20')
-        feat.add_feature(outlier_rank(mfi.fit(high, low, close, volume, 60))[0], 'MFI60')
+        feat.add_feature(outlier_rank(mfi.fit(high, low, close,
+                                              volume, 10))[0], 'MFI10')
+        feat.add_feature(outlier_rank(mfi.fit(high, low, close,
+                                              volume, 20))[0], 'MFI20')
+        feat.add_feature(outlier_rank(mfi.fit(high, low, close,
+                                              volume, 60))[0], 'MFI60')
 
         feat.add_feature(outlier_rank(rsi.fit(close, 10))[0], 'RSI10')
         feat.add_feature(outlier_rank(rsi.fit(close, 20))[0], 'RSI20')
@@ -321,8 +338,10 @@ class DataContainerPairs(BaseDataContainer):
         feat.add_feature(outlier_rank(vol.fit(close, 20))[0], 'VOL20')
         feat.add_feature(outlier_rank(vol.fit(close, 60))[0], 'VOL60')
 
-        feat.add_feature(outlier_rank(discount.fit(close, 63))[0], 'DISCOUNT63')
-        feat.add_feature(outlier_rank(discount.fit(close, 126))[0], 'DISCOUNT126')
+        feat.add_feature(outlier_rank(discount.fit(close, 63))[0],
+                         'DISCOUNT63')
+        feat.add_feature(outlier_rank(discount.fit(close, 126))[0],
+                         'DISCOUNT126')
 
         # IBES Ranked
         temp = clean_pivot_raw_data(data, 'IBES_Discount', lag=1)
@@ -350,6 +369,7 @@ class DataContainerPairs(BaseDataContainer):
         feat.add_feature(outlier_rank(temp)[0], 'IBES_Target_Decrease')
 
         pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        n_id_features = pdata.shape[1]  # For capturing added features
         # Adjust date for faster live imp
         if live_flag:
             max_date = pdata.Date.max()
@@ -359,7 +379,7 @@ class DataContainerPairs(BaseDataContainer):
         pdata = pdata.merge(feat.make_dataframe())
 
         # Extract features
-        features = pdata.columns[4:].tolist()
+        features = pdata.columns[n_id_features:].tolist()
         return pdata, features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
