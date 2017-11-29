@@ -35,19 +35,13 @@ class TestPreprocessNewModels(unittest.TestCase):
         data.to_csv(os.path.join(path, '20100201_data.csv'), index=False)
         data.to_csv(os.path.join(path, 'market_index_data.csv'), index=False)
 
-    def test_get_univ_seccodes(self):
-        result = get_univ_seccodes('version_0101',
-                                   prepped_data_dir=self.test_data_dir)
-        benchmark = ['C', 'D']
-        self.assertListEqual(result, benchmark)
-
     def test_check_implementation_folder_structure(self):
         check_implementation_folder_structure(self.test_data_dir)
         check_implementation_folder_structure(self.test_data_dir)
         result = os.listdir(os.path.join(
             self.test_data_dir, 'StatArbStrategy', 'preprocessed_data'))
         result.sort()
-        benchmark = ['preprocess_001', 'preprocess_002']
+        benchmark = ['preprocess_0001', 'preprocess_0002']
         self.assertListEqual(result, benchmark)
 
     def tearDown(self):

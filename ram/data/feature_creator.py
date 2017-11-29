@@ -29,9 +29,12 @@ def outlier_rank(pdata, outlier_std=4):
     code it as a 1 or -1 depending on side and force rank to median for
     the date.
     """
-    # For single day ranking
+    # For single day ranking, convert to DataFrame
     if isinstance(pdata, pd.Series):
         pdata = pdata.to_frame().T
+    # It is assumed that these are the correct labels
+    pdata.index.name = 'Date'
+    pdata.columns.name = 'SecCode'
     daily_median = pdata.median(axis=1).fillna(0)
     # Get extreme value cutoffs
     std_pdata = pdata.std(axis=1).fillna(0)
@@ -53,6 +56,32 @@ def unstack_label_data(data, label):
         data = data.unstack().reset_index()
         data.columns = ['SecCode', 'Date', label]
     return data
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class FeatureAggregator(object):
+
+    def __init__(self, live_flag=False):
+        self._data = pd.DataFrame()
+
+    def add_feature(self, data, label):
+        """
+        Assumes input has SecCodes in the columns, dates in the row index,
+        essentially from the Pivot table.
+        """
+        data = data.unstack().reset_index()
+        data.columns = ['SecCode', 'Date', 'val']
+        data['label'] = label
+        self._data = self._data.append(data)
+
+    def make_dataframe(self):
+        output = self._data.pivot_table(
+            values='val', index=['SecCode', 'Date'],
+            columns='label', aggfunc='sum').reset_index()
+        del output.index.name
+        del output.columns.name
+        return output
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -154,9 +183,9 @@ class MFI(BaseTechnicalFeature):
                      close.iloc[-window:]) / 3.
         lag_typ_price = typ_price.shift(1)
         raw_mf = typ_price * volume.iloc[-window:]
-        mf_pos = pd.DataFrame(np.where(typ_price > lag_typ_price, raw_mf, 0))
+        mf_pos = (typ_price > lag_typ_price) * raw_mf
         mf_pos = mf_pos.sum()
-        mf_neg = pd.DataFrame(np.where(typ_price < lag_typ_price, raw_mf, 0))
+        mf_neg = (typ_price < lag_typ_price) * raw_mf
         mf_neg = mf_neg.sum()
         mfi = 100 - 100 / (1 + (mf_pos / mf_neg))
         mfi.index = typ_price.columns

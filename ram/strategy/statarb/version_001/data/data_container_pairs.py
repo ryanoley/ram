@@ -84,23 +84,78 @@ class DataContainerPairs(BaseDataContainer):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def prep_live_data(self):
-        pass
+    def prep_live_data(self, data, market_data):
+        self.process_training_market_data(market_data)
+        pair_info, zscores = self._get_pairs_info(data)
+        # Non pricing features
+        data = self._make_earnings_data(data)
+        data['TimeIndex'] = -1
+        data_features_1, features_1 = self._make_features(data, live_flag=True)
+        self._live_prepped_data = {}
+        self._live_prepped_data['data'] = data
+        self._live_prepped_data['features'] = features_1
+        self._live_prepped_data['data_features_1'] = data_features_1
 
-    def process_live_data(self):
-        pass
+        self.constructor_data = {}
+        self.constructor_data['zscores'] = zscores
+        self.constructor_data['pair_info'] = pair_info
+
+    def process_live_data(self, live_pricing_data):
+        """
+        Notes:
+        HOW DO WE HANDLE LIVE SPLITS??
+        """
+        data = self._live_prepped_data['data']
+        features_1 = self._live_prepped_data['features']
+        data_features_1 = self._live_prepped_data['data_features_1']
+
+        del self._live_prepped_data
+
+        # Process data
+        data = merge_live_pricing_data(data, live_pricing_data)
+        data = calculate_todays_avg_dol_vol(data)
+        data = adjust_todays_prices(data)
+
+        # Cleanup
+        data = self._initial_clean(data, -1)
+        data = self._make_ibes_data(data)
+
+        # Technical variable calculation
+        data_features_2, features_2 = self._make_technical_features(
+            data, live_flag=True)
+
+        # Merge technical and non-technical
+        pdata = data_features_1.merge(data_features_2)
+        features = features_1 + features_2
+
+        # Merge market data
+        pdata, features = self._merge_market_data(pdata, features)
+        # HACK
+        self.train_data = pd.DataFrame()
+        self.train_data_responses = pd.DataFrame()
+
+        self.test_data = pdata
+        self._features = features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def process_training_data(self, data, time_index):
         # First cleanup
         data = self._initial_clean(data, time_index)
+        data = self._make_earnings_data(data)
+        data = self._make_ibes_data(data)
+
         # Get pairs from 252 days worth of data
         pair_info, zscores = self._get_pairs_info(data)
         # Create process training data, and get features
-        pdata, features = self._make_features(data)
+        adata, features_a = self._make_features(data)
+        tdata, features_t = self._make_technical_features(data)
+        pdata = adata.merge(tdata)
+        features = features_a + features_t
+
         # Trim to just one quarter's data
         pdata = self._trim_to_one_quarter(pdata)
+
         # Merge market data
         pdata, features = self._merge_market_data(pdata, features)
         # Separate training from test data
@@ -173,6 +228,56 @@ class DataContainerPairs(BaseDataContainer):
             self._processed_train_responses.append(responses)
 
     def _make_features(self, data, live_flag=False):
+        """
+        Everything but Technical features. Separated for speed during
+        implementation.
+        """
+        feat = FeatureAggregator()
+
+        for feature in accounting_features:
+            if live_flag:
+                temp = clean_pivot_raw_data(data, feature, lag=0)
+                temp = temp.iloc[-1:]
+                temp.index = [0]
+            else:
+                temp = clean_pivot_raw_data(data, feature, lag=1)
+            feat.add_feature(outlier_rank(temp)[0], feature)
+
+        for feature in starmine_features:
+            if live_flag:
+                temp = clean_pivot_raw_data(data, feature, lag=0)
+                temp = temp.iloc[-1:]
+                temp.index = [0]
+            else:
+                temp = clean_pivot_raw_data(data, feature, lag=1)
+            feat.add_feature(outlier_rank(temp)[0], feature)
+
+        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        if live_flag:
+            max_date = pdata.Date.max()
+            pdata = pdata[pdata.Date == max_date]
+            mdata = data[data.Date == max_date]
+            pdata.Date = 0
+            mdata.Date = 0
+
+        pdata = pdata.merge(feat.make_dataframe())
+
+        if live_flag:
+            # Earnings related variables
+            pdata = pdata.merge(mdata[['SecCode', 'Date', 'EARNINGS_Blackout']])
+            pdata = pdata.merge(mdata[['SecCode', 'Date', 'EARNINGS_AnchorRet']])
+            pdata = pdata.merge(mdata[['SecCode', 'Date', 'EARNINGS_Ret']])
+
+        else:
+            # Earnings related variables
+            pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Blackout']])
+            pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_AnchorRet']])
+            pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Ret']])
+
+        features = pdata.columns[4:].tolist()
+        return pdata, features
+
+    def _make_technical_features(self, data, live_flag=False):
         # TECHNICAL VARIABLES
         # Clean and format data points
         open_ = clean_pivot_raw_data(data, 'AdjOpen')
@@ -190,93 +295,71 @@ class DataContainerPairs(BaseDataContainer):
         vol = VOL(live_flag)
         discount = DISCOUNT(live_flag)
 
-        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        feat = FeatureAggregator()
 
-        v = outlier_rank(prma.fit(close, 10))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'PRMA10'))
-        v = outlier_rank(prma.fit(close, 20))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'PRMA20'))
-        v = outlier_rank(prma.fit(close, 60))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'PRMA60'))
+        feat.add_feature(outlier_rank(prma.fit(close, 10))[0], 'PRMA10')
+        feat.add_feature(outlier_rank(prma.fit(close, 20))[0], 'PRMA20')
+        feat.add_feature(outlier_rank(prma.fit(close, 60))[0], 'PRMA60')
 
-        v = outlier_rank(prma.fit(avgdolvol, 10))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'PRMA10_AvgDolVol'))
-        v = outlier_rank(prma.fit(avgdolvol, 20))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'PRMA20_AvgDolVol'))
-        v = outlier_rank(prma.fit(avgdolvol, 60))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'PRMA60_AvgDolVol'))
+        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 10))[0], 'PRMA10_AvgDolVol')
+        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 20))[0], 'PRMA20_AvgDolVol')
+        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 60))[0], 'PRMA60_AvgDolVol')
 
-        v = outlier_rank(boll.fit(close, 10))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'BOLL10'))
-        v = outlier_rank(boll.fit(close, 20))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'BOLL20'))
-        v = outlier_rank(boll.fit(close, 60))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'BOLL60'))
+        feat.add_feature(outlier_rank(boll.fit(close, 10))[0], 'BOLL10')
+        feat.add_feature(outlier_rank(boll.fit(close, 20))[0], 'BOLL20')
+        feat.add_feature(outlier_rank(boll.fit(close, 60))[0], 'BOLL60')
 
-        v = outlier_rank(mfi.fit(high, low, close, volume, 10))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'MFI10'))
-        v = outlier_rank(mfi.fit(high, low, close, volume, 20))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'MFI20'))
-        v = outlier_rank(mfi.fit(high, low, close, volume, 60))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'MFI60'))
+        feat.add_feature(outlier_rank(mfi.fit(high, low, close, volume, 10))[0], 'MFI10')
+        feat.add_feature(outlier_rank(mfi.fit(high, low, close, volume, 20))[0], 'MFI20')
+        feat.add_feature(outlier_rank(mfi.fit(high, low, close, volume, 60))[0], 'MFI60')
 
-        v = outlier_rank(rsi.fit(close, 10))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'RSI10'))
-        v = outlier_rank(rsi.fit(close, 20))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'RSI20'))
-        v = outlier_rank(rsi.fit(close, 60))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'RSI60'))
+        feat.add_feature(outlier_rank(rsi.fit(close, 10))[0], 'RSI10')
+        feat.add_feature(outlier_rank(rsi.fit(close, 20))[0], 'RSI20')
+        feat.add_feature(outlier_rank(rsi.fit(close, 60))[0], 'RSI60')
 
-        v = outlier_rank(vol.fit(close, 10))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'VOL10'))
-        v = outlier_rank(vol.fit(close, 20))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'VOL20'))
-        v = outlier_rank(vol.fit(close, 60))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'VOL60'))
+        feat.add_feature(outlier_rank(vol.fit(close, 10))[0], 'VOL10')
+        feat.add_feature(outlier_rank(vol.fit(close, 20))[0], 'VOL20')
+        feat.add_feature(outlier_rank(vol.fit(close, 60))[0], 'VOL60')
 
-        v = outlier_rank(discount.fit(close, 63))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'DISCOUNT63'))
-        v = outlier_rank(discount.fit(close, 126))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'DISCOUNT126'))
-
-        # ACCOUNTING, STARMINE, IBES
-        if live_flag:
-            # If live, need to cut down on size of data for speed?
-            lag = 0
-        else:
-            lag = 1
-
-        # Ranked features
-        for feature in accounting_features:
-            v = outlier_rank(clean_pivot_raw_data(data, feature, lag))[0]
-            pdata = pdata.merge(unstack_label_data(v, feature))
-        for feature in starmine_features:
-            v = outlier_rank(clean_pivot_raw_data(data, feature, lag))[0]
-            pdata = pdata.merge(unstack_label_data(v, feature))
+        feat.add_feature(outlier_rank(discount.fit(close, 63))[0], 'DISCOUNT63')
+        feat.add_feature(outlier_rank(discount.fit(close, 126))[0], 'DISCOUNT126')
 
         # IBES Ranked
-        v = outlier_rank(clean_pivot_raw_data(data, 'IBES_Discount',
-                                              lag))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'IBES_Discount'))
+        temp = clean_pivot_raw_data(data, 'IBES_Discount', lag=1)
+        if live_flag:
+            temp = temp.iloc[-1:]
+            temp.index = [0]
+        feat.add_feature(outlier_rank(temp)[0], 'IBES_Discount')
 
-        v = outlier_rank(clean_pivot_raw_data(data, 'IBES_Discount_Smooth',
-                                              lag))[0]
-        pdata = pdata.merge(unstack_label_data(v, 'IBES_Discount_Smooth'))
+        temp = clean_pivot_raw_data(data, 'IBES_Discount_Smooth', lag=1)
+        if live_flag:
+            temp = temp.iloc[-1:]
+            temp.index = [0]
+        feat.add_feature(outlier_rank(temp)[0], 'IBES_Discount_Smooth')
 
-        # IBES Not Ranked
-        v = clean_pivot_raw_data(data, 'IBES_Target_Increase', lag)
-        pdata = pdata.merge(unstack_label_data(v, 'IBES_Target_Increase'))
+        temp = clean_pivot_raw_data(data, 'IBES_Target_Increase', lag=1)
+        if live_flag:
+            temp = temp.iloc[-1:]
+            temp.index = [0]
+        feat.add_feature(outlier_rank(temp)[0], 'IBES_Target_Increase')
 
-        v = clean_pivot_raw_data(data, 'IBES_Target_Decrease', lag)
-        pdata = pdata.merge(unstack_label_data(v, 'IBES_Target_Decrease'))
+        temp = clean_pivot_raw_data(data, 'IBES_Target_Decrease', lag=1)
+        if live_flag:
+            temp = temp.iloc[-1:]
+            temp.index = [0]
+        feat.add_feature(outlier_rank(temp)[0], 'IBES_Target_Decrease')
 
-        # Earnings related variables
-        pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Blackout']])
-        pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_AnchorRet']])
-        pdata = pdata.merge(data[['SecCode', 'Date', 'EARNINGS_Ret']])
+        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        # Adjust date for faster live imp
+        if live_flag:
+            max_date = pdata.Date.max()
+            pdata = pdata[pdata.Date == max_date]
+            pdata.Date = 0
+
+        pdata = pdata.merge(feat.make_dataframe())
 
         # Extract features
-        features = pdata.columns[3:].tolist()
+        features = pdata.columns[4:].tolist()
         return pdata, features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -285,18 +368,21 @@ class DataContainerPairs(BaseDataContainer):
         data['TimeIndex'] = time_index
         # SPLITS: Instead of using the levels, use the CHANGE in levels.
         # This is necessary for the updating of positions and prices downstream
-        data.loc[:, 'SplitMultiplier'] = \
-            data.SplitFactor.pct_change().fillna(0) + 1
-        data = data.drop('SplitFactor', axis=1)
-        data['GGROUP'] = data.GGROUP.fillna(0).astype(int).astype(str)
-        data['GSECTOR'] = data.GGROUP.apply(lambda x: x[:2])
+        data = create_split_multiplier(data)
+        data = clean_gsector_ggroup(data)
+        return data
+
+    def _make_ibes_data(self, data):
         # IBES feature processing
         data = data.merge(make_ibes_increases_decreases(data))
         data = data.merge(make_ibes_discount(data))
+        return data
+
+    def _make_earnings_data(self, data):
         # Earnings related fields
-        data = append_ern_date_blackout(data, offset1=-2, offset2=4)
+        data = data.merge(make_ern_date_blackout(data, start_ind=1, end_ind=5))
         data = data.merge(make_ern_return(data))
-        data = data.merge(make_anchor_ret(data))
+        data = data.merge(make_anchor_ret(data, init_offset=1, window=20))
         return data
 
     def _trim_to_one_quarter(self, data):
@@ -333,6 +419,55 @@ class DataContainerPairs(BaseDataContainer):
         inds1 = data.TimeIndex > (max_ind-training_qtrs)
         inds2 = responses.TimeIndex > (max_ind-training_qtrs)
         return data[inds1], responses[inds2]
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def create_split_multiplier(data):
+    split = data.pivot(index='Date', columns='SecCode',
+                       values='SplitFactor').pct_change().fillna(0) + 1
+    split = split.unstack().reset_index()
+    split.columns = ['SecCode', 'Date', 'SplitMultiplier']
+    return data.merge(split).drop('SplitFactor', axis=1)
+
+
+def clean_gsector_ggroup(data):
+    ggroup = data.pivot(index='Date', columns='SecCode',
+                        values='GGROUP').fillna(method='pad').astype(str)
+    ggroup = ggroup.unstack().reset_index()
+    ggroup.columns = ['SecCode', 'Date', 'GGROUP']
+    ggroup['GSECTOR'] = ggroup.GGROUP.apply(lambda x: x[:2])
+    return data.drop(['GGROUP'], axis=1).merge(ggroup)
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def merge_live_pricing_data(data, live_pricing_data):
+    # Add missing columns to live pricing data, and merge
+    new_cols = list(set(data.columns) - set(live_pricing_data.columns))
+    live_pricing_data = live_pricing_data.join(
+        pd.DataFrame(columns=new_cols), how='left')
+    live_pricing_data['Date'] = dt.datetime.utcnow().date()
+    live_pricing_data['TestFlag'] = True
+    return data.append(live_pricing_data)
+
+
+def calculate_todays_avg_dol_vol(data):
+    avgdolvol = data.pivot(index='Date', columns='SecCode',
+                           values='AvgDolVol')
+    adjvol = data.pivot(index='Date', columns='SecCode',
+                        values='AdjVolume')
+    avgdolvol.iloc[-1] = (avgdolvol.iloc[-2] * 30 + adjvol.iloc[-1]) / 31.
+    avgdolvol = avgdolvol.unstack().reset_index()
+    avgdolvol.columns = ['SecCode', 'Date', 'AvgDolVol']
+
+    return data.drop(['AvgDolVol'], axis=1).merge(avgdolvol)
+
+
+def adjust_todays_prices(data):
+    data.AdjVwap = np.where(data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
+    data.RClose = np.where(data.RClose.isnull(), data.AdjClose, data.RClose)
+    return data
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -376,6 +511,8 @@ def make_ibes_discount(data):
     return discounts.merge(discounts_smooth)
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def make_ern_return(data):
     """
     (T-1) to (T+1) Vwap return. Doesn't register until (T+2)
@@ -393,27 +530,25 @@ def make_ern_return(data):
     return output
 
 
-def append_ern_date_blackout(data, offset1=-1, offset2=2):
-    assert offset1 <= 0, 'Offset1 must be less than/equal to 0'
-    assert offset2 >= 0, 'Offset2 must be greater than/equal to 0'
-    ern_inds = np.where(data.EARNINGSFLAG == 1)[0]
-    all_inds = ern_inds.copy()
-    for i in range(abs(offset1)):
-        all_inds = np.append(all_inds, ern_inds-(i+1))
-    for i in range(offset2):
-        all_inds = np.append(all_inds, ern_inds+(i+1))
-    all_inds = all_inds[all_inds >= 0]
-    all_inds = all_inds[all_inds < data.shape[0]]
-    blackouts = np.zeros(data.shape[0])
-    blackouts[all_inds] = 1
-    data['EARNINGS_Blackout'] = blackouts
-    return data
+def make_ern_date_blackout(data, start_ind=1, end_ind=4):
+    ernflag = data.pivot(index='Date', columns='SecCode',
+                         values='EARNINGSFLAG').fillna(0)
+    output = ernflag.copy()
+    output[:] = 0
+    for i in range(start_ind, end_ind + 1):
+        output += ernflag.shift(i).fillna(0)
+    output = output.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'EARNINGS_Blackout']
+    return output
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-def make_anchor_ret(data, init_offset=1, window=20):
+def make_anchor_ret(data, init_offset=0, window=20):
     """
+    Init offset is the anchor date relative to the earnings date. From there,
+    it will look `window` days in advance and compare the close prices to the
+    close price on the anchor date. Once beyond the window, it just resets
+    to zero.
+
     Parameters
     ----------
     init_offset : int
@@ -422,22 +557,16 @@ def make_anchor_ret(data, init_offset=1, window=20):
     window : int
         The maximum number of days to look back to create the anchor price
     """
-    assert 'EARNINGS_Blackout' in data.columns
     closes = data.pivot(index='Date', columns='SecCode', values='AdjClose')
     earningsflag = data.pivot(index='Date', columns='SecCode',
                               values='EARNINGSFLAG').fillna(0)
-    blackout = data.pivot(index='Date', columns='SecCode',
-                          values='EARNINGS_Blackout').fillna(0)
     # Get window period anchor price
     init_anchor = earningsflag.shift(init_offset).fillna(0) * closes
-    end_anchor = earningsflag.shift(init_offset+window).fillna(0) * -1 * \
-        closes.shift(window).fillna(0)
-    init_anchor2 = (init_anchor + end_anchor).cumsum()
-    output = closes.copy()
-    output[:] = np.where(init_anchor2 == 0,
-                         closes.shift(window-1), init_anchor2)
-    output[:] = np.where(blackout, np.nan, output)
-    output = (closes / output).unstack().reset_index().fillna(0)
+    end_anchor = init_anchor.shift(init_offset+window).fillna(0) * -1
+    anchor_price = (init_anchor + end_anchor).cumsum()
+    output = (closes / anchor_price) - 1
+    output = output.replace(np.inf, 0).replace(-np.inf, 0)
+    output = output.unstack().reset_index().fillna(0)
     output.columns = ['SecCode', 'Date', 'EARNINGS_AnchorRet']
     return output
 

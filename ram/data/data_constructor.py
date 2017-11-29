@@ -109,6 +109,20 @@ class DataConstructor(object):
             # Update meta params
             self._update_meta_file(data.Date.max(), created_files)
 
+        # HACK
+        elif blueprint.constructor_type == 'universe_live':
+            t1, t2, t3 = self._make_date_iterator(blueprint)[-1]
+            adj_filter_date = t2 - dt.timedelta(days=1)
+            data = dh.get_filtered_univ_data(
+                features=blueprint.features,
+                start_date=t1,
+                end_date=t3,
+                filter_date=adj_filter_date,
+                filter_args=blueprint.universe_filter_arguments)
+            data['TestFlag'] = data.Date > adj_filter_date
+            file_name = '{}.csv'.format(blueprint.output_file_name)
+            self._clean_and_write_output(data, file_name)
+
         dh.close_connections()
         return
 
@@ -288,6 +302,19 @@ class DataConstructor(object):
             assert 'test_period_length' in params
             assert 'frequency' in params
             assert 'start_year' in params
+
+        if blueprint.constructor_type == 'universe_live':
+            params = blueprint.universe_filter_arguments
+            assert 'filter' in params
+            assert 'where' in params
+            assert 'univ_size' in params
+            params = blueprint.universe_date_parameters
+            assert 'quarter_frequency_month_offset' in params
+            assert 'train_period_length' in params
+            assert 'test_period_length' in params
+            assert 'frequency' in params
+            assert 'start_year' in params
+            assert hasattr(blueprint, 'output_file_name')
 
         elif blueprint.constructor_type == 'etfs':
             assert 'start_date' in params

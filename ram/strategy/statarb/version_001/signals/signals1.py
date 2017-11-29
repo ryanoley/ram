@@ -59,6 +59,8 @@ class SignalModel1(BaseSignalGenerator):
         elif drop_market_variables:
             features = [x for x in features if x.find('MKT_') == -1]
 
+        # A bit of security if variables come through with different
+        features.sort()
         self._features = features
         self._train_data = data_container.get_training_data()
         self._train_responses = data_container.get_training_responses()
@@ -73,8 +75,8 @@ class SignalModel1(BaseSignalGenerator):
     def get_model(self):
         return self.skl_model
 
-    def set_model(self):
-        raise NotImplementedError('BaseSignalGenerator.set_model')
+    def set_model(self, model):
+        self.skl_model = model
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
