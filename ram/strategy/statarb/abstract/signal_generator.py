@@ -10,8 +10,26 @@ class BaseSignalGenerator(object):
         raise NotImplementedError('BaseSignalGenerator.get_args')
 
     @abstractmethod
-    def set_data_args(self, data_container, **kargs):
-        raise NotImplementedError('BaseSignalGenerator.set_data_args')
+    def set_args(self, **kargs):
+        raise NotImplementedError('BaseSignalGenerator.set_args')
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @abstractmethod
+    def set_features(self, features):
+        raise NotImplementedError('BaseSignalGenerator.set_features')
+
+    @abstractmethod
+    def set_train_data(self, train_data):
+        raise NotImplementedError('BaseSignalGenerator.set_train_data')
+
+    @abstractmethod
+    def set_train_responses(self, train_responses):
+        raise NotImplementedError('BaseSignalGenerator.set_train_responses')
+
+    @abstractmethod
+    def set_test_data(self, test_data):
+        raise NotImplementedError('BaseSignalGenerator.set_test_data')
 
     # ~~~~~~ Model related functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

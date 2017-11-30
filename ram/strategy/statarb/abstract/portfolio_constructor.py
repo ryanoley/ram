@@ -25,41 +25,42 @@ class BasePortfolioConstructor(object):
         raise NotImplementedError('BasePortfolioConstructor.get_args')
 
     @abstractmethod
-    def get_day_position_sizes(self, data, signals):
+    def set_args(self):
+        raise NotImplementedError('BasePortfolioConstructor.set_args')
+
+    @abstractmethod
+    def set_constructor_data(self):
+        raise NotImplementedError(
+            'BasePortfolioConstructor.set_constructor_data')
+
+    @abstractmethod
+    def set_signals(self):
+        raise NotImplementedError('BasePortfolioConstructor.set_signals')
+
+    @abstractmethod
+    def get_day_position_sizes(self, date, signals):
+        """
+        Must have this interface
+        """
         raise NotImplementedError(
             'BasePortfolioConstructor.get_day_position_sizes')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def get_period_daily_pl(self,
-                            time_index,
-                            data_container,
-                            signals,
-                            **kwargs):
-        """
-        Parameters
-        ----------
-        time_index
-        data_container
-        signals
-        kwargs : this is passed on to get_day_position_sizes
-        """
+    def get_period_daily_pl(self):
+
         portfolio = Portfolio()
         self.portfolio = portfolio
-        self.data = data_container.get_simulation_feature_dictionary()
 
         # Process needed values into dictionaries for efficiency
-        scores = make_variable_dict(signals, 'preds')
-
-        pricing = self.data['pricing']
-        closes = make_variable_dict(pricing, 'RClose')
-        dividends = make_variable_dict(pricing, 'RCashDividend', 0)
-        splits = make_variable_dict(pricing, 'SplitMultiplier', 1)
-        liquidity = make_variable_dict(pricing, 'AvgDolVol')
-        market_cap = make_variable_dict(pricing, 'MarketCap')
-
+        scores = make_variable_dict(self._signals, 'preds')
+        closes = make_variable_dict(self._pricing, 'RClose')
+        dividends = make_variable_dict(self._pricing, 'RCashDividend', 0)
+        splits = make_variable_dict(self._pricing, 'SplitMultiplier', 1)
+        liquidity = make_variable_dict(self._pricing, 'AvgDolVol')
+        market_cap = make_variable_dict(self._pricing, 'MarketCap')
         # Dates to iterate over
-        unique_test_dates = np.unique(pricing.Date)
+        unique_test_dates = np.unique(self._pricing.Date)
 
         # Output object
         daily_df = pd.DataFrame(index=unique_test_dates,
@@ -68,14 +69,13 @@ class BasePortfolioConstructor(object):
 
         for i, date in enumerate(unique_test_dates):
 
-            # If a low liquidity value, set score to nan
+            # If a low liquidity/price value, set score to nan
             # Update every five days
             if i % 5 == 0:
                 low_liquidity_seccodes = filter_seccodes(
                     liquidity[date], LOW_LIQUIDITY_FILTER)
-            # If close is very low, drop as well
-            low_price_seccodes = filter_seccodes(
-                closes[date], LOW_PRICE_FILTER)
+                low_price_seccodes = filter_seccodes(
+                    closes[date], LOW_PRICE_FILTER)
 
             for seccode in set(low_liquidity_seccodes+low_price_seccodes):
                 scores[date][seccode] = np.nan
@@ -86,9 +86,7 @@ class BasePortfolioConstructor(object):
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
             else:
-                sizes = self.get_day_position_sizes(date,
-                                                    scores[date],
-                                                    **kwargs)
+                sizes = self.get_day_position_sizes(date, scores[date])
                 portfolio.update_position_sizes(sizes, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()

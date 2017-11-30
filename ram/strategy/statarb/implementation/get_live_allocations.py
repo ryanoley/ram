@@ -72,16 +72,18 @@ data = import_raw_data()
 run_map = import_run_map()
 models = import_models_params()
 
-
 # Perhaps create five different versions of strategy?
 strategy = StatArbStrategy()
-
 
 # LOOP over unique data versions
 strategy.strategy_code_version = 'version_001'
 strategy.prepped_data_version = 'version_0013'
 strategy.strategy_init()
+
+
 strategy.data.prep_live_data(data['version_0013'], data['market_data'])
+
+
 
 # Fake live data
 live_data = data['version_0013'].copy()
@@ -92,24 +94,22 @@ live_data.Date = dt.datetime.utcnow().date()
 
 strategy.data.process_live_data(live_data)
 
-
 model = models['run_0003_100']['model']
 params = models['run_0003_100']['params']
 
-## NOT NECESSARY
-# strategy.data.set_args(**params['data'])
 
+
+strategy.signals.set_args(**params['signals'])  # This will eventually not work
+strategy.signals.set_features(strategy.data.get_train_features())
+strategy.signals.set_test_data(strategy.data.get_test_data())
 strategy.signals.set_model(model)
-strategy.signals.set_data_args(strategy.data, **params['signals'])
+
+signals = strategy.signals.get_signals()
 
 
+strategy.constructor.set_args(**params['constructor'])
+strategy.constructor.set_constructor_data(strategy.data.get_constructor_data())
 
-
-
-if True:
-    import pdb; pdb.set_trace()
-    strategy.signals.get_signals()
-
-
-
+scores = signals[['SecCode', 'preds']].set_index('SecCode').to_dict()['preds']
+sizes = strategy.constructor.get_day_position_sizes(0, scores)
 

@@ -9,7 +9,7 @@ from ram.strategy.statarb.version_001.data.pairs_selector_filter import \
 
 class PairSelector(object):
 
-    def rank_pairs(self, data, z_window=20, filter_n_pairs_per_seccode=None):
+    def rank_pairs(self, data, filter_n_pairs_per_seccode=None):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
@@ -20,9 +20,16 @@ class PairSelector(object):
         pair_info = self._get_pair_info(train_close)
         pair_info = self._get_top_n_pairs_per_seccode(
             pair_info, filter_n_pairs_per_seccode)
+        return pair_info
+
+    def get_z_scores(self, data, z_window, pair_info):
+        close_data = data.pivot(index='Date',
+                                columns='SecCode',
+                                values='AdjClose')
+
         spreads, zscores = self._get_spreads_zscores(
             pair_info, close_data, z_window)
-        return pair_info, spreads, zscores
+        return spreads, zscores
 
     def _get_pair_info(self, close_data):
         pairs = self._prep_output(close_data)

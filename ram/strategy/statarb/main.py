@@ -76,6 +76,7 @@ class StatArbStrategy(Strategy):
         if self._write_flag and \
                 (int(self._prepped_data_files[time_index][:4]) < 2007):
             return
+
         # Iterate
         i = 0
         for args1 in self._data_args:
@@ -84,14 +85,23 @@ class StatArbStrategy(Strategy):
 
             for args2 in self._signals_args:
 
-                self.signals.set_data_args(self.data, **args2)
+                self.signals.set_args(**args2)
+                self.signals.set_features(self.data.get_train_features())
+                self.signals.set_train_data(self.data.get_train_data())
+                self.signals.set_train_responses(self.data.get_train_responses())
+                self.signals.set_test_data(self.data.get_test_data())
+
                 self.signals.fit_model()
                 signals = self.signals.get_signals()
 
                 for ac in self._constructor_args:
 
-                    result, stats = self.constructor.get_period_daily_pl(
-                        time_index, self.data, signals, **ac)
+                    self.constructor.set_args(**ac)
+                    self.constructor.set_signals(signals)
+                    self.constructor.set_constructor_data(
+                        self.data.get_constructor_data())
+
+                    result, stats = self.constructor.get_period_daily_pl()
 
                     self._capture_output(result, stats, i)
                     i += 1

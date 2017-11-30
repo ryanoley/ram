@@ -839,4 +839,8 @@ def make_argument_parser(Strategy):
     elif args.implementation_training:
         strategy = Strategy(write_flag=args.write_flag)
         strategy._create_implementation_output_dir()
+
+        if not args.write_flag:
+            import pdb; pdb.set_trace()
+
         strategy.implementation_training()

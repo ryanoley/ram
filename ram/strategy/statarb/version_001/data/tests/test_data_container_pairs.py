@@ -86,6 +86,7 @@ class TestDataContainerPairs(unittest.TestCase):
 
     def test_prep_live_data(self):
         dc = DataContainerPairs()
+        #import pdb; pdb.set_trace()
         dc.prep_live_data(self.data4, self.market_data)
 
     def test_process_live_data(self):
@@ -126,8 +127,8 @@ class TestDataContainerPairs(unittest.TestCase):
             'V1': range(6)
         })
         dc.set_args(response_params, training_qtrs=1)
-        dc.get_training_data()
-        dc.get_training_responses()
+        dc.get_train_data()
+        dc.get_train_responses()
         dc.get_test_data()
 
     def test_make_responses(self):

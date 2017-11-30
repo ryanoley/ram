@@ -29,46 +29,64 @@ class SignalModel1(BaseSignalGenerator):
             'drop_market_variables': ['constrained']
         }
 
-    def set_data_args(self,
-                      data_container,
-                      model_params,
-                      drop_ibes,
-                      drop_accounting,
-                      drop_starmine,
-                      drop_market_variables):
+    def set_args(self,
+                 model_params,
+                 drop_ibes,
+                 drop_accounting,
+                 drop_starmine,
+                 drop_market_variables):
+        self._model_params = model_params
+        self._drop_ibes = drop_ibes
+        self._drop_accounting = drop_accounting
+        self._drop_starmine = drop_starmine
+        self._drop_market_variables = drop_market_variables
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def set_features(self, features):
+        self._features = features
+
+    def set_train_data(self, train_data):
+        self._train_data = train_data
+
+    def set_train_responses(self, train_responses):
+        self._train_responses = train_responses
+
+    def set_test_data(self, test_data):
+        self._test_data = test_data
+
+    # ~~~~~~ Model related functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _process_args(self):
         # MODEL PARAMS
-        self.skl_model.set_params(**model_params)
+        self.skl_model.set_params(**self._model_params)
 
-        # FEATURES
-        features = data_container.get_training_feature_names()
+        # FEATURE PROCSSING
+        features = self._features
 
-        if drop_ibes:
+        if self._drop_ibes:
             features = [x for x in features if x not in ibes_features]
 
-        if drop_accounting:
+        if self._drop_accounting:
             features = [x for x in features if x not in accounting_features]
 
-        if drop_starmine:
+        if self._drop_starmine:
             features = [x for x in features if x not in starmine_features]
 
-        if drop_market_variables == 'constrained':
+        if self._drop_market_variables == 'constrained':
             features = [x for x in features if x.find('MKT_') == -1]
             features.extend(['MKT_VIX_AdjClose', 'MKT_VIX_PRMA10',
                              'MKT_SP500Index_VOL10', 'MKT_SP500Index_PRMA10',
                              'MKT_SP500Index_BOLL20'])
-        elif drop_market_variables:
+        elif self._drop_market_variables:
             features = [x for x in features if x.find('MKT_') == -1]
 
-        # A bit of security if variables come through with different
+        # A bit of security if variables come through in different order
         features.sort()
         self._features = features
-        self._train_data = data_container.get_training_data()
-        self._train_responses = data_container.get_training_responses()
-        self._test_data = data_container.get_test_data()
-
-    # ~~~~~~ Model related functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def fit_model(self):
+        self._process_args()
         self.skl_model.fit(X=self._train_data[self._features],
                            y=self._train_responses['Response'])
 
@@ -81,6 +99,7 @@ class SignalModel1(BaseSignalGenerator):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_signals(self):
+        self._process_args()
         output = self._test_data[['SecCode', 'Date']]
         preds = self.skl_model.predict_proba(self._test_data[self._features])
         output['preds'] = _get_preds(self.skl_model, preds)

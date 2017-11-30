@@ -25,6 +25,8 @@ class DataContainerPairs(BaseDataContainer):
         self._processed_test_data = pd.DataFrame()
         self._features = []
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def get_args(self):
         return {
             'response_params': [
@@ -67,26 +69,26 @@ class DataContainerPairs(BaseDataContainer):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def get_training_data(self):
+    def get_train_data(self):
         return self.train_data
 
-    def get_training_responses(self):
+    def get_train_responses(self):
         return self.train_data_responses
 
-    def get_training_feature_names(self):
+    def get_train_features(self):
         return self._features
 
     def get_test_data(self):
         return self.test_data
 
-    def get_simulation_feature_dictionary(self):
-        return self.constructor_data
+    def get_constructor_data(self):
+        return self._constructor_data
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def prep_live_data(self, data, market_data):
         self.process_training_market_data(market_data)
-        pair_info, zscores = self._get_pairs_info(data)
+        pair_info = self._get_pairs_info(data)
         # Non pricing features
         data = self._make_earnings_data(data)
         data['TimeIndex'] = -1
@@ -96,9 +98,8 @@ class DataContainerPairs(BaseDataContainer):
         self._live_prepped_data['features'] = features_1
         self._live_prepped_data['data_features_1'] = data_features_1
 
-        self.constructor_data = {}
-        self.constructor_data['zscores'] = zscores
-        self.constructor_data['pair_info'] = pair_info
+        self._constructor_data = {}
+        self._constructor_data['pair_info'] = pair_info
 
     def process_live_data(self, live_pricing_data):
         """
@@ -128,14 +129,17 @@ class DataContainerPairs(BaseDataContainer):
         pdata = data_features_1.merge(data_features_2)
         features = features_1 + features_2
 
+        # Zscores - PERHAPS SHORTEN DATA FOR SPEED?
+        zscores = self._get_pairs_z_score(data,
+                                          self._constructor_data['pair_info'])
+        zscores = zscores.iloc[-1:]
+        zscores.index = [0]
+
         # Merge market data
         pdata, features = self._merge_market_data(pdata, features)
-        # HACK
-        self.train_data = pd.DataFrame()
-        self.train_data_responses = pd.DataFrame()
-
         self.test_data = pdata
         self._features = features
+        self._constructor_data['zscores'] = zscores
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -145,8 +149,11 @@ class DataContainerPairs(BaseDataContainer):
         data = self._make_earnings_data(data)
         data = self._make_ibes_data(data)
 
-        # Get pairs from 252 days worth of data
-        pair_info, zscores = self._get_pairs_info(data)
+        # Pairs - finds best pairs over 252 days of data
+        pair_info = self._get_pairs_info(data)
+        zscores = self._get_pairs_z_score(data, pair_info)
+        zscores = zscores.loc[data.Date[data.TestFlag].unique()]
+
         # Create process training data, and get features
         adata, features_a = self._make_features(data)
         tdata, features_t = self._make_technical_features(data)
@@ -174,7 +181,7 @@ class DataContainerPairs(BaseDataContainer):
         assert np.all(self._processed_train_data.Date.values ==
                       self._processed_train_responses.Date.values)
         # Process some data
-        self.constructor_data = {
+        self._constructor_data = {
             'pricing': data[data.TestFlag][['SecCode', 'Date',
                                             'MarketCap', 'AvgDolVol',
                                             'RClose', 'RCashDividend',
@@ -256,12 +263,12 @@ class DataContainerPairs(BaseDataContainer):
                 temp = clean_pivot_raw_data(data, feature, lag=1)
             feat.add_feature(outlier_rank(temp)[0], feature)
 
-        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
         if live_flag:
             max_date = pdata.Date.max()
-            pdata = pdata[pdata.Date == max_date]
-            mdata = data[data.Date == max_date]
+            pdata = pdata[pdata.Date == max_date].copy()
+            mdata = data[data.Date == max_date].copy()
             pdata.Date = 0
             mdata.Date = 0
 
@@ -368,12 +375,12 @@ class DataContainerPairs(BaseDataContainer):
             temp.index = [0]
         feat.add_feature(outlier_rank(temp)[0], 'IBES_Target_Decrease')
 
-        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']]
+        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
         # Adjust date for faster live imp
         if live_flag:
             max_date = pdata.Date.max()
-            pdata = pdata[pdata.Date == max_date]
+            pdata = pdata[pdata.Date == max_date].copy()
             pdata.Date = 0
 
         pdata = pdata.merge(feat.make_dataframe())
@@ -414,10 +421,17 @@ class DataContainerPairs(BaseDataContainer):
         return data
 
     def _get_pairs_info(self, data):
-        pair_info, _, zscores = PairSelector().rank_pairs(
-            data, 20, filter_n_pairs_per_seccode=30)
-        zscores = zscores.loc[data.Date[data.TestFlag].unique()]
-        return pair_info, zscores
+        pair_info = PairSelector().rank_pairs(
+            data=data,
+            filter_n_pairs_per_seccode=30)
+        return pair_info
+
+    def _get_pairs_z_score(self, data, pair_info):
+        _, zscores = PairSelector().get_z_scores(
+            data=data,
+            z_window=20,
+            pair_info=pair_info)
+        return zscores
 
     def _merge_market_data(self, pdata, features):
         pdata = pdata.merge(self._market_data, how='left').fillna(0)

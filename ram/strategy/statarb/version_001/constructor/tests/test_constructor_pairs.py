@@ -36,8 +36,8 @@ class TestConstructorPairs(unittest.TestCase):
         zscores_pair_info['Leg2'] = ['B', 'C', 'C']
         zscores_pair_info['distances'] = [1, 2, 3]
         self.data = {}
-        self.data['zscores'] = zscores
-        self.data['pair_info'] = zscores_pair_info
+        self.zscores = zscores
+        self.pair_info = zscores_pair_info
 
     def Xtest_select_port_and_offsets(self):
         data = pd.DataFrame()
@@ -49,7 +49,8 @@ class TestConstructorPairs(unittest.TestCase):
         data['zscore'] = [-1.5, -1.5, -3, 2, 0, 10]
 
     def test_extract_zscore_data(self):
-        result = _extract_zscore_data(self.data, dt.date(2010, 1, 2))
+        result = _extract_zscore_data(self.zscores, self.pair_info,
+                                      dt.date(2010, 1, 2))
         benchmark = pd.DataFrame()
         benchmark['pair'] = ['A~B', 'A~C', 'B~C']
         benchmark['zscore'] = [12, -12, 4]

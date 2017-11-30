@@ -16,49 +16,34 @@ class BaseDataContainer(object):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @abstractmethod
+    def get_train_data(self):
+        raise NotImplementedError('BaseDataContainer.get_train_data')
+
+    @abstractmethod
+    def get_train_responses(self):
+        raise NotImplementedError('BaseDataContainer.get_train_responses')
+
+    @abstractmethod
+    def get_train_features(self):
+        raise NotImplementedError('BaseDataContainer.get_train_features')
+
+    @abstractmethod
+    def get_test_data(self):
+        raise NotImplementedError('BaseDataContainer.get_test_data')
+
+    @abstractmethod
+    def get_constructor_data(self):
+        raise NotImplementedError('BaseDataContainer.get_constructor_data')
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @abstractmethod
     def process_training_data(self, data, time_index):
         raise NotImplementedError('BaseDataContainer.process_training_data')
 
     @abstractmethod
     def process_training_market_data(self, data):
         raise NotImplementedError('BaseDataContainer.process_training_market')
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    @abstractmethod
-    def get_training_data(self):
-        """
-        Used by signal class
-        """
-        raise NotImplementedError('BaseDataContainer.get_training_data')
-
-    @abstractmethod
-    def get_training_responses(self):
-        """
-        Used by signal class
-        """
-        raise NotImplementedError('BaseDataContainer.get_training_responses')
-
-    @abstractmethod
-    def get_training_feature_names(self):
-        """
-        Used by signal class
-        """
-        raise NotImplementedError('BaseDataContainer.get_training_features')
-
-    @abstractmethod
-    def get_test_data(self):
-        """
-        Used by signal class
-        """
-        raise NotImplementedError('BaseDataContainer.get_test_data')
-
-    @abstractmethod
-    def get_simulation_feature_dictionary(self):
-        """
-        Used by constructor class. Can have any deliverable in it
-        """
-        raise NotImplementedError('BaseDataContainer.get_simulation_features')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

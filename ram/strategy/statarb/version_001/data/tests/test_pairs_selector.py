@@ -57,8 +57,9 @@ class TestPairSelector(unittest.TestCase):
         data['AdjClose'] = [1, 3, 5, 7, 9, 2, 4, 6, 7, 8, 11, 17, 55, 17, 16]
         flags = [False] * 4 + [True]
         data['TestFlag'] = flags * 3
-        result = PairSelector().rank_pairs(data, z_window=3,
-                                           filter_n_pairs_per_seccode=2)
+        result = PairSelector().rank_pairs(data, filter_n_pairs_per_seccode=2)
+        result = PairSelector().get_z_scores(data=data, z_window=3,
+                                             pair_info=result)
 
     def test_get_zscores(self):
         data = pd.DataFrame()

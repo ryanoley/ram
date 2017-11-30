@@ -35,7 +35,19 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
             ]
         }
 
-    def get_day_position_sizes(self, date, scores, params):
+    def set_args(self, params):
+        self._params = params
+
+    def set_constructor_data(self, data):
+        self._zscores = data['zscores']
+        self._pair_info = data['pair_info']
+        if 'pricing' in data:
+            self._pricing = data['pricing']
+
+    def set_signals(self, signals):
+        self._signals = signals
+
+    def get_day_position_sizes(self, date, scores):
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
@@ -51,11 +63,11 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
 
         # Format and Retrieve Scores and ZScores
         scores = _format_scores_dict(scores)
-        zscores = _extract_zscore_data(self.data, date)
+        zscores = _extract_zscore_data(self._zscores, self._pair_info, date)
         scores = _merge_scores_zscores_data(scores, zscores)
 
         # Get scores
-        scores = _select_port_and_offsets(scores, params)
+        scores = _select_port_and_offsets(scores, self._params)
 
         scores.pos_size *= self.booksize
         scores = scores.merge(pd.DataFrame({'SecCode': all_seccodes}),
@@ -229,10 +241,10 @@ def _zscore_rank_numba(ranks, seccodes):
         ranks[i] = rank
 
 
-def _extract_zscore_data(data, date):
-    zscores = data['zscores'].loc[date].reset_index()
+def _extract_zscore_data(zscores, pair_info, date):
+    zscores = zscores.loc[date].reset_index()
     zscores.columns = ['pair', 'zscore']
-    zscores = zscores.merge(data['pair_info'])
+    zscores = zscores.merge(pair_info)
     return zscores
 
 
