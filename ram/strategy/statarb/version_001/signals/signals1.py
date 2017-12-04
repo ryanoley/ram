@@ -25,7 +25,7 @@ class SignalModel1(BaseSignalGenerator):
             ],
             'drop_ibes': [True, False],
             'drop_accounting': [True, False],
-            'drop_starmine': [True, False],
+            'drop_starmine': [False],
             'drop_market_variables': ['constrained']
         }
 
