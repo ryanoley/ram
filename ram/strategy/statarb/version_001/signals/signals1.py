@@ -19,12 +19,12 @@ class SignalModel1(BaseSignalGenerator):
                 {'min_samples_leaf': 200,
                  'n_estimators': 100,
                  'max_features': 0.8},
-                {'min_samples_leaf': 50,
-                 'n_estimators': 30,
+                {'min_samples_leaf': 100,
+                 'n_estimators': 100,
                  'max_features': 0.6},
             ],
-            'drop_ibes': [True],
-            'drop_accounting': [True],
+            'drop_ibes': [True, False],
+            'drop_accounting': [True, False],
             'drop_starmine': [True, False],
             'drop_market_variables': ['constrained']
         }
@@ -100,9 +100,9 @@ class SignalModel1(BaseSignalGenerator):
 
     def get_signals(self):
         self._process_args()
-        output = self._test_data[['SecCode', 'Date']]
+        output = self._test_data[['SecCode', 'Date']].copy()
         preds = self.skl_model.predict_proba(self._test_data[self._features])
-        output['preds'] = _get_preds(self.skl_model, preds)
+        output.loc[:, 'preds'] = _get_preds(self.skl_model, preds)
         return output
 
 

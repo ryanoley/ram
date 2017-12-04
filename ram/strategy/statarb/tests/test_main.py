@@ -16,9 +16,14 @@ class TestMain(unittest.TestCase):
         strategy.strategy_init()
         result = strategy.get_column_parameters()
         result = result[0]
-        self.assertTrue('signals' in result)
-        self.assertTrue('data' in result)
-        self.assertTrue('constructor' in result)
+        self.assertTrue('drop_market_variables' in result)
+        self.assertTrue('training_qtrs' in result)
+        self.assertTrue('params' in result)
+        self.assertTrue('drop_ibes' in result)
+        self.assertTrue('model_params' in result)
+        self.assertTrue('drop_accounting' in result)
+        self.assertTrue('drop_starmine' in result)
+        self.assertTrue('response_params' in result)
 
     def test_capture_output(self):
         strategy = StatArbStrategy(strategy_code_version='version_001')

@@ -72,6 +72,9 @@ data = import_raw_data()
 run_map = import_run_map()
 models = import_models_params()
 
+
+
+
 # Perhaps create five different versions of strategy?
 strategy = StatArbStrategy()
 
@@ -80,10 +83,8 @@ strategy.strategy_code_version = 'version_001'
 strategy.prepped_data_version = 'version_0013'
 strategy.strategy_init()
 
-
+# DATA
 strategy.data.prep_live_data(data['version_0013'], data['market_data'])
-
-
 
 # Fake live data
 live_data = data['version_0013'].copy()
@@ -91,8 +92,8 @@ live_data = live_data[live_data.Date == live_data.Date.max()]
 live_data = live_data[['SecCode', 'Date', 'AdjClose', 'AdjOpen',
                        'AdjHigh', 'AdjLow', 'AdjVwap', 'AdjVolume']]
 live_data.Date = dt.datetime.utcnow().date()
-
 strategy.data.process_live_data(live_data)
+
 
 model = models['run_0003_100']['model']
 params = models['run_0003_100']['params']

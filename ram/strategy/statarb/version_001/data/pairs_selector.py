@@ -53,6 +53,8 @@ class PairSelector(object):
             lambda x: '~'.join(x), axis=1)
         # SORT
         pair_info = pair_info.sort_values(['Leg1', 'distances'])
+        pair_info.columns = ['PrimarySecCode', 'OffsetSecCode', 'distance',
+                             'distance_rank', 'pair']
         return pair_info
 
     def _double_flip_frame(self, data):
@@ -61,7 +63,6 @@ class PairSelector(object):
         temp.columns = ['{}~{}'.format(y, x) for x, y in
                         [x.split('~') for x in temp.columns]]
         return data.join(temp)
-
 
     # ~~~~~~ Z-Scores ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -79,12 +80,13 @@ class PairSelector(object):
     @staticmethod
     def _get_spread_index(pair_info, close_data):
         # Create two data frames that represent Leg1 and Leg2
-        close1 = close_data.loc[:, pair_info.Leg1]
-        close2 = close_data.loc[:, pair_info.Leg2]
+        close1 = close_data.loc[:, pair_info.PrimarySecCode]
+        close2 = close_data.loc[:, pair_info.OffsetSecCode]
         spreads = np.subtract(np.log(close1), np.log(close2))
         # Add correct column names
         spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
-                           zip(pair_info.Leg1, pair_info.Leg2)]
+                           zip(pair_info.PrimarySecCode,
+                               pair_info.OffsetSecCode)]
         return spreads
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

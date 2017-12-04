@@ -29,13 +29,9 @@ class BasePortfolioConstructor(object):
         raise NotImplementedError('BasePortfolioConstructor.set_args')
 
     @abstractmethod
-    def set_constructor_data(self):
-        raise NotImplementedError(
-            'BasePortfolioConstructor.set_constructor_data')
-
-    @abstractmethod
-    def set_signals(self):
-        raise NotImplementedError('BasePortfolioConstructor.set_signals')
+    def set_signals_constructor_data(self):
+        raise NotImplementedError('BasePortfolioConstructor.'
+                                  'set_signals_constructor_data')
 
     @abstractmethod
     def get_day_position_sizes(self, date, signals):
@@ -93,8 +89,10 @@ class BasePortfolioConstructor(object):
             daily_turnover = portfolio.get_portfolio_daily_turnover()
             daily_exposure = portfolio.get_portfolio_exposure()
 
-            min_pos_size = min([pos.exposure for pos in portfolio.positions.values()])
-            max_pos_size = max([pos.exposure for pos in portfolio.positions.values()])
+            min_pos_size = min([pos.exposure for pos
+                                in portfolio.positions.values()])
+            max_pos_size = max([pos.exposure for pos
+                                in portfolio.positions.values()])
 
             daily_df.loc[date, 'PL'] = pl_long + pl_short
             daily_df.loc[date, 'LongPL'] = pl_long

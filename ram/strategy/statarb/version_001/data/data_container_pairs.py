@@ -10,8 +10,6 @@ from ram.data.feature_creator import *
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
 
 from ram.strategy.statarb.version_001.data.pairs_selector import PairSelector
-from ram.strategy.statarb.version_001.data.pairs_selector_filter import \
-    PairSelectorFilter
 
 
 class DataContainerPairs(BaseDataContainer):
@@ -36,7 +34,6 @@ class DataContainerPairs(BaseDataContainer):
                 {'type': 'smoothed',
                  'response_days': [2],
                  'response_thresh': 0.4},
-                {'type': 'simple', 'response_days': 2},
             ],
             'training_qtrs': [-99, 20]
         }

@@ -73,8 +73,8 @@ class TestPairSelector(unittest.TestCase):
 
     def test_get_spread_index(self):
         pair_info = pd.DataFrame()
-        pair_info['Leg1'] = ['A', 'A']
-        pair_info['Leg2'] = ['B', 'C']
+        pair_info['PrimarySecCode'] = ['A', 'A']
+        pair_info['OffsetSecCode'] = ['B', 'C']
         data = pd.DataFrame()
         data['A'] = np.exp([10, 12, 11])
         data['B'] = np.exp([12, 11, 7])

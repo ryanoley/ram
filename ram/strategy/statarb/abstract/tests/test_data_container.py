@@ -27,21 +27,21 @@ class DataContainer(BaseDataContainer):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def get_training_data(self):
+    def get_train_data(self):
         return self._processed_train_data
 
-    def get_training_responses(self):
+    def get_train_responses(self):
         return 0
 
-    def get_training_feature_names(self):
+    def get_train_features(self):
         return ['a', 'b', 'c']
 
     def get_test_data(self):
         return self._processed_test_data
 
-    def get_simulation_feature_dictionary(self):
+    def get_constructor_data(self):
         return {'pricing': self._processed_simulation_data,
-                'pairs': pd.DataFrame()}
+                'pairs_info': pd.DataFrame()}
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

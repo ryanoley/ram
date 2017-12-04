@@ -72,9 +72,9 @@ class StatArbStrategy(Strategy):
     # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def run_index(self, time_index):
-        # HACK: If training and writing, don't train until 2007, but stack data
+        # HACK: If training and writing, don't train until 2009, but stack data
         if self._write_flag and \
-                (int(self._prepped_data_files[time_index][:4]) < 2007):
+                (int(self._prepped_data_files[time_index][:4]) < 2009):
             return
 
         # Iterate
@@ -88,18 +88,21 @@ class StatArbStrategy(Strategy):
                 self.signals.set_args(**args2)
                 self.signals.set_features(self.data.get_train_features())
                 self.signals.set_train_data(self.data.get_train_data())
-                self.signals.set_train_responses(self.data.get_train_responses())
+                self.signals.set_train_responses(
+                    self.data.get_train_responses())
                 self.signals.set_test_data(self.data.get_test_data())
 
                 self.signals.fit_model()
                 signals = self.signals.get_signals()
 
+                # HACK
+                # Make sure that there is no dependence on variables
+                self.constructor.set_signals_constructor_data(
+                    signals, self.data.get_constructor_data())
+
                 for ac in self._constructor_args:
 
                     self.constructor.set_args(**ac)
-                    self.constructor.set_signals(signals)
-                    self.constructor.set_constructor_data(
-                        self.data.get_constructor_data())
 
                     result, stats = self.constructor.get_period_daily_pl()
 

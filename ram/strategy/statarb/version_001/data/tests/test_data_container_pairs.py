@@ -86,7 +86,6 @@ class TestDataContainerPairs(unittest.TestCase):
 
     def test_prep_live_data(self):
         dc = DataContainerPairs()
-        #import pdb; pdb.set_trace()
         dc.prep_live_data(self.data4, self.market_data)
 
     def test_process_live_data(self):
@@ -135,11 +134,12 @@ class TestDataContainerPairs(unittest.TestCase):
         dc = DataContainerPairs()
         dc._make_responses(self.data)
         result = dc._processed_train_responses.columns.tolist()
-        benchmark = ['SecCode', 'TimeIndex', 'Date', 0, 1, 2]
+        params_count = len(dc.get_args()['response_params'])
+        benchmark = ['SecCode', 'TimeIndex', 'Date'] + range(params_count)
         self.assertListEqual(result, benchmark)
         result = dc._response_arg_map.values()
         result.sort()
-        self.assertListEqual(result, [0, 1, 2])
+        self.assertListEqual(result, range(params_count))
 
     def test_make_ern_date_blackout(self):
         result = make_ern_date_blackout(self.data3, -1, 1)
