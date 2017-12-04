@@ -2,24 +2,17 @@ PYTHON ?= python
 UNITTEST ?= unittest
 CTAGS ?= ctags
 
-TESTDIR=tests
-
 all: install test
 
 install: clean
 	$(PYTHON) setup.py install
 
-# Reinstall with pip
-reinstall: clean
-	pip uninstall ram
-	$(PYTHON) setup.py install
-
-clean-ctags:
+clean:
+	echo "CLEAN TAGS"
 	rm -f tags
-
-clean: clean-ctags
+	find . -type f -name '*.pyc' -delete
 	$(PYTHON) setup.py clean --all
 	rm -rf dist
 
 test:
-	$(PYTHON) -m $(UNITTEST) discover -s $(TESTDIR) -v
+	$(PYTHON) -m $(UNITTEST) discover -v
