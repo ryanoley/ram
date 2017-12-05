@@ -1,10 +1,13 @@
 import os
+import pickle
 import shutil
 import unittest
 import numpy as np
 import pandas as pd
 import datetime as dt
-import pickle
+
+from ram import config
+from ram.strategy.statarb import statarb_config
 
 from sklearn.linear_model import LinearRegression
 
@@ -157,6 +160,33 @@ class TestGetLiveAllocations(unittest.TestCase):
         self.assertListEqual(models, benchmark)
         benchmark = ['run_0003_1000_params.json', 'run_009_12_params.json']
         self.assertListEqual(params, benchmark)
+
+    def test_check_production_implementation_directories(self):
+        # Don't test if on cloud instance
+        if config.GCP_CLOUD_IMPLEMENTATION:
+            return
+        # Check if connected to server
+        if not os.path.isdir(config.IMPLEMENTATION_DATA_DIR):
+            return
+        # Check raw data
+        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'daily_raw_data')
+        all_files = os.listdir(path)
+        self.assertTrue('market_index_data.csv' in all_files)
+        all_files.remove('market_index_data.csv')
+        all_files = [x for x in all_files if x.find('blueprint') == 1]
+        self.assertEqual(len(all_files), 0)
+        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'trained_models',
+                            statarb_config.trained_models_dir_name)
+        all_files = os.listdir(path)
+        self.assertTrue('run_map.csv' in all_files)
+        all_files.remove('run_map.csv')
+        all_files = [x for x in all_files if x.find('skl_model') == 1]
+        all_files = [x for x in all_files if x.find('params') == 1]
+        self.assertEqual(len(all_files), 0)
 
     def tearDown(self):
         if os.path.exists(self.imp_dir):
