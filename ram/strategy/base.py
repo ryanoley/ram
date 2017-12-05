@@ -568,22 +568,26 @@ class Strategy(object):
         """
         This is a wrapper function for cloud implementation.
         """
+        if not self._write_flag:
+            return
         output_name = self._prepped_data_files[index].replace('data', suffix)
         output_path = os.path.join(self.strategy_run_output_dir,
                                    'index_outputs', output_name)
-        if self._write_flag and self._gcp_implementation:
+        if self._gcp_implementation:
             to_csv_cloud(returns_df, output_path, self._gcp_bucket)
-        elif self._write_flag:
+        else:
             returns_df.to_csv(output_path)
 
     def write_index_stats(self, stats, index):
+        if not self._write_flag:
+            return
         output_name = self._prepped_data_files[index].replace(
             'data.csv', 'stats.json')
         output_path = os.path.join(self.strategy_run_output_dir,
                                    'index_outputs', output_name)
-        if self._write_flag and self._gcp_implementation:
+        if self._gcp_implementation:
             write_json_cloud(stats, output_path, self._gcp_bucket)
-        elif self._write_flag:
+        else:
             write_json(stats, output_path)
 
 
