@@ -58,6 +58,13 @@ def _import_format_raw_data(path):
     return data
 
 
+def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+    path = os.path.join(implementation_dir, 'StatArbStrategy',
+                        'live_pricing', 'live_prices.csv')
+    live_data = pd.read_csv(path)
+    return live_data
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def import_run_map(
@@ -73,6 +80,8 @@ def import_run_map(
     # GCP outputs index column, which for this needs to be removed
     if data.columns[0].find('Unnamed') > -1:
         data = data.iloc[:, 1:]
+    # Sort by data version
+    data = data.sort_values('data_version').reset_index()
     return data
 
 
@@ -120,49 +129,105 @@ def _get_model_files(path):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# data = import_raw_data()
-# run_map = import_run_map()
-# models = import_models_params()
+class StatArbImplementation(object):
+
+    def __init__(self, StatArbStrategy=StatArbStrategy):
+        # Used for testing
+        self.StatArbStrategy = StatArbStrategy
+
+    def add_raw_data(self, data):
+        self.raw_data = data
+
+    def add_run_map(self, run_map):
+        self.run_map = run_map
+
+    def add_models_params(self, models_params):
+        self.models_params_strategy = models_params
+
+    def prep(self):
+        assert hasattr(self, 'models_params_strategy')
+        assert hasattr(self, 'run_map')
+        assert hasattr(self, 'raw_data')
+
+        for i, vals in self.run_map.iterrows():
+            strategy = self.StatArbStrategy(
+                strategy_code_version=vals.strategy_version
+            )
+            strategy.strategy_init()
+            strategy.data.prep_live_data(
+                data=self.raw_data[vals.data_version],
+                market_data=self.raw_data['market_data']
+            )
+            self.models_params_strategy[vals.param_name]['strategy'] = \
+                strategy
+
+    def start(self):
+        pass
+
+    def run_live(self, live_data):
+
+        sizes = {}
+
+        for name, objs in self.models_params_strategy.iteritems():
+            strategy = objs['strategy']
+            params = objs['params']
+            model = objs['model']
+
+            strategy.data.process_live_data(live_data)
+
+            sparams = _extract_params(params, strategy.signals.get_args())
+            strategy.signals.set_args(**sparams)
+
+            strategy.signals.set_features(strategy.data.get_train_features())
+            strategy.signals.set_test_data(strategy.data.get_test_data())
+            strategy.signals.set_model(model)
+
+            signals = strategy.signals.get_signals()
+
+            cparams = _extract_params(params, strategy.constructor.get_args())
+            strategy.constructor.set_args(**cparams)
+            strategy.constructor.set_signals_constructor_data(
+                signals, strategy.data.get_constructor_data())
+
+            scores = signals[['SecCode', 'preds']].set_index(
+                'SecCode').to_dict()['preds']
+
+            sizes = _add_sizes(
+                sizes, strategy.constructor.get_day_position_sizes(0, scores))
+
+        return sizes
 
 
+def _extract_params(all_params, selected_params):
+    out = {}
+    for key in selected_params.keys():
+        out[key] = all_params[key]
+    return out
 
 
-# # Perhaps create five different versions of strategy?
-# strategy = StatArbStrategy()
-
-# # LOOP over unique data versions
-# strategy.strategy_code_version = 'version_001'
-# strategy.prepped_data_version = 'version_0013'
-# strategy.strategy_init()
-
-# # DATA
-# strategy.data.prep_live_data(data['version_0013'], data['market_data'])
-
-# # Fake live data
-# live_data = data['version_0013'].copy()
-# live_data = live_data[live_data.Date == live_data.Date.max()]
-# live_data = live_data[['SecCode', 'Date', 'AdjClose', 'AdjOpen',
-#                        'AdjHigh', 'AdjLow', 'AdjVwap', 'AdjVolume']]
-# live_data.Date = dt.datetime.utcnow().date()
-# strategy.data.process_live_data(live_data)
+def _add_sizes(all_sizes, model_sizes):
+    for key, val in model_sizes.iteritems():
+        if key not in all_sizes:
+            all_sizes[key] = 0
+        all_sizes[key] += val
+    return all_sizes
 
 
-# model = models['run_0003_100']['model']
-# params = models['run_0003_100']['params']
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+if __name__ == '__main__':
 
+    data = import_raw_data()
+    run_map = import_run_map()
+    models = import_models_params()
 
-# strategy.signals.set_args(**params['signals'])  # This will eventually not work
-# strategy.signals.set_features(strategy.data.get_train_features())
-# strategy.signals.set_test_data(strategy.data.get_test_data())
-# strategy.signals.set_model(model)
+    strategy = StatArbImplementation()
+    strategy.add_run_map(run_map)
+    strategy.add_raw_data(raw_data)
+    strategy.add_models_params(models_params)
+    strategy.prep()
 
-# signals = strategy.signals.get_signals()
+    live_data = import_live_pricing(self.imp_dir)
 
-
-# strategy.constructor.set_args(**params['constructor'])
-# strategy.constructor.set_constructor_data(strategy.data.get_constructor_data())
-
-# scores = signals[['SecCode', 'preds']].set_index('SecCode').to_dict()['preds']
-# sizes = strategy.constructor.get_day_position_sizes(0, scores)
-
+    # live_data['SecCode'] = ['14141', '43242', '9999']  # Assume merged
+    # imp.run_live(live_data)

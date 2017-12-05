@@ -48,7 +48,7 @@ class BaseDataContainer(object):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @abstractmethod
-    def prep_live_data(self, data):
+    def prep_live_data(self, data, market_data):
         """
         This method can be used to do any pre-processing that should
         then be held in state. `process_live_data` is then called

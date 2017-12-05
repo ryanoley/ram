@@ -49,6 +49,9 @@ def check_implementation_folder_structure(
     path = os.path.join(statarb_path, 'trained_models')
     if not os.path.isdir(path):
         os.mkdir(path)
+    path = os.path.join(statarb_path, 'live_pricing')
+    if not os.path.isdir(path):
+        os.mkdir(path)
     pp_path = os.path.join(statarb_path, 'preprocessed_data')
     if not os.path.isdir(pp_path):
         os.mkdir(pp_path)
