@@ -153,8 +153,8 @@ class Strategy(object):
         return
 
     def restart(self, run_name):
-        self.strategy_init()
         self._import_run_meta_for_restart(run_name)
+        self.strategy_init()
         self._get_prepped_data_file_names()
         self._get_max_run_time_index_for_restart()
         market_data = self.read_market_index_data()
