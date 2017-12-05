@@ -46,9 +46,19 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
 
     def set_signals_constructor_data(self, signals, data):
         self._signals = signals.copy()
-        zscores = _merge_zscores_pair_info(data['zscores'],
-                                           data['pair_info'])
-        zscores = _merge_zscores_signals(zscores, signals, data['pair_info'])
+        # Clean zscores and pair info SecCodes that aren't
+        # in signals (test_data)
+        unique_sec_codes = signals.SecCode.unique()
+
+        pair_info = data['pair_info']
+        pair_info = pair_info[pair_info.PrimarySecCode.isin(unique_sec_codes)]
+        pair_info = pair_info[pair_info.OffsetSecCode.isin(unique_sec_codes)]
+
+        zscores = data['zscores']
+        zscores = zscores[pair_info.pair]
+
+        zscores = _merge_zscores_pair_info(zscores, pair_info)
+        zscores = _merge_zscores_signals(zscores, signals, pair_info)
         zscores = _final_format(zscores)
         self._zscores = zscores
         if 'pricing' in data:

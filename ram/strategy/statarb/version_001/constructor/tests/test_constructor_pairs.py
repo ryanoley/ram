@@ -36,7 +36,7 @@ class TestConstructorPairs(unittest.TestCase):
         zscores['C~B'] = [-9, -8]
         #
         pair_info = pd.DataFrame()
-        pair_info['SecCode'] = ['A', 'A', 'B', 'B', 'C', 'C']
+        pair_info['PrimarySecCode'] = ['A', 'A', 'B', 'B', 'C', 'C']
         pair_info['OffsetSecCode'] = ['B', 'C', 'A', 'C', 'A', 'B']
         pair_info['distances'] = [1, 2, 3, 4, 5, 6]
         pair_info['distance_rank'] = [1, 1, 1, 1, 1, 1]
