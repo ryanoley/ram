@@ -723,6 +723,7 @@ def make_argument_parser(Strategy):
     from ram.data.data_constructor import get_data_version_name
     from ram.data.data_constructor import print_data_versions
     from ram.analysis.run_manager import get_run_data
+    from ram.analysis.run_manager import get_run_name
 
     parser = argparse.ArgumentParser()
 
@@ -836,7 +837,9 @@ def make_argument_parser(Strategy):
         strategy.start(args.description)
 
     elif args.restart_run:
-        run_name = get_run_name(args.restart_run)
+        run_name = get_run_name(strategy_name=Strategy.__name__,
+                                run_name=args.restart_run,
+                                cloud_flag=config.GCP_CLOUD_IMPLEMENTATION)
         strategy = Strategy(write_flag=True)
         strategy.restart(run_name)
 

@@ -693,6 +693,21 @@ def get_run_data(strategy_name, cloud_flag):
         return RunManager.get_run_names(strategy_name)
 
 
+def get_run_name(strategy_name, run_name, cloud_flag=False):
+    if cloud_flag:
+        runs = RunManagerGCP.get_run_names(strategy_name)
+    else:
+        runs = RunManager.get_run_names(strategy_name)
+    # Try to find
+    try:
+        return runs.loc[int(run_name)].Run
+    except:
+        if run_name in runs.Run.values:
+            return run_name
+        else:
+            raise Exception('Run not found')
+
+
 def get_columns(param_dict):
     cols = []
     for vals1 in param_dict.values():
