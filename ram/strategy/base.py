@@ -763,11 +763,11 @@ def make_argument_parser(Strategy):
         '-w', '--write_flag', action='store_true',
         help='Write simulation')
     parser.add_argument(
-        '-r', '--restart_run', action='store_true',
-        help='Restart run')
+        '-r', '--restart_run', type=str,
+        help='Restart run. Enter index or name')
     parser.add_argument(
         '-i', '--implementation_training', action='store_true',
-        help='Restart run')
+        help='Run implementation code')
     parser.add_argument(
         '--description', default=None,
         help='Run description. Used namely in a batch file')
