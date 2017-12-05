@@ -7,6 +7,7 @@ from ram import config
 from ram.strategy.statarb import statarb_config
 from ram.strategy.base import read_json
 
+from ram.data.data_handler_sql import DataHandlerSQL
 from ram.data.data_constructor import DataConstructor
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
@@ -34,6 +35,15 @@ def main():
             '{}_{}'.format(today.strftime('%Y%m%d'), b.strip('.json'))
         # Run
         dc.run_live(blueprint, 'StatArbStrategy')
+
+    # Get ticker mapping
+    dh = DataHandlerSQL()
+    mapping = dh.get_ticker_seccode_map()
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'live_pricing',
+                        'ticker_mapping.csv')
+    mapping.to_csv(path)
 
 
 if __name__ == '__main__':

@@ -263,6 +263,23 @@ class DataHandlerSQL(object):
             )).flatten()
         return self._dates
 
+    @connection_error_handling
+    def get_ticker_seccode_map(self):
+        query_string = \
+            """
+            select A.SecCode, Ticker from ram.dbo.ram_master_ids A
+            join (select SecCode, max(StartDate) as StartDate
+                  from ram.dbo.ram_master_ids group by SecCode) B
+            on A.SecCode = B.SecCode
+            and A.StartDate = B.StartDate
+            where A.Ticker is not null
+            and A.Ticker != ''
+            """
+        mapping = self.sql_execute(query_string)
+        mapping = pd.DataFrame(mapping)
+        mapping.columns = ['SecCode', 'Ticker']
+        return mapping
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _get_filtered_seccodes(self, filter_date, args, table):
