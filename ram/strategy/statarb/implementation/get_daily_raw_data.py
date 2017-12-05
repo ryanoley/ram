@@ -43,7 +43,7 @@ def main():
                         'StatArbStrategy',
                         'live_pricing',
                         'ticker_mapping.csv')
-    mapping.to_csv(path)
+    mapping.to_csv(path, index=None)
 
 
 if __name__ == '__main__':

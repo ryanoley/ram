@@ -32,7 +32,6 @@ class DataHandlerSQL(object):
 
     def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
         self._table = table
-        self._connect()
 
     def _connect(self):
         self._test_time_constraint()
@@ -362,10 +361,11 @@ class DataHandlerSQL(object):
     def sql_execute(self, sqlcmd):
         self._test_time_constraint()
         try:
-            if self._connection is None:
-                self._connect()
+            self._connect()
             self._cursor.execute(sqlcmd)
-            return self._cursor.fetchall()
+            return_data = self._cursor.fetchall()
+            self._disconnect()
+            return return_data
         except Exception as e:
             self._disconnect()
             raise Exception(e)
