@@ -22,6 +22,7 @@ def import_raw_data(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     all_files = _get_all_raw_data_file_names(statarb_path)
     todays_files = _get_max_date_files(all_files)
     output = {}
+    print('Importing raw_data...')
     for f in todays_files:
         name = _format_raw_data_name(f)
         output[name] = _import_format_raw_data(os.path.join(statarb_path, f))
@@ -59,9 +60,23 @@ def _import_format_raw_data(path):
 
 
 def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+
     path = os.path.join(implementation_dir, 'StatArbStrategy',
                         'live_pricing', 'live_prices.csv')
     live_data = pd.read_csv(path)
+
+    live_data['Ticker'] = live_data.Symbol
+    live_data['AdjOpen'] = live_data.OPEN
+    live_data['AdjHigh'] = live_data.HIGH
+    live_data['AdjLow'] = live_data.LOW
+    live_data['AdjClose'] = live_data.LAST
+    live_data['AdjVolume'] = live_data.VOLUME
+    live_data['AdjVwap'] = live_data.VWAP
+
+    path = os.path.join(implementation_dir, 'StatArbStrategy',
+                        'live_pricing', 'ticker_mapping.csv')
+    ticker_map = pd.read_csv(path)
+
     return live_data
 
 
@@ -100,6 +115,7 @@ def import_models_params(
                         trained_model_dir_name)
     model_files, param_files = _get_model_files(path)
     output = {}
+    print('Importing models and parameters...')
     for m, p in zip(model_files, param_files):
         run_name = m.replace('_skl_model.pkl', '')
         output[run_name] = {}
@@ -148,7 +164,7 @@ class StatArbImplementation(object):
         assert hasattr(self, 'models_params_strategy')
         assert hasattr(self, 'run_map')
         assert hasattr(self, 'raw_data')
-
+        print('Prepping data...')
         for i, vals in self.run_map.iterrows():
             strategy = self.StatArbStrategy(
                 strategy_code_version=vals.strategy_version
@@ -160,6 +176,8 @@ class StatArbImplementation(object):
             )
             self.models_params_strategy[vals.param_name]['strategy'] = \
                 strategy
+        print('Finished prepping data...')
+        return
 
     def start(self):
         pass
@@ -217,17 +235,20 @@ def _add_sizes(all_sizes, model_sizes):
 
 if __name__ == '__main__':
 
-    data = import_raw_data()
+    import pdb; pdb.set_trace()
+    live_data = import_live_pricing()
+
+
+    raw_data = import_raw_data()
     run_map = import_run_map()
-    models = import_models_params()
+    models_params = import_models_params()
 
     strategy = StatArbImplementation()
-    strategy.add_run_map(run_map)
     strategy.add_raw_data(raw_data)
+    strategy.add_run_map(run_map)
     strategy.add_models_params(models_params)
     strategy.prep()
 
-    live_data = import_live_pricing(self.imp_dir)
 
     # live_data['SecCode'] = ['14141', '43242', '9999']  # Assume merged
     # imp.run_live(live_data)
