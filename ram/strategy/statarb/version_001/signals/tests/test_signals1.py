@@ -15,11 +15,11 @@ class TestSignalModel1(unittest.TestCase):
     def setUp(self):
         pass
 
-    def Xtest_process_args(self):
-        data = DataContainerPairs()
+    def test_process_args(self):
         signals = SignalModel1()
-        signals.set_features(['IBES_asdf'])
-        signals._process_args()
+        import pdb; pdb.set_trace()
+        signals.set_args()
+
 
     def tearDown(self):
         pass

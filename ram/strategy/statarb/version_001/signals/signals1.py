@@ -1,6 +1,7 @@
 import numpy as np
 
-from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+from sklearn.linear_model import LinearRegression
 
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
 from ram.strategy.statarb.version_001.data.data_container_pairs import \
@@ -10,19 +11,24 @@ from ram.strategy.statarb.version_001.data.data_container_pairs import \
 class SignalModel1(BaseSignalGenerator):
 
     def __init__(self):
-        self.skl_model = ExtraTreesClassifier(n_jobs=-1,
-                                              random_state=123)
+        self.skl_model = None
 
     def get_args(self):
         return {
             'model_params': [
-                {'min_samples_leaf': 200,
+                {'type': 'random_forest',
+                 'min_samples_leaf': 200,
                  'n_estimators': 100,
-                 'max_features': 0.8},
-                {'min_samples_leaf': 100,
+                 'max_features': 0.7},
+
+                {'type': 'linear_model'},
+
+                {'type': 'extra_trees',
+                 'min_samples_leaf': 200,
                  'n_estimators': 100,
-                 'max_features': 0.6},
+                 'max_features': 0.7},
             ],
+
             'drop_ibes': [True, False],
             'drop_accounting': [True, False],
             'drop_starmine': [False],
@@ -35,6 +41,18 @@ class SignalModel1(BaseSignalGenerator):
                  drop_accounting,
                  drop_starmine,
                  drop_market_variables):
+
+        model_type = model_params.pop('type')
+        if model_type == 'extra_trees':
+            self.skl_model = ExtraTreesClassifier(n_jobs=-1,
+                                                  random_state=123)
+        if model_type == 'random_forest':
+            self.skl_model = RandomForestClassifier(n_jobs=-1,
+                                                    random_state=123)
+        if model_type == 'linear_model':
+            self.skl_model = LinearRegression()
+
+
         self._model_params = model_params
         self._drop_ibes = drop_ibes
         self._drop_accounting = drop_accounting
@@ -101,8 +119,12 @@ class SignalModel1(BaseSignalGenerator):
     def get_signals(self):
         self._process_args()
         output = self._test_data[['SecCode', 'Date']].copy()
-        preds = self.skl_model.predict_proba(self._test_data[self._features])
-        output.loc[:, 'preds'] = _get_preds(self.skl_model, preds)
+        if hasattr(self.skl_model, 'predict_proba'):
+            preds = self.skl_model.predict_proba(self._test_data[self._features])
+            output.loc[:, 'preds'] = _get_preds(self.skl_model, preds)
+        else:
+            output.loc[:, 'preds'] = self.skl_model.predict(
+                self._test_data[self._features])
         return output
 
 

@@ -22,22 +22,30 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
                  'signal_thresh_perc': 50},
                 {'type': 'tree_model_long', 'pair_offsets': 3,
                  'signal_thresh_perc': 50},
+                {'type': 'tree_model_long', 'pair_offsets': 5,
+                 'signal_thresh_perc': 50},
 
                 {'type': 'tree_model_long', 'pair_offsets': 1,
                  'signal_thresh_perc': 70},
                 {'type': 'tree_model_long', 'pair_offsets': 3,
                  'signal_thresh_perc': 70},
+                {'type': 'tree_model_long', 'pair_offsets': 5,
+                 'signal_thresh_perc': 70},
 
                 # TREES
-                {'type': 'tree_model', 'pair_offsets': 3},
-                {'type': 'tree_model', 'pair_offsets': 7},
+                {'type': 'tree_model', 'pair_offsets': 1,
+                 'signal_thresh_perc': 50},
+                {'type': 'tree_model', 'pair_offsets': 3,
+                 'signal_thresh_perc': 50},
+                {'type': 'tree_model', 'pair_offsets': 5,
+                 'signal_thresh_perc': 50},
 
-                # # ZSCORES
-                {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 3},
-                {'type': 'zscore_model', 'z_thresh': 0.8, 'n_per_side': 5},
-                {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 3},
-                {'type': 'zscore_model', 'z_thresh': 1.2, 'n_per_side': 5},
-
+                {'type': 'tree_model', 'pair_offsets': 1,
+                 'signal_thresh_perc': 70},
+                {'type': 'tree_model', 'pair_offsets': 3,
+                 'signal_thresh_perc': 70},
+                {'type': 'tree_model', 'pair_offsets': 5,
+                 'signal_thresh_perc': 70},
             ]
         }
 
@@ -91,141 +99,122 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
         # Get relative position sizes
         scores = _select_port_and_offsets(clean_scores, zscores, self._params)
 
-        scores.pos_size *= self.booksize
+        # Scale to dollar value
+        for key in scores.keys():
+            scores[key] *= self.booksize
         # Add in missing scores, and return dictionary
         missing_codes = list(set(all_seccodes) -
-                             set(scores.SecCode.unique().tolist()))
-        scores = dict(zip(scores.SecCode, scores.pos_size))
+                             set(scores.keys()))
         scores2 = dict(zip(missing_codes, [0]*len(missing_codes)))
         scores.update(scores2)
 
         return scores
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def _select_port_and_offsets(scores, data, params):
-
     if params['type'] == 'basic':
-        signals = pd.Series(scores).reset_index()
-        signals.columns = ['SecCode', 'Signal']
-
-        signals['pos_size'] = _get_weighting(signals.Signal,
-                                             logistic_spread=0.1)
-        return signals
+        return _basic(scores)
 
     elif params['type'] == 'tree_model_long':
-        """
-        Idea is to go long the stocks the tree model says go long,
-        and offset with best X pairs ranked by z-score
-        """
-        signals = pd.Series(scores).reset_index()
-        signals.columns = ['SecCode', 'Signal']
-
-        # Get long signals
-        thresh = np.percentile(signals.Signal, params['signal_thresh_perc'])
-        signals = signals[signals.Signal > thresh]
-
-        # Filter for negative zscores, which means go long SecCode
-        data = data[data.zscore < 0]
-        data = data.merge(signals)
-
-        # Rank and count available offsetting securities
-        ranks, counts = _zscore_rank(data)
-
-        data = data[(ranks <= params['pair_offsets']) &
-                    (counts >= params['pair_offsets'])].copy()
-
-        data['pos_size'] = _get_weighting(data.Signal,
-                                          long_only_flag=True,
-                                          logistic_spread=0.1)
-        data['short_size'] = -1 * data.pos_size / params['pair_offsets']
-
-        output = data[['SecCode', 'pos_size']]
-        output2 = data[['OffsetSecCode', 'short_size']]
-        output2.columns = ['SecCode', 'pos_size']
-        positions = output.append(output2).groupby('SecCode')['pos_size'].sum()
-        positions = positions.reset_index()
-        positions.pos_size = positions.pos_size * \
-            (1 / positions.pos_size.abs().sum())
-
-        return positions
+        return _tree_model(scores, data, params, True)
 
     elif params['type'] == 'tree_model':
+        return _tree_model(scores, data, params)
 
-        # Get approximate side to match correct pairs
-        signals = pd.Series(scores).reset_index()
-        signals.columns = ['SecCode', 'Signal']
-        signals['long'] = signals.Signal > signals.Signal.median()
 
-        data = data.merge(signals)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        shorts = data[(~data.long) & (data.zscore > 0)].iloc[::-1]
-        ranks, counts = _zscore_rank(shorts)
+def _tree_model(scores, data, params, long_only_flag=False):
+    # Get approximate side to match correct pairs
+    signals = pd.Series(scores).reset_index()
+    signals.columns = ['SecCode', 'Signal']
 
-        shorts = shorts[(ranks <= params['pair_offsets']) &
-                        (counts >= params['pair_offsets'])].copy()
+    # Get Long Values from model
+    thresh = np.percentile(signals.Signal, params['signal_thresh_perc'])
+    longs = signals[signals.Signal > thresh]
+    longs = data[data.SecCode.isin(longs.SecCode.values)].copy()
+    longs = longs[longs.zscore < 0]
 
-        shorts['pos_size'] = _get_weighting(shorts.Signal,
-                                            long_only_flag=True,
-                                            logistic_spread=0.1) * -1
-        shorts['offset_size'] = shorts.pos_size * -1 / params['pair_offsets']
+    longs = _tree_model_get_pos_sizes(longs, params['pair_offsets'])
 
-        longs = data[(data.long) & (data.zscore < 0)]
-        ranks, counts = _zscore_rank(longs)
+    if long_only_flag:
+        return _tree_model_aggregate_pos_sizes(longs)
 
-        longs = longs[(ranks <= params['pair_offsets']) &
-                      (counts >= params['pair_offsets'])].copy()
+    # Get Short values from model
+    thresh = np.percentile(signals.Signal, 100 - params['signal_thresh_perc'])
+    shorts = signals[signals.Signal < thresh]
+    shorts = data[data.SecCode.isin(shorts.SecCode.values)].copy()
+    shorts = shorts[shorts.zscore > 0]
 
-        longs['pos_size'] = _get_weighting(longs.Signal,
-                                           long_only_flag=True,
-                                           logistic_spread=0.1)
-        longs['offset_size'] = longs.pos_size * -1 / params['pair_offsets']
+    shorts = shorts.iloc[::-1].copy()  # Flip for ranking function
+    shorts.Signal *= -1  # Flip signal to get short
 
-        data = longs.append(shorts)
+    shorts = _tree_model_get_pos_sizes(shorts, params['pair_offsets'])
+    # FLIP position sizes for shorts
+    shorts.pos_size *= -1
+    shorts.offset_size *= -1
 
-        output = data[['SecCode', 'pos_size']]
-        output2 = data[['OffsetSecCode', 'offset_size']]
-        output2.columns = ['SecCode', 'pos_size']
-        positions = output.append(output2).groupby('SecCode')['pos_size'].sum()
-        positions = positions.reset_index()
-        positions.pos_size = positions.pos_size * \
-            (1 / positions.pos_size.abs().sum())
+    positions = longs.append(shorts)
 
-        return positions
+    return _tree_model_aggregate_pos_sizes(positions)
 
-    elif params['type'] == 'zscore_model':
-        # Takes position in OffsetSecCode
 
-        # SHORTS
-        shorts = data[data.zscore < -params['z_thresh']]
-        ranks, counts = _zscore_rank(shorts)
+def _tree_model_get_pos_sizes(data, pair_offsets):
+    """
+    * Input should be sorted by SecCode, ZScore
+    * Rank is applied to zscore per seccode
+    * Top ranked rows are selected
+    * Weighting is dependent upon SecCode signal
+    * If pair_offsets > 1, then multiple SecCodes per row, but unique
+        offsets
+    """
+    ranks, counts = _zscore_rank(data)
+    data = data[(ranks <= pair_offsets) &
+                (counts >= pair_offsets)].copy()
+    data['pos_size'] = _get_weighting(data.Signal,
+                                      long_only_flag=True,
+                                      logistic_spread=0.1)
+    data['offset_size'] = data.pos_size * -1
+    return data
 
-        shorts = shorts[(ranks <= params['n_per_side']) &
-                        (counts >= params['n_per_side'])].copy()
-        # Count
-        shorts['pos_size'] = -1
 
-        # LONGS
-        longs = data[data.zscore > params['z_thresh']].loc[::-1]
-        ranks, counts = _zscore_rank(longs)
+def _tree_model_aggregate_pos_sizes(data):
+    """
+    Stacks data and sums up over unique seccodes
+    """
+    output = {}
+    total_sum = 0.0
+    for s, v in zip(data.SecCode, data.pos_size):
+        if s not in output:
+            output[s] = 0
+        output[s] += v
+        total_sum += abs(v)
+    for s, v in zip(data.OffsetSecCode, data.offset_size):
+        if s not in output:
+            output[s] = 0
+        output[s] += v
+        total_sum += abs(v)
+    # Normalize everything
+    for key in output.keys():
+        output[key] /= total_sum
+    assert sum(output.values()) < 0.001
+    return output
 
-        longs = longs[(ranks <= params['n_per_side']) &
-                      (counts >= params['n_per_side'])].copy()
-        # Count
-        longs['pos_size'] = 1
 
-        # Weight with logistic function
-        positions = longs.append(shorts)[['OffsetSecCode', 'pos_size']]
-        positions.columns = ['SecCode', 'pos_size']
-        positions = positions.groupby('SecCode')['pos_size'].sum()
-        positions = positions.reset_index()
-        positions['pos_size'] = _get_weighting(positions.pos_size,
-                                               long_only_flag=False,
-                                               logistic_spread=0.1)
-        positions.pos_size = positions.pos_size * \
-            (1 / positions.pos_size.abs().sum())
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        return positions
+def _basic(scores):
+    signals = pd.Series(scores).reset_index()
+    signals.columns = ['SecCode', 'Signal']
 
+    signals['pos_size'] = _get_weighting(signals.Signal,
+                                         logistic_spread=0.1)
+    return dict(zip(signals.SecCode, signals.pos_size))
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _merge_zscores_pair_info(zscores, pair_info):
     # Create dataframe with pair/date in index, with zscore and signals
@@ -309,6 +298,8 @@ def _format_scores_dict(scores):
     scores = scores.sort_values('RegScore')
     return scores.reset_index(drop=True)
 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _get_weighting(x, long_only_flag=False, logistic_spread=0.01):
     """
