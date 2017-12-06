@@ -108,7 +108,6 @@ class StatArbStrategy(Strategy):
 
                     self._capture_output(result, stats, i)
                     i += 1
-                sys.exit()
 
         self.write_index_results(self.output_returns, time_index)
         self.write_index_results(self.output_all_output,
