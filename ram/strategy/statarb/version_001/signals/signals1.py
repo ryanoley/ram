@@ -17,15 +17,15 @@ class SignalModel1(BaseSignalGenerator):
         return {
             'model_params': [
                 {'model_type': 'random_forest',
-                 'min_samples_leaf': 200,
-                 'n_estimators': 100,
+                 'min_samples_leaf': 300,
+                 'n_estimators': 30,
                  'max_features': 0.7},
 
                 {'model_type': 'linear_model'},
 
                 {'model_type': 'extra_trees',
-                 'min_samples_leaf': 200,
-                 'n_estimators': 100,
+                 'min_samples_leaf': 300,
+                 'n_estimators': 30,
                  'max_features': 0.7},
             ],
 
