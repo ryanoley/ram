@@ -13,7 +13,6 @@ class TestDataHandlerSQL(unittest.TestCase):
 
     def setUp(self):
         self.dh = DataHandlerSQL()
-        assert self.dh._connection.connected == 1
 
     def test_prior_trading_date(self):
         result = self.dh.prior_trading_date('2017-03-01')
@@ -46,7 +45,7 @@ class TestDataHandlerSQL(unittest.TestCase):
                           ['SecCode', 'Date'])
 
     def tearDown(self):
-        self.dh.close_connections()
+        pass
 
 
 if __name__ == '__main__':
