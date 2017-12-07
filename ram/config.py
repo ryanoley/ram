@@ -13,12 +13,10 @@ except:
         f = open(path, 'w')
         f.write('FLAG = True')
         f.close()
-        GCP_CLOUD_IMPLEMENTATION = True
     else:
         f = open(path, 'w')
         f.write('FLAG = False')
         f.close()
-        GCP_CLOUD_IMPLEMENTATION = False
     print("Re-install python package before running")
     sys.exit()
 
