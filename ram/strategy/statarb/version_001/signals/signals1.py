@@ -41,7 +41,8 @@ class SignalModel1(BaseSignalGenerator):
                  drop_accounting,
                  drop_starmine,
                  drop_market_variables):
-
+        # Local copy needed to pop
+        model_params = model_params.copy()
         model_type = model_params.pop('model_type')
         if model_type == 'extra_trees':
             self.skl_model = ExtraTreesClassifier(n_jobs=-1,
