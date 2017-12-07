@@ -16,14 +16,14 @@ class SignalModel1(BaseSignalGenerator):
     def get_args(self):
         return {
             'model_params': [
-                {'type': 'random_forest',
+                {'model_type': 'random_forest',
                  'min_samples_leaf': 200,
                  'n_estimators': 100,
                  'max_features': 0.7},
 
-                {'type': 'linear_model'},
+                {'model_type': 'linear_model'},
 
-                {'type': 'extra_trees',
+                {'model_type': 'extra_trees',
                  'min_samples_leaf': 200,
                  'n_estimators': 100,
                  'max_features': 0.7},
@@ -42,7 +42,7 @@ class SignalModel1(BaseSignalGenerator):
                  drop_starmine,
                  drop_market_variables):
 
-        model_type = model_params.pop('type')
+        model_type = model_params.pop('model_type')
         if model_type == 'extra_trees':
             self.skl_model = ExtraTreesClassifier(n_jobs=-1,
                                                   random_state=123)
