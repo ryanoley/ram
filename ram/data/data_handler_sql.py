@@ -10,24 +10,6 @@ from ram.data.sql_features import sqlcmd_from_feature_list
 pypyodbc.connection_timeout = 8
 
 
-def connection_error_handling(f):
-    """Decorator"""
-    def new_f(self, *args, **kwargs):
-        try:
-            return f(self, *args, **kwargs)
-        except Exception as e:
-            getattr(self, '_disconnect')()
-            print('Decorator Exception')
-            raise Exception(e)
-        except KeyboardInterrupt:
-            getattr(self, '_disconnect')()
-            print('Decorator Keyboard Interrupt')
-            raise KeyboardInterrupt
-    new_f.__name__ = f.__name__
-    new_f.__doc__ = f.__doc__
-    return new_f
-
-
 class DataHandlerSQL(object):
 
     def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
@@ -71,7 +53,7 @@ class DataHandlerSQL(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Data Interface
-    @connection_error_handling
+
     def get_filtered_univ_data(self,
                                features,
                                start_date,
@@ -110,7 +92,6 @@ class DataHandlerSQL(object):
             seccodes = []
         return self.get_seccode_data(seccodes, features, d1, d3)
 
-    @connection_error_handling
     def get_seccode_data(self,
                          seccodes,
                          features,
@@ -151,7 +132,6 @@ class DataHandlerSQL(object):
             _check_for_duplicates(output, ['SecCode', 'Date'])
         return output
 
-    @connection_error_handling
     def get_index_data(self,
                        seccodes,
                        features,
@@ -212,7 +192,6 @@ class DataHandlerSQL(object):
         univ_df.columns = ['SecCode', 'Date'] + features
         return univ_df
 
-    @connection_error_handling
     def get_etf_data(self,
                      tickers,
                      features,
@@ -251,7 +230,6 @@ class DataHandlerSQL(object):
         univ_df = univ_df.drop('Ticker', axis=1)
         return univ_df
 
-    @connection_error_handling
     def get_all_dates(self):
         if not hasattr(self, '_dates'):
             # Get all dates available in master database
@@ -262,7 +240,6 @@ class DataHandlerSQL(object):
             )).flatten()
         return self._dates
 
-    @connection_error_handling
     def get_ticker_seccode_map(self):
         query_string = \
             """
@@ -329,7 +306,6 @@ class DataHandlerSQL(object):
             "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
         return seccodes[seccodes.Ticker.isin(tickers)]
 
-    @connection_error_handling
     def prior_trading_date(self, t0_dates=dt.date.today()):
         if not isinstance(t0_dates, list):
             t0_dates = [t0_dates]
