@@ -32,6 +32,8 @@ IMPLEMENTATION_DATA_DIR = os.path.join(BASE_DIR, 'implementation')
 
 SIMULATIONS_DATA_DIR = os.path.join(BASE_DIR, 'simulations')
 
+POSITION_SHEET_DIR = os.path.join(BASE_DIR, 'position_sheet')
+
 COMBO_SEARCH_OUTPUT_DIR = os.path.join(BASE_DIR, 'combo_search')
 
 ERN_PEAD_DIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'temp_ern_pead')

@@ -236,6 +236,23 @@ class TestGetLiveAllocations(unittest.TestCase):
         data['VWAP'] = [1, 2, 3]
         data['VOLUME'] = [1, 2, 3]
         data.to_csv(os.path.join(path3, 'live_prices.csv'), index=None)
+        # Ticker mapping
+        data = pd.DataFrame()
+        data['SecCode'] = ['1010', '5050']
+        data['Ticker'] = ['IBM', 'AAPL']
+        data.to_csv(os.path.join(path3, 'ticker_mapping.csv'), index=None)
+        # Position sheet positions
+        positions = pd.DataFrame()
+        positions['position'] = ['5050_StatArb_A0123', '1010_StatArb_A0123',
+                                 'GE Special Sit', 'CUDA Earnings']
+        positions['symbol'] = ['AAPL', 'IBM', 'GE', 'CUDA']
+        positions['share_count'] = [1000, -1000, 100, 3333]
+        positions['market_price'] = [10, 30, 10, 20]
+        positions['position_value'] = [10000, -30000, 330303, -1292]
+        positions['daily_pl'] = [20303, -2032, 3, 1]
+        positions['position_value_perc_aum'] = [0.003, 0.001, 0.1, 10.]
+        positions.to_csv(os.path.join(self.imp_dir, '20101112_positions.csv'),
+                         index=0)
 
     def test_import_raw_data(self):
         result = import_raw_data(self.imp_dir)
@@ -362,10 +379,12 @@ class TestGetLiveAllocations(unittest.TestCase):
         run_map = import_run_map(self.imp_dir, 'models_0005')
         raw_data = import_raw_data(self.imp_dir)
         models_params = import_models_params(self.imp_dir, 'models_0005')
+        positions = import_portfolio_manager_positions(self.imp_dir)
         imp = StatArbImplementation(StatArbStrategyTest)
         imp.add_run_map(run_map)
         imp.add_raw_data(raw_data)
         imp.add_models_params(models_params)
+        imp.add_positions(positions)
         imp.prep()
         live_data = import_live_pricing(self.imp_dir)
         live_data['SecCode'] = ['14141', '43242', '9999']  # Assume merged
@@ -377,6 +396,7 @@ class TestGetLiveAllocations(unittest.TestCase):
     def test_extract_params(self):
         all_params = {'V1': 10, 'V2': 20, 'V3': 3}
         imp = StatArbStrategyTest()
+        imp.strategy_init()
         p1 = imp.data.get_args()
         result = _extract_params(all_params, p1)
         benchmark = {'V3': 3}
@@ -400,6 +420,14 @@ class TestGetLiveAllocations(unittest.TestCase):
         all_sizes = _add_sizes(all_sizes, model_sizes)
         benchmark = {'a': -50, 'b': -250, 'c': 300}
         self.assertDictEqual(all_sizes, benchmark)
+
+    def test_import_portfolio_manager_positions(self):
+        result = import_portfolio_manager_positions(self.imp_dir)
+        benchmark = pd.DataFrame()
+        benchmark['position'] = ['5050_StatArb_A0123', '1010_StatArb_A0123']
+        benchmark['symbol'] = ['AAPL', 'IBM']
+        benchmark['share_count'] = [1000, -1000]
+        assert_frame_equal(result, benchmark)
 
     def tearDown(self):
         if os.path.exists(self.imp_dir):

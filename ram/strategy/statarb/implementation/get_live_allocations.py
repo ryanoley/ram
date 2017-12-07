@@ -145,6 +145,21 @@ def _get_model_files(path):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def import_portfolio_manager_positions(
+        position_sheet_dir=config.POSITION_SHEET_DIR):
+    all_files = os.listdir(position_sheet_dir)
+    all_files = [x for x in all_files if x.find('positions.csv') > -1]
+    file_name = max(all_files)
+    positions = pd.read_csv(os.path.join(position_sheet_dir, file_name))
+    positions = positions[['position', 'symbol', 'share_count']]
+    # Locate positions with correct statarb prefix
+    inds = [x.find('StatArb_') > -1 for x in positions.position]
+    positions = positions.loc[inds].reset_index(drop=True)
+    return positions
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 class StatArbImplementation(object):
 
     def __init__(self, StatArbStrategy=StatArbStrategy):
@@ -159,6 +174,9 @@ class StatArbImplementation(object):
 
     def add_models_params(self, models_params):
         self.models_params_strategy = models_params
+
+    def add_positions(self, positions):
+        self.positions = positions
 
     def prep(self):
         assert hasattr(self, 'models_params_strategy')
@@ -234,19 +252,22 @@ def _add_sizes(all_sizes, model_sizes):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 if __name__ == '__main__':
-
+    # TEMP
     import pdb; pdb.set_trace()
     live_data = import_live_pricing()
 
-
+    # Actual order
     raw_data = import_raw_data()
     run_map = import_run_map()
     models_params = import_models_params()
+    positions = import_portfolio_manager_positions()
 
     strategy = StatArbImplementation()
     strategy.add_raw_data(raw_data)
     strategy.add_run_map(run_map)
     strategy.add_models_params(models_params)
+    strategy.add_positions(positions)
+
     strategy.prep()
 
 
