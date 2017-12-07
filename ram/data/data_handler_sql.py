@@ -41,7 +41,6 @@ class DataHandlerSQL(object):
             self._cursor.close()
             self._connection.close()
         except:
-            print('No connection closed')
             pass
         self._cursor = None
         self._connection = None
