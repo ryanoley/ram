@@ -59,7 +59,7 @@ class PostErnStrategy(Strategy):
                 self.signals.rf_signals(self.data, **as_)
 
                 for ac in args_constructor:
-    
+
                     result, stats = self.constructor.get_daily_pl(self.data,
                                                                   self.signals,
                                                                   **ac)

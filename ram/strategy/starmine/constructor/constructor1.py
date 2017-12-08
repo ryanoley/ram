@@ -12,11 +12,11 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'long_thresh': [.025, .03, .035],
-            'short_thresh': [.005, .0075, .01],
+            'long_thresh': [.02, .025, .03],
+            'short_thresh': [.0075, .01, .0125],
             'pos_size': [.02],
             'entry_dates': [[2, 3, 4, 5]],
-            'dd_thresh': [-.2, -.1],
+            'dd_thresh': [-.2],
             'close_out': [True],
             'scale_weights': [True]
         }
@@ -49,10 +49,12 @@ class PortfolioConstructor1(Constructor):
                     data_container.get_pricing_dicts(date, mkt_prices=True)
 
             if date == test_dates.Date.iloc[0]:
-                portfolio.update_prices(closes, dividends, splits)
-                portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
+                portfolio.update_prices(closes)
+                portfolio.update_prices(mkt_close)
                 portfolio.add_sector_info(ind_groups)
             elif date == test_dates.Date.iloc[-1]:
+                portfolio.update_splits_dividends(splits, dividends)
+                portfolio.update_prices(vwaps)
                 portfolio.close_portfolio_positions()
             else:
                 scores = get_scores(scores_dict, prior_dt, long_thresh,
@@ -66,27 +68,30 @@ class PortfolioConstructor1(Constructor):
                     scores, portfolio, exit_flag, **kwargs)
                 position_sizes = self._get_position_sizes_dollars(positions)
 
+                portfolio.update_splits_dividends(splits, dividends)
                 portfolio.update_position_sizes(position_sizes, vwaps)
-                portfolio.update_prices(closes, dividends, splits)
+                portfolio.update_prices(closes)
 
                 mkt_size = self._get_position_sizes_dollars(
-                    {'HEDGE':-net_exposure})
+                                                    {'HEDGE':-net_exposure})
+                portfolio.update_splits_dividends(mkt_split, mkt_dividend)
                 portfolio.update_position_sizes(mkt_size, mkt_vwap)
-                portfolio.update_prices(mkt_close, mkt_dividend, mkt_split)
+                portfolio.update_prices(mkt_close)
 
+                # For Hedged Position Cum Ret Calc
                 portfolio.update_mkt_prices(mkt_adj_close)
 
             daily_df = self.update_daily_df(daily_df, portfolio, date,
-                                            ind_stats=False)
+                                            ind_stats=True)
             portfolio.reset_daily_pl()
 
         # Time Index aggregate stats
         stats = {}
         return daily_df, stats
 
-    def get_position_sizes(self, scores, portfolio, close_seccodes, pos_size, 
+    def get_position_sizes(self, scores, portfolio, close_seccodes, pos_size,
                            close_out=False):
-    
+
         """
         Position sizes are determined by the ranking, and for an
         even number of scores the position sizes should be symmetric on
