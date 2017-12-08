@@ -32,10 +32,10 @@ class SignalModel1(object):
                             set(['prtgt_est_change', 'prtgt_discount',
                                  'prtgt_disc_change','anr_rec_change',
                                  'RECMEAN']))
-            
+
         train_data = data_container.train_data
         test_data = data_container.test_data
-    
+
         for e in range(1, data_container._entry_window):
             e_train = train_data[train_data['T'] == e].copy()
             e_test = test_data[test_data['T'] == e].copy()
@@ -93,4 +93,4 @@ def _get_preds(classifier, preds):
     else:
         long_ind = np.where(classifier.classes_ == 1)[0][0]
         return preds[:, long_ind]
-    
+

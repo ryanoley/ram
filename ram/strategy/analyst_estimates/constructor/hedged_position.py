@@ -24,7 +24,18 @@ class HedgedPosition(Position):
         self.weight = 0.
         self.hold_days = -1
 
-    def update_position_prices(self, price, dividend, split):
+    def split_adjustment(self, split):
+        # Handle splits
+        self.shares = self.shares * split
+        self.current_price = self.current_price / split
+        return
+
+    def dividend_adjustment(self, dividend):
+        # Add dividend
+        self.daily_pl += dividend * self.shares
+        return
+
+    def update_position_prices(self, price):
         """
         NOTE:
         The column in the database is SplitFactor, but it has been manipulated
@@ -38,20 +49,14 @@ class HedgedPosition(Position):
         elif np.isnan(price) | (price == 0):
             self.close_position()
             return
-        # Handle splits
-        if split != 1:
-            self.shares = self.shares * split
-            self.current_price = self.current_price / split
         self.daily_pl += (price - self.current_price) * self.shares
-        if dividend:
-            self.daily_pl += dividend * self.shares
         self.current_price = float(price)
         self.exposure = self.shares * self.current_price
         if self.exposure != 0:
             self.cumulative_return += self.daily_pl / np.abs(self.exposure)
         return
 
-    def update_mkt_prices(self, market_price):
+    def update_mkt_price(self, market_price):
         if 'HEDGE' not in market_price.keys():
             raise ValueError('HEDGE must be in key value in arg')
         mkt_px = market_price['HEDGE']

@@ -37,7 +37,12 @@ class PostErnStrategy(Strategy):
         self.data.add_data(data)
 
     def run_index(self, time_index):
-        if self._write_flag and time_index < 8:
+
+        if len(self.data._processed_train_data) == 0:
+            return
+        elif len(self.data._processed_test_data) == 0:
+            return
+        elif self._write_flag and time_index < 8:
             return
 
         args_data = make_arg_iter(self.data.get_args())
@@ -54,7 +59,7 @@ class PostErnStrategy(Strategy):
                 self.signals.rf_signals(self.data, **as_)
 
                 for ac in args_constructor:
-    
+
                     result, stats = self.constructor.get_daily_pl(self.data,
                                                                   self.signals,
                                                                   **ac)

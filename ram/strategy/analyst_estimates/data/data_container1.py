@@ -7,7 +7,7 @@ from ram.strategy.basic.utils import make_variable_dict
 from gearbox import create_time_index, convert_date_array
 
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
-                        'PostErnStrategy', 'qqq.csv')
+                        'PostErnStrategy', 'spy.csv')
 
 
 class DataContainer1(object):
@@ -22,8 +22,8 @@ class DataContainer1(object):
     def get_args(self):
         return {
             'response_days': [20],
-            'training_qtrs': [-99],
-            'ind_vars': [False]
+            'training_qtrs': [16, 24, 32],
+            'ind_vars': [True, False]
         }
 
     def _set_market_pricing_dicts(self):
@@ -43,7 +43,6 @@ class DataContainer1(object):
         """
         Takes in raw data, processes it and caches it
         """
-
         data = self.process_raw_data(data)
 
         # Filter nans
@@ -112,7 +111,7 @@ class DataContainer1(object):
         data.eps_est_change /= np.abs(data.EPSESTIMATEFQ1)
         data.ebitda_est_change /= np.abs(data.EBITDAESTIMATEFQ1)
         data.rev_est_change /= np.abs(data.REVENUEESTIMATEFQ1)
-        
+
         data.eps_est_change.fillna(0., inplace=True)
         data.rev_est_change.fillna(0., inplace=True)
         data.ebitda_est_change.fillna(0., inplace=True)
@@ -170,8 +169,8 @@ class DataContainer1(object):
         train_data = self._add_response_variables(train_data, response_days)
         if ind_vars:
             ind_cols = [x for x in train_data.columns if x[:3] == 'Ind']
-            train_data.loc[:, ind_cols].fillna(0, inplace=True)
-            test_data.loc[:, ind_cols].fillna(0, inplace=True)
+            train_data.loc[:, ind_cols] = train_data[ind_cols].fillna(0)
+            test_data.loc[:, ind_cols] = test_data[ind_cols].fillna(0)
             self.features = list(set(self.features).union(set(ind_cols)))
 
         self.train_data = train_data
