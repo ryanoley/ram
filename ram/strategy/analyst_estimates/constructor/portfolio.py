@@ -10,7 +10,7 @@ class Portfolio(object):
     def __init__(self):
         self.positions = {}
 
-    def update_prices(self, closes, dividends, splits):
+    def update_prices(self, closes):
         """
         Should be first step in daily loop!
 
@@ -20,10 +20,21 @@ class Portfolio(object):
         """
         for symbol, close_ in closes.iteritems():
             if symbol not in self.positions:
-                self.positions[symbol] = HedgedPosition(symbol=symbol, price=close_)
+                self.positions[symbol] = HedgedPosition(symbol=symbol,
+                                                        price=close_)
             else:
-                self.positions[symbol].update_position_prices(
-                    close_, dividends[symbol], splits[symbol])
+                self.positions[symbol].update_position_prices(close_)
+        return
+
+    def update_splits_dividends(self, splits, dividends):
+        for symbol, dividend in dividends.iteritems():
+            if dividend != 0.:
+                self.positions[symbol].dividend_adjustment(dividend)
+
+        for symbol, split in splits.iteritems():
+            if split != 1.:
+                self.positions[symbol].split_adjustment(split)
+
         return
 
     def update_position_sizes(self, sizes, exec_prices):
@@ -127,11 +138,11 @@ class Portfolio(object):
             if weight != 0:
                 self.positions[symbol].hold_days += 1
         return
-    
+
     def update_mkt_prices(self, mkt_price):
         for position in self.positions.values():
             if (position.exposure != 0) & (position.symbol != 'HEDGE'):
-                position.update_mkt_prices(mkt_price)
+                position.update_mkt_price(mkt_price)
         return
 
     def add_sector_info(self, sectors):

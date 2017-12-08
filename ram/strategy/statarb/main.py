@@ -17,6 +17,9 @@ from ram.strategy.statarb.utils import make_arg_iter
 
 from ram.strategy.statarb.data_blueprints import blueprint_container
 
+from ram.strategy.statarb.implementation.preprocess_new_models import \
+    import_current_top_params
+
 # HELPER
 strategy_versions = StrategyVersionContainer()
 strategy_versions.add_version('version_001', 'Current implementation')
@@ -119,7 +122,8 @@ class StatArbStrategy(Strategy):
 
     def implementation_training(self):
         # Import top params from wherever
-        top_params = statarb_config.implementation_top_models
+        top_params = import_current_top_params().keys()
+
         # Process
         run_map = self.implementation_training_prep(top_params, True)
         # Placeholder to determine if data should be reloaded

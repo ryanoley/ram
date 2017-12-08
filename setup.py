@@ -14,10 +14,10 @@ PACKAGES = [
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
     # ~~~ STARMINE ~~~
-    'ram/strategy/starmine',
-    'ram/strategy/starmine/constructor',
-    'ram/strategy/starmine/data',
-    'ram/strategy/starmine/signals',
+    'ram/strategy/analyst_estimates',
+    'ram/strategy/analyst_estimates/constructor',
+    'ram/strategy/analyst_estimates/data',
+    'ram/strategy/analyst_estimates/signals',
     # ~~~ STATARB ~~~
     'ram/strategy/statarb',
     'ram/strategy/statarb/abstract',
