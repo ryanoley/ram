@@ -9,7 +9,7 @@ from ram.strategy.starmine.data.data_container1 import DataContainer1
 from ram.strategy.starmine.constructor.constructor1 import PortfolioConstructor1
 
 
-class PostErnStrategy(Strategy):
+class AnalystEstimates(Strategy):
 
     data = DataContainer1()
     signals = SignalModel1()
