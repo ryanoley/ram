@@ -11,18 +11,13 @@ PACKAGES = [
     'ram/aws',
     'ram/data',
     'ram/strategy',
-    'ram/strategy/basic',
-    'ram/strategy/basic/data',
-    'ram/strategy/basic/constructor',
-    'ram/strategy/basic/signals',
-    'ram/strategy/cta',
-    'ram/strategy/etfs',
-    'ram/strategy/etfs/src',
-    'ram/strategy/gap',
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
-    'ram/strategy/momentum',
-    'ram/strategy/reversion',
+    # ~~~ STARMINE ~~~
+    'ram/strategy/starmine',
+    'ram/strategy/starmine/constructor',
+    'ram/strategy/starmine/data',
+    'ram/strategy/starmine/signals',
     # ~~~ STATARB ~~~
     'ram/strategy/statarb',
     'ram/strategy/statarb/abstract',
@@ -32,13 +27,7 @@ PACKAGES = [
     'ram/strategy/statarb/version_001/data',
     'ram/strategy/statarb/version_001/signals',
     # ~~~~~~~~~~~~~~~
-    'ram/strategy/vxx',
-    'ram/strategy/yearend',
     'ram/utils',
-    'ram/strategy/starmine',
-    'ram/strategy/starmine/constructor',
-    'ram/strategy/starmine/data',
-    'ram/strategy/starmine/signals',
 ]
 
 setup(
