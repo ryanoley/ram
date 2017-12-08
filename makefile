@@ -4,7 +4,6 @@ UNITTEST ?= unittest
 all: install test
 
 install: clean
-	$(PYTHON) ram/config.py
 	$(PYTHON) setup.py install
 
 clean:
