@@ -3,7 +3,7 @@ import json
 import pandas as pd
 
 from ram import config
-from ram.strategy.statarb.statarb_config import implementation_top_models
+
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 from ram.strategy.base import read_json, write_json
@@ -68,7 +68,8 @@ def check_implementation_folder_structure(
 
 
 def import_current_top_params(
-        top_params_dir=os.path.dirname(os.path.abspath(__file__))):
+        top_params_dir=os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
+                                    'strategy', 'statarb', 'implementation')):
     return read_json(os.path.join(top_params_dir, 'current_top_params.json'))
 
 
