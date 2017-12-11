@@ -141,8 +141,12 @@ class StatArbStrategy(Strategy):
                     vals.run_name)
             params = all_params[vals.column_name]
             # Fit model and cache
-            self.data.set_args(**params['data'])
-            self.signals.set_data_args(self.data, **params['signals'])
+            data_params = dict([(k, params[k]) for k
+                                in self.data.get_args().keys()])
+            self.data.set_args(**data_params)
+            signal_params = dict([(k, params[k]) for k
+                                  in self.signals.get_args().keys()])
+            self.signals.set_data_args(self.data, **signal_params)
             self.signals.fit_model()
             self.implementation_training_write_params_model(
                 vals.param_name, params, self.signals.get_model())
