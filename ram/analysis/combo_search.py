@@ -26,26 +26,23 @@ class CombinationSearch(object):
                  write_flag=False,
                  checkpoint_n_epochs=10,
                  combo_search_output_dir=config.COMBO_SEARCH_OUTPUT_DIR,
-                 gcp_implementation=False,
                  restart_combo_name=None):
-        # Parameters regardless if new or restart
+
         self.write_flag = write_flag
         self.checkpoint_n_epochs = checkpoint_n_epochs
-        self.gcp_implementation = gcp_implementation
+        self._combo_search_output_dir = combo_search_output_dir
+        self._init_gcp_implementation()
+        self._init_params(restart_combo_name)
         # Output related functionality
-        if self.write_flag and self.gcp_implementation:
-            self._gcp_client = storage.Client()
-            self._bucket = self._gcp_client.get_bucket(
-                config.GCP_STORAGE_BUCKET_NAME)
-            self._combo_search_output_dir = 'combo_search'
-        elif self.write_flag:
-            self._combo_search_output_dir = combo_search_output_dir
         self.runs = RunAggregator()
-        # If restarting, load those parameters
+
+    def _init_params(self, restart_combo_name=None):
         if restart_combo_name:
-            self.combo_run_dir = os.path.join(combo_search_output_dir,
+            self._restart_flag = True
+            self.combo_run_dir = os.path.join(self._combo_search_output_dir,
                                               restart_combo_name)
         else:
+            self._restart_flag = False
             # Default parameters
             self.params = {
                 'train_freq': 'm',
@@ -54,6 +51,17 @@ class CombinationSearch(object):
                 'n_best_ports': 5,
                 'seed_ind': 1234
             }
+
+    def _init_gcp_implementation(self):
+        self._gcp_implementation = config.GCP_CLOUD_IMPLEMENTATION
+        if self._gcp_implementation:
+            self._gcp_client = storage.Client()
+            self._gcp_bucket = self._gcp_client.get_bucket(
+                config.GCP_STORAGE_BUCKET_NAME)
+            self._combo_search_output_dir = 'combo_search'
+        return
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def add_run(self, run):
         self.runs.add_run(run)
@@ -197,7 +205,7 @@ class CombinationSearch(object):
         sets the run_dir. This implementation has been reworked for gcp.
         """
         if self.write_flag and self.gcp_implementation:
-            all_files = [x.name for x in self._bucket.list_blobs()]
+            all_files = [x.name for x in self._gcp_bucket.list_blobs()]
             all_files = [x for x in all_files if x.startswith(
                 self._combo_search_output_dir)]
             strip_str = self._combo_search_output_dir + '/'
@@ -229,8 +237,8 @@ class CombinationSearch(object):
         path1 = os.path.join(self.combo_run_dir, 'all_returns.csv')
         path2 = os.path.join(self.combo_run_dir, 'all_column_params.json')
         if self.write_flag and self.gcp_implementation:
-            to_csv_cloud(self.runs.returns, path1, self._bucket)
-            write_json_cloud(self.runs.column_params, path2, self._bucket)
+            to_csv_cloud(self.runs.returns, path1, self._gcp_bucket)
+            write_json_cloud(self.runs.column_params, path2, self._gcp_bucket)
         elif self.write_flag and not self.gcp_implementation:
             self.runs.returns.to_csv(path1)
             write_json(self.runs.column_params, path2)
@@ -308,28 +316,28 @@ class CombinationSearch(object):
             if self.gcp_implementation:
                 to_csv_cloud(self.epoch_stats, os.path.join(
                     self.combo_run_dir, 'epoch_stats.csv'),
-                    self._bucket)
+                    self._gcp_bucket)
                 to_csv_cloud(self.best_results_rets, os.path.join(
                     self.combo_run_dir, 'best_results_rets.csv'),
-                    self._bucket)
+                    self._gcp_bucket)
 
                 write_json_cloud(scores, os.path.join(
                     self.combo_run_dir, 'best_results_scores.json'),
-                    self._bucket)
+                    self._gcp_bucket)
                 write_json_cloud(combs, os.path.join(
                     self.combo_run_dir, 'best_results_combs.json'),
-                    self._bucket)
+                    self._gcp_bucket)
                 write_json_cloud(best_combs, os.path.join(
                     self.combo_run_dir, 'current_top_params.json'),
-                    self._bucket)
+                    self._gcp_bucket)
                 # This is re-written because seed_ind is constantly updated
                 write_json_cloud(self.params, os.path.join(
                     self.combo_run_dir, 'combo_search_params.json'),
-                    self._bucket)
+                    self._gcp_bucket)
                 # Matplotlib
                 sio = cStringIO.StringIO()
                 plt.savefig(sio, format='png')
-                blob = self._bucket.blob(os.path.join(
+                blob = self._gcp_bucket.blob(os.path.join(
                     self.combo_run_dir, 'best_results.png'))
                 blob.upload_from_string(sio.getvalue())
 
@@ -365,14 +373,14 @@ class CombinationSearch(object):
         path7 = os.path.join(self.combo_run_dir, 'all_column_params.json')
 
         if self.gcp_implementation:
-            self.runs.returns = read_csv_cloud(path1, self._bucket)
-            self.epoch_stats = read_csv_cloud(path2, self._bucket)
-            self.best_results_rets = read_csv_cloud(path3, self._bucket)
+            self.runs.returns = read_csv_cloud(path1, self._gcp_bucket)
+            self.epoch_stats = read_csv_cloud(path2, self._gcp_bucket)
+            self.best_results_rets = read_csv_cloud(path3, self._gcp_bucket)
 
-            self.best_results_scores = read_json_cloud(path4, self._bucket)
-            self.best_results_combs = read_json_cloud(path5, self._bucket)
-            self.params = read_json_cloud(path6, self._bucket)
-            self.runs.column_params = read_json_cloud(path7, self._bucket)
+            self.best_results_scores = read_json_cloud(path4, self._gcp_bucket)
+            self.best_results_combs = read_json_cloud(path5, self._gcp_bucket)
+            self.params = read_json_cloud(path6, self._gcp_bucket)
+            self.runs.column_params = read_json_cloud(path7, self._gcp_bucket)
         else:
             self.runs.returns = pd.read_csv(path1)
             self.epoch_stats = pd.read_csv(path2)

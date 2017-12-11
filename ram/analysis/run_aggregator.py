@@ -15,6 +15,9 @@ class RunAggregator(object):
         self.runs.append(run)
 
     def aggregate_returns(self):
+        if hasattr(self, 'returns'):
+            print('Returns have already been imported..')
+            return
         agg_returns = pd.DataFrame()
         agg_params = {}
         print('Reading and aggregating runs...')
