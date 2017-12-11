@@ -146,7 +146,12 @@ class StatArbStrategy(Strategy):
             self.data.set_args(**data_params)
             signal_params = dict([(k, params[k]) for k
                                   in self.signals.get_args().keys()])
-            self.signals.set_data_args(self.data, **signal_params)
+            self.signals.set_args(**signal_params)
+            self.signals.set_features(self.data.get_train_features())
+            self.signals.set_train_data(self.data.get_train_data())
+            self.signals.set_train_responses(
+                self.data.get_train_responses())
+            self.signals.set_test_data(self.data.get_test_data())
             self.signals.fit_model()
             self.implementation_training_write_params_model(
                 vals.param_name, params, self.signals.get_model())
