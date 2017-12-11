@@ -115,14 +115,22 @@ class RunManager(object):
                                              in self.column_params}
 
     def import_column_params(self):
+        if not hasattr(self, 'meta'):
+            self.import_meta()
         path = self.simulation_data_path
-        ppath = os.path.join(path, self.strategy_class, self.run_name,
-                             'column_params.json')
+        ppath = os.path.join(path, self.strategy_class,
+                             self.run_name, 'column_params.json')
         column_params = json.load(open(ppath, 'r'))
         # Convert keys to strings
         new_column_params = {}
         for k, v in column_params.iteritems():
-            new_column_params[str(k)] = v
+            new_p = {
+                'column_params': v,
+                'prepped_data_version': self.meta['prepped_data_version'],
+                'strategy_code_version': self.meta['strategy_code_version'],
+                'description': self.meta['description']
+            }
+            new_column_params[str(k)] = new_p
         self.column_params = new_column_params
 
     def import_meta(self):
@@ -430,12 +438,20 @@ class RunManagerGCP(RunManager):
                                              in self.column_params}
 
     def import_column_params(self):
+        if not hasattr(self, 'meta'):
+            self.import_meta()
         file_path = self._get_storage_run_files('column_params.json')[0]
         blob = self._bucket.get_blob(file_path)
         column_params = json.loads(blob.download_as_string())
         new_column_params = {}
         for k, v in column_params.iteritems():
-            new_column_params[str(k)] = v
+            new_p = {
+                'column_params': v,
+                'prepped_data_version': self.meta['prepped_data_version'],
+                'strategy_code_version': self.meta['strategy_code_version'],
+                'description': self.meta['description']
+            }
+            new_column_params[str(k)] = new_p
         self.column_params = new_column_params
 
     def import_meta(self):
