@@ -55,7 +55,8 @@ class TestRunAggregator(unittest.TestCase):
         f.close()
         # Create a meta file
         meta = {'description': 'Test data', 'start_time': '2010-01-01',
-                'prepped_data_version': 'version_0010'}
+                'prepped_data_version': 'version_0010',
+                'strategy_code_version': 'version_0002'}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
         f.close()
@@ -106,6 +107,7 @@ class TestRunAggregator(unittest.TestCase):
         self.assertTrue('column_params' in result)
         self.assertTrue('prepped_data_version' in result)
         self.assertTrue('description' in result)
+        self.assertTrue('strategy_code_version' in result)
 
     def test_basic_model_selection(self):
         rm1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
