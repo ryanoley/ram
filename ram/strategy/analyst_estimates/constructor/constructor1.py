@@ -13,7 +13,7 @@ class PortfolioConstructor1(Constructor):
     def get_args(self):
         return {
             'long_thresh': [.02, .025, .03],
-            'short_thresh': [.0075, .01, .0125],
+            'short_thresh': [.006, .008, .01],
             'pos_size': [.02],
             'entry_dates': [[2, 3, 4, 5]],
             'dd_thresh': [-.2],
