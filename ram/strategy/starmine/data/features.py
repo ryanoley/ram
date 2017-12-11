@@ -101,7 +101,7 @@ def get_previous_ern_return(data, prior_data=pd.DataFrame()):
     '''
     data_cols = ['SecCode', 'Date', 'EARNINGSFLAG', 'EARNINGSRETURN']
     assert set(data_cols).issubset(data.columns)
-    
+
     train = data[data_cols].copy()
     if len(prior_data > 0):
         assert set(data_cols).issubset(prior_data.columns)
@@ -122,7 +122,7 @@ def get_previous_ern_return(data, prior_data=pd.DataFrame()):
 def get_vwap_returns(data, days, hedged=False, market_data=None):
     exit_col = 'LEAD{}_AdjVwap'.format(days +  1)
     ret_col = 'Ret{}'.format(days)
-    
+
     assert set(['LEAD1_AdjVwap', exit_col]).issubset(data.columns)
     prices  = data[['SecCode', 'Date', exit_col, 'LEAD1_AdjVwap']].copy()
     prices[ret_col] = (prices[exit_col] / prices.LEAD1_AdjVwap)
@@ -135,25 +135,25 @@ def get_vwap_returns(data, days, hedged=False, market_data=None):
         prices[ret_col] -= prices.MktRet
     else:
         prices[ret_col] -= 1
-    
+
     data = data.merge(prices[['SecCode', 'Date', ret_col]], how='left')
     return data
 
 def act_vs_est_missbeat(data, est_col, act_col, out_name, fill_low_est=False):
     assert set([est_col, act_col, 'EARNINGSFLAG']).issubset(data.columns)
-    
+
     ern_flag = data.pivot(index='Date', columns='SecCode',
                           values='EARNINGSFLAG')
     estimate = data.pivot(index='Date', columns='SecCode', values=est_col)
     actual = data.pivot(index='Date', columns='SecCode', values=act_col)
-    
+
     if fill_low_est:
         estimate[:] = np.where(np.abs(estimate) < .10, .10 * np.sign(estimate),
                                estimate)
 
     estimate[:] = np.where(ern_flag == 1, estimate, np.nan)
     estimate.fillna(method='pad', inplace=True)
-    
+
     miss_beat = (actual - estimate) / estimate
     miss_beat = miss_beat.unstack().reset_index()
     miss_beat.columns = ['SecCode', 'Date', out_name]
@@ -167,15 +167,13 @@ def get_industry_binaries(data):
     data['Ind'] = [str(x)[:2] for x in data.GGROUP]
     inds = data.Ind.unique()
 
-    for i in inds:
-        if i == 'na':
-            continue
+    for i in range(10, 61, 5):
         data['Ind{}'.format(i)] = 0
         data.loc[data.Ind == i, 'Ind{}'.format(i)] = 1
-    
+
     data.drop(labels='Ind', axis=1, inplace=True)
     return data
-    
+
 
 ############# RESPONSES ##################
 
