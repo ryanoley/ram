@@ -75,25 +75,16 @@ class Portfolio(object):
         return port_turnover
 
     def get_portfolio_stats(self):
-        sector_pl = {}
         sector_counts = {}
 
         for position in self.positions.values():
-            sector = str(position.sector)
-            if sector not in sector_pl.keys():
-                sector_pl[sector] = position.daily_pl
-                sector_counts[sector] = 1
-            else:
-                sector_pl[sector] += position.daily_pl
+            sector = 'sector_{}_n'.format(position.sector)
+            if sector not in sector_counts.keys():
+                sector_counts[sector] = 0
+            if position.daily_pl != 0.:
                 sector_counts[sector] += 1
 
-        sum_df = pd.DataFrame(data={'counts':sector_counts,
-                                    'pl':sector_pl},
-                              index = sector_counts.keys())
-        sum_df['AvgPL'] = sum_df.pl / sum_df.counts
-        sum_df = sum_df.T
-        sum_df.columns = ['sector_{}_pl'.format(x) for x in sum_df.columns]
-        return sum_df.loc['AvgPL'].to_dict()
+        return sector_counts
 
     def close_portfolio_positions(self):
         for position in self.positions.values():

@@ -167,11 +167,14 @@ class DataContainer1(object):
         # Adjust per hyperparameters
         train_data = self._trim_training_data(train_data, training_qtrs)
         train_data = self._add_response_variables(train_data, response_days)
+
+        ind_cols = [x for x in train_data.columns if x[:3] == 'Ind']
         if ind_vars:
-            ind_cols = [x for x in train_data.columns if x[:3] == 'Ind']
+            self.features = list(set(self.features).union(set(ind_cols)))
             train_data.loc[:, ind_cols] = train_data[ind_cols].fillna(0)
             test_data.loc[:, ind_cols] = test_data[ind_cols].fillna(0)
-            self.features = list(set(self.features).union(set(ind_cols)))
+        else:
+            self.features = list(set(self.features) - set(ind_cols))
 
         self.train_data = train_data
         self.test_data = test_data
