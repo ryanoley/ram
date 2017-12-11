@@ -169,7 +169,7 @@ def get_industry_binaries(data):
 
     for i in range(10, 61, 5):
         data['Ind{}'.format(i)] = 0
-        data.loc[data.Ind == i, 'Ind{}'.format(i)] = 1
+        data.loc[data.Ind == str(i), 'Ind{}'.format(i)] = 1
 
     data.drop(labels='Ind', axis=1, inplace=True)
     return data
