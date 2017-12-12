@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from ram.strategy.starmine.constructor.position import Position
-from ram.strategy.starmine.constructor.hedged_position import HedgedPosition
+from ram.strategy.analyst_estimates.base.hedged_position import HedgedPosition
 
 
 class Portfolio(object):
@@ -83,7 +82,6 @@ class Portfolio(object):
                 sector_counts[sector] = 0
             if position.daily_pl != 0.:
                 sector_counts[sector] += 1
-
         return sector_counts
 
     def close_portfolio_positions(self):

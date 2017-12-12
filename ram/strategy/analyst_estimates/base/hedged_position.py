@@ -1,6 +1,6 @@
 import numpy as np
 
-from ram.strategy.starmine.constructor.position import Position
+from ram.strategy.analyst_estimates.base.position import Position
 
 class HedgedPosition(Position):
 

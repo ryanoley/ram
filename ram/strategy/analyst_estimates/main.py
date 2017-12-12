@@ -1,20 +1,78 @@
+
 import itertools
 import pandas as pd
 import datetime as dt
 
 from ram.strategy.base import Strategy
 
-from ram.strategy.starmine.signals.signals1 import SignalModel1
-from ram.strategy.starmine.data.data_container1 import DataContainer1
-from ram.strategy.starmine.constructor.constructor1 import PortfolioConstructor1
-
-
 class AnalystEstimates(Strategy):
 
-    data = DataContainer1()
-    signals = SignalModel1()
-    constructor = PortfolioConstructor1(10e6)
+    def strategy_init(self):
+        # Set source code versions
+        if self.strategy_code_version == 'version_001':
+            from ram.strategy.analyst_estimates.version_001 import main
+            self.data = deepcopy(main.data)
+            self.signals = deepcopy(main.signals)
+            self.constructor = deepcopy(main.constructor)
+        else:
+            print('Correct strategy code not specified')
+            sys.exit()
+        # Set args
+        self._data_args = make_arg_iter(self.data.get_args())
+        self._signals_args = make_arg_iter(self.signals.get_args())
+        self._constructor_args = make_arg_iter(self.constructor.get_args())
 
+    @staticmethod
+    def get_data_blueprint_container():
+        """
+        Should return a dictionary with Blueprints in values and any
+        labels as keys.
+        """
+        return blueprint_container
+
+    @staticmethod
+    def get_strategy_source_versions():
+        """
+        Should return a dictionary with descriptions in values and any
+        labels as keys.
+        """
+        return strategy_versions
+
+    def process_raw_data(self, data, time_index, market_data=None):
+        self.data.add_data(data)
+
+    def run_index(self, time_index):
+
+        if len(self.data._processed_train_data) == 0:
+            return
+        elif len(self.data._processed_test_data) == 0:
+            return
+        elif self._write_flag and time_index < 8:
+            return
+
+        i = 0
+        for ad in self._data_args:
+
+            self.data.prep_data(**ad)
+
+            for as_ in self._signals_args:
+
+                self.signals.rf_signals(self.data, **as_)
+
+                for ac in self._constructor_args:
+
+                    result, stats = self.constructor.get_daily_pl(self.data,
+                                                                  self.signals,
+                                                                  **ac)
+                    self._capture_output(result, stats, i)
+                    i += 1
+
+        self.write_index_results(self.output_returns, time_index)
+        self.write_index_results(self.output_all_output, time_index,
+                                 'all_output')
+        self.write_index_stats(self.output_stats, time_index)
+
+    # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def get_column_parameters(self):
         """
         These are written to file
@@ -33,46 +91,6 @@ class AnalystEstimates(Strategy):
             output_params[col_ind] = params
         return output_params
 
-    def process_raw_data(self, data, time_index, market_data=None):
-        self.data.add_data(data)
-
-    def run_index(self, time_index):
-
-        if len(self.data._processed_train_data) == 0:
-            return
-        elif len(self.data._processed_test_data) == 0:
-            return
-        elif self._write_flag and time_index < 8:
-            return
-
-        args_data = make_arg_iter(self.data.get_args())
-        args_signals = make_arg_iter(self.signals.get_args())
-        args_constructor = make_arg_iter(self.constructor.get_args())
-
-        i = 0
-        for ad in args_data:
-
-            self.data.prep_data(**ad)
-
-            for as_ in args_signals:
-
-                self.signals.rf_signals(self.data, **as_)
-
-                for ac in args_constructor:
-
-                    result, stats = self.constructor.get_daily_pl(self.data,
-                                                                  self.signals,
-                                                                  **ac)
-                    self._capture_output(result, stats, i)
-                    i += 1
-
-        self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_all_output, time_index,
-                                 'all_output')
-        self.write_index_stats(self.output_stats, time_index)
-
-    # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     def _capture_output(self, results, stats, arg_index):
         returns = pd.DataFrame(results.PL / self.constructor.booksize)
         returns.columns = [arg_index]
@@ -90,69 +108,9 @@ class AnalystEstimates(Strategy):
                 results, how='outer')
         self.output_stats[arg_index] = stats
 
-    # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def get_univ_filter_args(self):
-        return {
-            'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 50 and GSECTOR = 45 ' +
-            'and Close_ >= 15 and AvgDolVol >= 1',
-            'univ_size': 300
-        }
-
-    def get_univ_date_parameters(self):
-        return {
-            'frequency': 'Q',
-            'train_period_length': 1,
-            'test_period_length': 1,
-            'start_year': 2003
-        }
-
-    def get_features(self):
-        return [
-            # Descriptive
-            'TM1', 'T1', 'GGROUP', 'EARNINGSRETURN', 'EARNINGSFLAG',
-            'MarketCap', 'AvgDolVol', 'SplitFactor', 'RVwap', 'RClose',
-            'RCashDividend',
-
-            # Pricing
-            'AdjOpen', 'AdjClose', 'AdjVwap', 'LEAD1_AdjVwap',
-            'LEAD20_AdjVwap', 'LEAD21_AdjVwap','LEAD22_AdjVwap',
-            'LEAD23_AdjVwap',
-
-            # Pricing Features
-            'PRMA10_AdjClose', 'PRMA20_AdjClose', 'PRMA60_AdjClose',
-            'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
-            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
-            'DISCOUNT252_AdjClose',
-
-            # Accounting Features
-            'NETINCOMEQ', 'NETINCOMETTM',
-            'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
-
-            'OPERATINGINCOMEQ', 'OPERATINGINCOMETTM',
-            'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
-
-            'EBITQ', 'EBITTTM',
-            'EBITGROWTHQ', 'EBITGROWTHTTM',
-
-            'SALESQ', 'SALESTTM',
-            'SALESGROWTHQ', 'SALESGROWTHTTM',
-
-            'FREECASHFLOWQ', 'FREECASHFLOWTTM',
-            'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
-
-            'ADJEPSQ', 'ADJEPSTTM',
-            'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
-
-            # Starmine Features
-            'EPSESTIMATEFQ1', 'EPSESTIMATEFQ2', 'EBITDAESTIMATEFQ1',
-            'EBITDAESTIMATEFQ2', 'REVENUEESTIMATEFQ1', 'REVENUEESTIMATEFQ2',
-
-            # Price Targets
-            'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
-            'RECMEAN'
-        ]
+    def implementation_training(self):
+        # Import top params from wherever
+        pass
 
 
 def make_arg_iter(variants):
@@ -162,5 +120,18 @@ def make_arg_iter(variants):
 
 if __name__ == '__main__':
 
+    from ram.strategy.base import StrategyVersionContainer
+    from ram.data.data_constructor_blueprint import DataConstructorBlueprintContainer
+
+    # Helpers
+    from ram.strategy.analyst_estimates.version_001.data_blueprints import *
+    blueprint_container = DataConstructorBlueprintContainer()
+    blueprint_container.add_blueprint(univ1500_10)
+    blueprint_container.add_blueprint(univ1500_15)
+
+    strategy_versions = StrategyVersionContainer()
+    strategy_versions.add_version('version_001', 'Current implementation')
+
+    # Call Base Strategy Method
     from ram.strategy.base import make_argument_parser
-    make_argument_parser(PostErnStrategy)
+    make_argument_parser(AnalystEstimates)

@@ -15,6 +15,7 @@ PACKAGES = [
     'ram/strategy/intraday_reversion/src',
     # ~~~ Analyst Estimates ~~~
     'ram/strategy/analyst_estimates',
+    'ram/strategy/analyst_estimates/base',
     'ram/strategy/analyst_estimates/version_001',
     'ram/strategy/analyst_estimates/version_001/constructor',
     'ram/strategy/analyst_estimates/version_001/data',

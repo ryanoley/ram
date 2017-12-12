@@ -165,7 +165,6 @@ def get_industry_binaries(data):
     assert('GGROUP' in data.columns)
     data = data.copy()
     data['Ind'] = [str(x)[:2] for x in data.GGROUP]
-    inds = data.Ind.unique()
 
     for i in range(10, 61, 5):
         data['Ind{}'.format(i)] = 0
