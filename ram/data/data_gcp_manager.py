@@ -32,6 +32,8 @@ def update_prepped_data_gcp(strategy, version):
     meta = json.load(open(os.path.join(version_path, 'meta.json'), 'r'))
     if 'newly_created_files' in meta:
         upload_files.extend(meta['newly_created_files'])
+        meta['newly_created_files'] = []
+        json.dump(meta, open(os.path.join(version_path, 'meta.json'), 'w'))
 
     # If market data exists, this should always be updated
     if ('market_index_data.csv' in local_files) and \
@@ -42,6 +44,8 @@ def update_prepped_data_gcp(strategy, version):
     upload_files = list(set(upload_files))
     upload_files.sort()
     if upload_files:
+        # If uploading new files, upload meta
+        upload_files.append('meta.json')
         if not confirm(upload_files):
             return
         for f in upload_files:
@@ -49,8 +53,6 @@ def update_prepped_data_gcp(strategy, version):
             blob = bucket.blob(os.path.join(gs_version_path, f))
             blob.upload_from_filename(os.path.join(version_path, f))
             print('Uploaded: {}/{}/{}'.format(strategy, version, f))
-        meta['newly_created_files'] = []
-        json.dump(meta, open(os.path.join(version_path, 'meta.json'), 'w'))
 
     else:
         print('\nNo new files to upload for {}/{}\n'.format(strategy, version))
