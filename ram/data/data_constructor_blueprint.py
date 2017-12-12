@@ -47,7 +47,7 @@ class DataConstructorBlueprint(object):
             }
             self.universe_date_parameters = {
                 'frequency': 'Q',
-                'quarter_frequency_month_offset': 1,
+                'quarter_frequency_month_offset': 0,
                 'train_period_length': 4,
                 'test_period_length': 1,
                 'start_year': 2017
