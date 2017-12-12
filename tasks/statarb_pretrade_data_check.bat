@@ -2,17 +2,17 @@
 SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
 
 set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\
-set LOGFILE=%LOGDIR%\statarb_daily_data_pull.log
+set LOGFILE=%LOGDIR%\statarb_data_check_log.log
 
-echo -----------------------------
-echo --  Data pull for StatArb  --
-echo -----------------------------
+echo ------------------------------
+echo --  Data check for StatArb  --
+echo ------------------------------
 
 >> %LOGFILE% 2>&1(
 echo ---------------------------------
 echo Daily data pull - %date%_!time! - Start
 
-python %SCRIPTDIR%\get_daily_raw_data.py
+python %SCRIPTDIR%\check_data.py
 
 echo Daily data pull - %date%_!time! - End
 echo:
