@@ -779,7 +779,7 @@ def make_argument_parser(Strategy):
 
     if args.data_list_blueprints:
         # TODO
-        blueprints = Strategy().get_data_blueprint_container()
+        blueprints = Strategy.get_data_blueprint_container()
         print(blueprints)
 
     elif args.data_list_versions:
@@ -788,7 +788,7 @@ def make_argument_parser(Strategy):
 
     elif args.strategy_list_source_versions:
         # TODO
-        versions = Strategy().get_strategy_source_versions()
+        versions = Strategy.get_strategy_source_versions()
         print(versions)
 
     elif args.strategy_list_runs:
@@ -802,7 +802,7 @@ def make_argument_parser(Strategy):
     # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     elif args.data_make_from_blueprint:
-        blueprints = Strategy().get_data_blueprint_container()
+        blueprints = Strategy.get_data_blueprint_container()
         blueprint = blueprints.get_blueprint_by_name_or_index(
             args.data_make_from_blueprint)
         DataConstructor().run(blueprint)
@@ -818,7 +818,7 @@ def make_argument_parser(Strategy):
 
     elif args.strategy_version and args.data_version:
 
-        strategy_versions = Strategy().get_strategy_source_versions()
+        strategy_versions = Strategy.get_strategy_source_versions()
         strategy_version = strategy_versions.get_version_by_name_or_index(
             args.strategy_version)
 
@@ -832,7 +832,7 @@ def make_argument_parser(Strategy):
                             write_flag=args.write_flag)
 
         if not args.write_flag:
-            import pdb; pdb.set_trace()
+            import ipdb; ipdb.set_trace()
 
         strategy.start(args.description)
 
