@@ -3,9 +3,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.starmine.utils import make_variable_dict
-from ram.strategy.starmine.constructor.portfolio import Portfolio
-from ram.strategy.starmine.constructor.base_constructor import Constructor
+from ram.strategy.analyst_estimates.base.portfolio import Portfolio
+from ram.strategy.analyst_estimates.base.base_constructor import Constructor
 
 
 class PortfolioConstructor1(Constructor):

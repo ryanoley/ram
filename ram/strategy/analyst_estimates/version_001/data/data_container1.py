@@ -2,12 +2,12 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.starmine.data.features import *
-from ram.strategy.basic.utils import make_variable_dict
+from ram.strategy.analyst_estimates.base.features import *
 from gearbox import create_time_index, convert_date_array
+from ram.strategy.analyst_estimates.base.utils import make_variable_dict
 
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
-                        'PostErnStrategy', 'spy.csv')
+                        'AnalystEstimates', 'spy.csv')
 
 
 class DataContainer1(object):

@@ -42,14 +42,16 @@ class StatArbStrategy(Strategy):
         self._signals_args = make_arg_iter(self.signals.get_args())
         self._constructor_args = make_arg_iter(self.constructor.get_args())
 
-    def get_data_blueprint_container(self):
+    @staticmethod
+    def get_data_blueprint_container():
         """
         Should return a dictionary with Blueprints in values and any
         labels as keys.
         """
         return blueprint_container
 
-    def get_strategy_source_versions(self):
+    @staticmethod
+    def get_strategy_source_versions():
         """
         Should return a dictionary with descriptions in values and any
         labels as keys.
