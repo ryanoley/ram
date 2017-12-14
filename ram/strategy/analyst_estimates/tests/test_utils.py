@@ -3,12 +3,9 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from numpy.testing import assert_array_equal
-from pandas.util.testing import assert_series_equal, assert_frame_equal
-
 from gearbox import convert_date_array
 
-from ram.strategy.starmine.utils import *
+from ram.strategy.analyst_estimates.base.utils import *
 
 
 class TestUtils(unittest.TestCase):
