@@ -52,7 +52,6 @@ def main():
     mapping.to_csv(path, index=None)
 
 
-
 def get_unique_seccodes_from_data():
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                                 'StatArbStrategy', 'daily_raw_data')
@@ -64,9 +63,10 @@ def get_unique_seccodes_from_data():
     seccodes = np.array([])
     for f in todays_files:
         data = pd.read_csv(os.path.join(raw_data_dir, f))
+        # Filter only active securities
+        data = data[data.Date == data.Date.max()]
         seccodes = np.append(seccodes, data.SecCode.astype(str).unique())
     return np.unique(seccodes)
-
 
 
 if __name__ == '__main__':
