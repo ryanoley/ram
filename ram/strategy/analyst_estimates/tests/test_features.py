@@ -6,23 +6,21 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from gearbox import convert_date_array
-from ram.strategy.starmine.data.features import *
+from ram.strategy.analyst_estimates.base.features import *
 
 
 class TestDataContainer1(unittest.TestCase):
 
 
     def setUp(self):
-        dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04',
-                 '2015-01-05', '2015-01-06', '2015-01-07', '2015-01-08']
         data = pd.DataFrame()
         data['SecCode'] = ['1234'] * 8
-        data['Date'] = convert_date_array(dates)
+        data['Date'] = pd.date_range(dt.date(2015,1,1), dt.date(2015,1,8))
         data['AdjClose'] = [1, 2, 3, 4, 5, 6, 7, 8]
         data['EARNINGSFLAG'] = [0, 0, 1, 0, 0, 0, 0, 0]
         data['EPSESTIMATEFQ1'] = [.5, .5, .75, .85, .85, .85, .85, .85]
         data['EPSESTIMATEFQ2'] = [.75, .75, 1., 1., 1., 1., 1., 1.]
+
         data2 = data.copy()
         data2['SecCode'] = ['5678'] * 8
         data2['AdjClose'] = data2.AdjClose * 10
@@ -35,9 +33,10 @@ class TestDataContainer1(unittest.TestCase):
 
         dataB = pd.DataFrame()
         dataB['SecCode'] = ['1234'] * 8
-        dataB['Date'] = convert_date_array(dates)
+        dataB['Date'] = pd.date_range(dt.date(2015,1,1), dt.date(2015,1,8))
         dataB['EARNINGSFLAG'] = [0, 1, 0, 0, 0, 1, 0, 0]
         dataB['EARNINGSRETURN'] = [.1, .1, .5, .5, .5, .5, .7, .7]
+
         data2 = dataB.copy()
         data2['SecCode'] = ['5678'] * 8
         dataB = dataB.append(data2).reset_index(drop=True)
@@ -59,7 +58,7 @@ class TestDataContainer1(unittest.TestCase):
         result = np.array(result['eps'])
         benchmark = np.array([0., 0., 0.25, .35, .35, .0, .0, 0.] * 2)
         assert_array_equal(np.round(result, 3), np.round(benchmark, 3))
-        
+
         result = get_cum_delta(self.data, 'EPSESTIMATE', 'eps', 3,
                                   smart_est_column=True)
         result = np.array(result['eps'])
@@ -124,6 +123,47 @@ class TestDataContainer1(unittest.TestCase):
         benchmark =  benchmark.values - mkt_rets.append(mkt_rets).values
         assert_array_equal(benchmark, result.Ret10.values)
 
+    def test_act_vs_est_missbeat(self):
+        est_data = self.data.copy()
+        est_data['act'] = 10
+        est_data['est'] = 8
+        result = act_vs_est_missbeat(est_data, 'est', 'act', 'test')
+
+        benchmark = est_data.copy()
+        benchmark['test'] = .25
+        benchmark.loc[benchmark.Date < dt.date(2015,1,3), 'test'] = np.nan
+        assert_frame_equal(result, benchmark)
+
+        est_data = self.data.copy()
+        est_data['act'] = range(len(est_data))
+        est_data['est'] = 8
+        result = act_vs_est_missbeat(est_data, 'est', 'act', 'test')
+
+        benchmark = est_data.copy()
+        benchmark['test'] = np.array(range(len(est_data)))/8. -1
+        benchmark.loc[benchmark.Date < dt.date(2015,1,3), 'test'] = np.nan
+        assert_frame_equal(result, benchmark)
+
+    def test_get_industry_binaries(self):
+        ind_data = self.data.copy()
+        ind_data['GGROUP'] = [4510] * 8 + [5510] * 8
+        result = get_industry_binaries(ind_data)
+
+        benchmark = ind_data.copy()
+        benchmark['Ind10'] = 0
+        benchmark['Ind15'] = 0
+        benchmark['Ind20'] = 0
+        benchmark['Ind25'] = 0
+        benchmark['Ind30'] = 0
+        benchmark['Ind35'] = 0
+        benchmark['Ind40'] = 0
+        benchmark['Ind45'] = [1] * 8 + [0] * 8
+        benchmark['Ind50'] = 0
+        benchmark['Ind55'] = [0] * 8 + [1] * 8
+        benchmark['Ind60'] = 0
+        assert_frame_equal(result, benchmark)
+
 
 if __name__ == '__main__':
     unittest.main()
+
