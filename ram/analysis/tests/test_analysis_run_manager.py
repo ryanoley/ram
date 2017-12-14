@@ -64,7 +64,8 @@ class TestRunManager(unittest.TestCase):
             json.dump(stats, f)
         # Create a meta file
         meta = {'description': 'Test data', 'start_time': '2010-01-01',
-                'completed': True}
+                'completed': True, 'prepped_data_version': 'version10',
+                'strategy_code_version': 'version1020'}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
         # Create column params
@@ -134,7 +135,10 @@ class TestRunManager(unittest.TestCase):
         run1 = RunManager('TestStrategy', 'run_0001',
                           simulation_data_path=self.base_path)
         run1.import_meta()
-        benchmark = {'start_time': '2010-01-01', 'description': 'Test data',
+        benchmark = {'start_time': '2010-01-01',
+                     'description': 'Test data',
+                     'prepped_data_version': u'version10',
+                     'strategy_code_version': u'version1020',
                      'completed': True}
         self.assertDictEqual(run1.meta, benchmark)
 
@@ -171,7 +175,6 @@ class TestRunManager(unittest.TestCase):
                           simulation_data_path=self.base_path)
         run1.import_return_frame()
         run1.import_column_params()
-        run1.import_meta()
         run1.import_stats()
         result = run1.parameter_correlations('p2')
 

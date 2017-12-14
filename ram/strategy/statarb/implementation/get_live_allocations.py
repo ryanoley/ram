@@ -62,7 +62,7 @@ def _import_format_raw_data(path):
 def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
 
     path = os.path.join(implementation_dir, 'StatArbStrategy',
-                        'live_pricing', 'live_prices.csv')
+                        'live_pricing', 'prices.csv')
     live_data = pd.read_csv(path)
 
     live_data['Ticker'] = live_data.Symbol
@@ -73,11 +73,15 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     live_data['AdjVolume'] = live_data.VOLUME
     live_data['AdjVwap'] = live_data.VWAP
 
+    live_data = live_data[['Ticker', 'AdjOpen', 'AdjHigh', 'AdjLow',
+                           'AdjClose', 'AdjVolume', 'AdjVwap']]
+
     path = os.path.join(implementation_dir, 'StatArbStrategy',
                         'live_pricing', 'ticker_mapping.csv')
     ticker_map = pd.read_csv(path)
+    ticker_map.SecCode = ticker_map.SecCode.astype(str)
 
-    return live_data
+    return live_data.merge(ticker_map)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,7 +213,12 @@ class StatArbImplementation(object):
             params = objs['params']
             model = objs['model']
 
-            strategy.data.process_live_data(live_data)
+            import pdb; pdb.set_trace()
+            try:
+
+                strategy.data.process_live_data(live_data)
+            except:
+                strategy.data.process_live_data(live_data)
 
             sparams = _extract_params(params, strategy.signals.get_args())
             strategy.signals.set_args(**sparams)
@@ -252,11 +261,7 @@ def _add_sizes(all_sizes, model_sizes):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 if __name__ == '__main__':
-    # TEMP
-    import pdb; pdb.set_trace()
-    live_data = import_live_pricing()
 
-    # Actual order
     raw_data = import_raw_data()
     run_map = import_run_map()
     models_params = import_models_params()
@@ -270,6 +275,67 @@ if __name__ == '__main__':
 
     strategy.prep()
 
+    _ = raw_input("Press Enter to continue...")
+    t1 = dt.datetime.utcnow()
 
-    # live_data['SecCode'] = ['14141', '43242', '9999']  # Assume merged
-    # imp.run_live(live_data)
+    live_data = import_live_pricing()
+
+    strategy.run_live(live_data)
+
+    t2 = dt.datetime.utcnow()
+
+    print(t2 - t1)
+
+
+
+# Warning flags
+
+
+
+
+
+
+# # DIVIDENDS
+# data = pd.read_csv(os.path.join(bbrg_dir,
+#                                 '{}_dividends.csv'.format(max_date_prefix)))
+# # Confirm import format has not changed
+# columns = ['DPS Last Gross', 'Dvd Ex Dt', 'Market Cap',
+#            'Market Cap#1', 'P/E', 'Price:D-1', 'Short Name', 'Ticker']
+# columns_match_flag = np.all(data.columns == np.array(columns))
+# data.columns = ['Dividend', 'ExDate', 'drop1', 'drop2',
+#                 'drop3', 'drop4', 'drop5', 'Ticker']
+# data = data[['Ticker', 'ExDate', 'Dividend']]
+# data.Ticker = [x.replace(' US', '') for x in data.Ticker]
+# data.ExDate = convert_date_array(data.ExDate)
+# data.Dividend = data.Dividend.fillna(0)
+# # Get overnight dividends
+# today = dt.datetime.utcnow().date()
+# data = data[data.ExDate == today]
+
+
+# # SPINOFFS
+# data = pd.read_csv(os.path.join(bbrg_dir,
+#                                 '{}_spinoffs.csv'.format(max_date_prefix)))
+# # Confirm import format has not changed
+# columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
+#            'Spin Adj Fact Curr', 'Spinoff Ex Date', 'Ticker']
+# columns_match_flag = np.all(data.columns == np.array(columns))
+# data.columns = ['drop1', 'drop2', 'drop3', 'drop4',
+#                 'SpinAdjFactor', 'ExDate', 'Ticker']
+# data = data[['Ticker', 'ExDate', 'SpinAdjFactor']]
+
+
+# # SPLITS
+# data = pd.read_csv(os.path.join(bbrg_dir,
+#                                 '{}_splits.csv'.format(max_date_prefix)))
+# # Confirm import format has not changed
+# columns = ['Current Stock Split Adjustment Factor', 'Market Cap',
+#            'Market Cap#1', 'P/E', 'Price:D-1', 'Short Name',
+#            'Stk Splt Ex Dt', 'Ticker']
+# columns_match_flag = np.all(data.columns == np.array(columns))
+# data.columns = ['drop1', 'drop2', 'drop3', 'drop4',
+#                 'SpinAdjFactor', 'ExDate', 'Ticker']
+# data = data[['Ticker', 'ExDate', 'SpinAdjFactor']]
+
+
+

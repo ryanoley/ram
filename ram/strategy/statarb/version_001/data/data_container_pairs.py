@@ -109,6 +109,10 @@ class DataContainerPairs(BaseDataContainer):
 
         del self._live_prepped_data
 
+        # Filter seccodes
+        live_pricing_data = live_pricing_data[
+            live_pricing_data.SecCode.isin(data.SecCode.unique())]
+
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
         data = calculate_todays_avg_dol_vol(data)

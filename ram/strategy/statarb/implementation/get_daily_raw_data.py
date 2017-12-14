@@ -1,5 +1,7 @@
 import os
 import json
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 
@@ -37,13 +39,34 @@ def main():
         dc.run_live(blueprint, 'StatArbStrategy')
 
     # Get ticker mapping
+    unique_seccodes = get_unique_seccodes_from_data()
+
     dh = DataHandlerSQL()
     mapping = dh.get_ticker_seccode_map()
+    mapping = mapping.loc[mapping.SecCode.isin(unique_seccodes)]
+
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'live_pricing',
                         'ticker_mapping.csv')
     mapping.to_csv(path, index=None)
+
+
+
+def get_unique_seccodes_from_data():
+    raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                                'StatArbStrategy', 'daily_raw_data')
+    all_files = os.listdir(raw_data_dir)
+    all_files.remove('market_index_data.csv')
+    max_date_prefix = max([x.split('_')[0] for x in all_files])
+    # Read in dates for files
+    todays_files = [x for x in all_files if x.find(max_date_prefix) > -1]
+    seccodes = np.array([])
+    for f in todays_files:
+        data = pd.read_csv(os.path.join(raw_data_dir, f))
+        seccodes = np.append(seccodes, data.SecCode.astype(str).unique())
+    return np.unique(seccodes)
+
 
 
 if __name__ == '__main__':

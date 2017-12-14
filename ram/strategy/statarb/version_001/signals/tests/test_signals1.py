@@ -17,7 +17,6 @@ class TestSignalModel1(unittest.TestCase):
 
     def Xtest_process_args(self):
         signals = SignalModel1()
-        import pdb; pdb.set_trace()
         signals.set_args()
 
 

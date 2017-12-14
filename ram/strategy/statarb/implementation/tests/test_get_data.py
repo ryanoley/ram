@@ -24,7 +24,6 @@
 #         self._delete_path()
 
 #     def Xtest_write_sector_data(self):
-#         #import pdb; pdb.set_trace()
 #         cons = ImplementationDailyDataPull(imp_data_dir=self.data_dir)
 #         data = pd.DataFrame({'V1': range(10)})
 #         cons.write_sector_data(data, '10')

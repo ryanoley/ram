@@ -61,7 +61,7 @@ class Signals(BaseSignalGenerator):
 
     def get_signals(self):
         output = self._test_data[['SecCode', 'Date']].copy()
-        output['preds'] = [1, 2, 3]
+        output['preds'] = [1, 2]
         return output
 
 
@@ -127,7 +127,6 @@ class DataContainerTest(BaseDataContainer):
         del self._live_prepped_data
         live_pricing_data['Date'] = dt.datetime.utcnow().date()
         live_pricing_data['TimeIndex'] = -1
-        live_pricing_data['AdjClose'] = live_pricing_data.LAST
         ldata = live_pricing_data[['Date', 'SecCode', 'AdjClose', 'TimeIndex']]
         self.test_data = ldata
         self._features = features
@@ -235,7 +234,7 @@ class TestGetLiveAllocations(unittest.TestCase):
         data['LOW'] = [1, 2, 3]
         data['VWAP'] = [1, 2, 3]
         data['VOLUME'] = [1, 2, 3]
-        data.to_csv(os.path.join(path3, 'live_prices.csv'), index=None)
+        data.to_csv(os.path.join(path3, 'prices.csv'), index=None)
         # Ticker mapping
         data = pd.DataFrame()
         data['SecCode'] = ['1010', '5050']
@@ -387,11 +386,21 @@ class TestGetLiveAllocations(unittest.TestCase):
         imp.add_positions(positions)
         imp.prep()
         live_data = import_live_pricing(self.imp_dir)
-        live_data['SecCode'] = ['14141', '43242', '9999']  # Assume merged
-        imp.run_live(live_data)
+        live_data['SecCode'] = [14141, 43242]
+        #imp.run_live(live_data)
 
     def test_import_live_pricing(self):
         result = import_live_pricing(self.imp_dir)
+        benchmark = pd.DataFrame()
+        benchmark['Ticker'] = ['AAPL', 'IBM']
+        benchmark['AdjOpen'] = [1, 2]
+        benchmark['AdjHigh'] = [1, 2]
+        benchmark['AdjLow'] = [1, 2]
+        benchmark['AdjClose'] = [1, 2]
+        benchmark['AdjVolume'] = [1, 2]
+        benchmark['AdjVwap'] = [1, 2]
+        benchmark['SecCode'] = ['5050', '1010']
+        assert_frame_equal(result, benchmark)
 
     def test_extract_params(self):
         all_params = {'V1': 10, 'V2': 20, 'V3': 3}

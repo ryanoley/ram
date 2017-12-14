@@ -90,12 +90,12 @@ class TestDataContainerPairs(unittest.TestCase):
 
     def test_process_live_data(self):
         live_data = pd.DataFrame({
-            'SecCode': ['AAPL', 'IBM'],
-            'AdjOpen': [10, 20],
-            'AdjHigh': [10, 20],
-            'AdjLow': [10, 20],
-            'AdjClose': [10, 20],
-            'AdjVolume': [10, 20]
+            'SecCode': ['AAPL', 'IBM', 'TSLA'],
+            'AdjOpen': [10, 20, 30],
+            'AdjHigh': [10, 20, 30],
+            'AdjLow': [10, 20, 30],
+            'AdjClose': [10, 20, 30],
+            'AdjVolume': [10, 20, 30]
         })
         dc = DataContainerPairs()
         dc.prep_live_data(self.data4, self.market_data)

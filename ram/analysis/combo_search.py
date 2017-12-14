@@ -204,7 +204,7 @@ class CombinationSearch(object):
         Creates the directory structure for the output AND CRUCIALLY
         sets the run_dir. This implementation has been reworked for gcp.
         """
-        if self.write_flag and self.gcp_implementation:
+        if self.write_flag and self._gcp_implementation:
             all_files = [x.name for x in self._gcp_bucket.list_blobs()]
             all_files = [x for x in all_files if x.startswith(
                 self._combo_search_output_dir)]
@@ -229,17 +229,17 @@ class CombinationSearch(object):
         # Get all run versions for increment for this run
         self.combo_run_dir = os.path.join(self._combo_search_output_dir,
                                           'combo_run_{0:04d}'.format(new_ind))
-        if self.write_flag and not self.gcp_implementation:
+        if self.write_flag and not self._gcp_implementation:
             if not os.path.isdir(self.combo_run_dir):
                 os.mkdir(self.combo_run_dir)
 
     def _init_output(self):
         path1 = os.path.join(self.combo_run_dir, 'all_returns.csv')
         path2 = os.path.join(self.combo_run_dir, 'all_column_params.json')
-        if self.write_flag and self.gcp_implementation:
+        if self.write_flag and self._gcp_implementation:
             to_csv_cloud(self.runs.returns, path1, self._gcp_bucket)
             write_json_cloud(self.runs.column_params, path2, self._gcp_bucket)
-        elif self.write_flag and not self.gcp_implementation:
+        elif self.write_flag and not self._gcp_implementation:
             self.runs.returns.to_csv(path1)
             write_json(self.runs.column_params, path2)
         else:
@@ -313,7 +313,7 @@ class CombinationSearch(object):
             plt.title('Best results')
             plt.grid()
 
-            if self.gcp_implementation:
+            if self._gcp_implementation:
                 to_csv_cloud(self.epoch_stats, os.path.join(
                     self.combo_run_dir, 'epoch_stats.csv'),
                     self._gcp_bucket)
@@ -372,7 +372,7 @@ class CombinationSearch(object):
         path6 = os.path.join(self.combo_run_dir, 'combo_search_params.json')
         path7 = os.path.join(self.combo_run_dir, 'all_column_params.json')
 
-        if self.gcp_implementation:
+        if self._gcp_implementation:
             self.runs.returns = read_csv_cloud(path1, self._gcp_bucket)
             self.epoch_stats = read_csv_cloud(path2, self._gcp_bucket)
             self.best_results_rets = read_csv_cloud(path3, self._gcp_bucket)

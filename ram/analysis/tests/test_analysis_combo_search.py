@@ -31,10 +31,12 @@ class TestCombinationSearch(unittest.TestCase):
             {str(i): {'V1': 1, 'V2': 2} for i in range(10)}
         self.run1.meta = {
             'prepped_data_version': 'version_0001',
+            'strategy_code_version': 'version_0202',
             'description': 'run1'
         }
         self.run2.meta = {
             'prepped_data_version': 'version_0002',
+            'strategy_code_version': 'version_0202',
             'description': 'run2'
         }
         # Output dir
@@ -110,10 +112,12 @@ class TestCombinationSearch(unittest.TestCase):
         run2.column_params = {'V2': {'x': 2}, 'V3': {'x': 4}}
         run1.meta = {
             'prepped_data_version': 'version_0001',
+            'strategy_code_version': 'version_0202',
             'description': 'Test'
         }
         run2.meta = {
             'prepped_data_version': 'version_0002',
+            'strategy_code_version': 'version_0202',
             'description': 'Test2'
         }
         comb = CombinationSearch()

@@ -35,7 +35,13 @@ class RunAggregator(object):
             tmp.columns = ['{}_{}'.format(prefix, x) for x in tmp.columns]
             agg_returns = agg_returns.join(tmp, how='outer')
             for k, v in run.column_params.iteritems():
-                agg_params['{}_{}'.format(prefix, k)] = v
+                packet = {
+                    'column_params': v,
+                    'prepped_data_version': run.meta['prepped_data_version'],
+                    'strategy_code_version': run.meta['strategy_code_version'],
+                    'description': run.meta['description']
+                 }
+                agg_params['{}_{}'.format(prefix, k)] = packet
         print('Finished aggregating runs...')
         if agg_returns.index.value_counts().max() > 1:
             raise 'Merged return series have duplicated dates'

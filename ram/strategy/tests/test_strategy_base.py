@@ -147,7 +147,7 @@ class TestStrategyBase(unittest.TestCase):
                       'TestStrategy_run_0003_30',
                       'TestStrategy_run_0004_40']
         self.strategy._create_implementation_output_dir()
-        result = self.strategy.implementation_training_prep(top_params, True)
+        result = self.strategy.implementation_training_prep(top_params)
         benchmark = pd.DataFrame()
         benchmark['param_name'] = ['run_0001_10', 'run_0002_20',
                                    'run_0003_30', 'run_0004_40']

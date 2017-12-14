@@ -66,6 +66,8 @@ class TestDataConstructor(unittest.TestCase):
         blueprint = DataConstructorBlueprint('universe', 'Test description')
         blueprint.universe_date_parameters['train_period_length'] = 1
         blueprint.universe_date_parameters['start_year'] = 2017
+        blueprint.universe_date_parameters[
+            'quarter_frequency_month_offset'] = 1
         dc = DataConstructor(self.prepped_data_dir)
         result = dc._make_date_iterator(blueprint)
         result = result[0]
@@ -95,6 +97,8 @@ class TestDataConstructor(unittest.TestCase):
             return
         blueprint = DataConstructorBlueprint('universe', 'Test description')
         blueprint.universe_date_parameters['train_period_length'] = 1
+        blueprint.universe_date_parameters[
+            'quarter_frequency_month_offset'] = 1
         dc = DataConstructor(self.prepped_data_dir)
         dc.run(blueprint)
         # Get files

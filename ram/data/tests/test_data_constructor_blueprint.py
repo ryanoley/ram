@@ -24,7 +24,7 @@ class TestDataConstructorBlueprint(unittest.TestCase):
         self.assertEqual(dcb.universe_filter_arguments['where'],
                          'MarketCap >= 200 and Close_ between 15 and 1000')
         self.assertEqual(
-            dcb.universe_date_parameters['quarter_frequency_month_offset'], 1)
+            dcb.universe_date_parameters['quarter_frequency_month_offset'], 0)
         self.assertEqual(
             dcb.universe_date_parameters['train_period_length'], 4)
         self.assertEqual(dcb.universe_date_parameters['frequency'], 'Q')
