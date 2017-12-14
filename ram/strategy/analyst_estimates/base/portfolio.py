@@ -122,8 +122,8 @@ class Portfolio(object):
             self.positions[symbol].set_weight(weight)
         return
 
-    def update_holding_days(self, hold_days):
-        for symbol, weight in hold_days.items():
+    def update_holding_days(self, weight_dict):
+        for symbol, weight in weight_dict.items():
             if weight != 0:
                 self.positions[symbol].hold_days += 1
         return

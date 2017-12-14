@@ -96,7 +96,6 @@ class PortfolioConstructor1(Constructor):
         even number of scores the position sizes should be symmetric on
         both the long and short sides.
         """
-
         weights = portfolio.get_position_weights()
         prev_longs = set(weights[weights > 0].index)
         prev_shorts = set(weights[weights < 0].index)
