@@ -2,7 +2,6 @@ import numpy as np
 
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import RandomForestClassifier
 
 from ram import config
 
@@ -24,7 +23,7 @@ class SignalModel1(object):
         }
 
     def rf_signals(self, data_container, max_features, min_samples_leaf,
-                   n_estimators, drop_ibes):
+                   n_estimators, drop_ibes, seed=None):
 
         features = data_container.features
         if drop_ibes:
@@ -44,13 +43,14 @@ class SignalModel1(object):
                                        min_samples_leaf=min_samples_leaf,
                                        max_features=max_features,
                                        n_jobs=NJOBS)
+            if seed is not None:
+                clf.random_state = seed
             clf.fit(X=e_train[features], y=e_train['Response'])
 
             preds = clf.predict(e_test[features])
             e_test['preds'] = preds
             self.preds_data[e + 1] = e_test[['SecCode', 'Date', 'preds']]
         return
-
 
     def lr_signals(self, data_container):
 
@@ -64,33 +64,3 @@ class SignalModel1(object):
         test_data['preds'] = lr.predict(test_data[features])
         self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
         return
-
-
-    def rf_signals2(self, data_container, max_features, min_samples_leaf,
-                    n_estimators):
-
-        train_data = data_container.train_data
-        test_data = data_container.test_data
-        features = data_container.features
-
-        clf = RandomForestClassifier(n_estimators=n_estimators,
-                                     min_samples_leaf=min_samples_leaf,
-                                     max_features=max_features,
-                                     n_jobs=NJOBS)
-
-        clf.fit(X=train_data[features], y=train_data['Response'])
-        preds = clf.predict_proba(test_data[features])
-        test_data.loc[:, 'preds'] = _get_preds(clf, preds)
-        self.preds_data = test_data[['SecCode', 'Date', 'preds']].copy()
-        return
-
-
-def _get_preds(classifier, preds):
-    if -1 in classifier.classes_:
-        short_ind = np.where(classifier.classes_ == -1)[0][0]
-        long_ind = np.where(classifier.classes_ == 1)[0][0]
-        return preds[:, long_ind] - preds[:, short_ind]
-    else:
-        long_ind = np.where(classifier.classes_ == 1)[0][0]
-        return preds[:, long_ind]
-

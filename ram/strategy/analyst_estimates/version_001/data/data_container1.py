@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.analyst_estimates.base.features import *
 from gearbox import create_time_index, convert_date_array
+from ram.strategy.analyst_estimates.base.features import *
 from ram.strategy.analyst_estimates.base.utils import make_variable_dict
 
 SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
@@ -192,7 +192,7 @@ class DataContainer1(object):
         self.ind_groups = self._make_group_dict(daily_pl)
         self.hold_per = response_days
 
-    def _set_features(self):
+    def _set_features(self, inp_features=None, inp_rets=None):
         features = [
         # Pricing and Vol vars
         'PRMA10_AdjClose', 'PRMA20_AdjClose', 'PRMA60_AdjClose',
@@ -219,8 +219,16 @@ class DataContainer1(object):
         'prtgt_est_change', 'prtgt_discount', 'prtgt_disc_change',
         'anr_rec_change', 'RECMEAN'
         ]
-        self.features = features
-        self.ret_cols = ['Ret19', 'Ret20', 'Ret21', 'Ret22']
+
+        if inp_features is None:
+            self.features = features
+        else:
+            self.features = inp_features
+
+        if inp_rets is None:
+            self.ret_cols = ['Ret19', 'Ret20', 'Ret21', 'Ret22']
+        else:
+            self.ret_cols = inp_rets
         return
 
     ###########################################################################
@@ -267,7 +275,7 @@ class DataContainer1(object):
     def _make_group_dict(self, data):
         assert 'GGROUP' in data.columns
         data = data[['SecCode', 'GGROUP']].drop_duplicates()
-        g_dict = {k: g["GGROUP"].tolist() for k,g in data.groupby("SecCode")}
+        g_dict = {s: g["GGROUP"].tolist() for s,g in data.groupby("SecCode")}
 
         for code, group in g_dict.iteritems():
             if len(group) > 1:
@@ -283,7 +291,8 @@ class DataContainer1(object):
             return data
         inds = create_time_index(data.Date)
         max_ind = np.max(inds)
-        return data.iloc[inds > (max_ind - training_qtrs)]
+        data = data.iloc[inds > (max_ind - training_qtrs)]
+        return data.reset_index(drop=True)
 
 
 def read_spy_data(spy_path=None):
