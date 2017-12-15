@@ -17,22 +17,22 @@ class HedgedPosition(Position):
             Commissions
         """
         super(HedgedPosition, self).__init__(symbol, price, comm)
-        self.market_entry_price = 0
-        self.market_curent_price = 0
-        self.market_return = 0
+        self.market_entry_price = 0.
+        self.market_curent_price = 0.
+        self.market_return = 0.
 
-    def update_mkt_price(self, market_price):
+    def update_hedge_price(self, market_price):
         if 'HEDGE' not in market_price.keys():
             raise ValueError('HEDGE must be in key value in arg')
         mkt_px = market_price['HEDGE']
 
         # No position or just closed
-        if self.exposure == 0:
-            self.market_entry_price = 0
-            self.market_curent_price = 0
+        if self.exposure == 0.:
+            self.market_entry_price = 0.
+            self.market_curent_price = 0.
             return
         # Position just initiated
-        elif self.market_entry_price == 0:
+        elif self.market_entry_price == 0.:
             self.market_entry_price = mkt_px
             self.market_curent_price = mkt_px
             return
