@@ -9,8 +9,7 @@ from pandas.util.testing import assert_series_equal, assert_frame_equal
 from ram.strategy.analyst_estimates.base.features import *
 
 
-class TestDataContainer1(unittest.TestCase):
-
+class TestFeatures(unittest.TestCase):
 
     def setUp(self):
         data = pd.DataFrame()
@@ -162,6 +161,9 @@ class TestDataContainer1(unittest.TestCase):
         benchmark['Ind55'] = [0] * 8 + [1] * 8
         benchmark['Ind60'] = 0
         assert_frame_equal(result, benchmark)
+
+    def tearDown(self):
+        pass
 
 
 if __name__ == '__main__':
