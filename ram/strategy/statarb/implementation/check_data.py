@@ -58,13 +58,8 @@ def get_qadirect_data_dates():
 def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     message = ''
     bloomberg = pd.DataFrame()
-    output = _import_bloomberg_dividends(imp_data_dir)
-    if isinstance(output, str):
-        message += output
-    else:
-        bloomberg = bloomberg.append(output)
 
-    output = _import_bloomberg_splits(imp_data_dir)
+    output = _import_bloomberg_dividends(imp_data_dir)
     if isinstance(output, str):
         message += output
     else:
@@ -75,8 +70,19 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
         message += output
     else:
         bloomberg = bloomberg.append(output)
-    # Write bloomberg data to file
+
     bloomberg = bloomberg.groupby('Ticker')['Multiplier'].prod().reset_index()
+    bloomberg.columns = ['Ticker', 'DivSpinoffMultiplier']
+
+    #
+    output = _import_bloomberg_splits(imp_data_dir)
+    if isinstance(output, str):
+        message += output
+    else:
+        output.columns = ['Ticker', 'SplitMultiplier']
+        bloomberg = bloomberg.merge(output, how='outer').fillna(1)
+
+    # Write bloomberg data to file
     path = os.path.join(imp_data_dir, 'StatArbStrategy',
                         'live_pricing', 'bloomberg_scaling.csv')
     bloomberg.to_csv(path, index=None)

@@ -245,12 +245,13 @@ class TestGetLiveAllocations(unittest.TestCase):
         data.to_csv(os.path.join(path3, 'seccode_scaling.csv'), index=None)
         # Bloomberg data
         data = pd.DataFrame()
-        data['Ticker'] = ['AAPL', 'TSLA']
-        data['Multiplier'] = [1.5, 3.0]
+        data['Ticker'] = ['AAPL', 'IBM']
+        data['DivSpinoffMultiplier'] = [1.5, 1.0]
+        data['SplitMultiplier'] = [2.0, 3.0]
         data.to_csv(os.path.join(path3, 'bloomberg_scaling.csv'), index=None)
         # Ticker mapping
         data = pd.DataFrame()
-        data['SecCode'] = ['1010', '5050']
+        data['SecCode'] = ['4242', '5050']
         data['Ticker'] = ['IBM', 'AAPL']
         data.to_csv(os.path.join(path3, 'ticker_mapping.csv'), index=None)
         # Position sheet positions
@@ -419,13 +420,16 @@ class TestGetLiveAllocations(unittest.TestCase):
         result = _import_scaling_data(self.imp_dir)
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['1234', '4242', '3535']
-        benchmark['Date'] = dt.date(2010, 1, 1)
-        benchmark['DividendFactor'] = [1, 1.1, 1.2]
+        benchmark['QADirectDividendFactor'] = [1, 1.1, 1.2]
         assert_frame_equal(result, benchmark)
 
     def test_import_bloomberg_data(self):
-        import pdb; pdb.set_trace()
         result = _import_bloomberg_data(self.imp_dir)
+        benchmark = pd.DataFrame()
+        benchmark['SecCode'] = ['5050', '4242']
+        benchmark['BbrgDivSpinoffMultiplier'] = [1.5, 1.0]
+        benchmark['BbrgSplitMultiplier'] = [2.0, 3.0]
+        assert_frame_equal(result, benchmark)
 
     def test_extract_params(self):
         all_params = {'V1': 10, 'V2': 20, 'V3': 3}

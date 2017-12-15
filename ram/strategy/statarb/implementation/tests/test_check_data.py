@@ -91,12 +91,14 @@ class TestImplementationDailyDataPull(unittest.TestCase):
 
     def test_process_bloomberg_data(self):
         result = process_bloomberg_data(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['Ticker'] = ['AAPL', 'TSLA']
-        benchmark['Multiplier'] = [0.75, 0.75]
+        self.assertEqual(result, '')
         result = pd.read_csv(
             os.path.join(self.imp_dir, 'StatArbStrategy',
                          'live_pricing', 'bloomberg_scaling.csv'))
+        benchmark = pd.DataFrame()
+        benchmark['Ticker'] = ['AAPL', 'TSLA']
+        benchmark['DivSpinoffMultiplier'] = [0.5, 3.0]
+        benchmark['SplitMultiplier'] = [1.5, 0.25]
         assert_frame_equal(result, benchmark)
 
     def tearDown(self):

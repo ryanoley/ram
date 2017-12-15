@@ -63,12 +63,25 @@ def _import_format_raw_data(path):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
-
-    live_data = _import_live_pricing(implementation_dir)
+    # SCALING DATA
     scaling_data = _import_scaling_data(implementation_dir)
     bloomberg_data = _import_bloomberg_data(implementation_dir)
-    # LIVE DIVIDENDS FROM BLOOMBERG?
-    # CashDividend / LivePrice * SQLDividendFactor
+    scaling = scaling_data.merge(bloomberg_data, how='left').fillna(1)
+    scaling['PricingMultiplier'] = scaling.QADirectDividendFactor * \
+        scaling.BbrgDivSpinoffMultiplier * scaling.BbrgSplitMultiplier
+    scaling['VolumeMultiplier'] = scaling.BbrgSplitMultiplier
+    scaling = scaling[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
+    # IMPORT LIVE AND ADJUST
+    live_data = _import_live_pricing(implementation_dir)
+    data = live_data.merge(scaling)
+    data.AdjOpen = data.AdjOpen * data.PricingMultiplier
+    data.AdjHigh = data.AdjHigh * data.PricingMultiplier
+    data.AdjLow = data.AdjLow * data.PricingMultiplier
+    data.AdjClose = data.AdjClose * data.PricingMultiplier
+    data.AdjVwap = data.AdjVwap * data.PricingMultiplier
+    data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
+    data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
+    return data
 
 
 def _import_live_pricing(implementation_dir):
@@ -96,15 +109,25 @@ def _import_scaling_data(implementation_dir):
     scaling = pd.read_csv(path)
     scaling.SecCode = scaling.SecCode.astype(str)
     scaling.Date = convert_date_array(scaling.Date)
-    scaling = scaling[['SecCode', 'Date', 'DividendFactor']]
+    scaling['QADirectDividendFactor'] = scaling.DividendFactor
+    scaling = scaling[['SecCode', 'QADirectDividendFactor']]
     return scaling
 
 
 def _import_bloomberg_data(implementation_dir):
     dpath = os.path.join(implementation_dir, 'StatArbStrategy',
                          'live_pricing', 'bloomberg_scaling.csv')
-    scaling = pd.read_csv(path)
-
+    data = pd.read_csv(dpath)
+    cols = np.array(['Ticker', 'DivSpinoffMultiplier', 'SplitMultiplier'])
+    assert np.all(data.columns == cols)
+    data.columns = ['Ticker', 'BbrgDivSpinoffMultiplier',
+                    'BbrgSplitMultiplier']
+    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
+                         'live_pricing', 'ticker_mapping.csv')
+    tickers = pd.read_csv(dpath)
+    data = data.merge(tickers)
+    data.SecCode = data.SecCode.astype(str)
+    return data[['SecCode', 'BbrgDivSpinoffMultiplier', 'BbrgSplitMultiplier']]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
