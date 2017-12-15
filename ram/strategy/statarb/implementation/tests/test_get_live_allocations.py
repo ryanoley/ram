@@ -25,7 +25,8 @@ from ram.strategy.statarb.implementation.get_live_allocations import *
 from ram.strategy.statarb.implementation.get_live_allocations import \
     _get_max_date_files, _get_all_raw_data_file_names, \
     _import_format_raw_data, _format_raw_data_name, _get_model_files, \
-    _extract_params, _add_sizes
+    _extract_params, _add_sizes, _import_live_pricing, _import_scaling_data, \
+    _import_bloomberg_data
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -225,16 +226,28 @@ class TestGetLiveAllocations(unittest.TestCase):
             outfile.write(json.dumps(params))
         # Live pricing
         data = pd.DataFrame()
-        data['Symbol'] = ['AAPL', 'IBM', 'GOOGL']
-        data['Name'] = ['Apple', 'IBM Corp', 'Alphabet']
+        data['SecCode'] = [1234, 4242, 3535]
+        data['Symbol'] = ['TRUE', 'IBM', 'GOOGL']
+        data['Name'] = ['TRUESOMETHING', 'IBM Corp', 'Alphabet']
         data['CLOSE'] = [1, 2, 3]
-        data['LAST'] = [1, 2, 3]
+        data['LAST'] = [1, 2, 'na']
         data['OPEN'] = [1, 2, 3]
         data['HIGH'] = [1, 2, 3]
-        data['LOW'] = [1, 2, 3]
-        data['VWAP'] = [1, 2, 3]
-        data['VOLUME'] = [1, 2, 3]
+        data['LOW'] = [1, 2, 'na']
+        data['VWAP'] = [1, np.nan, 3]
+        data['VOLUME'] = [None, 2, 3]
         data.to_csv(os.path.join(path3, 'prices.csv'), index=None)
+        # Scaling data
+        data = pd.DataFrame()
+        data['SecCode'] = [1234, 4242, 3535]
+        data['Date'] = '2010-01-01'
+        data['DividendFactor'] = [1, 1.1, 1.2]
+        data.to_csv(os.path.join(path3, 'seccode_scaling.csv'), index=None)
+        # Bloomberg data
+        data = pd.DataFrame()
+        data['Ticker'] = ['AAPL', 'TSLA']
+        data['Multiplier'] = [1.5, 3.0]
+        data.to_csv(os.path.join(path3, 'bloomberg_scaling.csv'), index=None)
         # Ticker mapping
         data = pd.DataFrame()
         data['SecCode'] = ['1010', '5050']
@@ -386,21 +399,33 @@ class TestGetLiveAllocations(unittest.TestCase):
         imp.add_positions(positions)
         imp.prep()
         live_data = import_live_pricing(self.imp_dir)
-        live_data['SecCode'] = [14141, 43242]
+        #live_data['SecCode'] = [14141, 43242]
         #imp.run_live(live_data)
 
     def test_import_live_pricing(self):
-        result = import_live_pricing(self.imp_dir)
+        result = _import_live_pricing(self.imp_dir)
         benchmark = pd.DataFrame()
-        benchmark['Ticker'] = ['AAPL', 'IBM']
-        benchmark['AdjOpen'] = [1, 2]
-        benchmark['AdjHigh'] = [1, 2]
-        benchmark['AdjLow'] = [1, 2]
-        benchmark['AdjClose'] = [1, 2]
-        benchmark['AdjVolume'] = [1, 2]
-        benchmark['AdjVwap'] = [1, 2]
-        benchmark['SecCode'] = ['5050', '1010']
+        benchmark['SecCode'] = ['1234', '4242', '3535']
+        benchmark['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
+        benchmark['AdjOpen'] = [1, 2, 3.]
+        benchmark['AdjHigh'] = [1, 2, 3.]
+        benchmark['AdjLow'] = [1, 2, np.nan]
+        benchmark['AdjClose'] = [1, 2, np.nan]
+        benchmark['AdjVolume'] = [np.nan, 2, 3]
+        benchmark['AdjVwap'] = [1, np.nan, 3]
         assert_frame_equal(result, benchmark)
+
+    def test_import_scaling_data(self):
+        result = _import_scaling_data(self.imp_dir)
+        benchmark = pd.DataFrame()
+        benchmark['SecCode'] = ['1234', '4242', '3535']
+        benchmark['Date'] = dt.date(2010, 1, 1)
+        benchmark['DividendFactor'] = [1, 1.1, 1.2]
+        assert_frame_equal(result, benchmark)
+
+    def test_import_bloomberg_data(self):
+        import pdb; pdb.set_trace()
+        result = _import_bloomberg_data(self.imp_dir)
 
     def test_extract_params(self):
         all_params = {'V1': 10, 'V2': 20, 'V3': 3}

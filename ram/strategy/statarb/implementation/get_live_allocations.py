@@ -1,6 +1,7 @@
 import os
 import json
 import pickle
+import numpy as np
 import pandas as pd
 import datetime as dt
 
@@ -59,12 +60,24 @@ def _import_format_raw_data(path):
     return data
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
 
+    live_data = _import_live_pricing(implementation_dir)
+    scaling_data = _import_scaling_data(implementation_dir)
+    bloomberg_data = _import_bloomberg_data(implementation_dir)
+    # LIVE DIVIDENDS FROM BLOOMBERG?
+    # CashDividend / LivePrice * SQLDividendFactor
+
+
+def _import_live_pricing(implementation_dir):
+    dtypes = {'SecCode': str, 'Symbol': str, 'Name': str, 'CLOSE': np.float64,
+              'LAST': np.float64, 'OPEN': np.float64, 'HIGH': np.float64,
+              'LOW': np.float64, 'VWAP': np.float64, 'VOLUME': np.float64}
     path = os.path.join(implementation_dir, 'StatArbStrategy',
                         'live_pricing', 'prices.csv')
-    live_data = pd.read_csv(path)
-
+    live_data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     live_data['Ticker'] = live_data.Symbol
     live_data['AdjOpen'] = live_data.OPEN
     live_data['AdjHigh'] = live_data.HIGH
@@ -72,16 +85,25 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     live_data['AdjClose'] = live_data.LAST
     live_data['AdjVolume'] = live_data.VOLUME
     live_data['AdjVwap'] = live_data.VWAP
+    live_data = live_data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
+                           'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
+    return live_data
 
-    live_data = live_data[['Ticker', 'AdjOpen', 'AdjHigh', 'AdjLow',
-                           'AdjClose', 'AdjVolume', 'AdjVwap']]
 
+def _import_scaling_data(implementation_dir):
     path = os.path.join(implementation_dir, 'StatArbStrategy',
-                        'live_pricing', 'ticker_mapping.csv')
-    ticker_map = pd.read_csv(path)
-    ticker_map.SecCode = ticker_map.SecCode.astype(str)
+                        'live_pricing', 'seccode_scaling.csv')
+    scaling = pd.read_csv(path)
+    scaling.SecCode = scaling.SecCode.astype(str)
+    scaling.Date = convert_date_array(scaling.Date)
+    scaling = scaling[['SecCode', 'Date', 'DividendFactor']]
+    return scaling
 
-    return live_data.merge(ticker_map)
+
+def _import_bloomberg_data(implementation_dir):
+    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
+                         'live_pricing', 'bloomberg_scaling.csv')
+    scaling = pd.read_csv(path)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -262,6 +284,9 @@ def _add_sizes(all_sizes, model_sizes):
 
 if __name__ == '__main__':
 
+    import pdb; pdb.set_trace()
+    live_data = import_live_pricing()
+
     raw_data = import_raw_data()
     run_map = import_run_map()
     models_params = import_models_params()
@@ -276,6 +301,7 @@ if __name__ == '__main__':
     strategy.prep()
 
     _ = raw_input("Press Enter to continue...")
+
     t1 = dt.datetime.utcnow()
 
     live_data = import_live_pricing()

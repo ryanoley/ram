@@ -51,6 +51,20 @@ def main():
                         'ticker_mapping.csv')
     mapping.to_csv(path, index=None)
 
+    # Get dividendfactor, splitfactor data
+    end_date = dt.date.today()
+    start_date = end_date - dt.timedelta(days=7)
+    scaling = dh.get_seccode_data(seccodes=unique_seccodes,
+                                  features=['DividendFactor', 'SplitFactor'],
+                                  start_date=start_date,
+                                  end_date=end_date)
+    scaling = scaling[scaling.Date == scaling.Date.max()]
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'live_pricing',
+                        'seccode_scaling.csv')
+    scaling.to_csv(path, index=None)
+
 
 def get_unique_seccodes_from_data():
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,

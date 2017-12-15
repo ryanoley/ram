@@ -112,6 +112,8 @@ class DataContainerPairs(BaseDataContainer):
         # Filter seccodes
         live_pricing_data = live_pricing_data[
             live_pricing_data.SecCode.isin(data.SecCode.unique())]
+        data = data[
+            data.SecCode.isin(live_pricing_data.SecCode.unique())]
 
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
