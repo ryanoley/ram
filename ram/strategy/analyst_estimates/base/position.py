@@ -97,7 +97,7 @@ class Position(object):
         self.weight = weight
 
     def get_daily_pl(self):
-        return float(daily_pl)
+        return float(self.daily_pl)
 
     def get_daily_turnover(self):
         return float(self.daily_turnover)

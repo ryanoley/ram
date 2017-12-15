@@ -134,15 +134,15 @@ class PortfolioConstructor1(Constructor):
         pl_long, pl_short = portfolio.get_portfolio_daily_pl()
         daily_turnover = portfolio.get_portfolio_daily_turnover()
         daily_exposure = portfolio.get_portfolio_exposure()
-        n_longs, n_shorts = portfolio.get_portfolio_position_totals()
+        weights = portfolio.get_position_weights()
 
         daily_df.loc[date, 'PL'] = pl_long + pl_short
         daily_df.loc[date, 'LongPL'] = pl_long
         daily_df.loc[date, 'ShortPL'] = pl_short
         daily_df.loc[date, 'Turnover'] = daily_turnover
         daily_df.loc[date, 'Exposure'] = daily_exposure
-        daily_df.loc[date, 'OpenLongPositions'] = n_longs
-        daily_df.loc[date, 'OpenShortPositions'] = n_shorts
+        daily_df.loc[date, 'OpenLongPositions'] = (weights > 0).sum()
+        daily_df.loc[date, 'OpenShortPositions'] = (weights < 0).sum()
         # Daily portfolio stats
         if ind_stats:
             daily_stats = portfolio.get_portfolio_stats()
