@@ -150,7 +150,7 @@ def act_vs_est_missbeat(data, est_col, act_col, out_name, fill_low_est=False):
     if fill_low_est:
         estimate[:] = np.where(np.abs(estimate) < .10, .10 * np.sign(estimate),
                                estimate)
-
+    # Use estimate on day of ern announcement
     estimate[:] = np.where(ern_flag == 1, estimate, np.nan)
     estimate.fillna(method='pad', inplace=True)
 
