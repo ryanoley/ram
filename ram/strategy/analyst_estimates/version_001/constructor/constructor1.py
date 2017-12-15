@@ -78,7 +78,7 @@ class PortfolioConstructor1(Constructor):
                 portfolio.update_prices(mkt_close)
 
                 # For Hedged Position Cum Ret Calc
-                portfolio.update_mkt_prices(mkt_adj_close)
+                portfolio.update_hedge_prices(mkt_adj_close)
 
             daily_df = self.update_daily_df(daily_df, portfolio, date,
                                             ind_stats=True)

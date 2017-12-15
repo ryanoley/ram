@@ -83,7 +83,7 @@ class Position(object):
 
     def close_position(self):
         self.daily_pl += -1 * abs(self.shares) * self.comm
-        self.daily_turnover = abs(self.shares) * self.current_price
+        self.daily_turnover += abs(self.shares) * self.current_price
         self.shares = 0
         self.exposure = 0
         self.position_weight = 0.
@@ -97,19 +97,13 @@ class Position(object):
         self.weight = weight
 
     def get_daily_pl(self):
-        """
-        This PL reset mechanism is very important for getting the accounting
-        correct between simulations that execute at the EOD close or the
-        next day open!!!
-        """
-        daily_pl = float(self.daily_pl)
-        return daily_pl
+        return float(daily_pl)
 
     def get_daily_turnover(self):
-        daily_turnover = float(self.daily_turnover)
-        self.daily_turnover = 0
-        return daily_turnover
+        return float(self.daily_turnover)
+
+    def reset_daily_turnover(self):
+        self.daily_turnover = 0.
 
     def reset_daily_pl(self):
         self.daily_pl = 0
-

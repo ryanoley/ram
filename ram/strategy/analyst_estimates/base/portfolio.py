@@ -71,6 +71,7 @@ class Portfolio(object):
         port_turnover = 0
         for position in self.positions.values():
             port_turnover += position.get_daily_turnover()
+            position.reset_daily_turnover()
         return port_turnover
 
     def get_portfolio_stats(self):
@@ -128,10 +129,10 @@ class Portfolio(object):
                 self.positions[symbol].hold_days += 1
         return
 
-    def update_mkt_prices(self, mkt_price):
+    def update_hedge_prices(self, mkt_price):
         for position in self.positions.values():
             if (position.exposure != 0) & (position.symbol != 'HEDGE'):
-                position.update_mkt_price(mkt_price)
+                position.update_hedge_price(mkt_price)
         return
 
     def add_sector_info(self, sectors):
