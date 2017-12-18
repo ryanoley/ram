@@ -113,7 +113,7 @@ class TestStrategyBase(unittest.TestCase):
         benchmark = ['models_0001', 'models_0002']
         self.assertListEqual(result, benchmark)
         self.assertEqual(
-            self.strategy.implementation_output_dir.split('/')[-1],
+            os.path.split(self.strategy.implementation_output_dir)[-1],
             'models_0002')
         # Write something
         model = LinearRegression()
