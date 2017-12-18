@@ -111,7 +111,7 @@ class TestRunManager(unittest.TestCase):
         data = pd.DataFrame()
         data['0'] = [1, 2, 3, 4, 5.]
         data['1'] = [6, 7, 8, 9, 10.]
-        data.index = ['2010-01-{0:02d}'.format(i) for i in range(6, 11)]
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 6)]
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
 
