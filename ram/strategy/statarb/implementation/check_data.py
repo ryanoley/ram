@@ -189,6 +189,7 @@ def main():
     ind = len(output)
 
     for desc, last_date in zip(*get_qadirect_data_dates()):
+        desc = 'Raw data last date: ' + desc[desc.find('version'):]
         output.loc[ind, 'Desc'] = desc
         output.loc[ind, 'Message'] = _check_date(last_date, yesterday)
         ind += 1
