@@ -63,24 +63,30 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     if isinstance(output, str):
         message += output
     else:
-        bloomberg = bloomberg.append(output)
+        bloomberg = output
+        if np.any(np.abs(output.DivMultiplier - 1) > .1):
+            message += 'Spotcheck dividend multiplier; '
 
     output = _import_bloomberg_spinoffs(imp_data_dir)
     if isinstance(output, str):
         message += output
     else:
-        bloomberg = bloomberg.append(output)
+        bloomberg = bloomberg.merge(output, how='outer')
+        if np.any(output.SpinoffMultiplier < .1) | \
+                np.any(output.SpinoffMultiplier > 10):
+            message += 'Spotcheck spinoff multiplier; '
 
-    bloomberg = bloomberg.groupby('Ticker')['Multiplier'].prod().reset_index()
-    bloomberg.columns = ['Ticker', 'DivSpinoffMultiplier']
-
-    #
     output = _import_bloomberg_splits(imp_data_dir)
     if isinstance(output, str):
         message += output
     else:
-        output.columns = ['Ticker', 'SplitMultiplier']
-        bloomberg = bloomberg.merge(output, how='outer').fillna(1)
+        bloomberg = bloomberg.merge(output, how='outer')
+        if np.any(output.SplitMultiplier < .1) | \
+                np.any(output.SplitMultiplier > 10):
+            message += 'Spotcheck split multiplier; '
+
+    # Fill nans with 1 so they don't change prices downstream
+    bloomberg = bloomberg.fillna(1)
 
     # Write bloomberg data to file
     path = os.path.join(imp_data_dir, 'StatArbStrategy',
@@ -100,12 +106,12 @@ def _import_bloomberg_dividends(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
         return "Dividend columns do not match"
     data.columns = ['CashDividend', 'ExDate', 'temp1', 'temp2', 'temp3',
                     'ClosePrice', 'temp4', 'Ticker']
-    data['Multiplier'] = data.CashDividend / data.ClosePrice + 1
+    data['DivMultiplier'] = data.CashDividend / data.ClosePrice + 1
     data.ExDate = convert_date_array(data.ExDate)
     data = data[data.ExDate == dt.date.today()]
     data.Ticker = [x.replace(' US', '') for x in data.Ticker]
-    data = data[['Ticker', 'Multiplier']]
-    data = data[data.Multiplier != 1]
+    data = data[['Ticker', 'DivMultiplier']]
+    data = data[data.DivMultiplier != 1]
     return data.reset_index(drop=True).dropna()
 
 
@@ -119,12 +125,12 @@ def _import_bloomberg_splits(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
                'Stk Splt Ex Dt', 'Ticker']
     if not np.all(data.columns == columns):
         return "Split columns do not match"
-    data.columns = ['Multiplier', 'temp1', 'temp2', 'temp3', 'temp4',
+    data.columns = ['SplitMultiplier', 'temp1', 'temp2', 'temp3', 'temp4',
                     'temp5', 'SplitExDate', 'Ticker']
     data.SplitExDate = convert_date_array(data.SplitExDate)
     data = data[data.SplitExDate == dt.date.today()]
     data.Ticker = [x.replace(' US', '') for x in data.Ticker]
-    data = data[['Ticker', 'Multiplier']]
+    data = data[['Ticker', 'SplitMultiplier']]
     return data.reset_index(drop=True).dropna()
 
 
@@ -143,12 +149,16 @@ def _import_bloomberg_spinoffs(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     data.SpinExDate = convert_date_array(data.SpinExDate)
     data = data[data.SpinExDate == dt.date.today()]
     data.Ticker = [x.replace(' US', '') for x in data.Ticker]
-    data['Multiplier'] = 1 / data.SpinFactor
-    data = data[['Ticker', 'Multiplier']]
+    data['SpinoffMultiplier'] = 1 / data.SpinFactor
+    data = data[['Ticker', 'SpinoffMultiplier']]
     return data.reset_index(drop=True).dropna()
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def _check_date(date, today):
+    return '[WARNING] - Not up-to-date' if date != today else ''
+
 
 def main():
 
@@ -158,35 +168,29 @@ def main():
 
     message = process_bloomberg_data()
     output.loc[0, 'Desc'] = 'Bloomberg processing'
-    output.loc[0, 'Date'] = ''
-    output.loc[0, 'Alert'] = message
+    output.loc[0, 'Message'] = message
 
     output.loc[1, 'Desc'] = 'Bloomberg Dividend File Prefix'
     date = get_bloomberg_file_prefix_date('dividends')
-    output.loc[1, 'Date'] = date
-    output.loc[1, 'Alert'] = '!!!' if date != today else ''
+    output.loc[1, 'Message'] = _check_date(date, today)
 
     output.loc[2, 'Desc'] = 'Bloomberg Spinoff File Prefix'
     date = get_bloomberg_file_prefix_date('spinoffs')
-    output.loc[2, 'Date'] = date
-    output.loc[2, 'Alert'] = '!!!' if date != today else ''
+    output.loc[2, 'Message'] = _check_date(date, today)
 
     output.loc[3, 'Desc'] = 'Bloomberg Splits File Prefix'
     date = get_bloomberg_file_prefix_date('splits')
-    output.loc[3, 'Date'] = date
-    output.loc[3, 'Alert'] = '!!!' if date != today else ''
+    output.loc[3, 'Message'] = _check_date(date, today)
 
     output.loc[4, 'Desc'] = 'QADirect File Prefix'
     date = get_qadirect_file_prefix_dates()
-    output.loc[4, 'Date'] = date
-    output.loc[4, 'Alert'] = '!!!' if date != today else ''
+    output.loc[4, 'Message'] = _check_date(date, today)
 
     ind = len(output)
 
     for n, d in zip(*get_qadirect_data_dates()):
         output.loc[ind, 'Desc'] = n
-        output.loc[ind, 'Date'] = d
-        output.loc[ind, 'Alert'] = '!!!' if d != yesterday else ''
+        output.loc[ind, 'Message'] = _check_date(d, today)
         ind += 1
 
     # OUTPUT to file

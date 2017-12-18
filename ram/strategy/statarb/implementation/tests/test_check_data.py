@@ -72,33 +72,34 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         result = _import_bloomberg_dividends(self.imp_dir)
         benchmark = pd.DataFrame()
         benchmark['Ticker'] = ['TSLA']
-        benchmark['Multiplier'] = [1.5]
+        benchmark['DivMultiplier'] = [1.5]
         assert_frame_equal(result, benchmark)
 
     def test_import_bloomberg_splits(self):
         result = _import_bloomberg_splits(self.imp_dir)
         benchmark = pd.DataFrame()
         benchmark['Ticker'] = ['AAPL', 'TSLA']
-        benchmark['Multiplier'] = [1.5, .25]
+        benchmark['SplitMultiplier'] = [1.5, .25]
         assert_frame_equal(result, benchmark)
 
     def test_import_bloomberg_spinoffs(self):
         result = _import_bloomberg_spinoffs(self.imp_dir)
         benchmark = pd.DataFrame()
         benchmark['Ticker'] = ['AAPL', 'TSLA']
-        benchmark['Multiplier'] = [0.5, 2.0]
+        benchmark['SpinoffMultiplier'] = [0.5, 2.0]
         assert_frame_equal(result, benchmark)
 
     def test_process_bloomberg_data(self):
         result = process_bloomberg_data(self.imp_dir)
-        self.assertEqual(result, '')
+        self.assertEqual(result, 'Spotcheck dividend multiplier; ')
         result = pd.read_csv(
             os.path.join(self.imp_dir, 'StatArbStrategy',
                          'live_pricing', 'bloomberg_scaling.csv'))
         benchmark = pd.DataFrame()
-        benchmark['Ticker'] = ['AAPL', 'TSLA']
-        benchmark['DivSpinoffMultiplier'] = [0.5, 3.0]
-        benchmark['SplitMultiplier'] = [1.5, 0.25]
+        benchmark['Ticker'] = ['TSLA', 'AAPL']
+        benchmark['DivMultiplier'] = [1.5, 1.0]
+        benchmark['SpinoffMultiplier'] = [2.0, 0.5]
+        benchmark['SplitMultiplier'] = [0.25, 1.5]
         assert_frame_equal(result, benchmark)
 
     def tearDown(self):
