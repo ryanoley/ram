@@ -188,9 +188,9 @@ def main():
 
     ind = len(output)
 
-    for n, d in zip(*get_qadirect_data_dates()):
-        output.loc[ind, 'Desc'] = n
-        output.loc[ind, 'Message'] = _check_date(d, today)
+    for desc, last_date in zip(*get_qadirect_data_dates()):
+        output.loc[ind, 'Desc'] = desc
+        output.loc[ind, 'Message'] = _check_date(last_date, yesterday)
         ind += 1
 
     # OUTPUT to file
