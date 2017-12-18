@@ -21,9 +21,9 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [20],
-            'training_qtrs': [16, 24, 32],
-            'ind_vars': [True, False]
+            'response_days': [21],
+            'training_qtrs': [20, 28, 36],
+            'ind_vars': [True]
         }
 
     def _set_market_pricing_dicts(self):

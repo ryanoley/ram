@@ -82,7 +82,7 @@ class PortfolioConstructor1(Constructor):
 
             daily_df = self.update_daily_df(daily_df, portfolio, date,
                                             ind_stats=True)
-            portfolio.reset_daily_pl()
+            portfolio.reset_daily_pl_exposure()
 
         # Time Index aggregate stats
         stats = {}
@@ -131,11 +131,8 @@ class PortfolioConstructor1(Constructor):
 
     def update_daily_df(self, data, portfolio, date, ind_stats=False):
         daily_df = data.copy()
-        pl_long, pl_short = portfolio.get_portfolio_daily_pl()
-        daily_turnover = portfolio.get_portfolio_daily_turnover()
-        daily_exposure = portfolio.get_portfolio_exposure()
-        weights = portfolio.get_position_weights()
-
+        pl_long, pl_short, daily_turnover, \
+                    daily_exposure, weights = portfolio.get_daily_df_data()
         daily_df.loc[date, 'PL'] = pl_long + pl_short
         daily_df.loc[date, 'LongPL'] = pl_long
         daily_df.loc[date, 'ShortPL'] = pl_short
@@ -170,7 +167,6 @@ def make_scores_dict(preds_dict, entry_dates):
         scores_dict[date] = {s:p for s,p in preds[['SecCode', 'preds']].values}
 
     return scores_dict
-
 
 def get_scores(scores_dict, date, long_thresh, short_thresh,
                scale_weights=False):

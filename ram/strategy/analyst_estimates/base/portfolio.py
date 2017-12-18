@@ -63,6 +63,49 @@ class Portfolio(object):
                 port_daily_pl_short += position.get_daily_pl()
         return port_daily_pl_long, port_daily_pl_short
 
+    def get_portfolio_daily_turnover(self):
+        port_turnover = 0
+        for position in self.positions.values():
+            port_turnover += position.get_daily_turnover()
+            position.reset_daily_turnover()
+        return port_turnover
+
+    def get_portfolio_exposure(self):
+        daily_exposure = 0
+        for pos in self.positions.itervalues():
+            daily_exposure += abs(pos.exposure)
+        return daily_exposure
+
+    def get_position_weights(self):
+        weights = {}
+        for position in self.positions.values():
+            weights[position.symbol] = position.weight
+        weights = pd.Series(data=weights, name='weight')
+        spy_mask = ~weights.index.isin(['HEDGE'])
+        return weights[spy_mask]
+
+    def get_daily_df_data(self):
+        port_daily_pl_long = 0.
+        port_daily_pl_short = 0.
+        port_turnover = 0
+        daily_exposure = 0
+        weights = {}
+
+        for position in self.positions.values():
+            if position.shares >= 0:
+                port_daily_pl_long += position.get_daily_pl()
+            else:
+                port_daily_pl_short += position.get_daily_pl()
+            port_turnover += position.get_daily_turnover()
+            daily_exposure += abs(position.exposure)
+            weights[position.symbol] = position.weight
+
+        weights = pd.Series(data=weights, name='weight')
+        spy_mask = ~weights.index.isin(['HEDGE'])
+
+        return port_daily_pl_long, port_daily_pl_short, port_turnover, \
+                    daily_exposure, weights[spy_mask]
+
     def dd_filter(self, drawdown_pct=-.05):
         dd_seccodes = set()
         if np.abs(drawdown_pct) > 1:
@@ -74,23 +117,6 @@ class Portfolio(object):
                     dd_seccodes.add(position.symbol)
 
         return dd_seccodes
-
-    def get_position_weights(self):
-        weights = pd.Series(name='weight', index=self.positions.keys())
-        for position in self.positions.values():
-            weights.loc[position.symbol] = position.weight
-        spy_mask = ~weights.index.isin(['HEDGE'])
-        return weights[spy_mask]
-
-    def get_portfolio_exposure(self):
-        return sum([abs(pos.exposure) for pos in self.positions.itervalues()])
-
-    def get_portfolio_daily_turnover(self):
-        port_turnover = 0
-        for position in self.positions.values():
-            port_turnover += position.get_daily_turnover()
-            position.reset_daily_turnover()
-        return port_turnover
 
     def get_portfolio_stats(self):
         sector_counts = {}
@@ -124,7 +150,8 @@ class Portfolio(object):
                 position.update_hedge_price(mkt_price)
         return
 
-    def reset_daily_pl(self):
+    def reset_daily_pl_exposure(self):
         for position in self.positions.values():
             position.reset_daily_pl()
+            position.reset_daily_turnover()
         return
