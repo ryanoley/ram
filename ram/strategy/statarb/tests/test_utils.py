@@ -140,6 +140,7 @@ class TestUtils(unittest.TestCase):
         benchmark = benchmark.sort_values(['Date', 'SecCode'])
         benchmark = benchmark.reset_index(drop=True)
         benchmark['Response'] = [1] * 12 + [0] * 4
+        benchmark['Response'] = benchmark.Response.astype(int)
         benchmark['TestFlag'] = self.data.TestFlag
         assert_frame_equal(result, benchmark)
         result = smoothed_responses(self.data, .25, days=[1, 2])

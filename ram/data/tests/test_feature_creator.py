@@ -35,7 +35,7 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['b'] = 0
         benchmark['c'] = [1, -1, 1]
         benchmark['d'] = 0
-        assert_frame_equal(result[1], benchmark)
+        assert_frame_equal(result[1].astype(int), benchmark.astype(int))
         #
         df = pd.DataFrame({
             'SecCode': ['a', 'a', 'a', 'b', 'b', 'b',
@@ -59,7 +59,7 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['c'] = [1, -1, 1]
         benchmark['d'] = 0
         benchmark['e'] = 0
-        assert_frame_equal(result[1], benchmark)
+        assert_frame_equal(result[1].astype(int), benchmark.astype(int))
         series = pd.Series([1, 2, 3, 2])
         result = outlier_rank(series, outlier_std=.4)
         benchmark = pd.DataFrame(columns=range(4))
@@ -84,8 +84,8 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['SecCode'] = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C']
         benchmark['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2),
                              dt.date(2010, 1, 3)] * 3
-        benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3]
-        benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27]
+        benchmark['VAR1'] = [1., 1, 1, 2, 2, 2, 3, 3, 3]
+        benchmark['VAR2'] = [-9., -9, -9, -18, -18, -18, -27, -27, -27]
         assert_frame_equal(result, benchmark)
 
     def test_clean_pivot_raw_data(self):
