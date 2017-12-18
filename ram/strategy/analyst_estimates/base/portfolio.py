@@ -56,7 +56,7 @@ class Portfolio(object):
     def get_portfolio_daily_pl(self):
         port_daily_pl_long = 0.
         port_daily_pl_short = 0.
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             if position.shares >= 0:
                 port_daily_pl_long += position.get_daily_pl()
             else:
@@ -65,20 +65,19 @@ class Portfolio(object):
 
     def get_portfolio_daily_turnover(self):
         port_turnover = 0
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             port_turnover += position.get_daily_turnover()
-            position.reset_daily_turnover()
         return port_turnover
 
     def get_portfolio_exposure(self):
         daily_exposure = 0
-        for pos in self.positions.itervalues():
-            daily_exposure += abs(pos.exposure)
+        for position in self.positions.itervalues():
+            daily_exposure += abs(position.exposure)
         return daily_exposure
 
     def get_position_weights(self):
         weights = {}
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             weights[position.symbol] = position.weight
         weights = pd.Series(data=weights, name='weight')
         spy_mask = ~weights.index.isin(['HEDGE'])
@@ -91,7 +90,7 @@ class Portfolio(object):
         daily_exposure = 0
         weights = {}
 
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             if position.shares >= 0:
                 port_daily_pl_long += position.get_daily_pl()
             else:
@@ -111,7 +110,7 @@ class Portfolio(object):
         if np.abs(drawdown_pct) > 1:
             return dd_seccodes
 
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             if ((position.exposure != 0) &
                 (position.cumulative_return <= drawdown_pct)):
                     dd_seccodes.add(position.symbol)
@@ -121,7 +120,7 @@ class Portfolio(object):
     def get_portfolio_stats(self):
         sector_counts = {}
 
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             sector = 'sector_{}_n'.format(position.sector)
             if sector not in sector_counts.keys():
                 sector_counts[sector] = 0
@@ -130,7 +129,7 @@ class Portfolio(object):
         return sector_counts
 
     def close_portfolio_positions(self):
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             position.close_position()
 
     def update_position_weights(self, weights):
@@ -145,13 +144,13 @@ class Portfolio(object):
         return
 
     def update_hedge_prices(self, mkt_price):
-        for position in self.positions.values():
-            if (position.exposure != 0) & (position.symbol != 'HEDGE'):
+        for position in self.positions.itervalues():
+            if position.symbol != 'HEDGE':
                 position.update_hedge_price(mkt_price)
         return
 
     def reset_daily_pl_exposure(self):
-        for position in self.positions.values():
+        for position in self.positions.itervalues():
             position.reset_daily_pl()
             position.reset_daily_turnover()
         return
