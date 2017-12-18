@@ -1,6 +1,8 @@
 import unittest
 import numpy as np
+import pandas as pd
 
+from pandas.util.testing import assert_series_equal
 
 from ram.strategy.analyst_estimates.base.portfolio import Portfolio
 
@@ -37,8 +39,7 @@ class TestPortfolio(unittest.TestCase):
 
         sizes = {'IBM':0, 'AAPL':0}
         self.portfolio.update_position_sizes(sizes, closes)
-        self.portfolio.reset_daily_pl()
-        self.portfolio.get_portfolio_daily_turnover()
+        self.portfolio.reset_daily_pl_exposure()
 
     def test_add_sector_info(self):
         sectors = {'IBM':[4510], 'AAPL':[5510, 4510]}
@@ -68,8 +69,56 @@ class TestPortfolio(unittest.TestCase):
         sizes = {'IBM':0, 'AAPL':0}
         closes = {'IBM':100., 'AAPL':50.}
         self.portfolio.update_position_sizes(sizes, closes)
-        self.portfolio.reset_daily_pl()
-        self.portfolio.get_portfolio_daily_turnover()
+        self.portfolio.reset_daily_pl_exposure()
+
+    def test_get_position_weights(self):
+        weights = {'IBM':0., 'AAPL':0.}
+        self.portfolio.update_position_weights(weights)
+        result = self.portfolio.get_position_weights()
+        benchmark = pd.Series(data={'IBM':0., 'AAPL':0.}, name='weight')
+        assert_series_equal(result, benchmark)
+
+        weights = {'IBM':.5, 'AAPL':-1.}
+        self.portfolio.update_position_weights(weights)
+        result = self.portfolio.get_position_weights()
+        benchmark = pd.Series(data={'IBM':0.5, 'AAPL':-1.}, name='weight')
+        assert_series_equal(result, benchmark)
+
+        weights = {'IBM':0., 'AAPL':0.}
+        self.portfolio.update_position_weights(weights)
+
+    def test_dd_filter(self):
+        sizes = {'IBM':100, 'AAPL':-100}
+        closes = {'IBM':100., 'AAPL':50.}
+        self.portfolio.update_position_sizes(sizes, closes)
+
+        closes = {'IBM':50., 'AAPL':100.}
+        self.portfolio.update_prices(closes)
+
+        result = self.portfolio.dd_filter(drawdown_pct=-.1)
+        benchmark = set(['AAPL','IBM'])
+        self.assertEqual(result, benchmark)
+
+        sizes = {'IBM':0, 'AAPL':0}
+        closes = {'IBM':100., 'AAPL':50.}
+        self.portfolio.update_position_sizes(sizes, closes)
+        self.portfolio.reset_daily_pl_exposure()
+
+    def test_get_portfolio_stats(self):
+        sectors = {'IBM':[4510], 'AAPL':[5510]}
+        self.portfolio.add_sector_info(sectors)
+
+        result = self.portfolio.get_portfolio_stats()
+        benchmark = {'sector_45_n':0, 'sector_55_n':0}
+        self.assertEqual(result, benchmark)
+
+        sizes = {'IBM':100, 'AAPL':-100}
+        closes = {'IBM':100., 'AAPL':50.}
+        self.portfolio.update_position_sizes(sizes, closes)
+
+        result = self.portfolio.get_portfolio_stats()
+        benchmark = {'sector_45_n':1, 'sector_55_n':1}
+        self.assertEqual(result, benchmark)
 
     def tearDown(self):
         pass
