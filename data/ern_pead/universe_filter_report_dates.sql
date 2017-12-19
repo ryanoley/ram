@@ -139,14 +139,18 @@ from			report_dates3
 , report_dates5 as (
 select			*,
 				case
-					when R.NormalFlag1Sum = 5 and R.NormalFlag2Sum = 5
+					when R.NormalFlag1Sum >= 4 and R.NormalFlag2Sum >= 4   -- TEMP: for reconciliation with old implementation
+					--when R.NormalFlag1Sum = 5 and R.NormalFlag2Sum = 5
 					then 1 else 0 end as ResearchFlag,
 				case
-					when R.NormalFlag1SumLive = 4 and R.NormalFlag2SumLive = 4
+					when R.NormalFlag1SumLive >= 3 and R.NormalFlag2SumLive >= 3   -- TEMP: for reconciliation with old implementation
+					--when R.NormalFlag1SumLive = 4 and R.NormalFlag2SumLive = 4
 					then 1 else 0 end as LiveFlag
 from			report_dates4 R
-where			R.NormalFlag1SumLive = 4
-	and			R.NormalFlag2SumLive = 4
+--where			R.NormalFlag1SumLive = 4
+--	and			R.NormalFlag2SumLive = 4
+where			R.NormalFlag1SumLive >= 3	   -- TEMP: for reconciliation with old implementation
+	and			R.NormalFlag2SumLive >= 3	   -- TEMP: for reconciliation with old implementation
 )
 
 
