@@ -12,7 +12,6 @@ class SignalModel1(object):
 
     def __init__(self):
         self.preds_data = {}
-        pass
 
     def get_args(self):
         return {
