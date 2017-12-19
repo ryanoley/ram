@@ -24,7 +24,7 @@ class RunManager(object):
                  start_year=1950,
                  test_periods=6,
                  drop_params=None,
-                 simulation_data_path=config.SIMULATION_OUTPUT_DIR):
+                 simulation_data_path=config.SIMULATIONS_DATA_DIR):
         self.strategy_class = strategy_class
         self.run_name = run_name
         self.start_year = start_year
@@ -35,12 +35,12 @@ class RunManager(object):
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @staticmethod
-    def get_strategies(path=config.SIMULATION_OUTPUT_DIR):
+    def get_strategies(path=config.SIMULATIONS_DATA_DIR):
         return [x for x in os.listdir(path) if
                 os.path.isdir(os.path.join(path, x))]
 
     @staticmethod
-    def get_run_names(strategy_class, path=config.SIMULATION_OUTPUT_DIR):
+    def get_run_names(strategy_class, path=config.SIMULATIONS_DATA_DIR):
         ddir = os.path.join(path, strategy_class)
         dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
         output = pd.DataFrame({'Run': dirs, 'Description': np.nan,
@@ -116,8 +116,8 @@ class RunManager(object):
 
     def import_column_params(self):
         path = self.simulation_data_path
-        ppath = os.path.join(path, self.strategy_class, self.run_name,
-                             'column_params.json')
+        ppath = os.path.join(path, self.strategy_class,
+                             self.run_name, 'column_params.json')
         column_params = json.load(open(ppath, 'r'))
         # Convert keys to strings
         new_column_params = {}
@@ -691,6 +691,21 @@ def get_run_data(strategy_name, cloud_flag):
         return RunManagerGCP.get_run_names(strategy_name)
     else:
         return RunManager.get_run_names(strategy_name)
+
+
+def get_run_name(strategy_name, run_name, cloud_flag=False):
+    if cloud_flag:
+        runs = RunManagerGCP.get_run_names(strategy_name)
+    else:
+        runs = RunManager.get_run_names(strategy_name)
+    # Try to find
+    try:
+        return runs.loc[int(run_name)].Run
+    except:
+        if run_name in runs.Run.values:
+            return run_name
+        else:
+            raise Exception('Run not found')
 
 
 def get_columns(param_dict):

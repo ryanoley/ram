@@ -39,7 +39,7 @@ FUNCS = [
     # ADJEPS
     'ADJEPSQ', 'ADJEPSTTM',
     'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
-    
+
     # Free Cash
     'FREECASHFLOWQ', 'FREECASHFLOWTTM',
     'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
@@ -51,7 +51,7 @@ FUNCS = [
     # RATIOS
     'EBITDAMARGIN', 'CASHEV', 'PE',
     'FCFMARKETCAP',
-    
+
     # STARMINE
     'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
     'EPSESTIMATEFQ', 'EPSSURPRISEFQ', 'EBITDAESTIMATEFQ', 'EBITDASURPRISEFQ',
@@ -210,7 +210,8 @@ def parse_input_var(vstring, table, filter_commands):
             sql_func_data_column = arg[0]
 
         # Adjustment irrelevant columns
-        elif arg[0] in ['AvgDolVol', 'MarketCap', 'SplitFactor']:
+        elif arg[0] in ['AvgDolVol', 'MarketCap',
+                        'SplitFactor', 'DividendFactor']:
             sql_func_data_column = arg[0]
 
         else:
@@ -522,12 +523,13 @@ def _MASTER_ID_FIELD(feature, feature_name, table):
         """.format(feature, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
 def TICKER(arg0, feature_name, arg2, table):
-    return _MASTER_ID_FIELD('Ticker', feature_name, table)         
+    return _MASTER_ID_FIELD('Ticker', feature_name, table)
 
 
 def CUSIP(arg0, feature_name, arg2, table):
-    return _MASTER_ID_FIELD('Cusip', feature_name, table)  
+    return _MASTER_ID_FIELD('Cusip', feature_name, table)
 
 
 def EARNINGSFLAG(arg0, feature_name, arg2, table):
@@ -576,7 +578,8 @@ def SI(arg0, arg1, arg2, table):
             )
         """.format(table)
     return clean_sql_cmd(sqlcmd)
-  
+
+
 def _DATE_OFFSET(feature, feature_name, table):
     sqlcmd = \
         """
@@ -589,11 +592,14 @@ def _DATE_OFFSET(feature, feature_name, table):
         """.format(table, feature_name, feature)
     return clean_sql_cmd(sqlcmd)
 
+
 def TM(arg0, feature_name, arg2, table):
     return _DATE_OFFSET('Tm{}'.format(arg2), feature_name, table)
 
+
 def T(arg0, feature_name, arg2, table):
-    return _DATE_OFFSET('T{}'.format(arg2), feature_name,table)
+    return _DATE_OFFSET('T{}'.format(arg2), feature_name, table)
+
 
 # ~~~~~~ Accounting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -797,7 +803,8 @@ def CASHEV(arg0, feature_name, arg2, table):
         """
         select      A.SecCode,
                     A.Date_,
-                    B2.Value_ / nullif(A.MarketCap + B1.Value_ - B2.Value_, 0) as {1}
+                    B2.Value_ / nullif(A.MarketCap + B1.Value_ -
+                                       B2.Value_, 0) as {1}
         from        {0} A
 
         join        ram.dbo.ram_master_ids M
@@ -930,7 +937,7 @@ def _STARMINE_ARM(feature, feature_name, table):
         """.format(table, feature_name, feature)
     return clean_sql_cmd(sqlcmd)
 
-  
+
 def _STARMINE_SMART_ESTIMATE(feature, feature_name, table):
     sqlcmd = \
         """
@@ -964,23 +971,23 @@ def _STARMINE_SI(feature, feature_name, table):
         """.format(table, feature_name, feature)
     return clean_sql_cmd(sqlcmd)
 
- 
+
 def ARM(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMScore', feature_name, table)
 
-  
+
 def ARMREVENUE(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMRevComp', feature_name, table)
 
-  
+
 def ARMRECS(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMRecsComp', feature_name, table)
 
-  
+
 def ARMEARNINGS(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMPrefErnComp', feature_name, table)
 
-  
+
 def ARMEXRECS(arg0, feature_name, arg2, table):
     return _STARMINE_ARM('ARMScoreExRecs', feature_name, table)
 
@@ -988,51 +995,57 @@ def ARMEXRECS(arg0, feature_name, arg2, table):
 def SESPLITFACTOR(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SplitFactor', feature_name, table)
 
-  
+
 def EPSESTIMATEFQ(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_EPS_FQ{}'.format(arg2), feature_name,
                                     table)
+
 
 def EPSSURPRISEFQ(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_EPS_Surprise_FQ{}'.format(arg2),
                                     feature_name, table)
 
+
 def EBITDAESTIMATEFQ(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_EBITDA_FQ{}'.format(arg2),
                                     feature_name, table)
+
 
 def EBITDASURPRISEFQ(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_EBITDA_Surprise_FQ{}'.format(arg2),
                                     feature_name, table)
 
+
 def REVENUEESTIMATEFQ(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_REV_FQ{}'.format(arg2),
                                     feature_name, table)
+
 
 def REVENUESURPRISEFQ(arg0, feature_name, arg2, table):
     return _STARMINE_SMART_ESTIMATE('SE_REV_Surprise_FQ{}'.format(arg2),
                                     feature_name, table)
 
+
 def SIRANK(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_Rank', feature_name, table)
 
-  
+
 def SIMARKETCAPRANK(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_MarketCapRank', feature_name, table)
 
-  
+
 def SISECTORRANK(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_SectorRank', feature_name, table)
 
-  
+
 def SIUNADJRANK(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_UnAdjRank', feature_name, table)
 
-  
+
 def SISHORTSQUEEZE(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_ShortSqueeze', feature_name, table)
 
-  
+
 def SIINSTOWNERSHIP(arg0, feature_name, arg2, table):
     return _STARMINE_SI('SI_InstOwnership', feature_name, table)
 
@@ -1056,14 +1069,18 @@ def _PRICETARGET(feature, feature_name, table):
         """.format(feature, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
 def PTARGETMEAN(arg0, feature_name, arg2, table):
     return _PRICETARGET('MeanEst', feature_name, table)
+
 
 def PTARGETHIGH(arg0, feature_name, arg2, table):
     return _PRICETARGET('HighEst', feature_name, table)
 
+
 def PTARGETLOW(arg0, feature_name, arg2, table):
     return _PRICETARGET('LowEst', feature_name, table)
+
 
 def PTARGETUNADJ(arg0, feature_name, arg2, table):
     return _PRICETARGET('UnAdjMeanEst', feature_name, table)
@@ -1087,14 +1104,18 @@ def _ANALYSTREC(feature, feature_name, table):
         """.format(feature, feature_name, table)
     return clean_sql_cmd(sqlcmd)
 
+
 def RECMEAN(arg0, feature_name, arg2, table):
     return _ANALYSTREC('MeanRec', feature_name, table)
+
 
 def RECHIGH(arg0, feature_name, arg2, table):
     return _ANALYSTREC('HighRec', feature_name, table)
 
+
 def RECLOW(arg0, feature_name, arg2, table):
     return _ANALYSTREC('LowRec', feature_name, table)
+
 
 def RECNREC(arg0, feature_name, arg2, table):
     return _ANALYSTREC('NumRecs', feature_name, table)

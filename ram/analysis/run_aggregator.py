@@ -15,6 +15,9 @@ class RunAggregator(object):
         self.runs.append(run)
 
     def aggregate_returns(self):
+        if hasattr(self, 'returns'):
+            print('Returns have already been imported..')
+            return
         agg_returns = pd.DataFrame()
         agg_params = {}
         print('Reading and aggregating runs...')
@@ -35,8 +38,9 @@ class RunAggregator(object):
                 packet = {
                     'column_params': v,
                     'prepped_data_version': run.meta['prepped_data_version'],
+                    'strategy_code_version': run.meta['strategy_code_version'],
                     'description': run.meta['description']
-                }
+                 }
                 agg_params['{}_{}'.format(prefix, k)] = packet
         print('Finished aggregating runs...')
         if agg_returns.index.value_counts().max() > 1:

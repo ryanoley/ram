@@ -30,7 +30,6 @@ class TestPredictionThreshOptim(unittest.TestCase):
         data2 = data.iloc[:2].copy()
         data2['Date'] = dt.date(2010, 1, 2)
         data = data.append(data2).reset_index(drop=True)
-        import pdb; pdb.set_trace()
         result = prediction_thresh_optim(data, 1, 0.2, 0.3, 0.2, 0.3)
 
     def test_get_prediction_thresh(self):

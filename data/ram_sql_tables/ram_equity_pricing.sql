@@ -149,7 +149,7 @@ from				idc_dates D
 	-- Adjustment Factor
 	left join	qai.prc.PrcAdj	A
 		on		D.Code = A.Code
-		and		A.AdjType = 1
+		and		A.AdjType = 2
 		and		D.Date_ >= A.StartDate
 		and		D.Date_ <= A.EndDate
 
