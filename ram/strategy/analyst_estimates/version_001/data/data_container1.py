@@ -43,7 +43,7 @@ class DataContainer1(object):
         """
         Takes in raw data, processes it and caches it
         """
-        data = self.process_raw_data(data)
+        data = self.create_features(data)
 
         # Filter nans
         keep_inds = data[self.features].isnull().sum(axis=1) == 0
@@ -68,7 +68,7 @@ class DataContainer1(object):
         self._processed_test_data = data[data.TestFlag]
         self._processed_pl_data = pricing_data[pricing_cols]
 
-    def process_raw_data(self, data):
+    def create_features(self, data):
 
         # SPLITS
         data = create_split_multiplier(data)
