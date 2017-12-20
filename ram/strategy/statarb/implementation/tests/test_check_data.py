@@ -48,7 +48,7 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         data['Current Stock Split Adjustment Factor'] = [1.5, .25]
         data['Market Cap'] = [100, 200]
         data['Market Cap#1'] = [100, 200]
-        data['P/E'] = [1, 2]
+        data['Next Stock Split Ratio'] = [1.5, .25]
         data['Price:D-1'] = [10, 20]
         data['Short Name'] = ['A', 'B']
         data['Stk Splt Ex Dt'] = [today.strftime('%Y-%m-%d')] * 2
