@@ -16,27 +16,30 @@ class TestFeatureCreator(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_outlier_rank(self):
-        df = pd.DataFrame({
-            'SecCode': ['a', 'a', 'a', 'b', 'b', 'b',
-                        'c', 'c', 'c', 'd', 'd', 'd'],
-            'Date': [1, 2, 3] * 4,
-            'V1': [1, 2, 1, 2, 2, 1, 100, -100, 323, 3, 3, 3]
-        })
-        df = clean_pivot_raw_data(df, 'V1')
-        result = outlier_rank(df, outlier_std=.4)
-        benchmark = df.copy()
-        benchmark['a'] = [0, 1/2., 1/6.]
-        benchmark['b'] = [1/3., 1/2., 1/6.]
-        benchmark['c'] = [1, 0, 1.]
-        benchmark['d'] = [2/3., 1, 2/3.]
-        assert_frame_equal(result[0], benchmark)
-        benchmark['a'] = 0
-        benchmark['b'] = 0
-        benchmark['c'] = [1, -1, 1]
-        benchmark['d'] = 0
-        assert_frame_equal(result[1].astype(int), benchmark.astype(int))
+    def test_clean_pivot_raw_data(self):
+        df = pd.DataFrame()
+        df['SecCode'] = ['a'] * 3 + ['b'] * 3 + ['c'] * 3
+        df['Date'] = [dt.date(2010, 1, i) for i in range(1, 4)] * 3
+        df['AdjHigh'] = [np.nan, 2, 3, 4, 5, 6, 7, np.nan, 9]
+        result = clean_pivot_raw_data(df, 'AdjHigh')
+        # # Median values: 5.5, 3.5, 6.0
+        benchmark = result.copy()
+        benchmark['a'] = [np.nan, 2, 3]
+        benchmark['b'] = [4, 5, 6.]
+        benchmark['c'] = [7, 7, 9.]
+        assert_frame_equal(result, benchmark)
         #
+        df = pd.DataFrame()
+        df['SecCode'] = ['a'] * 7
+        df['Date'] = [dt.date(2010, 1, i) for i in range(1, 8)]
+        df['AdjHigh'] = [10] + [np.nan] * 6
+        result = clean_pivot_raw_data(df, 'AdjHigh')
+        # # Median values: 5.5, 3.5, 6.0
+        benchmark = result.copy()
+        benchmark['a'] = [10] * 6 + [np.nan] * 1
+        assert_frame_equal(result, benchmark)
+
+    def test_data_rank(self):
         df = pd.DataFrame({
             'SecCode': ['a', 'a', 'a', 'b', 'b', 'b',
                         'c', 'c', 'c', 'd', 'd', 'd',
@@ -46,27 +49,14 @@ class TestFeatureCreator(unittest.TestCase):
                    323, 3, 3, 3, np.nan, np.nan, 2]
         })
         df = clean_pivot_raw_data(df, 'V1')
-        result = outlier_rank(df, outlier_std=.4)
+        result = data_rank(df)
         benchmark = df.copy()
-        benchmark['a'] = [0, 0.5, 0.125]
-        benchmark['b'] = [0.25, 0.5, 0.125]
-        benchmark['c'] = [1, 0, 1.]
-        benchmark['d'] = [0.75, 1, 0.75]
-        benchmark['e'] = [0.5, 0.5, 0.5]
-        assert_frame_equal(result[0], benchmark)
-        benchmark['a'] = 0
-        benchmark['b'] = 0
-        benchmark['c'] = [1, -1, 1]
-        benchmark['d'] = 0
-        benchmark['e'] = 0
-        assert_frame_equal(result[1].astype(int), benchmark.astype(int))
-        series = pd.Series([1, 2, 3, 2])
-        result = outlier_rank(series, outlier_std=.4)
-        benchmark = pd.DataFrame(columns=range(4))
-        benchmark.loc[0] = [0.0, 0.5, 1.0, 0.5]
-        benchmark.index.name = 'Date'
-        benchmark.columns.name = 'SecCode'
-        assert_frame_equal(result[0], benchmark)
+        benchmark['a'] = [0.25, 0.625, 0.300]
+        benchmark['b'] = [0.50, 0.625, 0.300]
+        benchmark['c'] = [1.00, 0.25, 1.00]
+        benchmark['d'] = [0.75, 1.00, 0.8]
+        benchmark['e'] = [np.nan, np.nan, 0.6]
+        assert_frame_equal(result, benchmark)
 
     def test_FeatureAggregator(self):
         # DataFrame with multiple dates and SecCodes in columns
@@ -84,21 +74,8 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['SecCode'] = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C']
         benchmark['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2),
                              dt.date(2010, 1, 3)] * 3
-        benchmark['VAR1'] = [1., 1, 1, 2, 2, 2, 3, 3, 3]
-        benchmark['VAR2'] = [-9., -9, -9, -18, -18, -18, -27, -27, -27]
-        assert_frame_equal(result, benchmark)
-
-    def test_clean_pivot_raw_data(self):
-        df = pd.DataFrame()
-        df['SecCode'] = ['a'] * 3 + ['b'] * 3 + ['c'] * 3
-        df['Date'] = [dt.date(2010, 1, i) for i in range(1, 4)] * 3
-        df['AdjHigh'] = [np.nan, 2, 3, 4, 5, 6, 7, np.nan, 9]
-        result = clean_pivot_raw_data(df, 'AdjHigh')
-        # # Median values: 5.5, 3.5, 6.0
-        benchmark = result.copy()
-        benchmark['a'] = [5.5, 2, 3]
-        benchmark['b'] = [4, 5, 6.]
-        benchmark['c'] = [7, 7, 9.]
+        benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3]
+        benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27]
         assert_frame_equal(result, benchmark)
 
     def test_prma(self):

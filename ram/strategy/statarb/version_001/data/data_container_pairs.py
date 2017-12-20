@@ -109,20 +109,24 @@ class DataContainerPairs(BaseDataContainer):
 
         del self._live_prepped_data
 
-        # Filter seccodes
+        # Get live data for sec codes in this data set
         live_pricing_data = live_pricing_data[
-            live_pricing_data.SecCode.isin(data.SecCode.unique())]
-        data = data[
-            data.SecCode.isin(live_pricing_data.SecCode.unique())]
+            live_pricing_data.SecCode.isin(data.SecCode.unique())].copy()
+
+        # Check no zero values
+        no_data = live_pricing_data.Ticker[live_pricing_data.AdjClose == 0]
+        if len(no_data):
+            print('NO DATA FOR FOLLOWING TICKERS:')
+            print(no_data.tolist())
+            live_pricing_data = live_pricing_data.replace(0, 10)
+            #live_pricing_data = live_pricing_data.replace(0, np.nan)
 
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
-        data = calculate_todays_avg_dol_vol(data)
         data = adjust_todays_prices(data)
 
         # Cleanup
         data = self._initial_clean(data, -1)
-        data = self._make_ibes_data(data)
 
         # Technical variable calculation
         data_features_2, features_2 = self._make_technical_features(
@@ -134,9 +138,9 @@ class DataContainerPairs(BaseDataContainer):
 
         # Zscores - PERHAPS SHORTEN DATA FOR SPEED?
         zscores = self._get_pairs_z_score(data,
-                                          self._constructor_data['pair_info'])
-        zscores = zscores.iloc[-1:]
-        zscores.index = [0]
+                                          self._constructor_data['pair_info'],
+                                          live_flag=True)
+        zscores = zscores.to_frame().T
 
         # Merge market data
         pdata, features = self._merge_market_data(pdata, features)
@@ -150,7 +154,6 @@ class DataContainerPairs(BaseDataContainer):
         # First cleanup
         data = self._initial_clean(data, time_index)
         data = self._make_earnings_data(data)
-        data = self._make_ibes_data(data)
 
         # Pairs - finds best pairs over 252 days of data
         pair_info = self._get_pairs_info(data)
@@ -255,7 +258,7 @@ class DataContainerPairs(BaseDataContainer):
                 temp.index = [0]
             else:
                 temp = clean_pivot_raw_data(data, feature, lag=1)
-            feat.add_feature(outlier_rank(temp)[0], feature)
+            feat.add_feature(data_rank(temp), feature)
 
         for feature in starmine_features:
             if live_flag:
@@ -264,7 +267,7 @@ class DataContainerPairs(BaseDataContainer):
                 temp.index = [0]
             else:
                 temp = clean_pivot_raw_data(data, feature, lag=1)
-            feat.add_feature(outlier_rank(temp)[0], feature)
+            feat.add_feature(data_rank(temp), feature)
 
         pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
@@ -308,6 +311,16 @@ class DataContainerPairs(BaseDataContainer):
         volume = clean_pivot_raw_data(data, 'AdjVolume')
         avgdolvol = clean_pivot_raw_data(data, 'AvgDolVol')
 
+        # If live_flag adjust avg dol volume because it will have been a
+        # nan that was fixed by clean_pivot_raw_data
+        if live_flag:
+            vwap = clean_pivot_raw_data(data, 'AdjVwap')
+            new_dolvol = (volume.iloc[-1] * vwap.iloc[-1]) / 1e6
+            avgdolvol.iloc[-1] = (avgdolvol.iloc[-2] * 30 + new_dolvol) / 31.
+            # TEMP: print out average discount from day before
+            print('AVG diff in avgdolvol: {}'.format(
+                avgdolvol.iloc[-2:].pct_change().iloc[-1].mean()))
+
         # Set correct method for training or live implementation
         prma = PRMA(live_flag)
         boll = BOLL(live_flag)
@@ -318,67 +331,73 @@ class DataContainerPairs(BaseDataContainer):
 
         feat = FeatureAggregator()
 
-        feat.add_feature(outlier_rank(prma.fit(close, 10))[0], 'PRMA10')
-        feat.add_feature(outlier_rank(prma.fit(close, 20))[0], 'PRMA20')
-        feat.add_feature(outlier_rank(prma.fit(close, 60))[0], 'PRMA60')
+        feat.add_feature(data_rank(prma.fit(close, 10)), 'PRMA10')
+        feat.add_feature(data_rank(prma.fit(close, 20)), 'PRMA20')
+        feat.add_feature(data_rank(prma.fit(close, 60)), 'PRMA60')
 
-        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 10))[0],
+        feat.add_feature(data_rank(prma.fit(avgdolvol, 10)),
                          'PRMA10_AvgDolVol')
-        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 20))[0],
+        feat.add_feature(data_rank(prma.fit(avgdolvol, 20)),
                          'PRMA20_AvgDolVol')
-        feat.add_feature(outlier_rank(prma.fit(avgdolvol, 60))[0],
+        feat.add_feature(data_rank(prma.fit(avgdolvol, 60)),
                          'PRMA60_AvgDolVol')
 
-        feat.add_feature(outlier_rank(boll.fit(close, 10))[0], 'BOLL10')
-        feat.add_feature(outlier_rank(boll.fit(close, 20))[0], 'BOLL20')
-        feat.add_feature(outlier_rank(boll.fit(close, 60))[0], 'BOLL60')
+        feat.add_feature(data_rank(boll.fit(close, 10)), 'BOLL10')
+        feat.add_feature(data_rank(boll.fit(close, 20)), 'BOLL20')
+        feat.add_feature(data_rank(boll.fit(close, 60)), 'BOLL60')
 
-        feat.add_feature(outlier_rank(mfi.fit(high, low, close,
-                                              volume, 10))[0], 'MFI10')
-        feat.add_feature(outlier_rank(mfi.fit(high, low, close,
-                                              volume, 20))[0], 'MFI20')
-        feat.add_feature(outlier_rank(mfi.fit(high, low, close,
-                                              volume, 60))[0], 'MFI60')
+        feat.add_feature(data_rank(mfi.fit(high, low, close,
+                                              volume, 10)), 'MFI10')
+        feat.add_feature(data_rank(mfi.fit(high, low, close,
+                                              volume, 20)), 'MFI20')
+        feat.add_feature(data_rank(mfi.fit(high, low, close,
+                                              volume, 60)), 'MFI60')
 
-        feat.add_feature(outlier_rank(rsi.fit(close, 10))[0], 'RSI10')
-        feat.add_feature(outlier_rank(rsi.fit(close, 20))[0], 'RSI20')
-        feat.add_feature(outlier_rank(rsi.fit(close, 60))[0], 'RSI60')
+        feat.add_feature(data_rank(rsi.fit(close, 10)), 'RSI10')
+        feat.add_feature(data_rank(rsi.fit(close, 20)), 'RSI20')
+        feat.add_feature(data_rank(rsi.fit(close, 60)), 'RSI60')
 
-        feat.add_feature(outlier_rank(vol.fit(close, 10))[0], 'VOL10')
-        feat.add_feature(outlier_rank(vol.fit(close, 20))[0], 'VOL20')
-        feat.add_feature(outlier_rank(vol.fit(close, 60))[0], 'VOL60')
+        feat.add_feature(data_rank(vol.fit(close, 10)), 'VOL10')
+        feat.add_feature(data_rank(vol.fit(close, 20)), 'VOL20')
+        feat.add_feature(data_rank(vol.fit(close, 60)), 'VOL60')
 
-        feat.add_feature(outlier_rank(discount.fit(close, 63))[0],
+        feat.add_feature(data_rank(discount.fit(close, 63)),
                          'DISCOUNT63')
-        feat.add_feature(outlier_rank(discount.fit(close, 126))[0],
+        feat.add_feature(data_rank(discount.fit(close, 126)),
                          'DISCOUNT126')
 
-        # IBES Ranked
-        temp = clean_pivot_raw_data(data, 'IBES_Discount', lag=1)
-        if live_flag:
-            temp = temp.iloc[-1:]
-            temp.index = [0]
-        feat.add_feature(outlier_rank(temp)[0], 'IBES_Discount')
+        # IBES
+        discounts, discounts_smooth = make_ibes_discount(data)
 
-        temp = clean_pivot_raw_data(data, 'IBES_Discount_Smooth', lag=1)
         if live_flag:
-            temp = temp.iloc[-1:]
-            temp.index = [0]
-        feat.add_feature(outlier_rank(temp)[0], 'IBES_Discount_Smooth')
+            discounts = discounts.iloc[-1:]
+            discounts.index = [0]
+        feat.add_feature(data_rank(discounts), 'IBES_Discount')
 
-        temp = clean_pivot_raw_data(data, 'IBES_Target_Increase', lag=1)
         if live_flag:
-            temp = temp.iloc[-1:]
-            temp.index = [0]
-        feat.add_feature(outlier_rank(temp)[0], 'IBES_Target_Increase')
+            discounts_smooth = discounts_smooth.iloc[-1:]
+            discounts_smooth.index = [0]
+        feat.add_feature(data_rank(discounts_smooth), 'IBES_Discount_Smooth')
 
-        temp = clean_pivot_raw_data(data, 'IBES_Target_Decrease', lag=1)
+        increases, decreases = make_ibes_increases_decreases(data)
+
         if live_flag:
-            temp = temp.iloc[-1:]
-            temp.index = [0]
-        feat.add_feature(outlier_rank(temp)[0], 'IBES_Target_Decrease')
+            increases = increases.iloc[-1:]
+            increases.index = [0]
+        feat.add_feature(data_rank(increases), 'IBES_Target_Increase')
 
-        pdata = data[['SecCode', 'Date', 'TimeIndex', 'TestFlag']].copy()
+        if live_flag:
+            decreases = decreases.iloc[-1:]
+            decreases.index = [0]
+        feat.add_feature(data_rank(decreases), 'IBES_Target_Decrease')
+
+        # Create output
+        pdata = pd.DataFrame()
+        pdata['SecCode'] = data.SecCode
+        pdata['Date'] = data.Date
+        pdata['TimeIndex'] = data.TimeIndex
+        pdata['TestFlag'] = data.TestFlag
+
         n_id_features = pdata.shape[1]  # For capturing added features
         # Adjust date for faster live imp
         if live_flag:
@@ -396,16 +415,8 @@ class DataContainerPairs(BaseDataContainer):
 
     def _initial_clean(self, data, time_index):
         data['TimeIndex'] = time_index
-        # SPLITS: Instead of using the levels, use the CHANGE in levels.
-        # This is necessary for the updating of positions and prices downstream
         data = create_split_multiplier(data)
-        data = clean_gsector_ggroup(data)
-        return data
-
-    def _make_ibes_data(self, data):
-        # IBES feature processing
-        data = data.merge(make_ibes_increases_decreases(data))
-        data = data.merge(make_ibes_discount(data))
+        #data = clean_gsector_ggroup(data)
         return data
 
     def _make_earnings_data(self, data):
@@ -429,11 +440,12 @@ class DataContainerPairs(BaseDataContainer):
             filter_n_pairs_per_seccode=30)
         return pair_info
 
-    def _get_pairs_z_score(self, data, pair_info):
+    def _get_pairs_z_score(self, data, pair_info, live_flag=False):
         _, zscores = PairSelector().get_z_scores(
             data=data,
             z_window=20,
-            pair_info=pair_info)
+            pair_info=pair_info,
+            implementation=live_flag)
         return zscores
 
     def _merge_market_data(self, pdata, features):
@@ -461,20 +473,20 @@ class DataContainerPairs(BaseDataContainer):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def create_split_multiplier(data):
-    split = data.pivot(index='Date', columns='SecCode',
-                       values='SplitFactor').pct_change().fillna(0) + 1
-    split = split.unstack().reset_index()
-    split.columns = ['SecCode', 'Date', 'SplitMultiplier']
-    return data.merge(split).drop('SplitFactor', axis=1)
+    # SPLITS: Instead of using the levels, use the CHANGE in levels.
+    # This is necessary for the updating of positions and prices downstream
+    data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) * \
+        (data.SecCode == data.SecCode.shift(1)).astype(int) + 1
+    del data['SplitFactor']
+    return data
 
 
 def clean_gsector_ggroup(data):
-    ggroup = data.pivot(index='Date', columns='SecCode',
-                        values='GGROUP').fillna(method='pad').astype(str)
-    ggroup = ggroup.unstack().reset_index()
-    ggroup.columns = ['SecCode', 'Date', 'GGROUP']
+    # Fill Nan values
+    data['GGROUP'] = data.groupby('SecCode')['GGROUP'].transform(
+        lambda x: x.fillna(x.iloc[0]))
     ggroup['GSECTOR'] = ggroup.GGROUP.apply(lambda x: x[:2])
-    return data.drop(['GGROUP'], axis=1).merge(ggroup)
+    return data
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -487,18 +499,6 @@ def merge_live_pricing_data(data, live_pricing_data):
     live_pricing_data['Date'] = dt.datetime.utcnow().date()
     live_pricing_data['TestFlag'] = True
     return data.append(live_pricing_data)
-
-
-def calculate_todays_avg_dol_vol(data):
-    avgdolvol = data.pivot(index='Date', columns='SecCode',
-                           values='AvgDolVol')
-    adjvol = data.pivot(index='Date', columns='SecCode',
-                        values='AdjVolume')
-    avgdolvol.iloc[-1] = (avgdolvol.iloc[-2] * 30 + adjvol.iloc[-1]) / 31.
-    avgdolvol = avgdolvol.unstack().reset_index()
-    avgdolvol.columns = ['SecCode', 'Date', 'AvgDolVol']
-
-    return data.drop(['AvgDolVol'], axis=1).merge(avgdolvol)
 
 
 def adjust_todays_prices(data):
@@ -519,33 +519,28 @@ def make_ibes_increases_decreases(data):
                                columns='SecCode',
                                values='PTARGETMEAN')
     target_changes = price_targets.pct_change().fillna(0)
-    output1 = target_changes.copy()
-    output1[:] = 0
-    output2 = output1.copy()
+    output_inc = target_changes.copy()
+    output_inc[:] = 0
+    output_dec = output_inc.copy()
     increases = (target_changes > 0).astype(int)
     decreases = (target_changes < 0).astype(int)
     for i in range(5):
-        output1 += (increases.shift(i) * (1 - i*.2)).fillna(0)
-        output2 += (decreases.shift(i) * (1 - i*.2)).fillna(0)
-    output1 = output1.unstack().reset_index()
-    output1.columns = ['SecCode', 'Date', 'IBES_Target_Increase']
-    output2 = output2.unstack().reset_index()
-    output2.columns = ['SecCode', 'Date', 'IBES_Target_Decrease']
-    return output1.merge(output2)
+        output_inc += (increases.shift(i) * (1 - i*.2)).fillna(0)
+        output_dec += (decreases.shift(i) * (1 - i*.2)).fillna(0)
+    return output_inc, output_dec
 
 
 def make_ibes_discount(data):
+    """
+    NOTE: 1-day lag
+    """
     data['IBES_Discount'] = winsorize(
         data.PTARGETUNADJ / data.RClose - 1, limits=(0.005, 0.005))
     discounts = data.pivot(index='Date',
                            columns='SecCode',
-                           values='IBES_Discount')
+                           values='IBES_Discount').shift(1)
     discounts_smooth = discounts.rolling(4).mean()
-    discounts = discounts.unstack().reset_index()
-    discounts.columns = ['SecCode', 'Date', 'IBES_Discount']
-    discounts_smooth = discounts_smooth.unstack().reset_index()
-    discounts_smooth.columns = ['SecCode', 'Date', 'IBES_Discount_Smooth']
-    return discounts.merge(discounts_smooth)
+    return discounts, discounts_smooth
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

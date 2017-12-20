@@ -37,7 +37,6 @@ class TestSelection(unittest.TestCase):
         assert_frame_equal(result, benchmark)
         result = basic_model_selection(data, window=4, criteria='sharpe')
 
-
     def tearDown(self):
         pass
 

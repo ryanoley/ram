@@ -52,8 +52,6 @@ class SignalModel1(BaseSignalGenerator):
                                                     random_state=123)
         if model_type == 'linear_model':
             self.skl_model = LinearRegression()
-
-
         self._model_params = model_params
         self._drop_ibes = drop_ibes
         self._drop_accounting = drop_accounting
@@ -121,7 +119,8 @@ class SignalModel1(BaseSignalGenerator):
         self._process_args()
         output = self._test_data[['SecCode', 'Date']].copy()
         if hasattr(self.skl_model, 'predict_proba'):
-            preds = self.skl_model.predict_proba(self._test_data[self._features])
+            preds = self.skl_model.predict_proba(
+                self._test_data[self._features])
             output.loc[:, 'preds'] = _get_preds(self.skl_model, preds)
         else:
             output.loc[:, 'preds'] = self.skl_model.predict(

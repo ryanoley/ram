@@ -19,13 +19,12 @@ class PairSelector(object):
             pair_info, filter_n_pairs_per_seccode)
         return pair_info
 
-    def get_z_scores(self, data, z_window, pair_info):
+    def get_z_scores(self, data, z_window, pair_info, implementation=False):
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
                                 values='AdjClose')
-
         spreads, zscores = self._get_spreads_zscores(
-            pair_info, close_data, z_window)
+            pair_info, close_data, z_window, implementation)
         return spreads, zscores
 
     def _get_pair_info(self, close_data):
@@ -63,10 +62,15 @@ class PairSelector(object):
 
     # ~~~~~~ Z-Scores ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_spreads_zscores(self, pair_info, close_data, window=20):
+    def _get_spreads_zscores(self, pair_info, close_data, window=20,
+                             implementation=False):
         spreads = self._get_spread_index(pair_info, close_data)
-        zscores = self._get_zscores(spreads, window)
-        return spreads, zscores
+        if implementation:
+            zscores = self._get_zscores_implementation(spreads, window)
+            return spreads.iloc[-1], zscores
+        else:
+            zscores = self._get_zscores(spreads, window)
+            return spreads, zscores
 
     @staticmethod
     def _get_zscores(spreads, window):
@@ -75,11 +79,18 @@ class PairSelector(object):
         return (spreads - ma) / std
 
     @staticmethod
+    def _get_zscores_implementation(spreads, window):
+        ma = spreads[-window:].mean()
+        std = spreads[-window:].std()
+        return (spreads.iloc[-1] - ma) / std
+
+    @staticmethod
     def _get_spread_index(pair_info, close_data):
         # Create two data frames that represent Leg1 and Leg2
         close1 = close_data.loc[:, pair_info.PrimarySecCode]
         close2 = close_data.loc[:, pair_info.OffsetSecCode]
-        spreads = np.subtract(np.log(close1), np.log(close2))
+        spreads = pd.DataFrame(np.subtract(np.log(close1.values),
+                                           np.log(close2.values)))
         # Add correct column names
         spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
                            zip(pair_info.PrimarySecCode,

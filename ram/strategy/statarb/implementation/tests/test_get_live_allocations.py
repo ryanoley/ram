@@ -227,8 +227,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         # Live pricing
         data = pd.DataFrame()
         data['SecCode'] = [1234, 4242, 3535]
-        data['Symbol'] = ['TRUE', 'IBM', 'GOOGL']
-        data['Name'] = ['TRUESOMETHING', 'IBM Corp', 'Alphabet']
+        data['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
+        data['Issuer'] = ['TRUESOMETHING', 'IBM Corp', 'Alphabet']
         data['CLOSE'] = [1, 2, 3]
         data['LAST'] = [1, 2, 'na']
         data['OPEN'] = [1, 2, 3]
@@ -246,7 +246,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         # Bloomberg data
         data = pd.DataFrame()
         data['Ticker'] = ['AAPL', 'IBM']
-        data['DivSpinoffMultiplier'] = [1.5, 1.0]
+        data['DivMultiplier'] = [1.5, 1.0]
+        data['SpinoffMultiplier'] = [10, 20.]
         data['SplitMultiplier'] = [2.0, 3.0]
         data.to_csv(os.path.join(path3, 'bloomberg_scaling.csv'), index=None)
         # Ticker mapping
@@ -400,8 +401,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         imp.add_positions(positions)
         imp.prep()
         live_data = import_live_pricing(self.imp_dir)
-        #live_data['SecCode'] = [14141, 43242]
-        #imp.run_live(live_data)
+        # live_data['SecCode'] = [14141, 43242]
+        # imp.run_live(live_data)
 
     def test_import_live_pricing(self):
         result = _import_live_pricing(self.imp_dir)
@@ -427,7 +428,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         result = _import_bloomberg_data(self.imp_dir)
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['5050', '4242']
-        benchmark['BbrgDivSpinoffMultiplier'] = [1.5, 1.0]
+        benchmark['BbrgDivMultiplier'] = [1.5, 1.0]
+        benchmark['BbrgSpinoffMultiplier'] = [10, 20.]
         benchmark['BbrgSplitMultiplier'] = [2.0, 3.0]
         assert_frame_equal(result, benchmark)
 

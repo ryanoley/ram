@@ -83,13 +83,12 @@ class DataContainer(BaseDataContainer):
         # Create variables
         v1 = prma.fit(close, 2)
         v2 = prma.fit(close, 4)
-        v3 = outlier_rank(v2)
-        # Unstack and set training/test data
-        pdata = unstack_label_data(v1, 'PRMA2')
-        pdata = pdata.merge(unstack_label_data(v2, 'PRMA4'))
-        pdata = pdata.merge(unstack_label_data(v3[0], 'PRMA4_Rank'))
-        pdata = pdata.merge(unstack_label_data(v3[1], 'PRMA4_Extreme'))
-        return pdata
+        v3 = data_rank(v2)
+        features = FeatureAggregator()
+        features.add_feature(v1, 'PRMA2')
+        features.add_feature(v2, 'PRMA4')
+        features.add_feature(v3, 'PRMA4_Rank')
+        return features.make_dataframe()
 
 
 class TestBaseDataContainer(unittest.TestCase):
@@ -122,7 +121,6 @@ class TestBaseDataContainer(unittest.TestCase):
         self.assertTrue('PRMA2' in t)
         self.assertTrue('PRMA4' in t)
         self.assertTrue('PRMA4_Rank' in t)
-        self.assertTrue('PRMA4_Extreme' in t)
 
     def test_process_live_data(self):
         df = pd.DataFrame()

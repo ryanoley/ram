@@ -67,13 +67,17 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     scaling_data = _import_scaling_data(implementation_dir)
     bloomberg_data = _import_bloomberg_data(implementation_dir)
     scaling = scaling_data.merge(bloomberg_data, how='left').fillna(1)
-    scaling['PricingMultiplier'] = scaling.QADirectDividendFactor * \
-        scaling.BbrgDivSpinoffMultiplier * scaling.BbrgSplitMultiplier
+    scaling['PricingMultiplier'] = \
+        scaling.QADirectDividendFactor * \
+        scaling.BbrgDivMultiplier * \
+        scaling.BbrgSpinoffMultiplier * \
+        scaling.BbrgSplitMultiplier
     scaling['VolumeMultiplier'] = scaling.BbrgSplitMultiplier
     scaling = scaling[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
     # IMPORT LIVE AND ADJUST
     live_data = _import_live_pricing(implementation_dir)
     data = live_data.merge(scaling)
+    data['RClose'] = data.AdjClose
     data.AdjOpen = data.AdjOpen * data.PricingMultiplier
     data.AdjHigh = data.AdjHigh * data.PricingMultiplier
     data.AdjLow = data.AdjLow * data.PricingMultiplier
@@ -85,13 +89,13 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
 
 
 def _import_live_pricing(implementation_dir):
-    dtypes = {'SecCode': str, 'Symbol': str, 'Name': str, 'CLOSE': np.float64,
-              'LAST': np.float64, 'OPEN': np.float64, 'HIGH': np.float64,
-              'LOW': np.float64, 'VWAP': np.float64, 'VOLUME': np.float64}
+    dtypes = {'SecCode': str, 'Ticker': str, 'Issuer': str,
+              'CLOSE': np.float64, 'LAST': np.float64, 'OPEN': np.float64,
+              'HIGH': np.float64, 'LOW': np.float64, 'VWAP': np.float64,
+              'VOLUME': np.float64}
     path = os.path.join(implementation_dir, 'StatArbStrategy',
                         'live_pricing', 'prices.csv')
     live_data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
-    live_data['Ticker'] = live_data.Symbol
     live_data['AdjOpen'] = live_data.OPEN
     live_data['AdjHigh'] = live_data.HIGH
     live_data['AdjLow'] = live_data.LOW
@@ -118,16 +122,20 @@ def _import_bloomberg_data(implementation_dir):
     dpath = os.path.join(implementation_dir, 'StatArbStrategy',
                          'live_pricing', 'bloomberg_scaling.csv')
     data = pd.read_csv(dpath)
-    cols = np.array(['Ticker', 'DivSpinoffMultiplier', 'SplitMultiplier'])
+    cols = np.array(['Ticker', 'DivMultiplier', 'SpinoffMultiplier',
+                     'SplitMultiplier'])
+
     assert np.all(data.columns == cols)
-    data.columns = ['Ticker', 'BbrgDivSpinoffMultiplier',
+    data.columns = ['Ticker', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
                     'BbrgSplitMultiplier']
     dpath = os.path.join(implementation_dir, 'StatArbStrategy',
                          'live_pricing', 'ticker_mapping.csv')
     tickers = pd.read_csv(dpath)
     data = data.merge(tickers)
     data.SecCode = data.SecCode.astype(str)
-    return data[['SecCode', 'BbrgDivSpinoffMultiplier', 'BbrgSplitMultiplier']]
+    return data[['SecCode', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
+                 'BbrgSplitMultiplier']]
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -258,12 +266,7 @@ class StatArbImplementation(object):
             params = objs['params']
             model = objs['model']
 
-            import pdb; pdb.set_trace()
-            try:
-
-                strategy.data.process_live_data(live_data)
-            except:
-                strategy.data.process_live_data(live_data)
+            strategy.data.process_live_data(live_data)
 
             sparams = _extract_params(params, strategy.signals.get_args())
             strategy.signals.set_args(**sparams)
@@ -307,9 +310,6 @@ def _add_sizes(all_sizes, model_sizes):
 
 if __name__ == '__main__':
 
-    import pdb; pdb.set_trace()
-    live_data = import_live_pricing()
-
     raw_data = import_raw_data()
     run_map = import_run_map()
     models_params = import_models_params()
@@ -323,17 +323,18 @@ if __name__ == '__main__':
 
     strategy.prep()
 
-    _ = raw_input("Press Enter to continue...")
+    #_ = raw_input("Press Enter to continue...")
 
     t1 = dt.datetime.utcnow()
 
     live_data = import_live_pricing()
 
-    strategy.run_live(live_data)
+    sizes = strategy.run_live(live_data)
 
     t2 = dt.datetime.utcnow()
 
     print(t2 - t1)
+
 
 
 

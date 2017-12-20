@@ -19,7 +19,6 @@ class TestSignalModel1(unittest.TestCase):
         signals = SignalModel1()
         signals.set_args()
 
-
     def tearDown(self):
         pass
 

@@ -8,8 +8,8 @@ from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from gearbox import convert_date_array
 
-from ram.strategy.statarb.abstract.portfolio_constructor import BasePortfolioConstructor
-
+from ram.strategy.statarb.abstract.portfolio_constructor import \
+    BasePortfolioConstructor
 
 
 class PortfolioConstructor(BasePortfolioConstructor):
@@ -22,7 +22,6 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
     def prep_data(self, time_index, **kwargs):
         return None
-
 
 
 class TestBasePortfolioConstructor(unittest.TestCase):

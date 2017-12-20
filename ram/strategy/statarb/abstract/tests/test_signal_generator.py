@@ -11,7 +11,6 @@ from gearbox import convert_date_array
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
 
 
-
 class SignalGenerator(BaseSignalGenerator):
 
     def get_args(self):

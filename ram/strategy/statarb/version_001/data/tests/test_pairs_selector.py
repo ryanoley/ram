@@ -70,6 +70,10 @@ class TestPairSelector(unittest.TestCase):
         self.assertEqual(result.shape[1], 2)
         self.assertAlmostEqual(result.iloc[-1, 0], -1.045565)
         self.assertAlmostEqual(result.iloc[-1, 1], 1.08254254)
+        result = PairSelector._get_zscores_implementation(data, 3)
+        self.assertEqual(result.shape[0], 2)
+        self.assertAlmostEqual(result.iloc[0], -1.045565)
+        self.assertAlmostEqual(result.iloc[1], 1.08254254)
 
     def test_get_spread_index(self):
         pair_info = pd.DataFrame()

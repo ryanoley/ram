@@ -70,6 +70,7 @@ class RunManager(object):
         ddir = os.path.join(path, self.strategy_class, self.run_name,
                             'index_outputs')
         files = [x for x in os.listdir(ddir) if x.find('returns') > 0]
+        files.sort()
         # Trim files for test periods
         if self.test_periods > 0:
             files = files[:-self.test_periods]

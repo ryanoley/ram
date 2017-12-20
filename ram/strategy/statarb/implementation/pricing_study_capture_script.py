@@ -22,13 +22,13 @@ def main():
     first_pull_flag = False
     while True:
         time = dt.datetime.now().time()
+        # if time > dt.time(15, 45):
         if time > dt.time(11, 38) and not first_pull_flag:
-        #if time > dt.time(15, 45):
             first_pull_flag = True
             print('First pull @ {}'.format(time))
             capture_prices('345_pull')
+        # if time > dt.time(16, 5):
         if time > dt.time(11, 39):
-        #if time > dt.time(16, 5):
             print('Second pull @ {}'.format(time))
             capture_prices('close_pull')
             break

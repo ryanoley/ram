@@ -39,7 +39,7 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         data['Market Cap#1'] = [100, 200]
         data['P/E'] = [1, 2]
         data['Price:D-1'] = [10, 20]
-        data['Short Name'] = ['A' ,'B']
+        data['Short Name'] = ['A', 'B']
         data['Ticker'] = ['AAPL US', 'TSLA US']
         file_name = today.strftime('%Y%m%d') + '_dividends.csv'
         data.to_csv(os.path.join(path, file_name), index=None)
@@ -50,7 +50,7 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         data['Market Cap#1'] = [100, 200]
         data['P/E'] = [1, 2]
         data['Price:D-1'] = [10, 20]
-        data['Short Name'] = ['A' ,'B']
+        data['Short Name'] = ['A', 'B']
         data['Stk Splt Ex Dt'] = [today.strftime('%Y-%m-%d')] * 2
         data['Ticker'] = ['AAPL US', 'TSLA US']
         file_name = today.strftime('%Y%m%d') + '_splits.csv'
@@ -60,7 +60,7 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         data['Market Cap'] = [100, 200]
         data['Market Cap#1'] = [100, 200]
         data['Price:D-1'] = [10, 20]
-        data['Short Name'] = ['A' ,'B']
+        data['Short Name'] = ['A', 'B']
         data['Spin Adj Fact Curr'] = [2.0, .5]
         data['Spin Adj Fact Nxt'] = [2.0, .5]
         data['Spinoff Ex Date'] = [today.strftime('%Y-%m-%d')] * 2
