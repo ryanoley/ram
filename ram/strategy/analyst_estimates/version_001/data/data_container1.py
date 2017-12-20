@@ -21,8 +21,8 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [21],
-            'training_qtrs': [20, 28, 36],
+            'response_days': [19],
+            'training_qtrs': [16, 24, 32, -99],
             'ind_vars': [True]
         }
 
@@ -71,7 +71,7 @@ class DataContainer1(object):
     def process_raw_data(self, data):
 
         # SPLITS
-        data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) + 1
+        data = create_split_multiplier(data)
 
         # Industry Binary Vars
         data = get_industry_binaries(data)
@@ -301,3 +301,10 @@ def read_spy_data(spy_path=None):
     spy = pd.read_csv(spy_path)
     spy.Date = convert_date_array(spy.Date)
     return spy
+
+def create_split_multiplier(data):
+    split = data.pivot(index='Date', columns='SecCode',
+                       values='SplitFactor').pct_change().fillna(0) + 1
+    split = split.unstack().reset_index()
+    split.columns = ['SecCode', 'Date', 'SplitMultiplier']
+    return data.merge(split).drop('SplitFactor', axis=1)
