@@ -4,30 +4,24 @@ import pandas as pd
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
-def clean_pivot_raw_data(data, format_column, lag=0):
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def clean_pivot_raw_data(data, value_column, lag=0):
     """
     """
-    assert 'Date' in data
-    assert 'SecCode' in data
     assert lag >= 0
     data = data.pivot(index='Date', columns='SecCode',
-                      values=format_column).shift(lag)
-    # CLEAN
-    daily_median = data.median(axis=1)
+                      values=value_column).shift(lag)
     # Allow to fill up to five days of missing data if there was a
     # previous data point
     data = data.fillna(method='pad', limit=5)
-    fill_df = pd.concat([daily_median] * data.shape[1], axis=1)
-    fill_df.columns = data.columns
-    data = data.fillna(fill_df)
     return data
 
 
-def outlier_rank(pdata, outlier_std=4):
+def data_rank(pdata):
     """
-    Will create two columns, and if the variable is an extreme outlier will
-    code it as a 1 or -1 depending on side and force rank to median for
-    the date.
+    Simple clean and rank of data. Assumed to be pivoted already by
+    clean_pivot_raw_data.
     """
     # For single day ranking, convert to DataFrame
     if isinstance(pdata, pd.Series):
@@ -35,27 +29,8 @@ def outlier_rank(pdata, outlier_std=4):
     # It is assumed that these are the correct labels
     pdata.index.name = 'Date'
     pdata.columns.name = 'SecCode'
-    daily_median = pdata.median(axis=1).fillna(0)
-    # Get extreme value cutoffs
-    std_pdata = pdata.std(axis=1).fillna(0)
-    daily_min = daily_median - outlier_std * std_pdata
-    daily_max = daily_median + outlier_std * std_pdata
-    # FillNans are to avoid warning
-    extremes = pdata.fillna(-99999).gt(daily_max, axis=0).astype(int) - \
-        pdata.fillna(99999).lt(daily_min, axis=0).astype(int)
-    ranks = (pdata.rank(axis=1) - 1) / (pdata.shape[1] - 1)
-    return ranks, extremes
-
-
-def unstack_label_data(data, label):
-    # Series for single day
-    if isinstance(data, pd.Series):
-        data = data.reset_index()
-        data.columns = ['SecCode', label]
-    else:
-        data = data.unstack().reset_index()
-        data.columns = ['SecCode', 'Date', label]
-    return data
+    ranks = pdata.rank(axis=1, pct=True)
+    return ranks
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,8 +43,12 @@ class FeatureAggregator(object):
     def add_feature(self, data, label):
         """
         Assumes input has SecCodes in the columns, dates in the row index,
-        essentially from the Pivot table.
+        essentially from the Pivot table. If it is a Series, it is assumed
+        that the indexes are the SecCodes
         """
+        if isinstance(data, pd.Series):
+            # It is assumed that these are the correct labels
+            data = data.to_frame().T
         data = data.unstack().reset_index()
         data.columns = ['SecCode', 'Date', 'val']
         data['label'] = label
@@ -178,17 +157,20 @@ class MFI(BaseTechnicalFeature):
         return mfi
 
     def calculate_last_date(self, high, low, close, volume, window):
-        window = window + 1
-        typ_price = (high.iloc[-window:] + low.iloc[-window:] +
-                     close.iloc[-window:]) / 3.
-        lag_typ_price = typ_price.shift(1)
-        raw_mf = typ_price * volume.iloc[-window:]
+        typ_price = ((high.iloc[-(window+1):] + low.iloc[-(window+1):] +
+                     close.iloc[-(window+1):]) / 3.).values
+        lag_typ_price = typ_price[:-1]
+        typ_price = typ_price[1:]
+        # This fix is for making tests work, which is unfortunate
+        raw_mf = typ_price * volume.iloc[-typ_price.shape[0]:].values
         mf_pos = (typ_price > lag_typ_price) * raw_mf
-        mf_pos = mf_pos.sum()
+        mf_pos = np.sum(mf_pos, axis=0)
         mf_neg = (typ_price < lag_typ_price) * raw_mf
-        mf_neg = mf_neg.sum()
-        mfi = 100 - 100 / (1 + (mf_pos / mf_neg))
-        mfi.index = typ_price.columns
+        mf_neg = np.sum(mf_neg, axis=0)
+        # Numpy printing warning
+        with np.errstate(divide='ignore'):
+            mfi = pd.Series(100 - 100 / (1 + (mf_pos / mf_neg)),
+                            index=high.columns)
         return mfi
 
 

@@ -71,7 +71,8 @@ class TestConstructorPairs(unittest.TestCase):
 
     def test_tree_model(self):
         scores = {'a': 10, 'b': 20, 'c': 30, 'd': 40, 'e': 50}
-        cols = [x for x in itertools.permutations(['a', 'b', 'c', 'd', 'e'], 2)]
+        cols = [x for x in itertools.permutations(['a', 'b', 'c',
+                                                   'd', 'e'], 2)]
         data = pd.DataFrame()
         data['pair'] = ['{}~{}'.format(x, y) for x, y in cols]
         data['SecCode'] = [x[0] for x in cols]

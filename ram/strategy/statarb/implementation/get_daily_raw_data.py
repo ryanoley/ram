@@ -45,6 +45,15 @@ def main():
     mapping = dh.get_ticker_seccode_map()
     mapping = mapping.loc[mapping.SecCode.isin(unique_seccodes)]
 
+    # Get hash table for odd tickers
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'live_pricing',
+                        'odd_ticker_hash.json')
+    odd_tickers = json.load(open(path, 'r'))
+    mapping.Ticker = mapping.Ticker.replace(to_replace=odd_tickers)
+
+    # Write ticker mapping to file
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'live_pricing',

@@ -91,6 +91,7 @@ class TestDataContainerPairs(unittest.TestCase):
     def test_process_live_data(self):
         live_data = pd.DataFrame({
             'SecCode': ['AAPL', 'IBM', 'TSLA'],
+            'Ticker': ['AAPL', 'IBM', 'TSLA'],
             'AdjOpen': [10, 20, 30],
             'AdjHigh': [10, 20, 30],
             'AdjLow': [10, 20, 30],
@@ -179,10 +180,11 @@ class TestDataContainerPairs(unittest.TestCase):
                         '2015-01-07', '2015-01-08', '2015-01-09']
         data['PTARGETMEAN'] = [1, 1, 2, 2, 2, 2, 2, 2, 3]
         result = make_ibes_increases_decreases(data)
-        benchmark = data[['SecCode', 'Date']].copy()
-        benchmark['IBES_Target_Increase'] = [0, 0, 1, .8, .6, .4, .2, 0, 1]
-        benchmark['IBES_Target_Decrease'] = [0.] * 9
-        assert_frame_equal(result, benchmark)
+        benchmark = result[0].copy()
+        benchmark['a'] = [0, 0, 1, .8, .6, .4, .2, 0, 1]
+        assert_frame_equal(result[0], benchmark)
+        benchmark['a'] = [0.0] * 9
+        assert_frame_equal(result[1], benchmark)
 
     def test_make_ibes_discount(self):
         data = pd.DataFrame()
@@ -193,12 +195,12 @@ class TestDataContainerPairs(unittest.TestCase):
         data['PTARGETUNADJ'] = [11, 11, 12, 12, 12, 12, 12, 12, 13]
         data['RClose'] = [10] * 9
         result = make_ibes_discount(data)
-        benchmark = data[['SecCode', 'Date']].copy()
-        benchmark['IBES_Discount'] = [0.1, 0.1, 0.2, 0.2, 0.2,
-                                      0.2, 0.2, 0.2, 0.3]
-        benchmark['IBES_Discount_Smooth'] = [np.nan, np.nan, np.nan, 0.15,
-                                             0.175, 0.2, 0.2, 0.2, 0.225]
-        assert_frame_equal(result, benchmark)
+        benchmark = result[0].copy()
+        benchmark['a'] = [np.nan, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]
+        assert_frame_equal(result[0], benchmark)
+        benchmark['a'] = [np.nan, np.nan, np.nan, np.nan, 0.15,
+                          0.175, 0.2, 0.2, 0.2]
+        assert_frame_equal(result[1], benchmark)
 
     def test_create_split_multiplier(self):
         result = create_split_multiplier(self.data2)
