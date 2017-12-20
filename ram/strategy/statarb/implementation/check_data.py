@@ -121,12 +121,12 @@ def _import_bloomberg_splits(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     data = pd.read_csv(os.path.join(imp_data_dir, 'bloomberg_data', file_name))
     # Check columns
     columns = ['Current Stock Split Adjustment Factor', 'Market Cap',
-               'Market Cap#1', 'P/E', 'Price:D-1', 'Short Name',
-               'Stk Splt Ex Dt', 'Ticker']
+               'Market Cap#1', 'Next Stock Split Ratio', 'Price:D-1',
+               'Short Name', 'Stk Splt Ex Dt', 'Ticker']
     if not np.all(data.columns == columns):
         return "Split columns do not match"
-    data.columns = ['SplitMultiplier', 'temp1', 'temp2', 'temp3', 'temp4',
-                    'temp5', 'SplitExDate', 'Ticker']
+    data.columns = ['SplitMultiplierOLD', 'temp1', 'temp2', 'SplitMultiplier',
+                    'temp4', 'temp5', 'SplitExDate', 'Ticker']
     data.SplitExDate = convert_date_array(data.SplitExDate)
     data = data[data.SplitExDate == dt.date.today()]
     data.Ticker = [x.replace(' US', '') for x in data.Ticker]

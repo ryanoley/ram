@@ -306,6 +306,12 @@ def _add_sizes(all_sizes, model_sizes):
     return all_sizes
 
 
+def _write_output(out_df, implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+    timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
+    file_name = 'allocations_{}.csv'.format(timestamp)
+    path = os.path.join(implementation_dir, 'StatArbStrategy', 'allocations', file_name)
+    out_df.to_csv(path, index=None)
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 if __name__ == '__main__':
@@ -323,7 +329,10 @@ if __name__ == '__main__':
 
     strategy.prep()
 
-    #_ = raw_input("Press Enter to continue...")
+    ### IDEA: perhaps have some sort of infinite loop that has a
+    ### try/except statement in it just in case there is a problem
+
+    _ = raw_input("Press Enter to continue...")
 
     t1 = dt.datetime.utcnow()
 
@@ -331,61 +340,17 @@ if __name__ == '__main__':
 
     sizes = strategy.run_live(live_data)
 
+    sizes = pd.Series(sizes).reset_index()
+    sizes.columns = ['SecCode', 'Dollars']
+
+    out_df = live_data[['SecCode', 'Ticker']].merge(sizes, how='outer')
+
+    _write_output(out_df)
+
     t2 = dt.datetime.utcnow()
 
     print(t2 - t1)
 
-
-
-
-# Warning flags
-
-
-
-
-
-
-# # DIVIDENDS
-# data = pd.read_csv(os.path.join(bbrg_dir,
-#                                 '{}_dividends.csv'.format(max_date_prefix)))
-# # Confirm import format has not changed
-# columns = ['DPS Last Gross', 'Dvd Ex Dt', 'Market Cap',
-#            'Market Cap#1', 'P/E', 'Price:D-1', 'Short Name', 'Ticker']
-# columns_match_flag = np.all(data.columns == np.array(columns))
-# data.columns = ['Dividend', 'ExDate', 'drop1', 'drop2',
-#                 'drop3', 'drop4', 'drop5', 'Ticker']
-# data = data[['Ticker', 'ExDate', 'Dividend']]
-# data.Ticker = [x.replace(' US', '') for x in data.Ticker]
-# data.ExDate = convert_date_array(data.ExDate)
-# data.Dividend = data.Dividend.fillna(0)
-# # Get overnight dividends
-# today = dt.datetime.utcnow().date()
-# data = data[data.ExDate == today]
-
-
-# # SPINOFFS
-# data = pd.read_csv(os.path.join(bbrg_dir,
-#                                 '{}_spinoffs.csv'.format(max_date_prefix)))
-# # Confirm import format has not changed
-# columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
-#            'Spin Adj Fact Curr', 'Spinoff Ex Date', 'Ticker']
-# columns_match_flag = np.all(data.columns == np.array(columns))
-# data.columns = ['drop1', 'drop2', 'drop3', 'drop4',
-#                 'SpinAdjFactor', 'ExDate', 'Ticker']
-# data = data[['Ticker', 'ExDate', 'SpinAdjFactor']]
-
-
-# # SPLITS
-# data = pd.read_csv(os.path.join(bbrg_dir,
-#                                 '{}_splits.csv'.format(max_date_prefix)))
-# # Confirm import format has not changed
-# columns = ['Current Stock Split Adjustment Factor', 'Market Cap',
-#            'Market Cap#1', 'P/E', 'Price:D-1', 'Short Name',
-#            'Stk Splt Ex Dt', 'Ticker']
-# columns_match_flag = np.all(data.columns == np.array(columns))
-# data.columns = ['drop1', 'drop2', 'drop3', 'drop4',
-#                 'SpinAdjFactor', 'ExDate', 'Ticker']
-# data = data[['Ticker', 'ExDate', 'SpinAdjFactor']]
 
 
 
