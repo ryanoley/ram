@@ -45,6 +45,13 @@ def main():
     mapping = dh.get_ticker_seccode_map()
     mapping = mapping.loc[mapping.SecCode.isin(unique_seccodes)]
 
+    # Hard-coded SecCodes
+    indexes = pd.DataFrame()
+    indexes['SecCode'] = ['50311', '11113']
+    indexes['Ticker'] = ['$SPX.X', '$VIX.X']
+    indexes['Issuer'] = ['SPX', 'VIX']
+    mapping = mapping.append(indexes).reset_index(drop=True)
+
     # Get hash table for odd tickers
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',

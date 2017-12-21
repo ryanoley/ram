@@ -159,9 +159,10 @@ class MFI(BaseTechnicalFeature):
     def calculate_last_date(self, high, low, close, volume, window):
         typ_price = ((high.iloc[-(window+1):] + low.iloc[-(window+1):] +
                      close.iloc[-(window+1):]) / 3.).values
+        typ_price[np.isnan(typ_price)] = 0
         lag_typ_price = typ_price[:-1]
         typ_price = typ_price[1:]
-        # This fix is for making tests work, which is unfortunate
+        # Using `.shape` here is for making tests work, which is unfortunate
         raw_mf = typ_price * volume.iloc[-typ_price.shape[0]:].values
         mf_pos = (typ_price > lag_typ_price) * raw_mf
         mf_pos = np.sum(mf_pos, axis=0)
