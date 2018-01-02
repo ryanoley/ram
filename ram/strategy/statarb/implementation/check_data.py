@@ -59,31 +59,34 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     message = ''
     bloomberg = pd.DataFrame()
 
-    output = _import_bloomberg_dividends(imp_data_dir)
-    if isinstance(output, str):
-        message += output
-    else:
+    # DIVIDENDS
+    try:
+        output = _import_bloomberg_dividends(imp_data_dir)
         bloomberg = output
         if np.any(np.abs(output.DivMultiplier - 1) > .1):
             message += 'Spotcheck dividend multiplier; '
+    except Exception as e:
+        message += 'Dividends: {}; '.format(e.__repr__())
 
-    output = _import_bloomberg_spinoffs(imp_data_dir)
-    if isinstance(output, str):
-        message += output
-    else:
+    # SPINOFFS
+    try:
+        output = _import_bloomberg_spinoffs(imp_data_dir)
         bloomberg = bloomberg.merge(output, how='outer')
         if np.any(output.SpinoffMultiplier < .1) | \
                 np.any(output.SpinoffMultiplier > 10):
             message += 'Spotcheck spinoff multiplier; '
+    except Exception as e:
+        message += 'Spinoffs: {}; '.format(e.__repr__())
 
-    output = _import_bloomberg_splits(imp_data_dir)
-    if isinstance(output, str):
-        message += output
-    else:
+    # SPLITS
+    try:
+        output = _import_bloomberg_splits(imp_data_dir)
         bloomberg = bloomberg.merge(output, how='outer')
         if np.any(output.SplitMultiplier < .1) | \
                 np.any(output.SplitMultiplier > 10):
             message += 'Spotcheck split multiplier; '
+    except Exception as e:
+        message += 'Splits: {}; '.format(e.__repr__())
 
     # Fill nans with 1 so they don't change prices downstream
     bloomberg = bloomberg.fillna(1)
@@ -103,7 +106,7 @@ def _import_bloomberg_dividends(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     columns = ['DPS Last Gross', 'Dvd Ex Dt', 'Market Cap', 'Market Cap#1',
                'P/E', 'Price:D-1', 'Short Name', 'Ticker']
     if not np.all(data.columns == columns):
-        return "Dividend columns do not match"
+        raise Exception("Dividend columns do not match")
     data.columns = ['CashDividend', 'ExDate', 'temp1', 'temp2', 'temp3',
                     'ClosePrice', 'temp4', 'Ticker']
     data['DivMultiplier'] = data.CashDividend / data.ClosePrice + 1
@@ -124,7 +127,7 @@ def _import_bloomberg_splits(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
                'Market Cap#1', 'Next Stock Split Ratio', 'Price:D-1',
                'Short Name', 'Stk Splt Ex Dt', 'Ticker']
     if not np.all(data.columns == columns):
-        return "Split columns do not match"
+        raise Exception("Split columns do not match")
     data.columns = ['SplitMultiplierOLD', 'temp1', 'temp2', 'SplitMultiplier',
                     'temp4', 'temp5', 'SplitExDate', 'Ticker']
     data.SplitExDate = convert_date_array(data.SplitExDate)
@@ -139,13 +142,24 @@ def _import_bloomberg_spinoffs(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     file_name = prefix_date.strftime('%Y%m%d') + '_spinoffs.csv'
     data = pd.read_csv(os.path.join(imp_data_dir, 'bloomberg_data', file_name))
     # Check columns
-    columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
-               'Spin Adj Fact Curr', 'Spin Adj Fact Nxt',
-               'Spinoff Ex Date', 'Ticker']
-    if not np.all(data.columns == columns):
-        return "Spinoff columns do not match"
-    data.columns = ['temp1', 'temp2', 'temp3', 'temp4', 'SpinFactor', 'temp5',
+    if data.shape[1] == 7:
+        columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
+                   'Spin Adj Fact Curr', 'Spinoff Ex Date', 'Ticker']
+        new_cols = ['temp1', 'temp2', 'temp3', 'temp4', 'SpinFactor',
                     'SpinExDate', 'Ticker']
+    else:
+        # Check columns
+        columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
+                   'Spin Adj Fact Curr', 'Spin Adj Fact Nxt',
+                   'Spinoff Ex Date', 'Ticker']
+        new_cols = ['temp1', 'temp2', 'temp3', 'temp4', 'SpinFactor', 'temp5',
+                    'SpinExDate', 'Ticker']
+
+    if not np.all(data.columns == columns):
+        raise Exception("Spinoff columns do not match")
+
+    data.columns = new_cols
+
     data.SpinExDate = convert_date_array(data.SpinExDate)
     data = data[data.SpinExDate == dt.date.today()]
     data.Ticker = [x.replace(' US', '') for x in data.Ticker]
