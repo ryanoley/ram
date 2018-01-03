@@ -22,7 +22,7 @@ class SignalModel1(BaseSignalGenerator):
 
     def get_args(self):
         return {
-            'signal_model': ['linear_model', 'extra_trees_1', 'extra_trees_2'],
+            'signal_model': SIGNAL_MODELS,
             'drop_ibes': [True],
             'drop_accounting': [False],
             'drop_starmine': [False],
