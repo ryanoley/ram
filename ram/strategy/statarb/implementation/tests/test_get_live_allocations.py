@@ -107,9 +107,6 @@ class DataContainerTest(BaseDataContainer):
     def process_training_data(self, data, time_index):
         pass
 
-    def process_training_market_data(self, data):
-        pass
-
     def prep_live_data(self, data, market_data):
         data['TimeIndex'] = -1
         features = ['AdjClose']

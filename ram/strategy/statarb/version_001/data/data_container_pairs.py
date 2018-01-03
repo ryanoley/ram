@@ -84,17 +84,18 @@ class DataContainerPairs(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def prep_live_data(self, data, market_data):
-        self.process_training_market_data(market_data)
         pair_info = self._get_pairs_info(data)
         # Non pricing features
         data = self._make_earnings_data(data)
         data['TimeIndex'] = -1
         data_features_1, features_1 = self._make_features(data, live_flag=True)
+        market_data = market_data[['SecCode', 'Date', 'AdjClose']].copy()
+        market_data = market_data[market_data.SecCode.isin(['50311', '11113'])]
         self._live_prepped_data = {}
         self._live_prepped_data['data'] = data
+        self._live_prepped_data['market_data'] = market_data
         self._live_prepped_data['features'] = features_1
         self._live_prepped_data['data_features_1'] = data_features_1
-
         self._constructor_data = {}
         self._constructor_data['pair_info'] = pair_info
 
@@ -104,10 +105,16 @@ class DataContainerPairs(BaseDataContainer):
         HOW DO WE HANDLE LIVE SPLITS??
         """
         data = self._live_prepped_data['data']
+        market_data = self._live_prepped_data['market_data']
         features_1 = self._live_prepped_data['features']
         data_features_1 = self._live_prepped_data['data_features_1']
-
         del self._live_prepped_data
+
+        # Pop index pricing
+        live_market = live_pricing_data[
+            live_pricing_data.SecCode.isin(['50311', '11113'])]
+        live_pricing_data = live_pricing_data[
+            ~live_pricing_data.SecCode.isin(['50311', '11113'])]
 
         # Get live data for sec codes in this data set
         live_pricing_data = live_pricing_data[
@@ -118,11 +125,12 @@ class DataContainerPairs(BaseDataContainer):
         if len(no_data):
             print('NO DATA FOR FOLLOWING TICKERS:')
             print(no_data.tolist())
-            live_pricing_data = live_pricing_data.replace(0, 10)
-            #live_pricing_data = live_pricing_data.replace(0, np.nan)
+            live_pricing_data = live_pricing_data.replace(0, np.nan)
 
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
+        market_data = merge_live_pricing_market_data(market_data, live_market)
+
         data = adjust_todays_prices(data)
 
         # Cleanup
@@ -132,9 +140,12 @@ class DataContainerPairs(BaseDataContainer):
         data_features_2, features_2 = self._make_technical_features(
             data, live_flag=True)
 
+        data_features_2_m, features_2_m = \
+            self._make_technical_market_features(market_data, live_flag=True)
+
         # Merge technical and non-technical
-        pdata = data_features_1.merge(data_features_2)
-        features = features_1 + features_2
+        pdata = data_features_1.merge(data_features_2).merge(data_features_2_m)
+        features = features_1 + features_2 + features_2_m
 
         # Zscores - PERHAPS SHORTEN DATA FOR SPEED?
         zscores = self._get_pairs_z_score(data,
@@ -143,14 +154,13 @@ class DataContainerPairs(BaseDataContainer):
         zscores = zscores.to_frame().T
 
         # Merge market data
-        pdata, features = self._merge_market_data(pdata, features)
         self.test_data = pdata
         self._features = features
         self._constructor_data['zscores'] = zscores
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def process_training_data(self, data, time_index):
+    def process_training_data(self, data, market_data, time_index):
         # First cleanup
         data = self._initial_clean(data, time_index)
         data = self._make_earnings_data(data)
@@ -163,14 +173,16 @@ class DataContainerPairs(BaseDataContainer):
         # Create process training data, and get features
         adata, features_a = self._make_features(data)
         tdata, features_t = self._make_technical_features(data)
-        pdata = adata.merge(tdata)
-        features = features_a + features_t
+        # 'MKT_AdjClose_11113'
+        tdata_m, features_t_m = \
+            self._make_technical_market_features(market_data)
+
+        pdata = adata.merge(tdata).merge(tdata_m)
+        features = features_a + features_t + features_t_m
 
         # Trim to just one quarter's data
         pdata = self._trim_to_one_quarter(pdata)
 
-        # Merge market data
-        pdata, features = self._merge_market_data(pdata, features)
         # Separate training from test data
         self._processed_train_data = \
             self._processed_train_data.append(pdata[~pdata.TestFlag])
@@ -179,8 +191,9 @@ class DataContainerPairs(BaseDataContainer):
         # Process responses - Get order correct
         data2 = pdata[['SecCode', 'Date', 'TimeIndex', 'TestFlag']].merge(
             data[['SecCode', 'Date', 'AdjClose']], how='left')
-        assert np.all(data2.SecCode == pdata.SecCode)
-        assert np.all(data2.Date == pdata.Date)
+        assert np.all(data2.SecCode.values == pdata.SecCode.values)
+        assert np.all(data2.Date.values == pdata.Date.values)
+
         self._make_responses(data2)
         assert np.all(self._processed_train_data.SecCode.values ==
                       self._processed_train_responses.SecCode.values)
@@ -195,29 +208,6 @@ class DataContainerPairs(BaseDataContainer):
             'pair_info': pair_info,
             'zscores': zscores
         }
-
-    def process_training_market_data(self, data):
-        if hasattr(self, '_market_data'):
-            return
-        # index name map at the bottom of the file
-        data = data.merge(index_name_map)
-        features = [
-            'AdjClose', 'PRMA10_AdjClose', 'PRMA20_AdjClose',
-            'VOL10_AdjClose', 'VOL20_AdjClose', 'RSI10_AdjClose',
-            'RSI20_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose'
-        ]
-        market_data = pd.DataFrame()
-        for f in features:
-            pdata = data.pivot(index='Date', columns='IndexName', values=f)
-            # Only keep levels (AdjClose) for VIX indexes
-            if f == 'AdjClose':
-                pdata = pdata[['ShortVIX', 'VIX', 'LongVIX']]
-            pdata.columns = ['MKT_{}_{}'.format(
-                col, f.replace('_AdjClose', '')) for col in pdata.columns]
-            market_data = market_data.join(pdata, how='outer')
-        # Nan Values set to medians of rows
-        market_data = market_data.fillna(market_data.median())
-        self._market_data = market_data.reset_index()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -280,6 +270,11 @@ class DataContainerPairs(BaseDataContainer):
 
         pdata = pdata.merge(feat.make_dataframe())
 
+        # Manually handle SI Data
+        si_vars = ['SIINSTOWNERSHIP', 'SIMARKETCAPRANK', 'SIRANK',
+                   'SISECTORRANK', 'SISHORTSQUEEZE', 'SIUNADJRANK']
+        pdata.loc[:, si_vars] = pdata.loc[:, si_vars].fillna(0.5)
+
         if live_flag:
             # Earnings related variables
             pdata = pdata.merge(mdata[['SecCode', 'Date',
@@ -301,6 +296,53 @@ class DataContainerPairs(BaseDataContainer):
         features = pdata.columns[n_id_features:].tolist()
         return pdata, features
 
+    def _make_technical_market_features(self, data, live_flag=False):
+        # TECHNICAL VARIABLES
+        # Clean and format data points
+        close = clean_pivot_raw_data(data, 'AdjClose')
+        # Set correct method for training or live implementation
+        prma = PRMA(live_flag)
+        boll = BOLL(live_flag)
+        rsi = RSI(live_flag)
+        vol = VOL(live_flag)
+
+        prma_d = prma.fit(close, 10)
+        boll_d = boll.fit(close, 20)
+        rsi_d = rsi.fit(close, 10)
+        vol_d = vol.fit(close, 10)
+
+        if live_flag:
+            close = close.iloc[-1]
+            close.name = 0
+        else:
+            # For this, we are looking at levels of VIX
+            close = close.fillna(method='backfill')
+
+        feat = FeatureAggregator()
+        feat.add_feature(data_rank(prma_d), 'MKT_RANK_PRMA10')
+        feat.add_feature(data_rank(boll_d), 'MKT_RANK_BOLL20')
+        feat.add_feature(data_rank(rsi_d), 'MKT_RANK_RSI10')
+        feat.add_feature(data_rank(vol_d), 'MKT_RANK_VOL10')
+
+        feat.add_feature(close, 'MKT_AdjClose')
+        feat.add_feature(prma_d, 'MKT_PRMA10')
+        feat.add_feature(boll_d, 'MKT_BOLL20')
+        feat.add_feature(rsi_d, 'MKT_RSI10')
+        feat.add_feature(vol_d, 'MKT_VOL10')
+
+        outdata = feat._data
+        outdata.label = ['{}_{}'.format(x, y) for x, y in
+                         zip(outdata.label, outdata.SecCode)]
+        outdata = outdata.pivot(index='Date',
+                                columns='label',
+                                values='val')
+        # Extract features
+        features = outdata.columns.tolist()
+        # Cleanup
+        outdata = outdata.reset_index()
+        del outdata.columns.name
+        return outdata, features
+
     def _make_technical_features(self, data, live_flag=False):
         # TECHNICAL VARIABLES
         # Clean and format data points
@@ -318,8 +360,13 @@ class DataContainerPairs(BaseDataContainer):
             new_dolvol = (volume.iloc[-1] * vwap.iloc[-1]) / 1e6
             avgdolvol.iloc[-1] = (avgdolvol.iloc[-2] * 30 + new_dolvol) / 31.
             # TEMP: print out average discount from day before
-            print('AVG diff in avgdolvol: {}'.format(
+            print('\nAVG diff in avgdolvol: {}'.format(
                 avgdolvol.iloc[-2:].pct_change().iloc[-1].mean()))
+            rets = close.iloc[-2:].pct_change().iloc[-1].fillna(0)
+            print('AdjClose returns')
+            print(' Min: {}'.format(rets.min()))
+            print(' Max: {}'.format(rets.max()))
+            print(' Std: {}'.format(rets.std()))
 
         # Set correct method for training or live implementation
         prma = PRMA(live_flag)
@@ -347,11 +394,11 @@ class DataContainerPairs(BaseDataContainer):
         feat.add_feature(data_rank(boll.fit(close, 60)), 'BOLL60')
 
         feat.add_feature(data_rank(mfi.fit(high, low, close,
-                                              volume, 10)), 'MFI10')
+                                           volume, 10)), 'MFI10')
         feat.add_feature(data_rank(mfi.fit(high, low, close,
-                                              volume, 20)), 'MFI20')
+                                           volume, 20)), 'MFI20')
         feat.add_feature(data_rank(mfi.fit(high, low, close,
-                                              volume, 60)), 'MFI60')
+                                           volume, 60)), 'MFI60')
 
         feat.add_feature(data_rank(rsi.fit(close, 10)), 'RSI10')
         feat.add_feature(data_rank(rsi.fit(close, 20)), 'RSI20')
@@ -416,7 +463,7 @@ class DataContainerPairs(BaseDataContainer):
     def _initial_clean(self, data, time_index):
         data['TimeIndex'] = time_index
         data = create_split_multiplier(data)
-        #data = clean_gsector_ggroup(data)
+        # data = clean_gsector_ggroup(data)
         return data
 
     def _make_earnings_data(self, data):
@@ -447,13 +494,6 @@ class DataContainerPairs(BaseDataContainer):
             pair_info=pair_info,
             implementation=live_flag)
         return zscores
-
-    def _merge_market_data(self, pdata, features):
-        pdata = pdata.merge(self._market_data, how='left').fillna(0)
-        features_mkt = self._market_data.columns.tolist()
-        features_mkt.remove('Date')
-        features += features_mkt
-        return pdata, features
 
     def _get_train_test(self):
         return (
@@ -498,6 +538,13 @@ def merge_live_pricing_data(data, live_pricing_data):
         pd.DataFrame(columns=new_cols), how='left')
     live_pricing_data['Date'] = dt.datetime.utcnow().date()
     live_pricing_data['TestFlag'] = True
+    return data.append(live_pricing_data)
+
+
+def merge_live_pricing_market_data(data, live_pricing_data):
+    # Add missing columns to live pricing data, and merge
+    live_pricing_data = live_pricing_data[['SecCode', 'AdjClose']].copy()
+    live_pricing_data['Date'] = dt.datetime.utcnow().date()
     return data.append(live_pricing_data)
 
 
@@ -601,6 +648,16 @@ def make_anchor_ret(data, init_offset=0, window=20):
     output = output.unstack().reset_index().fillna(0)
     output.columns = ['SecCode', 'Date', 'EARNINGS_AnchorRet']
     return output
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def clean_df(data):
+    meds = data.median(axis=1)
+    replace_vals = data.copy()
+    replace_vals[:] = np.tile(meds, (data.shape[1], 1)).T
+    data = data.fillna(replace_vals)
+    return data
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

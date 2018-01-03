@@ -38,12 +38,8 @@ class BaseDataContainer(object):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @abstractmethod
-    def process_training_data(self, data, time_index):
+    def process_training_data(self, data, market_data, time_index):
         raise NotImplementedError('BaseDataContainer.process_training_data')
-
-    @abstractmethod
-    def process_training_market_data(self, data):
-        raise NotImplementedError('BaseDataContainer.process_training_market')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -57,7 +53,7 @@ class BaseDataContainer(object):
         raise NotImplementedError('BaseDataContainer.prep_live_data')
 
     @abstractmethod
-    def process_live_data(self, data):
+    def process_live_data(self, live_data):
         """
         Needs to return the properly formatted data frame to be
         sent along

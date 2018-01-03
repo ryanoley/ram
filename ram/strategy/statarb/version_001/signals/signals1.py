@@ -1,11 +1,18 @@
 import numpy as np
 
-from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier, AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LinearRegression
 
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
 from ram.strategy.statarb.version_001.data.data_container_pairs import \
     accounting_features, starmine_features, ibes_features
+
+try:
+    from xgboost import XGBClassifier
+    SIGNAL_MODELS = ['xgb_1', 'xgb_2']
+except:
+    SIGNAL_MODELS = ['linear_model', 'extra_trees_1', 'extra_trees_2']
 
 
 class SignalModel1(BaseSignalGenerator):
@@ -15,44 +22,60 @@ class SignalModel1(BaseSignalGenerator):
 
     def get_args(self):
         return {
-            'model_params': [
-                {'model_type': 'random_forest',
-                 'min_samples_leaf': 300,
-                 'n_estimators': 30,
-                 'max_features': 0.7},
-
-                {'model_type': 'linear_model'},
-
-                {'model_type': 'extra_trees',
-                 'min_samples_leaf': 300,
-                 'n_estimators': 30,
-                 'max_features': 0.7},
-            ],
-
-            'drop_ibes': [True, False],
-            'drop_accounting': [True, False],
+            'signal_model': ['linear_model', 'extra_trees_1', 'extra_trees_2'],
+            'drop_ibes': [True],
+            'drop_accounting': [False],
             'drop_starmine': [False],
             'drop_market_variables': ['constrained']
         }
 
     def set_args(self,
-                 model_params,
+                 signal_model,
                  drop_ibes,
                  drop_accounting,
                  drop_starmine,
                  drop_market_variables):
-        # Local copy needed to pop
-        model_params = model_params.copy()
-        model_type = model_params.pop('model_type')
-        if model_type == 'extra_trees':
+
+        if signal_model == 'extra_trees_1':
             self.skl_model = ExtraTreesClassifier(n_jobs=-1,
-                                                  random_state=123)
-        if model_type == 'random_forest':
-            self.skl_model = RandomForestClassifier(n_jobs=-1,
-                                                    random_state=123)
-        if model_type == 'linear_model':
+                                                  random_state=123,
+                                                  min_samples_leaf=200,
+                                                  n_estimators=100,
+                                                  max_features=0.8)
+
+        if signal_model == 'extra_trees_2':
+            self.skl_model = ExtraTreesClassifier(n_jobs=-1,
+                                                  random_state=123,
+                                                  min_samples_leaf=50,
+                                                  n_estimators=30,
+                                                  max_features=0.6)
+
+        elif signal_model == 'ada_boost_1':
+            self.skl_model = AdaBoostClassifier(
+                random_state=123,
+                n_estimators=100,
+                base_estimator=DecisionTreeClassifier(min_samples_leaf=50,
+                                                      min_samples_split=200))
+
+        elif signal_model == 'linear_model':
+            # Used as a baseline
             self.skl_model = LinearRegression()
-        self._model_params = model_params
+
+        elif signal_model == 'xgb_1':
+            self.skl_model = XGBClassifier(
+                n_jobs=-1,
+                subsample=0.5,
+                colsample_bylevel=0.7,
+                max_depth=25,
+                )
+
+        elif signal_model == 'xgb_2':
+            self.skl_model = XGBClassifier(
+                n_jobs=-1,
+                subsample=0.5,
+                max_depth=12,
+                )
+
         self._drop_ibes = drop_ibes
         self._drop_accounting = drop_accounting
         self._drop_starmine = drop_starmine
@@ -75,9 +98,6 @@ class SignalModel1(BaseSignalGenerator):
     # ~~~~~~ Model related functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _process_args(self):
-        # MODEL PARAMS
-        self.skl_model.set_params(**self._model_params)
-
         # FEATURE PROCSSING
         features = self._features
 
@@ -92,9 +112,10 @@ class SignalModel1(BaseSignalGenerator):
 
         if self._drop_market_variables == 'constrained':
             features = [x for x in features if x.find('MKT_') == -1]
-            features.extend(['MKT_VIX_AdjClose', 'MKT_VIX_PRMA10',
-                             'MKT_SP500Index_VOL10', 'MKT_SP500Index_PRMA10',
-                             'MKT_SP500Index_BOLL20'])
+            features.extend(['MKT_AdjClose_11113', 'MKT_PRMA10_11113',
+                             'MKT_VOL10_50311', 'MKT_PRMA10_50311',
+                             'MKT_BOLL20_50311'])
+
         elif self._drop_market_variables:
             features = [x for x in features if x.find('MKT_') == -1]
 
@@ -116,8 +137,9 @@ class SignalModel1(BaseSignalGenerator):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_signals(self):
-        self._process_args()
         output = self._test_data[['SecCode', 'Date']].copy()
+        # Here the features that are coming through have nan values
+        # Where were they handled before where they weren't showing up?
         if hasattr(self.skl_model, 'predict_proba'):
             preds = self.skl_model.predict_proba(
                 self._test_data[self._features])

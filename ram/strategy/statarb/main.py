@@ -71,8 +71,7 @@ class StatArbStrategy(Strategy):
         return output_params
 
     def process_raw_data(self, data, time_index, market_data=None):
-        self.data.process_training_market_data(market_data)
-        self.data.process_training_data(data, time_index)
+        self.data.process_training_data(data, market_data, time_index)
 
     # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -207,6 +207,31 @@ class TestDataContainerPairs(unittest.TestCase):
         self.assertTrue('SplitMultiplier' in result)
         self.assertTrue('SplitFactor' not in result)
 
+    def test_make_technical_market_features(self):
+        dc = DataContainerPairs()
+        dates = ['2015-01-{:02d}'.format(x) for x in range(1, 22)] * 2
+        data = pd.DataFrame({
+            'SecCode': ['AAA'] * 21 + ['BBB'] * 21,
+            'Date': dates,
+            'TimeIndex': 1,
+            'AdjClose': range(11, 32) * 2,
+        })
+        data['Date'] = convert_date_array(data.Date)
+        result = dc._make_technical_market_features(data, live_flag=False)
+        benchmark = ['MKT_AdjClose_AAA', 'MKT_AdjClose_BBB',
+                     'MKT_BOLL20_AAA', 'MKT_BOLL20_BBB', 'MKT_PRMA10_AAA',
+                     'MKT_PRMA10_BBB', 'MKT_RANK_BOLL20_AAA',
+                     'MKT_RANK_BOLL20_BBB', 'MKT_RANK_PRMA10_AAA',
+                     'MKT_RANK_PRMA10_BBB', 'MKT_RANK_RSI10_AAA',
+                     'MKT_RANK_RSI10_BBB', 'MKT_RANK_VOL10_AAA',
+                     'MKT_RANK_VOL10_BBB', 'MKT_RSI10_AAA', 'MKT_RSI10_BBB',
+                     'MKT_VOL10_AAA', 'MKT_VOL10_BBB']
+
+        self.assertListEqual(result[1], benchmark)
+        result = dc._make_technical_market_features(data, live_flag=True)
+        self.assertListEqual(result[1], benchmark)
+        self.assertEqual(result[0].shape[0], 1)
+
     def tearDown(self):
         pass
 

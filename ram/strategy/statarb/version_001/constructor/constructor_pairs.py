@@ -22,14 +22,10 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
                  'signal_thresh_perc': 50},
                 {'type': 'tree_model_long', 'pair_offsets': 3,
                  'signal_thresh_perc': 50},
-                {'type': 'tree_model_long', 'pair_offsets': 5,
-                 'signal_thresh_perc': 50},
 
                 {'type': 'tree_model_long', 'pair_offsets': 1,
                  'signal_thresh_perc': 70},
                 {'type': 'tree_model_long', 'pair_offsets': 3,
-                 'signal_thresh_perc': 70},
-                {'type': 'tree_model_long', 'pair_offsets': 5,
                  'signal_thresh_perc': 70},
 
                 # TREES
@@ -37,14 +33,10 @@ class PortfolioConstructorPairs(BasePortfolioConstructor):
                  'signal_thresh_perc': 50},
                 {'type': 'tree_model', 'pair_offsets': 3,
                  'signal_thresh_perc': 50},
-                {'type': 'tree_model', 'pair_offsets': 5,
-                 'signal_thresh_perc': 50},
 
                 {'type': 'tree_model', 'pair_offsets': 1,
                  'signal_thresh_perc': 70},
                 {'type': 'tree_model', 'pair_offsets': 3,
-                 'signal_thresh_perc': 70},
-                {'type': 'tree_model', 'pair_offsets': 5,
                  'signal_thresh_perc': 70},
             ]
         }

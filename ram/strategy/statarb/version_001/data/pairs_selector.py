@@ -90,7 +90,8 @@ class PairSelector(object):
         close1 = close_data.loc[:, pair_info.PrimarySecCode]
         close2 = close_data.loc[:, pair_info.OffsetSecCode]
         spreads = pd.DataFrame(np.subtract(np.log(close1.values),
-                                           np.log(close2.values)))
+                                           np.log(close2.values)),
+                               index=close1.index)
         # Add correct column names
         spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
                            zip(pair_info.PrimarySecCode,
