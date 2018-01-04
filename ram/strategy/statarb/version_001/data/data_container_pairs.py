@@ -280,18 +280,18 @@ class DataContainerPairs(BaseDataContainer):
             pdata = pdata.merge(mdata[['SecCode', 'Date',
                                        'EARNINGS_Blackout']])
             pdata = pdata.merge(mdata[['SecCode', 'Date',
-                                       'EARNINGS_AnchorRet']])
+                                       'EARNINGS_AnchorRet_Rank']])
             pdata = pdata.merge(mdata[['SecCode', 'Date',
-                                       'EARNINGS_Ret']])
+                                       'EARNINGS_Ret_Rank']])
 
         else:
             # Earnings related variables
             pdata = pdata.merge(data[['SecCode', 'Date',
                                       'EARNINGS_Blackout']])
             pdata = pdata.merge(data[['SecCode', 'Date',
-                                      'EARNINGS_AnchorRet']])
+                                      'EARNINGS_AnchorRet_Rank']])
             pdata = pdata.merge(data[['SecCode', 'Date',
-                                      'EARNINGS_Ret']])
+                                      'EARNINGS_Ret_Rank']])
 
         features = pdata.columns[n_id_features:].tolist()
         return pdata, features
@@ -380,14 +380,16 @@ class DataContainerPairs(BaseDataContainer):
 
         feat.add_feature(data_rank(prma.fit(close, 10)), 'PRMA10')
         feat.add_feature(data_rank(prma.fit(close, 20)), 'PRMA20')
-        feat.add_feature(data_rank(prma.fit(close, 60)), 'PRMA60')
+        # feat.add_feature(data_rank(prma.fit(close, 60)), 'PRMA60')
 
-        feat.add_feature(data_rank(prma.fit(avgdolvol, 10)),
-                         'PRMA10_AvgDolVol')
-        feat.add_feature(data_rank(prma.fit(avgdolvol, 20)),
-                         'PRMA20_AvgDolVol')
+        # feat.add_feature(data_rank(prma.fit(avgdolvol, 10)),
+        #                  'PRMA10_AvgDolVol')
+        # feat.add_feature(data_rank(prma.fit(avgdolvol, 20)),
+        #                  'PRMA20_AvgDolVol')
+        # feat.add_feature(data_rank(prma.fit(avgdolvol, 60)),
+        #                  'PRMA60_AvgDolVol')
         feat.add_feature(data_rank(prma.fit(avgdolvol, 60)),
-                         'PRMA60_AvgDolVol')
+                         'PRMA120_AvgDolVol')
 
         feat.add_feature(data_rank(boll.fit(close, 10)), 'BOLL10')
         feat.add_feature(data_rank(boll.fit(close, 20)), 'BOLL20')
@@ -467,10 +469,13 @@ class DataContainerPairs(BaseDataContainer):
         return data
 
     def _make_earnings_data(self, data):
+        # TODO: decide which to go with. this is to come in line with LongPeadStrategy
         # Earnings related fields
-        data = data.merge(make_ern_date_blackout(data, start_ind=1, end_ind=5))
+        # data = data.merge(make_ern_date_blackout(data, start_ind=1, end_ind=5))
+        data = data.merge(make_ern_date_blackout(data, start_ind=-2, end_ind=4))
         data = data.merge(make_ern_return(data))
-        data = data.merge(make_anchor_ret(data, init_offset=1, window=20))
+        # data = data.merge(make_anchor_ret(data, init_offset=1, window=20))
+        data = data.merge(make_anchor_ret(data, init_offset=3, window=10))
         return data
 
     def _trim_to_one_quarter(self, data):
@@ -604,8 +609,9 @@ def make_ern_return(data):
     rets[:] = np.where(earningsflag == 1, rets, np.nan)
     # Shift to (T+2)
     rets = rets.fillna(method='pad').shift(2).fillna(0)
+    rets = rets.rank(axis=1, pct=True)
     output = rets.unstack().reset_index()
-    output.columns = ['SecCode', 'Date', 'EARNINGS_Ret']
+    output.columns = ['SecCode', 'Date', 'EARNINGS_Ret_Rank']
     return output
 
 
@@ -645,8 +651,9 @@ def make_anchor_ret(data, init_offset=0, window=20):
     anchor_price = (init_anchor + end_anchor).cumsum()
     output = (closes / anchor_price) - 1
     output = output.replace(np.inf, 0).replace(-np.inf, 0)
+    output = output.rank(axis=1, pct=True)
     output = output.unstack().reset_index().fillna(0)
-    output.columns = ['SecCode', 'Date', 'EARNINGS_AnchorRet']
+    output.columns = ['SecCode', 'Date', 'EARNINGS_AnchorRet_Rank']
     return output
 
 
@@ -696,16 +703,16 @@ accounting_features = [
     'NETINCOMEQ', 'NETINCOMETTM',
     'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
 
-    'OPERATINGINCOMEQ', 'OPERATINGINCOMETTM',
+    # 'OPERATINGINCOMEQ', 'OPERATINGINCOMETTM',
     'OPERATINGINCOMEGROWTHQ', 'OPERATINGINCOMEGROWTHTTM',
 
-    'EBITQ', 'EBITTTM',
+    # 'EBITQ', 'EBITTTM',
     'EBITGROWTHQ', 'EBITGROWTHTTM',
 
     'SALESQ', 'SALESTTM',
     'SALESGROWTHQ', 'SALESGROWTHTTM',
 
-    'FREECASHFLOWQ', 'FREECASHFLOWTTM',
+    # 'FREECASHFLOWQ', 'FREECASHFLOWTTM',
     'FREECASHFLOWGROWTHQ', 'FREECASHFLOWGROWTHTTM',
 
     'GROSSPROFASSET', 'ASSETS',
