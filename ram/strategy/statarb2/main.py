@@ -52,17 +52,39 @@ class StatArbStrategy2(Strategy):
     # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def run_index(self, time_index):
-        import pdb; pdb.set_trace()
+        i = 0
         for ad in self.data.get_args():
             self.data.set_args(**ad)
             for ac in self.constructor.get_args():
                 self.constructor.set_args(**ac)
                 results = self.constructor.process(self.data.train_data,
                                                    self.data.test_data)
-                # TODO: CAPTURE
-        self.write_index_results(rets, time_index)
+                self._capture_output(results, i)
+                i += 1
+
+        import pdb; pdb.set_trace()
+        self.write_index_results(self.output_returns, time_index)
+        self.write_index_results(self.output_all_output,
+                                 time_index,
+                                 'all_output')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _capture_output(self, results, arg_index):
+        results = results.copy()
+        returns = pd.DataFrame(results.PL)
+        returns.columns = [arg_index]
+        # Rename columns
+        results.columns = ['{}_{}'.format(x, arg_index)
+                           for x in results.columns]
+        if arg_index == 0:
+            self.output_returns = returns
+            self.output_all_output = results
+        else:
+            self.output_returns = self.output_returns.join(returns,
+                                                           how='outer')
+            self.output_all_output = self.output_all_output.join(
+                results, how='outer')
 
     def implementation_training(self):
         pass

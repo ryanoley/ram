@@ -9,7 +9,7 @@ from ram.strategy.statarb.abstract.portfolio import Portfolio
 
 LOW_PRICE_FILTER = 7
 LOW_LIQUIDITY_FILTER = 3
-BOOKSIZE = 10e6
+BOOKSIZE = 2e6
 
 
 class PortfolioConstructor(object):
@@ -17,25 +17,30 @@ class PortfolioConstructor(object):
     def get_args(self):
         return make_arg_iter({
             'prma_x': [5, 10, 15, 20],
+            'split_perc': [20, 40],
         })
 
-    def set_args(self, prma_x):
+    def set_args(self, prma_x, split_perc):
         self._prma_x = prma_x
+        self._split_perc = split_perc
 
     def process(self, train_data, test_data):
 
         portfolio = Portfolio()
 
-        # Process needed values into dictionaries for efficiency
-        scores = make_variable_dict(test_data, 'score')
+        scores = make_variable_dict(test_data,
+                                    'prma_{}'.format(self._prma_x))
         closes = make_variable_dict(test_data, 'RClose')
         dividends = make_variable_dict(test_data, 'RCashDividend', 0)
         splits = make_variable_dict(test_data, 'SplitMultiplier', 1)
         liquidity = make_variable_dict(test_data, 'AvgDolVol')
         market_cap = make_variable_dict(test_data, 'MarketCap')
 
-        # Dates to iterate over
+        # Dates to iterate over - just one month plus one day
         unique_test_dates = np.unique(test_data.Date)
+        months = np.diff([x.month for x in unique_test_dates])
+        change_ind = np.where(months)[0][0] + 2
+        unique_test_dates = unique_test_dates[:change_ind]
 
         # Output object
         daily_df = pd.DataFrame(index=unique_test_dates,
@@ -60,6 +65,7 @@ class PortfolioConstructor(object):
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
+
             elif i % 5 == 0:
                 sizes = self.get_day_position_sizes(date, scores[date])
                 portfolio.update_position_sizes(sizes, closes[date])
@@ -71,23 +77,23 @@ class PortfolioConstructor(object):
             daily_df.loc[date, 'PL'] = (pl_long + pl_short) / BOOKSIZE
             daily_df.loc[date, 'LongPL'] = pl_long / BOOKSIZE
             daily_df.loc[date, 'ShortPL'] = pl_short / BOOKSIZE
-            daily_df.loc[date, 'Turnover'] = daily_turnover
+            daily_df.loc[date, 'Turnover'] = daily_turnover / BOOKSIZE
             daily_df.loc[date, 'Exposure'] = daily_exposure
             daily_df.loc[date, 'OpenPositions'] = sum([
                 1 if x.shares != 0 else 0
                 for x in portfolio.positions.values()])
 
-        # Time Index aggregate stats
-        stats = {}
-        return daily_df, stats
+        return daily_df
 
     def get_day_position_sizes(self, date, scores):
         scores = pd.Series(scores).to_frame()
         scores.columns = ['score']
-        median_value = scores.score.dropna().median()
-        scores['alloc'] = np.where(scores.score > median_value, 1,
-                          np.where(scores.score < median_value, -1, 0))
+        long_thresh = np.percentile(scores.score.dropna(), self._split_perc)
+        short_thresh = np.percentile(scores.score.dropna(), 100 - self._split_perc)
+        scores['alloc'] = np.where(scores.score < long_thresh, 1,
+                          np.where(scores.score > short_thresh, -1, 0))
         scores.alloc = scores.alloc / scores.alloc.abs().sum() * BOOKSIZE
+
         return scores.alloc.to_dict()
 
 
