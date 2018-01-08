@@ -28,6 +28,9 @@ PACKAGES = [
     'ram/strategy/statarb/version_001/constructor',
     'ram/strategy/statarb/version_001/data',
     'ram/strategy/statarb/version_001/signals',
+    # ~~~ STATARB ~~~
+    'ram/strategy/statarb2',
+    'ram/strategy/statarb2/version_001',
     # ~~~~~~~~~~~~~~~
     'ram/utils',
 ]

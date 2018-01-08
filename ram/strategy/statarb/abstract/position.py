@@ -92,7 +92,6 @@ class Position(object):
         self.daily_pl += -1 * abs(self.shares) * self.comm
         self.daily_turnover = abs(self.shares) * self.current_price
         self._min_ticket_charge(self.shares)
-        self.shares = 0
         self.exposure = 0
         self.open_position = False
 
@@ -105,6 +104,9 @@ class Position(object):
         next day open!!!
         """
         daily_pl = float(self.daily_pl)
+        # HACK - this is to get correct long an dshort PL numbers
+        if not self.open_position:
+            self.shares = 0
         self.daily_pl = 0
         return daily_pl
 

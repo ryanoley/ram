@@ -155,13 +155,13 @@ def _tree_model(scores, data, params, long_only_flag=False):
 
 def _tree_model_get_pos_sizes(data, pair_offsets):
     """
-    * Input should be sorted by SecCode, ZScore
     * Rank is applied to zscore per seccode
     * Top ranked rows are selected
     * Weighting is dependent upon SecCode signal
     * If pair_offsets > 1, then multiple SecCodes per row, but unique
         offsets
     """
+    data = data.sort_values(['SecCode', 'zscore'])
     ranks, counts = _zscore_rank(data)
     data = data[(ranks <= pair_offsets) &
                 (counts >= pair_offsets)].copy()

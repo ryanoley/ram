@@ -52,7 +52,7 @@ class BasePortfolioConstructor(object):
         scores = make_variable_dict(self._signals, 'preds')
         closes = make_variable_dict(self._pricing, 'RClose')
         dividends = make_variable_dict(self._pricing, 'RCashDividend', 0)
-        splits = make_variable_dict(self._pricing, 'SplitMultiplier', 1)
+        splits = make_variable_dict(self._pricing, 'SplitMultiplier', 0)
         liquidity = make_variable_dict(self._pricing, 'AvgDolVol')
         market_cap = make_variable_dict(self._pricing, 'MarketCap')
         # Dates to iterate over

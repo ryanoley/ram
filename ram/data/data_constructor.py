@@ -204,7 +204,9 @@ class DataConstructor(object):
             os.mkdir(self._prepped_data_dir)
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
-            os.mkdir(os.path.join(output_dir, 'archive'))
+        archive_dir = os.path.join(output_dir, 'archive')
+        if not os.path.isdir(archive_dir):
+            os.mkdir(archive_dir)
         # Create new versioned directory
         versions = os.listdir(output_dir)
         versions = [x for x in versions if x[:3] == 'ver']
