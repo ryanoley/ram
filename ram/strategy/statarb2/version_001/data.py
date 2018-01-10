@@ -3,7 +3,11 @@ import datetime as dt
 
 from ram.data.feature_creator import *
 
+from ram.strategy.statarb.utils import make_variable_dict
 from ram.strategy.statarb.utils import make_arg_iter
+
+LOW_PRICE_FILTER = 7
+LOW_LIQUIDITY_FILTER = 3
 
 
 class DataContainer(object):
@@ -32,13 +36,12 @@ class DataContainer(object):
         feat = FeatureAggregator()
 
         # Daily returns
-        feat.add_feature(data_rank(close / open_), 'day_ret')
+        feat.add_feature(close / open_ - 1, 'day_ret')
 
         # PRMA vals
         prma = PRMA()
         for i in [5, 10, 15, 20]:
-            feat.add_feature(data_rank(prma.fit(close, i)),
-                             'prma_{}'.format(i))
+            feat.add_feature(prma.fit(close, i), 'prma_{}'.format(i))
 
         # Create output
         pdata = pd.DataFrame()
@@ -46,20 +49,48 @@ class DataContainer(object):
         pdata['Date'] = data.Date
         pdata['TimeIndex'] = data.TimeIndex
         pdata['TestFlag'] = data.TestFlag
-        pdata['MarketCap'] = data.MarketCap
         pdata['AvgDolVol'] = data.AvgDolVol
         pdata['RClose'] = data.RClose
         pdata['RCashDividend'] = data.RCashDividend
         pdata['SplitMultiplier'] = data.SplitMultiplier
 
         pdata = pdata.merge(feat.make_dataframe())
+        # Make test data
+        pdata = pdata[pdata.TestFlag].reset_index(drop=True)
 
         # Trim to one quarter
-        max_train_date = pdata.Date[~data.TestFlag].max()
-        trim_date = max_train_date - dt.timedelta(days=80)
-        trim_date = dt.date(trim_date.year, trim_date.month, 1)
-        pdata = pdata[pdata.Date >= trim_date].copy()
+        #max_train_date = pdata.Date[~data.TestFlag].max()
+        #trim_date = max_train_date - dt.timedelta(days=80)
+        #trim_date = dt.date(trim_date.year, trim_date.month, 1)
+        #pdata = pdata[pdata.Date >= trim_date].copy()
 
-        # Set training and test data
-        self.train_data = pdata[~pdata.TestFlag].reset_index(drop=True)
-        self.test_data = pdata[pdata.TestFlag].reset_index(drop=True)
+        # Preprocessing test data
+        keep_inds = (pdata.AvgDolVol >= LOW_LIQUIDITY_FILTER) & \
+            (pdata.RClose >= LOW_PRICE_FILTER)
+
+        trade_data = {}
+        trade_data['prma_5'] = rank_filter_data(pdata, 'prma_5', keep_inds)
+        trade_data['prma_10'] = rank_filter_data(pdata, 'prma_10', keep_inds)
+        trade_data['prma_15'] = rank_filter_data(pdata, 'prma_15', keep_inds)
+        trade_data['prma_20'] = rank_filter_data(pdata, 'prma_20', keep_inds)
+
+        trade_data['closes'] = make_variable_dict(pdata, 'RClose')
+        trade_data['dividends'] = make_variable_dict(pdata, 'RCashDividend', 0)
+        trade_data['splits'] = make_variable_dict(pdata, 'SplitMultiplier', 1)
+        trade_data['liquidity'] = make_variable_dict(pdata, 'AvgDolVol')
+
+        trade_data['day_ret_rank'] = rank_filter_data(pdata, 'day_ret', keep_inds)
+        trade_data['day_ret_abs'] = rank_filter_data(pdata, 'day_ret', keep_inds, False)
+
+        self.trade_data = trade_data
+
+
+def rank_filter_data(data, value_column, keep_index, rank=True):
+    data = data[['SecCode', 'Date', value_column]].copy()
+    data.loc[~keep_index, value_column] = np.nan
+    data = data.pivot(index='Date', columns='SecCode',
+                      values=value_column)
+    if rank:
+        return data.rank(axis=1, pct=True)
+    else:
+        return data

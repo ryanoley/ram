@@ -5,10 +5,8 @@ import datetime as dt
 
 from ram.strategy.statarb.utils import make_arg_iter
 from ram.strategy.statarb.utils import make_variable_dict
-from ram.strategy.statarb.abstract.portfolio import Portfolio
+from ram.strategy.statarb2.portfolio import Portfolio
 
-LOW_PRICE_FILTER = 7
-LOW_LIQUIDITY_FILTER = 3
 BOOKSIZE = 2e6
 
 
@@ -17,48 +15,62 @@ class PortfolioConstructor(object):
     def get_args(self):
         return make_arg_iter({
             'prma_x': [5, 10, 15, 20],
-            'split_perc': [20, 40],
+            'split_perc': [20, 30, 40],
+            'daily_drop': [True, False],
+            'holding_period': [10, 5, 2],
+            'month_end_close': [True, False]
         })
 
-    def set_args(self, prma_x, split_perc):
+    def set_args(self,
+                 prma_x,
+                 split_perc,
+                 daily_drop,
+                 holding_period,
+                 month_end_close):
         self._prma_x = prma_x
         self._split_perc = split_perc
+        self._daily_drop = daily_drop
+        self._holding_period = holding_period
+        self._month_end_close = month_end_close
 
-    def process(self, train_data, test_data):
+    def process(self, trade_data):
 
         portfolio = Portfolio()
 
-        scores = make_variable_dict(test_data,
-                                    'prma_{}'.format(self._prma_x))
-        closes = make_variable_dict(test_data, 'RClose')
-        dividends = make_variable_dict(test_data, 'RCashDividend', 0)
-        splits = make_variable_dict(test_data, 'SplitMultiplier', 1)
-        liquidity = make_variable_dict(test_data, 'AvgDolVol')
-        market_cap = make_variable_dict(test_data, 'MarketCap')
+        scores = trade_data['prma_{}'.format(self._prma_x)]
+        day_ret = trade_data['day_ret_rank']
+        day_ret_abs = trade_data['day_ret_abs']
+
+        closes = trade_data['closes']
+        dividends = trade_data['dividends']
+        splits = trade_data['splits']
+        liquidity = trade_data['liquidity']
 
         # Dates to iterate over - just one month plus one day
-        unique_test_dates = np.unique(test_data.Date)
+        unique_test_dates = np.unique(closes.keys())
+
         months = np.diff([x.month for x in unique_test_dates])
-        change_ind = np.where(months)[0][0] + 2
-        unique_test_dates = unique_test_dates[:change_ind]
+
+        change_ind = np.where(months)[0][0] + 1
+
+        if self._month_end_close:
+            unique_test_dates = unique_test_dates[:(change_ind+1)]
+
+        else:
+            unique_test_dates = unique_test_dates[:change_ind+self._holding_period]
 
         # Output object
-        daily_df = pd.DataFrame(index=unique_test_dates,
-                                columns=['PL', 'Exposure', 'Turnover'],
-                                dtype=float)
+        outdata_dates = []
+        outdata_pl = []
+        outdata_longpl = []
+        outdata_shortpl = []
+        outdata_turnover = []
+        outdata_exposure = []
+        outdata_openpositions = []
+
+        sizes = SizeContainer(self._holding_period)
 
         for i, date in enumerate(unique_test_dates):
-
-            # If a low liquidity/price value, set score to nan
-            # Update every five days
-            if i % 5 == 0:
-                low_liquidity_seccodes = filter_seccodes(
-                    liquidity[date], LOW_LIQUIDITY_FILTER)
-                low_price_seccodes = filter_seccodes(
-                    closes[date], LOW_PRICE_FILTER)
-
-            for seccode in set(low_liquidity_seccodes+low_price_seccodes):
-                scores[date][seccode] = np.nan
 
             portfolio.update_prices(
                 closes[date], dividends[date], splits[date])
@@ -66,35 +78,78 @@ class PortfolioConstructor(object):
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
 
-            elif i % 5 == 0:
-                sizes = self.get_day_position_sizes(date, scores[date])
-                portfolio.update_position_sizes(sizes, closes[date])
+            elif i < change_ind:
+                sizes.update_sizes(
+                    i,
+                    self.get_day_position_sizes(scores.loc[date],
+                                                day_ret.loc[date],
+                                                day_ret_abs.loc[date])
+                )
+                pos_sizes = sizes.get_sizes()
+                portfolio.update_position_sizes(pos_sizes, closes[date])
+
+            else:
+                # Not putting on any new positions for this month's universe
+                sizes.update_sizes(i)
+                pos_sizes = sizes.get_sizes()
+                portfolio.update_position_sizes(pos_sizes, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()
             daily_exposure = portfolio.get_portfolio_exposure()
 
-            daily_df.loc[date, 'PL'] = (pl_long + pl_short) / BOOKSIZE
-            daily_df.loc[date, 'LongPL'] = pl_long / BOOKSIZE
-            daily_df.loc[date, 'ShortPL'] = pl_short / BOOKSIZE
-            daily_df.loc[date, 'Turnover'] = daily_turnover / BOOKSIZE
-            daily_df.loc[date, 'Exposure'] = daily_exposure
-            daily_df.loc[date, 'OpenPositions'] = sum([
+            outdata_dates.append(date)
+            outdata_pl.append((pl_long + pl_short) / BOOKSIZE)
+            outdata_longpl.append(pl_long / BOOKSIZE)
+            outdata_shortpl.append(pl_short / BOOKSIZE)
+            outdata_turnover.append(daily_turnover / BOOKSIZE)
+            outdata_exposure.append(daily_exposure)
+            outdata_openpositions.append(sum([
                 1 if x.shares != 0 else 0
-                for x in portfolio.positions.values()])
+                for x in portfolio.positions.values()]))
+
+        daily_df = pd.DataFrame({
+            'PL': outdata_pl,
+            'LongPL': outdata_longpl,
+            'ShortPL': outdata_shortpl,
+            'Turnover': outdata_turnover,
+            'Exposure': outdata_exposure,
+            'OpenPositions': outdata_openpositions
+
+        }, index=outdata_dates)
 
         return daily_df
 
-    def get_day_position_sizes(self, date, scores):
-        scores = pd.Series(scores).to_frame()
-        scores.columns = ['score']
-        long_thresh = np.percentile(scores.score.dropna(), self._split_perc)
-        short_thresh = np.percentile(scores.score.dropna(), 100 - self._split_perc)
-        scores['alloc'] = np.where(scores.score < long_thresh, 1,
-                          np.where(scores.score > short_thresh, -1, 0))
-        scores.alloc = scores.alloc / scores.alloc.abs().sum() * BOOKSIZE
+    def get_day_position_sizes(self, scores, day_ret, day_ret_abs):
 
-        return scores.alloc.to_dict()
+        allocs = {x: 0 for x in scores.index}
+
+        if self._daily_drop:
+            longs = scores[day_ret < 0.5]
+            shorts = scores[day_ret >= 0.5]
+            longs = longs.sort_values()
+            shorts = shorts.sort_values(ascending=False)
+
+        else:
+            scores2 = scores.sort_values().dropna()
+            split = len(scores2)/2
+            longs = scores2[:split]
+            shorts = scores2[split:]
+            shorts = shorts.sort_values(ascending=False)
+
+        counts = int(len(longs) * 2 * (self._split_perc * 0.01))
+        longs = longs.iloc[:counts]
+        shorts = shorts.iloc[:counts]
+
+        for s in longs.index:
+            allocs[s] = 1
+        for s in shorts.index:
+            allocs[s] = -1
+
+        counts = float(sum([abs(x) for x in allocs.values()]))
+        allocs = {s: v / counts * BOOKSIZE for s, v in allocs.iteritems()}
+
+        return allocs
 
 
 def filter_seccodes(data_dict, min_value):
@@ -102,4 +157,27 @@ def filter_seccodes(data_dict, min_value):
     for key, value in data_dict.iteritems():
         if value < min_value:
             bad_seccodes.append(key)
+        elif np.isnan(value):
+            bad_seccodes.append(key)
     return bad_seccodes
+
+
+class SizeContainer(object):
+
+    def __init__(self, n_days):
+        self.n_days = n_days
+        self.sizes = {}
+
+    def update_sizes(self, index, sizes={}):
+        self.sizes[index] = sizes
+
+    def get_sizes(self):
+        # Init output with all seccods
+        output = {x: 0 for x in set(sum([x.keys() for x
+                                         in self.sizes.values()], []))}
+        inds = self.sizes.keys()
+        inds.sort()
+        for i in inds[-self.n_days:]:
+            for s, v in self.sizes[i].iteritems():
+                output[s] += v / float(self.n_days)
+        return output

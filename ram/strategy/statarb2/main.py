@@ -57,12 +57,10 @@ class StatArbStrategy2(Strategy):
             self.data.set_args(**ad)
             for ac in self.constructor.get_args():
                 self.constructor.set_args(**ac)
-                results = self.constructor.process(self.data.train_data,
-                                                   self.data.test_data)
+                results = self.constructor.process(self.data.trade_data)
                 self._capture_output(results, i)
                 i += 1
 
-        import pdb; pdb.set_trace()
         self.write_index_results(self.output_returns, time_index)
         self.write_index_results(self.output_all_output,
                                  time_index,
