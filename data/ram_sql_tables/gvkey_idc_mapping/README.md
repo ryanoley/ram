@@ -5,7 +5,7 @@ through the Securities Master Tables (SecMstrX/SecMapX) due to their
 atemporal nature. Therefore, we are working through the IDC reference
 tables that including historical mappings to CUSIPs.
 
-Now, undermost conditions this is a straight forward process. However,
+Now, under most conditions this is a straight forward process. However,
 there are some edge cases caused by odd corporate actions and/or bad
 data that necessitate manually filtering the instances where multiple
 GVKeys (essentially a company ID) are mapped to a single IDC Code
