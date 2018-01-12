@@ -14,7 +14,7 @@ echo Daily ETL Master - %date%_!time! - Start
 :: RAM TABLES
 echo. & echo ~~ ram_table_update batch !time!~~
 start /b /WAIT %GITHUB%\ram\data\ram_sql_tables\ram_table_update.bat
-
+start /b /WAIT %GITHUB%\ram\data\ram_sql_tables\gvkey_mapping\daily_map_diff.bat
 
 :: Position sheet scraper
 echo. & echo ~~ position_sheet_scraper !time!~~
