@@ -61,7 +61,9 @@ FUNCS = [
 
     # IBES
     'PTARGETMEAN', 'PTARGETHIGH', 'PTARGETLOW', 'PTARGETUNADJ',
-    'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC'
+    'RECMEAN', 'RECHIGH', 'RECLOW', 'RECNREC',
+
+    'IBESESTFQ',
 ]
 
 
@@ -214,6 +216,10 @@ def parse_input_var(vstring, table, filter_commands):
                         'SplitFactor', 'DividendFactor']:
             sql_func_data_column = arg[0]
 
+        # IBES Estimate measures
+        elif arg[0] in ibes_code_map.keys():
+            sql_func_data_column = arg[0]
+
         else:
             raise Exception('Input not properly formatted: {{ %s }}' % vstring)
 
@@ -222,7 +228,6 @@ def parse_input_var(vstring, table, filter_commands):
     out['sqlcmd'] += filter_commands
 
     return out
-
 
 ###############################################################################
 #  NOTE: All feature functions must have the same interface
@@ -1120,6 +1125,48 @@ def RECLOW(arg0, feature_name, arg2, table):
 def RECNREC(arg0, feature_name, arg2, table):
     return _ANALYSTREC('NumRecs', feature_name, table)
 
+# ~~~~~~ IBES MEASURE ESTIMATES~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ibes_code_map = {
+    'BVPS': 1,
+    'CFPS': 2,
+    'DPS': 4,
+    'EBITDA': 8,
+    'NDEBT': 14,
+    'NPROFIT': 15,
+    'OPROFIT': 16,
+    'ROA': 18,
+    'ROE': 19,
+    'REV': 20
+}
+
+def IBESESTFQ(arg0, feature_name, fq_arg, table):
+    return _IBES_MEASURE_ESTIMATE(ibes_code_map[arg0],
+                                  'FQ{}Mean'.format(fq_arg),
+                                  feature_name,
+                                  table)
+
+def _IBES_MEASURE_ESTIMATE(measure, field, feature_name, table):
+    sqlcmd = \
+        """
+        select      A.SecCode,
+                    A.Date_,
+                    B.{1} as {2}
+        from        {3} A
+        left join   ram.dbo.ram_ibes_measures B
+            on      B.SecCode = A.SecCode
+            and     B.Measure = {0}
+            and     B.EffectiveDate = (
+                select max(EffectiveDate)
+                from ram.dbo.ram_ibes_measures C
+                where C.SecCode = A.SecCode
+                    and C.Measure = {0}
+                    and C.{1} IS NOT NULL
+                    and C.EffectiveDate >= dateadd(day, -2, A.Date_)
+                    and C.EffectiveDate < dateadd(day, 1, A.Date_)
+            )
+        """.format(measure, field, feature_name, table)
+    return clean_sql_cmd(sqlcmd)
 
 # ~~~~~~ Utility ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
