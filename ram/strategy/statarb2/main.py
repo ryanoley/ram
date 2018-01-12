@@ -12,7 +12,9 @@ from ram.strategy.base import Strategy, StrategyVersionContainer
 from ram.strategy.statarb2.data_blueprints import blueprint_container
 
 strategy_versions = StrategyVersionContainer()
-strategy_versions.add_version('version_001', 'Current implementation')
+strategy_versions.add_version('version_001', 'Factor Rank L/S')
+strategy_versions.add_version('version_002', 'Dispersion')
+strategy_versions.add_version('version_003', 'ML with training data')
 
 
 class StatArbStrategy2(Strategy):
@@ -23,6 +25,21 @@ class StatArbStrategy2(Strategy):
             from ram.strategy.statarb2.version_001.constructor import PortfolioConstructor
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
+
+        elif self.strategy_code_version == 'version_002':
+            from ram.strategy.statarb2.version_002.data import DataContainer
+            from ram.strategy.statarb2.version_002.constructor import PortfolioConstructor
+            self.data = DataContainer()
+            self.constructor = PortfolioConstructor()
+
+        elif self.strategy_code_version == 'version_003':
+            from ram.strategy.statarb2.version_003.data import DataContainer
+            from ram.strategy.statarb2.version_003.constructor import PortfolioConstructor
+            from ram.strategy.statarb2.version_003.signals import SignalModel
+            self.data = DataContainer()
+            self.constructor = PortfolioConstructor()
+            self.signals = SignalModel()
+
         else:
             print('Correct strategy code not specified')
             sys.exit()
@@ -52,12 +69,24 @@ class StatArbStrategy2(Strategy):
     # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def run_index(self, time_index):
+
+        if time_index < 54:
+            return
+
         i = 0
         for ad in self.data.get_args():
             self.data.set_args(**ad)
+
+            if hasattr(self, 'signals'):
+                self.signals.set_args(1)
+                signals = self.signals.get_signals(self.data)
+            else:
+                signals = pd.DataFrame([])
+
             for ac in self.constructor.get_args():
                 self.constructor.set_args(**ac)
-                results = self.constructor.process(self.data.trade_data)
+                results = self.constructor.process(self.data.trade_data,
+                                                   signals)
                 self._capture_output(results, i)
                 i += 1
 
