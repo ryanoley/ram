@@ -79,6 +79,8 @@ class DataContainer(object):
             (pdata.RClose >= LOW_PRICE_FILTER)
 
         trade_data = {}
+        trade_data['mom_3_10'] = rank_filter_data(pdata, 'mom_3_10', keep_inds)
+
         trade_data['prma_2_10'] = rank_filter_data(pdata, 'prma_2_10', keep_inds)
         trade_data['prma_3_10'] = rank_filter_data(pdata, 'prma_3_10', keep_inds)
         trade_data['prma_4_20'] = rank_filter_data(pdata, 'prma_4_20', keep_inds)
