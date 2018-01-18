@@ -14,30 +14,31 @@ class PortfolioConstructor(object):
 
     def get_args(self):
         return make_arg_iter({
-            'prma_x': [5, 10, 15, 20],
-            'split_perc': [20, 30, 40],
+            'score_var': ['mom_3_10', 'prma_2_10', 'prma_3_10', 'prma_4_20',
+                          'prma_5_30', 'prma_5', 'prma_10',
+                          'prma_15', 'prma_20'],
+            'split_perc': [20, 30],
             'daily_drop': [True, False],
-            'holding_period': [10, 5, 2],
+            'holding_period': [5, 2],
             'month_end_close': [True, False]
         })
 
     def set_args(self,
-                 prma_x,
+                 score_var,
                  split_perc,
                  daily_drop,
                  holding_period,
                  month_end_close):
-        self._prma_x = prma_x
+        self._score_var = score_var
         self._split_perc = split_perc
         self._daily_drop = daily_drop
         self._holding_period = holding_period
         self._month_end_close = month_end_close
 
-    def process(self, trade_data):
+    def process(self, trade_data, signals):
 
         portfolio = Portfolio()
-
-        scores = trade_data['prma_{}'.format(self._prma_x)]
+        scores = trade_data[self._score_var]
         day_ret = trade_data['day_ret_rank']
         day_ret_abs = trade_data['day_ret_abs']
 

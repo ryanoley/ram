@@ -70,7 +70,7 @@ class StatArbStrategy2(Strategy):
 
     def run_index(self, time_index):
 
-        if time_index < 54:
+        if (time_index < 54) and self._write_flag:
             return
 
         i = 0

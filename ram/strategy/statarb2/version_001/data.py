@@ -43,6 +43,16 @@ class DataContainer(object):
         for i in [5, 10, 15, 20]:
             feat.add_feature(prma.fit(close, i), 'prma_{}'.format(i))
 
+
+        # Original
+        temp = -1 * prma.fit(close, 3) / prma.fit(close, 10)
+        feat.add_feature(temp, 'mom_3_10')
+
+        feat.add_feature(prma.fit(close, 10) / prma.fit(close, 2), 'prma_2_10')
+        feat.add_feature(prma.fit(close, 10) / prma.fit(close, 3), 'prma_3_10')
+        feat.add_feature(prma.fit(close, 20) / prma.fit(close, 4), 'prma_4_20')
+        feat.add_feature(prma.fit(close, 30) / prma.fit(close, 5), 'prma_5_30')
+
         # Create output
         pdata = pd.DataFrame()
         pdata['SecCode'] = data.SecCode
@@ -69,6 +79,11 @@ class DataContainer(object):
             (pdata.RClose >= LOW_PRICE_FILTER)
 
         trade_data = {}
+        trade_data['prma_2_10'] = rank_filter_data(pdata, 'prma_2_10', keep_inds)
+        trade_data['prma_3_10'] = rank_filter_data(pdata, 'prma_3_10', keep_inds)
+        trade_data['prma_4_20'] = rank_filter_data(pdata, 'prma_4_20', keep_inds)
+        trade_data['prma_5_30'] = rank_filter_data(pdata, 'prma_5_30', keep_inds)
+
         trade_data['prma_5'] = rank_filter_data(pdata, 'prma_5', keep_inds)
         trade_data['prma_10'] = rank_filter_data(pdata, 'prma_10', keep_inds)
         trade_data['prma_15'] = rank_filter_data(pdata, 'prma_15', keep_inds)
