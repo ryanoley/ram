@@ -15,6 +15,7 @@ strategy_versions = StrategyVersionContainer()
 strategy_versions.add_version('version_001', 'Factor Rank L/S')
 strategy_versions.add_version('version_002', 'Dispersion')
 strategy_versions.add_version('version_003', 'ML with training data')
+strategy_versions.add_version('version_004', 'Double Sort')
 
 
 class StatArbStrategy2(Strategy):
@@ -39,6 +40,12 @@ class StatArbStrategy2(Strategy):
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
             self.signals = SignalModel()
+
+        elif self.strategy_code_version == 'version_004':
+            from ram.strategy.statarb2.version_004.data import DataContainer
+            from ram.strategy.statarb2.version_004.constructor import PortfolioConstructor
+            self.data = DataContainer()
+            self.constructor = PortfolioConstructor()
 
         else:
             print('Correct strategy code not specified')
@@ -74,6 +81,7 @@ class StatArbStrategy2(Strategy):
             return
 
         i = 0
+
         for ad in self.data.get_args():
             self.data.set_args(**ad)
 
