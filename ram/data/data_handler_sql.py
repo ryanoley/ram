@@ -10,25 +10,10 @@ from ram.data.sql_features import sqlcmd_from_feature_list
 pypyodbc.connection_timeout = 8
 
 
-def connection_error_handling(f):
-    """Decorator"""
-    def new_f(self, *args, **kwargs):
-        try:
-            return f(self, *args, **kwargs)
-        except Exception as e:
-            getattr(self, '_disconnect')()
-            print('Decorator Exception')
-            raise Exception(e)
-    new_f.__name__ = f.__name__
-    new_f.__doc__ = f.__doc__
-    return new_f
-
-
 class DataHandlerSQL(object):
 
     def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
         self._table = table
-        self._connect()
 
     def _connect(self):
         self._test_time_constraint()
@@ -67,7 +52,7 @@ class DataHandlerSQL(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Data Interface
-    @connection_error_handling
+
     def get_filtered_univ_data(self,
                                features,
                                start_date,
@@ -100,12 +85,34 @@ class DataHandlerSQL(object):
             filter_args = {'univ_size': univ_size}
 
         if filter_date:
-            ids = self._get_filtered_ids(d2, filter_args, self._table)
+            seccodes = self._get_filtered_seccodes(d2, filter_args,
+                                                   self._table)
         else:
-            ids = []
+            seccodes = []
+        return self.get_seccode_data(seccodes, features, d1, d3)
+
+    def get_seccode_data(self,
+                         seccodes,
+                         features,
+                         start_date,
+                         end_date):
+        """
+        Parameters
+        ----------
+        seccodes : list
+        features : list
+        start_date/end_date : datetime
+
+        Returns
+        -------
+        data : pandas.DataFrame
+            With columns ID, Date representing a unique observation.
+        """
+        # Check user input
+        start_date, _, end_date = _format_dates(start_date, None, end_date)
 
         output = pd.DataFrame(columns=['SecCode', 'Date'])
-        # With large numbers of IDs and Features, there is not enough
+        # With large numbers of SecCodes and Features, there is not enough
         # memory to perform a query. Break up by features
         batches = range(0, 301, 10)
         for i1, i2 in zip(batches[:-1], batches[1:]):
@@ -114,26 +121,55 @@ class DataHandlerSQL(object):
                 break
             # Get features, and strings for cte and regular query
             sqlcmd, batch_features = sqlcmd_from_feature_list(
-                batch_features, ids, d1, d3, self._table)
+                batch_features, seccodes, start_date, end_date, self._table)
             univ = self.sql_execute(sqlcmd)
             univ_df = pd.DataFrame(
                 univ, columns=['SecCode', 'Date'] + batch_features)
-            output = output.merge(univ_df, how='outer')
+            _check_for_duplicates(univ_df, ['SecCode', 'Date'])
+            output = output.merge(univ_df, on=['SecCode', 'Date'],
+                                  how='outer')
+            _check_for_duplicates(output, ['SecCode', 'Date'])
         return output
 
-    @connection_error_handling
-    def get_id_data(self,
-                    ids,
-                    features,
-                    start_date,
-                    end_date):
+    def get_index_data(self,
+                       seccodes,
+                       features,
+                       start_date,
+                       end_date):
         """
-        Purpose of this class is to provide an interface to get a filtered
-        universe.
+        SP500
+        -----
+        Index (SPX): 50311
+        Growth (SGX): 61258
+        Value (SVX): 61259
+
+        RUSSELL 1000
+        ------------
+        Index (RUI): 11097
+        Growth (RLG): 11099
+        Value (RLV): 11100
+
+        RUSSELL 2000
+        ------------
+        Index (RUT): 10955
+        Growth (RUO): 11101
+        Value (RUJ): 11102
+
+        RUSSELL 3000
+        ------------
+        Index (RUA): 11096
+        Growth (RAG): 11103
+        Value (RAV): 11104
+
+        Volatility
+        ----------
+        CBOE SP500 Volatility, 30 day (VIX): 11113
+        CBOE SP500 Short Term Volatility, 9 day (VXST): 11132814
+        CBOE SP500 3 Month Volatility, 93 day (XVX): 10922530
 
         Parameters
         ----------
-        ids : list
+        seccodes : list
         features : list
         start_date/end_date : datetime
 
@@ -147,15 +183,14 @@ class DataHandlerSQL(object):
 
         # Get features, and strings for cte and regular query
         sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids, d1, d3, self._table)
+            features, seccodes, d1, d3, 'ram.dbo.ram_index_pricing')
 
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
-        univ_df.columns = ['ID', 'Date'] + features
+        univ_df.columns = ['SecCode', 'Date'] + features
         return univ_df
 
-    @connection_error_handling
     def get_etf_data(self,
                      tickers,
                      features,
@@ -167,7 +202,7 @@ class DataHandlerSQL(object):
 
         Parameters
         ----------
-        ids : list
+        tickers : list
         features : list
         start_date/end_date : datetime
 
@@ -179,21 +214,21 @@ class DataHandlerSQL(object):
         # Check user input
         d1, _, d3 = _format_dates(start_date, None, end_date)
 
-        ids = self._map_ticker_to_id(tickers)
+        seccodes = self._map_ticker_to_seccode(tickers)
 
         # Get features, and strings for cte and regular query
         sqlcmd, features = sqlcmd_from_feature_list(
-            features, ids.SecCode.tolist(), d1, d3, 'ram.dbo.ram_etf_pricing')
+            features, seccodes.SecCode.tolist(), d1, d3,
+            'ram.dbo.ram_etf_pricing')
         univ = self.sql_execute(sqlcmd)
 
         univ_df = pd.DataFrame(univ)
         univ_df.columns = ['SecCode', 'Date'] + features
-        univ_df = univ_df.merge(ids)
+        univ_df = univ_df.merge(seccodes)
         univ_df.ID = univ_df.Ticker
         univ_df = univ_df.drop('Ticker', axis=1)
         return univ_df
 
-    @connection_error_handling
     def get_all_dates(self):
         if not hasattr(self, '_dates'):
             # Get all dates available in master database
@@ -204,9 +239,26 @@ class DataHandlerSQL(object):
             )).flatten()
         return self._dates
 
+    def get_ticker_seccode_map(self):
+        query_string = \
+            """
+            select A.SecCode, Ticker, Issuer from ram.dbo.ram_master_ids A
+            join (select SecCode, max(StartDate) as StartDate
+                  from ram.dbo.ram_master_ids group by SecCode) B
+            on A.SecCode = B.SecCode
+            and A.StartDate = B.StartDate
+            where A.Ticker is not null
+            and A.Ticker != ''
+            """
+        mapping = self.sql_execute(query_string)
+        mapping = pd.DataFrame(mapping)
+        mapping.columns = ['SecCode', 'Ticker', 'Issuer']
+        mapping.SecCode = mapping.SecCode.astype(str)
+        return mapping
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_filtered_ids(self, filter_date, args, table):
+    def _get_filtered_seccodes(self, filter_date, args, table):
         univ_size = args['univ_size']
         filter_col = args['filter'] if 'filter' in args else 'AvgDolVol'
         where = 'and {0}'.format(args['where']) if 'where' in args else ''
@@ -214,9 +266,9 @@ class DataHandlerSQL(object):
         all_dates = self.get_all_dates()
         filter_date = all_dates[all_dates <= filter_date][-1]
 
-        # Get IDs using next business date(filter_date). First CTE
+        # Get SecCodess using next business date(filter_date). First CTE
         # filters top ID for unique Company (Issuer).
-        ids = np.array(self.sql_execute(
+        seccodes = np.array(self.sql_execute(
             """
             ; with tempdata as (
             select      ID.Issuer, M.SecCode, M.{3},
@@ -243,18 +295,17 @@ class DataHandlerSQL(object):
             order by {3} desc;
             """.format(univ_size, filter_date, where, filter_col, table)
         )).flatten()
-        return ids
+        return seccodes
 
-    def _map_ticker_to_id(self, tickers):
+    def _map_ticker_to_seccode(self, tickers):
         if isinstance(tickers, str):
             tickers = [tickers]
         # Get Ticker, IdcCode mapping
-        ids = pd.DataFrame(self.sql_execute(
+        seccodes = pd.DataFrame(self.sql_execute(
             "select distinct SecCode, Ticker "
             "from ram.dbo.ram_master_ids_etf;"), columns=['SecCode', 'Ticker'])
-        return ids[ids.Ticker.isin(tickers)]
+        return seccodes[seccodes.Ticker.isin(tickers)]
 
-    @connection_error_handling
     def prior_trading_date(self, t0_dates=dt.date.today()):
         if not isinstance(t0_dates, list):
             t0_dates = [t0_dates]
@@ -286,14 +337,14 @@ class DataHandlerSQL(object):
     def sql_execute(self, sqlcmd):
         self._test_time_constraint()
         try:
-            if self._connection is None:
-                self._connect()
+            self._connect()
             self._cursor.execute(sqlcmd)
-            return self._cursor.fetchall()
+            return_data = self._cursor.fetchall()
+            self._disconnect()
+            return return_data
         except Exception as e:
             self._disconnect()
-            print('error running sqlcmd: ' + str(e))
-            return []
+            raise Exception(e)
 
     def close_connections(self):
         self._disconnect()
@@ -305,6 +356,18 @@ def _format_dates(start_date, filter_date, end_date):
             check_input_date(end_date)
 
 
+def _check_for_duplicates(dataFrame, columns=['SecCode', 'Date']):
+    if type(columns) is str:
+        columns = [columns]
+    # Check if duplicates exist, if so raise Error
+    if dataFrame.duplicated(subset=columns).sum() > 0:
+        duplicates = dataFrame.loc[dataFrame.duplicated(subset=columns),
+                                   columns]
+        raise ValueError('Duplicate rows in data frame:\n {}'.format(
+            duplicates.to_string()))
+    return
+
+
 if __name__ == '__main__':
 
     # EXAMPLES
@@ -312,7 +375,7 @@ if __name__ == '__main__':
 
     filter_args = {'filter': 'AvgDolVol',
                    'where': 'MarketCap >= 200 and GSECTOR not in (50, 55)',
-                   'univ_size': 1000}
+                   'univ_size': 10}
 
     univ = dh.get_filtered_univ_data(
         features=['MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
@@ -322,8 +385,14 @@ if __name__ == '__main__':
         filter_date='2001-01-01',
         filter_args=filter_args)
 
-    univ = dh.get_id_data(
-        ids=[4760, 78331, 58973],
+    data = dh.get_index_data(
+        seccodes=[50311],
+        features=['PRMA10_AdjClose'],
+        start_date='2000-01-01',
+        end_date='2001-04-01')
+
+    univ = dh.get_seccode_data(
+        seccodes=[4760, 78331, 58973],
         features=['GSECTOR', 'AdjClose', 'AvgDolVol', 'MarketCap'],
         start_date='1996-04-17',
         end_date='1997-03-31')

@@ -79,6 +79,7 @@ left join		pit_secintcode_1 C
 */
 
 /*
+
 if object_id('ram.dbo.ram_compustat_csvsecurity_map_raw', 'U') is not null 
 	drop table ram.dbo.ram_compustat_csvsecurity_map_raw
 
@@ -114,7 +115,6 @@ create table	ram.dbo.ram_compustat_csvsecurity_map_diffs (
 				Cusip varchar(15),
 				EXCNTRY varchar(15),
 				AsOfDate smalldatetime
-				primary key (GVKey, SecIntCode)
+				primary key (GVKey, SecIntCode, AsOfDate)
 )
-
 */

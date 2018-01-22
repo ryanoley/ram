@@ -1,4 +1,3 @@
-
 @echo off
 
 SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
@@ -23,4 +22,3 @@ echo %date%_!time! - Start
 echo %date%_!time! - End
 echo ------------------------------
 )
-

@@ -50,6 +50,7 @@ select top 10 * from ram.dbo.ram_compustat_csvsecurity_map_diffs
 
 select * from ram.dbo.ram_compustat_csvsecurity_map_raw
 
+
 ---------------------------------------------------------------------
 -- What happens between PIT table and CSVSecurity_Raw snapshot?
 
@@ -64,6 +65,3 @@ where GVKey = 160329
 
 select top 10 * from ram.dbo.ram_compustat_csvsecurity_map_raw
 where GVKey = 160329
-
-
-

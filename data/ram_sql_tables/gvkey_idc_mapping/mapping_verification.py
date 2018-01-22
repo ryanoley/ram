@@ -212,15 +212,14 @@ def _prompt_date_selection(input_vals):
 def _create_suggestions(gvkey_data, idc_data):
     gvkey_data = gvkey_data.sort_values(['Changedate'])
     gvkey_suggestions = gvkey_data.GvKey.unique()
-
     # Date suggestions are on rows where GvKey changes
     # Offset these by one day since we are prompting for end dates
     dates_suggestions = gvkey_data.Changedate[
-        gvkey_data.GvKey.diff().abs() > 0].values
+        gvkey_data.GvKey.diff().abs() > 0]
     dates_suggestions = [d - dt.timedelta(days=1) for d in dates_suggestions]
     # Append end dates from idc_data
-    dates_suggestions = np.unique(np.append(dates_suggestions,
-                                            idc_data.EndDate.dropna()))
+    dates_suggestions = dates_suggestions + idc_data.EndDate.dropna().tolist()
+    dates_suggestions = np.unique(dates_suggestions)
     return gvkey_suggestions, dates_suggestions
 
 
@@ -239,10 +238,10 @@ def import_bad_gvkeydata():
     # Import gvkey data
     df = import_sql_output(os.path.join(DDIR, 'bad_gvkeydata.txt'))
     df.Changedate = convert_date_array(
-        df.Changedate.apply(lambda x: x[:10]))
-    df.Name = df.Name.apply(lambda x: x.rstrip())
-    df.Ticker = df.Ticker.apply(lambda x: x.rstrip())
-    df['ShortCusip'] = df.Cusip.apply(lambda x: x[:8])
+        df.Changedate.astype(str).apply(lambda x: x[:10]))
+    df.Name = df.Name.astype(str).apply(lambda x: x.rstrip())
+    df.Ticker = df.Ticker.astype(str).apply(lambda x: x.rstrip())
+    df['ShortCusip'] = df.Cusip.astype(str).apply(lambda x: x[:8])
     df = df.loc[:, ['GvKey', 'Changedate', 'MinReportDate', 'MaxReportDate',
                     'Name', 'Ticker', 'Cusip', 'ShortCusip']]
     return df
@@ -253,10 +252,10 @@ def import_bad_idcdata():
     df = import_sql_output(os.path.join(DDIR, 'bad_idcdata.txt'))
     df = df.loc[:, ['Code', 'StartDate', 'EndDate', 'Cusip', 'Ticker',
                       'Issuer', 'Exchange']]
-    df.Cusip = df.Cusip.apply(lambda x: x.rstrip())
-    df.Ticker = df.Ticker.apply(lambda x: x.rstrip())
-    df.Issuer = df.Issuer.apply(lambda x: x.rstrip())
-    df.Exchange = df.Exchange.apply(lambda x: x.rstrip())
+    df.Cusip = df.Cusip.astype(str).apply(lambda x: x.rstrip())
+    df.Ticker = df.Ticker.astype(str).apply(lambda x: x.rstrip())
+    df.Issuer = df.Issuer.astype(str).apply(lambda x: x.rstrip())
+    df.Exchange = df.Exchange.astype(str).apply(lambda x: x.rstrip())
     df = df[df.Cusip != '']
     return df
 
@@ -264,6 +263,9 @@ def import_bad_idcdata():
 def import_temp_filtered_ids():
     try:
         df = pd.read_csv(os.path.join(DDIR, 'temp_filtered_ids.csv'), header=0)
+        # Filter dates just in case
+        df.StartDate = df.StartDate.apply(lambda x: x[:10])
+        df.EndDate = df.EndDate.apply(lambda x: x[:10])
     except:
         df = pd.DataFrame([])
         df['IdcCode'] = []

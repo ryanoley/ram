@@ -1,117 +1,185 @@
+import os
+import sys
+import imp
 import json
+import pickle
+import inspect
 import itertools
-import numpy as np
 import pandas as pd
 import datetime as dt
+from copy import deepcopy
 
-from ram.strategy.base import Strategy
+from ram import config
+from ram.strategy.statarb import statarb_config
 
-from ram.strategy.statarb.pairselector.pairs3 import PairSelector3
-from ram.strategy.statarb.constructor.constructor import PortfolioConstructor
-from ram.strategy.statarb.constructor.constructor3 import PortfolioConstructor3
+from ram.strategy.base import Strategy, StrategyVersionContainer
+from ram.strategy.statarb.utils import make_arg_iter
+
+from ram.strategy.statarb.data_blueprints import blueprint_container
+
+from ram.strategy.statarb.implementation.preprocess_new_models import \
+    import_current_top_params
+
+# HELPER
+strategy_versions = StrategyVersionContainer()
+strategy_versions.add_version('version_001', 'Current implementation')
 
 
 class StatArbStrategy(Strategy):
 
-    # Creates on init
-    pairselector = PairSelector3()
-    constructor = PortfolioConstructor3()
+    def strategy_init(self):
+        # Set source code versions
+        if self.strategy_code_version == 'version_001':
+            from ram.strategy.statarb.version_001 import main
+            self.data = deepcopy(main.data)
+            self.signals = deepcopy(main.signals)
+            self.constructor = deepcopy(main.constructor)
+        else:
+            print('Correct strategy code not specified')
+            sys.exit()
+        # Set args
+        self._data_args = make_arg_iter(self.data.get_args())
+        self._signals_args = make_arg_iter(self.signals.get_args())
+        self._constructor_args = make_arg_iter(self.constructor.get_args())
+
+    @staticmethod
+    def get_data_blueprint_container():
+        """
+        Should return a dictionary with Blueprints in values and any
+        labels as keys.
+        """
+        return blueprint_container
+
+    @staticmethod
+    def get_strategy_source_versions():
+        """
+        Should return a dictionary with descriptions in values and any
+        labels as keys.
+        """
+        return strategy_versions
 
     def get_column_parameters(self):
-        args1 = make_arg_iter(self.pairselector.get_iterable_args())
-        args2 = make_arg_iter(self.constructor.get_iterable_args())
         output_params = {}
-        for col_ind, (x, y) in enumerate(itertools.product(args1, args2)):
+        for col_ind, (x, y, z) in enumerate(itertools.product(
+                self._data_args,
+                self._signals_args,
+                self._constructor_args)):
             params = dict(x)
             params.update(y)
+            params.update(z)
             output_params[col_ind] = params
         return output_params
 
+    def process_raw_data(self, data, time_index, market_data=None):
+        self.data.process_training_data(data, market_data, time_index)
+
+    # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def run_index(self, time_index):
-        data = self.read_data_from_index(time_index)
-        args1 = make_arg_iter(self.pairselector.get_iterable_args())
-        args2 = make_arg_iter(self.constructor.get_iterable_args())
-        arg_index = 0
-        for a1 in args1:
-            pair_info = self.pairselector.rank_pairs(data, **a1)
-            self.constructor.set_and_prep_data(data, pair_info, time_index)
-            for a2 in args2:
-                results, stats = self.constructor.get_daily_pl(
-                    arg_index, **a2)
-                self._capture_output(results, stats, arg_index)
-                arg_index += 1
-        # Calculate returns
-        returns = self.output_pl / self.constructor.booksize
-        self.write_index_results(returns, time_index)
+        # HACK: If training and writing, don't train until 2009, but stack data
+        if self._write_flag and \
+                (int(self._prepped_data_files[time_index][:4]) < 2009):
+            return
+
+        # Iterate
+        i = 0
+        for args1 in self._data_args:
+
+            self.data.set_args(**args1)
+
+            for args2 in self._signals_args:
+
+                self.signals.set_args(**args2)
+                self.signals.set_features(self.data.get_train_features())
+                self.signals.set_train_data(self.data.get_train_data())
+                self.signals.set_train_responses(
+                    self.data.get_train_responses())
+                self.signals.set_test_data(self.data.get_test_data())
+
+                self.signals.fit_model()
+                signals = self.signals.get_signals()
+
+                # HACK
+                # Make sure that there is no dependence on variables
+                self.constructor.set_signals_constructor_data(
+                    signals, self.data.get_constructor_data())
+
+                for ac in self._constructor_args:
+
+                    self.constructor.set_args(**ac)
+
+                    result, stats = self.constructor.get_period_daily_pl()
+
+                    self._capture_output(result, stats, i)
+                    i += 1
+
+        self.write_index_results(self.output_returns, time_index)
+        self.write_index_results(self.output_all_output,
+                                 time_index,
+                                 'all_output')
         self.write_index_stats(self.output_stats, time_index)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def implementation_training(self):
+        # Import top params from wherever
+        top_params = import_current_top_params().keys()
+
+        # Process
+        run_map = self.implementation_training_prep(top_params)
+        # Placeholder to determine if data should be reloaded
+        current_stack_index = None
+        for i, vals in run_map.iterrows():
+            if vals.stack_index != current_stack_index:
+                self.strategy_code_version = vals.strategy_version
+                self.prepped_data_version = vals.data_version
+                current_stack_index = vals.stack_index
+                print('[[Stacking data]]')
+                self.strategy_init()
+                self.implementation_training_stack_version_data(
+                    vals.data_version)
+                all_params = self.import_run_column_params(
+                    vals.run_name)
+            params = all_params[vals.column_name]
+            # Fit model and cache
+            data_params = dict([(k, params[k]) for k
+                                in self.data.get_args().keys()])
+            self.data.set_args(**data_params)
+            signal_params = dict([(k, params[k]) for k
+                                  in self.signals.get_args().keys()])
+            self.signals.set_args(**signal_params)
+            self.signals.set_features(self.data.get_train_features())
+            self.signals.set_train_data(self.data.get_train_data())
+            self.signals.set_train_responses(
+                self.data.get_train_responses())
+            self.signals.set_test_data(self.data.get_test_data())
+            self.signals.fit_model()
+            self.implementation_training_write_params_model(
+                vals.param_name, params, self.signals.get_model())
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _capture_output(self, results, stats, arg_index):
+        results = results.copy()
+        book = self.constructor.booksize
+        returns = pd.DataFrame(results.PL / book)
+        returns.columns = [arg_index]
+        # Rename columns
+        results.columns = ['{}_{}'.format(x, arg_index)
+                           for x in results.columns]
         if arg_index == 0:
-            self.output_pl = pd.DataFrame()
-            self.output_exposure = pd.DataFrame()
+            self.output_returns = returns
+            self.output_all_output = results
             self.output_stats = {}
-        results.columns = [arg_index, arg_index]
-        self.output_pl = self.output_pl.join(results.iloc[:, 0], how='outer')
-        self.output_exposure = self.output_exposure.join(
-            results.iloc[:, 1], how='outer')
+        else:
+            self.output_returns = self.output_returns.join(returns,
+                                                           how='outer')
+            self.output_all_output = self.output_all_output.join(
+                results, how='outer')
         self.output_stats[arg_index] = stats
-
-    # ~~~~~~ DataConstructor params ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def get_filter_args(self):
-        return {
-            'filter': 'AvgDolVol',
-            'where': 'MarketCap >= 200 and GSECTOR in (25) and AvgDolVol >= 10 ' +
-            'and Close_ between 15 and 1000',
-            'univ_size': 200}
-
-    def get_features(self):
-        return ['AdjClose', 'AdjVolume', 'AvgDolVol',
-                'RClose', 'RCashDividend',
-                'SplitFactor', 'GSECTOR', 'GGROUP', 'EARNINGSFLAG']
-
-    def get_date_parameters(self):
-        return {
-            'frequency': 'Q',
-            'train_period_length': 4,
-            'test_period_length': 2,
-            'start_year': 2009
-        }
-
-
-def make_arg_iter(variants):
-    return [{x: y for x, y in zip(variants.keys(), vals)}
-            for vals in itertools.product(*variants.values())]
 
 
 if __name__ == '__main__':
 
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--data', action='store_true',
-        help='Run DataConstructor')
-    parser.add_argument(
-        '-w', '--write_simulation', action='store_true',
-        help='Run simulation')
-    parser.add_argument(
-        '-s', '--simulation', action='store_true',
-        help='Run simulation')
-    parser.add_argument(
-        '-p', '--prepped_data', default='version_0017',
-        help='Run simulation')
-    args = parser.parse_args()
-
-    if args.data:
-        StatArbStrategy().make_data()
-    elif args.write_simulation:
-        print('Running for data: {}'.format(args.prepped_data))
-        strategy = StatArbStrategy(args.prepped_data, True)
-        strategy.start()
-    elif args.simulation:
-        strategy = StatArbStrategy(args.prepped_data, False)
-        import pdb; pdb.set_trace()
-        strategy.start()
+    from ram.strategy.base import make_argument_parser
+    make_argument_parser(StatArbStrategy)

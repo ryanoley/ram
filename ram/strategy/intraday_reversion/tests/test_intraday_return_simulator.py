@@ -28,7 +28,7 @@ class TestIntradayReturnSimulator(unittest.TestCase):
         data2.columns.name = 'Date'
         self.data2 = data2
 
-    def test_get_returns(self):
+    def Xtest_get_returns(self):
         irs = IntradayReturnSimulator()
         returns_df = pd.DataFrame()
         returns_df['Date'] = [
@@ -96,7 +96,6 @@ class TestIntradayReturnSimulator(unittest.TestCase):
 
     def Xtest_preprocess_returns(self):
         irs = IntradayReturnSimulator()
-        import pdb; pdb.set_trace()
         irs.preprocess_returns([0.004, 0.008], 0.002, 'SPY')
 
     def test_get_ticker_stats(self):
