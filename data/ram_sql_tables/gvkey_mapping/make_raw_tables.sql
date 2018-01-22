@@ -64,6 +64,6 @@ create table	ram.dbo.ram_compustat_csvsecurity_map_diffs (
 				SecIntCode int,
 				Cusip varchar(15),
 				AsOfDate smalldatetime
-				primary key (GVKey, SecIntCode)
+				primary key (GVKey, SecIntCode, AsOfDate)
 )
 */
