@@ -8,6 +8,7 @@ create table #all_data
 	GVKey int,
 	SecIntCode int,
 	Cusip varchar(15),
+	EXCNTRY varchar(15),
 	AsOfDate smalldatetime,
 )
 
@@ -36,6 +37,7 @@ and			A.AsOfDate = B.AsOfDate
 select		B.GVKey,
 			B.SecIntCode,
 			B.Cusip,
+			B.EXCNTRY,
 			DATEADD(dd, DATEDIFF(dd, 0, getdate()), 0) as AsOfDate
 from		max_secintcode_entry A
 left join	qai.dbo.CSVSecurity B
@@ -50,6 +52,7 @@ where		(A.GVKey != B.GVKey) or (A.Cusip != B.Cusip)
 select		B.GVKey,
 			B.SecIntCode,
 			B.Cusip,
+			B.EXCNTRY,
 			DATEADD(dd, DATEDIFF(dd, 0, getdate()), 0) as AsOfDate
 from		max_secintcode_entry A
 right join	qai.dbo.CSVSecurity B

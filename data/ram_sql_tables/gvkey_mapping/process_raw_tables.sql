@@ -1,78 +1,54 @@
 /*
-GOAL: Table that maps GVKey to a SecIntCode/CUSIP. In case of multiple securities, specify
-
 NOTES: 
 
 1. Original PIT table did not map to multiple Securities/Cusips, just one; CSVSecurity maps to multiple
-2. Maps to US Cusips only in CSVSecurity table
-
-TODO:
-
-1. Map SecIntCode to PIT table
-
+2. 
 
 */
 
+select * from ram.dbo.ram_compustat_pit_map_raw
+where GVKey in (6268, 10787)
 
 
 
--------------------------------------------------------------------------------------
--- Map 
-
-; with pit_secintcode_1 as (
-select				A.GVKey, A.Changedate, A.Cusip,
-					B.SECINTCODE
-from				ram.dbo.ram_compustat_pit_map_raw A
-	left join		qai.dbo.CSVSecurity B
-	on				substring(A.Cusip, 0, 9) = B.Cusip
-	and				B.EXCNTRY = 'USA'			-- US only
-where				A.TableName = 'CSPITId'		-- US only
+; with X as (
+select GVKey, Changedate, substring(Cusip, 0, 9) as Cusip, SecIntCode, 0 as Source_ from ram.dbo.ram_compustat_pit_map_us
+union
+select GVKey, AsOfDate as Changedate, Cusip, SecIntCode, 1 as Source_ from ram.dbo.ram_compustat_csvsecurity_map_raw
+where EXCNTRY = 'USA'
+union
+select GVKey, AsOfDate as Changedate, Cusip, SecIntCode, 2 as Source_ from ram.dbo.ram_compustat_csvsecurity_map_diffs
+where EXCNTRY = 'USA'
 )
 
--- Forward fill missing SecIntCodes, then back fill
+select * from X
+where GVKey in (6268, 10787)
 
-select			A.GVKey,
-				A.Changedate,
-				A.Cusip,
-				coalesce(A.SecIntCode, B.SecIntCode, C.SecIntCode) as SecIntCode
-from			pit_secintcode_1 A
-left join		pit_secintcode_1 B
-	on			A.GVKey = B.GVKey
-	and			B.Changedate = (select max(Changedate) from pit_secintcode_1
-							    where GVKey = A.GVKey and Changedate <= A.Changedate
-								and SecIntCode is not null)
+select * from CSVSecurity
+where GVKey in (6268, 10787)
 
-left join		pit_secintcode_1 C
-	on			A.GVKey = C.GVKey
-	and			C.Changedate = (select min(Changedate) from pit_secintcode_1
-							    where GVKey = A.GVKey and Changedate >= A.Changedate
-								and SecIntCode is not null)
+--where SecIntCode in (5784, 102195)
 
-order by A.GVKey, A.Changedate
+
+select * from prc.PrcScChg
+where Code in (51018, 57856)
 
 
 
+select * from X
+where GVKey = 4601
+
+
+select GVKey, Count(*) as Count_ from X
+group by GVKey
+order by Count_ desc
 
 
 
-
--- Get max changedate and Ticker cusip values
-; with last_entry_by_gvkey as (
-select		A.*
-from		ram.dbo.ram_compustat_pit_map_raw A
-join	(	select GVKey, max(Changedate) as MaxChangeDate 
-			from ram.dbo.ram_compustat_pit_map_raw
-			group by GVKey
-		) B
-	on		A.GVKey = B.GVKey
-	and		A.Changedate = B.MaxChangeDate
-where		A.TableName = 'CSPITId'  -- US Only
-)
+select top 10 * from ram.dbo.ram_compustat_csvsecurity_map_diffs
 
 
-
-
-
+select * from ram.dbo.ram_compustat_csvsecurity_map_raw
 
 
 ---------------------------------------------------------------------
@@ -89,14 +65,3 @@ where GVKey = 160329
 
 select top 10 * from ram.dbo.ram_compustat_csvsecurity_map_raw
 where GVKey = 160329
-
-
-
-
-
-
-
-
-
-
-
