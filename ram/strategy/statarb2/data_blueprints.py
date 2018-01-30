@@ -80,3 +80,9 @@ for sector in range(10, 60, 5):
     sector_bp.description = 'Sector {}'.format(sector)
     sector_bp.universe_filter_arguments['where'] += ' and GSECTOR = {}'.format(sector)
     blueprint_container.add_blueprint(sector_bp)
+
+
+# Add Non-Sector
+bp = deepcopy(base)
+bp.description = 'All Sectors, top 800'
+blueprint_container.add_blueprint(bp)
