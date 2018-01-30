@@ -3,6 +3,9 @@
 -- Create tables
 
 /*
+
+-- Copy of raw PIT table
+
 if object_id('ram.dbo.ram_compustat_pit_map_raw', 'U') is not null 
 	drop table ram.dbo.ram_compustat_pit_map_raw
 
@@ -32,6 +35,8 @@ order by GVKey, Changedate
 */
 
 /*
+
+-- Mapping SecIntCodes from CSVSecurity to PIT table at time of copy
 
 if object_id('ram.dbo.ram_compustat_pit_map_us', 'U') is not null 
 	drop table ram.dbo.ram_compustat_pit_map_us
@@ -80,6 +85,8 @@ left join		pit_secintcode_1 C
 
 /*
 
+-- Copy of CSVSecurity table to use as baseline
+
 if object_id('ram.dbo.ram_compustat_csvsecurity_map_raw', 'U') is not null 
 	drop table ram.dbo.ram_compustat_csvsecurity_map_raw
 
@@ -105,6 +112,9 @@ where		SECINTCODE is not null
 */
 
 /*
+
+-- Create empty table for the diffs to the CSVSecurity table
+
 if object_id('ram.dbo.ram_compustat_csvsecurity_map_diffs', 'U') is not null 
 	drop table ram.dbo.ram_compustat_csvsecurity_map_diffs
 
