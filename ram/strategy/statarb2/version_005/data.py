@@ -1,10 +1,15 @@
 import pandas as pd
 import datetime as dt
 
+from statsmodels.tsa.stattools import adfuller
+
 from ram.data.feature_creator import *
 
 from ram.strategy.statarb.utils import make_variable_dict
 from ram.strategy.statarb.utils import make_arg_iter
+
+from ram.strategy.statarb.version_001.data.pairs_selector import PairSelector
+
 
 LOW_PRICE_FILTER = 7
 LOW_LIQUIDITY_FILTER = 3
@@ -26,37 +31,58 @@ class DataContainer(object):
 
     def process_training_data(self, data, market_data, time_index):
 
+        if (time_index < 54):
+            return
+
         data['TimeIndex'] = time_index
         data['SplitMultiplier'] = data.SplitFactor.pct_change().fillna(0) * \
             (data.SecCode == data.SecCode.shift(1)).astype(int) + 1
 
-        open_ = clean_pivot_raw_data(data, 'AdjOpen')
-        close = clean_pivot_raw_data(data, 'AdjClose')
+        dates = data[['Date', 'TestFlag']].drop_duplicates()
+        train_dates = dates.Date[~dates.TestFlag]
+        test_dates = dates.Date[dates.TestFlag]
 
-        feat = FeatureAggregator()
+        # Filter out small stocks
+        filter_ = data[data.Date == max(train_dates)]
+        filter_ = filter_[filter_.AvgDolVol > 5]
+        data = data[data.SecCode.isin(filter_.SecCode)]
 
-        # Daily returns
-        feat.add_feature(close / open_ - 1, 'day_ret')
+        ## PORTFOLIO PAIRS
+        close_ = clean_pivot_raw_data(data, 'AdjClose')
 
-        feat.add_feature(close.pct_change(1), 'ret1')
-        feat.add_feature(close.pct_change(2), 'ret2')
-        feat.add_feature(close.pct_change(3), 'ret3')
-        feat.add_feature(close.pct_change(4), 'ret4')
+        # Fit random portfolios
+        unique_seccodes = close_.columns
 
-        # PRMA vals
-        prma = PRMA()
-        for i in [5, 10, 15, 20]:
-            feat.add_feature(prma.fit(close, i), 'prma_{}'.format(i))
+        indexes = np.log(close_).diff().fillna(0).values
 
-        # Volatility
-        vol = VOL()
-        for i in [20, 50]:
-            feat.add_feature(vol.fit(close, i), 'vol_{}'.format(i))
+        # Generate random, unique indexes
+        SAMPLES = 10000  # Change to 10000
+        X = np.random.randint(0, high=len(unique_seccodes), size=(20000, 4))
+        X1 = X.copy()
+        X1.sort(axis=1)
+        inds = np.sum(np.diff(X1, axis=1) == 0, axis=1)
+        X = X[inds == 0]
+        X = X[:SAMPLES]
 
-        feat.add_feature(prma.fit(close, 10) / prma.fit(close, 2), 'prma_2_10')
-        feat.add_feature(prma.fit(close, 10) / prma.fit(close, 3), 'prma_3_10')
-        feat.add_feature(prma.fit(close, 20) / prma.fit(close, 4), 'prma_4_20')
-        feat.add_feature(prma.fit(close, 30) / prma.fit(close, 5), 'prma_5_30')
+        index1 = pd.DataFrame((indexes[:, X[:, 0]] + indexes[:, X[:, 1]]) / 2., index=close_.index).cumsum()
+        index2 = pd.DataFrame((indexes[:, X[:, 2]] + indexes[:, X[:, 3]]) / 2., index=close_.index).cumsum()
+
+        index3 = (index1 - index2)
+
+        zscore = (index3 - index3.rolling(20).mean()) / index3.rolling(20).std()
+        seccodes = np.take(unique_seccodes, X)
+        zscore.columns = ['{}_{}~{}_{}'.format(*x) for x in seccodes]
+
+        index4 = index3.loc[train_dates]
+
+        scores = []
+        for i in range(SAMPLES):
+            scores.append(adfuller(index4.iloc[:, i])[0])
+
+        # Keep top 200 portfolios
+        inds = np.argsort(scores)
+
+        zscore_c = zscore.iloc[:, inds[:200]]
 
         # Create output
         pdata = pd.DataFrame()
@@ -70,18 +96,12 @@ class DataContainer(object):
         pdata['RCashDividend'] = data.RCashDividend
         pdata['SplitMultiplier'] = data.SplitMultiplier
 
-        pdata = pdata.merge(feat.make_dataframe())
         # Make test data
-        pdata = pdata[pdata.TestFlag].reset_index(drop=True)
+        #pdata = pdata[pdata.TestFlag].reset_index(drop=True)
 
         # Preprocessing test data
         pdata['keep_inds'] = (pdata.AvgDolVol >= LOW_LIQUIDITY_FILTER) & \
             (pdata.RClose >= LOW_PRICE_FILTER)
-
-        unique_dates = pdata.Date.unique()
-        score_data = {}
-        for date in unique_dates:
-            score_data[date] = pdata[pdata.Date == date].copy()
 
         trade_data = {}
         trade_data['closes'] = make_variable_dict(pdata, 'RClose')
@@ -89,8 +109,11 @@ class DataContainer(object):
         trade_data['splits'] = make_variable_dict(pdata, 'SplitMultiplier', 1)
         trade_data['liquidity'] = make_variable_dict(pdata, 'AvgDolVol')
 
-        trade_data['score_data'] = score_data
+        trade_data['test_dates'] = test_dates
 
+        trade_data['pair_data'] = {
+            'zscores': zscore_c
+        }
         self.trade_data = trade_data
 
 

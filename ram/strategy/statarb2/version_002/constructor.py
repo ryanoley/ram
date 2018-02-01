@@ -11,7 +11,9 @@ BOOKSIZE = 2e6
 
 
 class PortfolioConstructor(object):
-
+    """
+    NOT NET ZERO EXPOSURE, AND DOESN'T ALIGN WITH BOOKSIZE ABOVE.
+    """
     def get_args(self):
         return make_arg_iter({
             'sort_var': ['day_ret', 'overnight_ret'],
@@ -24,7 +26,7 @@ class PortfolioConstructor(object):
         self._hedge = hedge
         self._rev_mom = rev_mom
 
-    def process(self, trade_data):
+    def process(self, trade_data, signals):
 
         portfolio = Portfolio()
 

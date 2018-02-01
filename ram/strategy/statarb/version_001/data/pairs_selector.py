@@ -6,11 +6,14 @@ import itertools as it
 
 class PairSelector(object):
 
-    def rank_pairs(self, data, filter_n_pairs_per_seccode=None):
+    def rank_pairs(self,
+                   data,
+                   filter_n_pairs_per_seccode=None,
+                   eval_col='AdjClose'):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
-                                values='AdjClose')
+                                values=eval_col)
         cut_date = data.Date[~data.TestFlag].max()
         train_close = close_data.loc[close_data.index <= cut_date]
         train_close = train_close.T.dropna().T

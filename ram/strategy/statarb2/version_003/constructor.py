@@ -88,7 +88,8 @@ class PortfolioConstructor(object):
 
     def get_day_position_sizes(self, scores):
         allocs = {x: 0 for x in scores.index}
-        scores2 = (scores.rank(pct=True) - 0.5).fillna(0)
+        scores2 = scores.rank(pct=True)
+        scores2 = (scores2 - scores2.median()).fillna(0)
         return (BOOKSIZE * scores2 / scores2.abs().sum()).to_dict()
 
 

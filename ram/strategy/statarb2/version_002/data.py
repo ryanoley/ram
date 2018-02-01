@@ -33,12 +33,11 @@ class DataContainer(object):
         open_ = clean_pivot_raw_data(data, 'AdjOpen')
         close = clean_pivot_raw_data(data, 'AdjClose')
 
-        import pdb; pdb.set_trace()
-
         feat = FeatureAggregator()
 
         # Daily returns
         feat.add_feature(close / open_ - 1, 'day_ret')
+        feat.add_feature(open_ / close.shift(1) - 1, 'close_to_open_ret')
         feat.add_feature(close.pct_change(), 'overnight_ret')
 
         # Create output
