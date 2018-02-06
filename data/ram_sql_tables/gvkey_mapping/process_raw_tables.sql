@@ -1,3 +1,4 @@
+
 /*
 NOTES: 
 
@@ -6,12 +7,8 @@ NOTES:
 
 */
 
-select * from ram.dbo.ram_compustat_pit_map_raw
-where GVKey in (6268, 10787)
 
-
-
-; with X as (
+; with stacked_compustat as (
 select GVKey, Changedate, substring(Cusip, 0, 9) as Cusip, SecIntCode, 0 as Source_ from ram.dbo.ram_compustat_pit_map_us
 union
 select GVKey, AsOfDate as Changedate, Cusip, SecIntCode, 1 as Source_ from ram.dbo.ram_compustat_csvsecurity_map_raw
@@ -21,47 +18,82 @@ select GVKey, AsOfDate as Changedate, Cusip, SecIntCode, 2 as Source_ from ram.d
 where EXCNTRY = 'USA'
 )
 
-select * from X
-where GVKey in (6268, 10787)
 
-select * from CSVSecurity
-where GVKey in (6268, 10787)
-
---where SecIntCode in (5784, 102195)
-
-
-select * from prc.PrcScChg
-where Code in (51018, 57856)
-
-
-
-select * from X
-where GVKey = 4601
-
-
-select GVKey, Count(*) as Count_ from X
-group by GVKey
-order by Count_ desc
+, merged_idc_codes_gvkeys as (
+select			A.Code as IdcCode,
+				A.StartDate,
+				A.EndDate,
+				A.Cusip,
+				B.GVKey,
+				B.Changedate,
+				B.SecIntCode,
+				B.Source_
+from			prc.PrcScChg A
+left join		stacked_compustat B
+	on			A.Cusip = B.Cusip
+where			A.Code in (select distinct IdcCode from ram.dbo.ram_master_ids)
+)
 
 
-
-select top 10 * from ram.dbo.ram_compustat_csvsecurity_map_diffs
-
-
-select * from ram.dbo.ram_compustat_csvsecurity_map_raw
-
-
----------------------------------------------------------------------
--- What happens between PIT table and CSVSecurity_Raw snapshot?
+, mapping_counts as (
+select IdcCode, Count(*) as Count_ from (select distinct IdcCode, GVKey 
+										 from merged_idc_codes_gvkeys a 
+										 where GVKey is not null) A
+group by IdcCode
+)
 
 
--- Locate GOOGLE
-select top 10 * from CSVSecurity
-where TIC = 'GOOG'
+--------------------------------------------------------------------------------
+-- Get min and max Start and End dates. If overlapping, manually handle.
+
+, map_01 as (
+select			A.IdcCode, 
+				GVKey, 
+				min(StartDate) as StartDate, 
+				max(coalesce(EndDate, '2079-01-01')) as EndDate
+from			merged_idc_codes_gvkeys A
+join			mapping_counts B
+	on			A.IdcCode = B.IdcCode
+	and			B.Count_ = 2		-- NOTE: handle only cases with two GVKeys
+	and			A.GVKey is not null
+group by		A.IdcCode, GVKey
+)
 
 
-select * from CSVSecurity
-where GVKey = 160329
+, map_02 as (
+select				*,
+					row_number() over (
+						partition by IdcCode
+						order by StartDate) as RowNumber,
+					Lag(EndDate, 1) over (
+						partition by IdcCode
+						order by StartDate) as LagEndDate 
+from				map_01
+)
 
-select top 10 * from ram.dbo.ram_compustat_csvsecurity_map_raw
-where GVKey = 160329
+, overlapping_idccodes as (
+
+select IdcCode from map_02
+where LagEndDate >= StartDate
+
+)
+
+-- Non overlapping entries
+select * from map_02
+where IdcCode not in (select IdcCode from overlapping_idccodes)
+
+
+
+
+
+--------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
