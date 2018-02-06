@@ -75,9 +75,11 @@ class DataContainer(object):
 
         index4 = index3.loc[train_dates]
 
-        scores = []
-        for i in range(SAMPLES):
-            scores.append(adfuller(index4.iloc[:, i])[0])
+        # scores = []
+        # for i in range(SAMPLES):
+        #     scores.append(adfuller(index4.iloc[:, i])[0])
+
+        scores = (np.sign(index4).diff() != 0).sum().values * -1
 
         # Keep top 200 portfolios
         inds = np.argsort(scores)

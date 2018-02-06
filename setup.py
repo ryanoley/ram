@@ -35,6 +35,7 @@ PACKAGES = [
     'ram/strategy/statarb2/version_003',
     'ram/strategy/statarb2/version_004',
     'ram/strategy/statarb2/version_005',
+    'ram/strategy/statarb2/version_006',
     # ~~~~~~~~~~~~~~~
     'ram/utils',
 ]

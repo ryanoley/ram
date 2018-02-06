@@ -17,6 +17,7 @@ strategy_versions.add_version('version_002', 'Dispersion')
 strategy_versions.add_version('version_003', 'ML with training data')
 strategy_versions.add_version('version_004', 'Double Sort')
 strategy_versions.add_version('version_005', 'Pairs')
+strategy_versions.add_version('version_006', 'Smart Factor')
 
 
 class StatArbStrategy2(Strategy):
@@ -51,6 +52,12 @@ class StatArbStrategy2(Strategy):
         elif self.strategy_code_version == 'version_005':
             from ram.strategy.statarb2.version_005.data import DataContainer
             from ram.strategy.statarb2.version_005.constructor import PortfolioConstructor
+            self.data = DataContainer()
+            self.constructor = PortfolioConstructor()
+
+        elif self.strategy_code_version == 'version_006':
+            from ram.strategy.statarb2.version_006.data import DataContainer
+            from ram.strategy.statarb2.version_006.constructor import PortfolioConstructor
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
 
