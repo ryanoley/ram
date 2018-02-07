@@ -31,9 +31,6 @@ echo. & echo ~~ ram_compustat_accounting_derived !time!~~
 echo. & echo ~~ ram_compustat_sector !time!~~
 %SQLCMD% -i %SQLDIR%\ram_compustat_sector.sql
 
-echo. & echo ~~ ram_dividend_yield !time!~~
-%SQLCMD% -i %SQLDIR%\ram_dividend_yield.sql
-
 echo. & echo ~~ ram_equity_pricing_etf !time!~~
 %SQLCMD% -v tabletype=1 -i %SQLDIR%\ram_equity_pricing.sql
 
@@ -42,6 +39,9 @@ echo. & echo ~~ ram_equity_pricing !time!~~
 
 echo. & echo ~~ ram_equity_pricing_research !time!~~
 %SQLCMD% -i %SQLDIR%\ram_equity_pricing_research.sql
+
+echo. & echo ~~ ram_dividend_yield !time!~~
+%SQLCMD% -i %SQLDIR%\ram_dividend_yield.sql
 
 echo. & echo ~~ ram_equity_report_dates !time!~~
 %SQLCMD% -i %SQLDIR%\ram_equity_report_dates.sql
