@@ -9,6 +9,7 @@ create table #all_data
 	SecIntCode int,
 	Cusip varchar(15),
 	EXCNTRY varchar(15),
+	DLDTEI smalldatetime,
 	AsOfDate smalldatetime,
 )
 
@@ -38,6 +39,7 @@ select		B.GVKey,
 			B.SecIntCode,
 			B.Cusip,
 			B.EXCNTRY,
+			B.DLDTEI,
 			DATEADD(dd, DATEDIFF(dd, 0, getdate()), 0) as AsOfDate
 from		max_secintcode_entry A
 left join	qai.dbo.CSVSecurity B
@@ -53,6 +55,7 @@ select		B.GVKey,
 			B.SecIntCode,
 			B.Cusip,
 			B.EXCNTRY,
+			B.DLDTEI,
 			DATEADD(dd, DATEDIFF(dd, 0, getdate()), 0) as AsOfDate
 from		max_secintcode_entry A
 right join	qai.dbo.CSVSecurity B
