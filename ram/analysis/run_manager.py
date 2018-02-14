@@ -24,12 +24,14 @@ class RunManager(object):
                  start_year=1950,
                  test_periods=6,
                  drop_params=None,
+                 keep_params=None,
                  simulation_data_path=config.SIMULATIONS_DATA_DIR):
         self.strategy_class = strategy_class
         self.run_name = run_name
         self.start_year = start_year
         self.test_periods = test_periods
         self.drop_params = drop_params
+        self.keep_params = keep_params
         self.simulation_data_path = simulation_data_path
 
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -95,6 +97,16 @@ class RunManager(object):
             cparams = classify_params(self.column_params)
             cparams = filter_classified_params(cparams, self.drop_params)
             # Need to drop and reclassify
+            # Get unique column names
+            cols = get_columns(cparams)
+            returns = returns[cols]
+            self.column_params = post_drop_params_filter(
+                cols, self.column_params)
+        if self.keep_params:
+            if not hasattr(self, 'column_params'):
+                self.import_column_params()
+            cparams = classify_params(self.column_params)
+            cparams = filter_classified_params_keep(cparams, self.keep_params)
             # Get unique column names
             cols = get_columns(cparams)
             returns = returns[cols]
@@ -542,6 +554,34 @@ def filter_classified_params(cparams, drop_params=None):
             for val, col_list in pmap.items():
                 if len(list(set(col_list) - drop_columns)):
                     output[param][val] = list(set(col_list) - drop_columns)
+        return output
+    return cparams
+
+
+def filter_classified_params_keep(cparams, keep_params=None):
+    if keep_params:
+        assert isinstance(keep_params, list)
+        assert isinstance(keep_params[0], tuple)
+        # Collect all columns to drop, and pop the parameter
+        # should be dropped so it isn't reported
+        keep_columns = []
+        for dp in keep_params:
+            if dp[0] in cparams:
+                if str(dp[1]) in cparams[dp[0]]:
+                    keep_columns.append(cparams[dp[0]][str(dp[1])])
+
+        # Get intersection of all the keep params
+        keep_columns2 = set(keep_columns[0])
+        for kc in keep_columns[1:]:
+            keep_columns2 = keep_columns2.intersection(set(kc))
+
+        output = {}
+        for param, pmap in cparams.items():
+            output[param] = {}
+            for val, col_list in pmap.items():
+                updated_cols = set(col_list).intersection(keep_columns2)
+                if updated_cols:
+                    output[param][val] = list(updated_cols)
         return output
     return cparams
 

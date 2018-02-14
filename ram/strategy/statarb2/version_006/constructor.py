@@ -14,22 +14,18 @@ class PortfolioConstructor(object):
 
     def get_args(self):
         return make_arg_iter({
-            'score_var': ['prma_5', 'prma_10', 'prma_15',
-                          'prma_20', 'ret_10d'],
-            'split_perc': [20, 30, 40],
-            'holding_period': [3, 4, 5],
-            'sort_signal_first': [False, True]
+            'score_var': ['prma_10', 'prma_15', 'prma_20', 'ret_10d'],
+            'split_perc': [10, 20, 30],
+            'holding_period': [3, 5, 7, 9]
         })
 
     def set_args(self,
                  score_var,
                  split_perc,
-                 holding_period,
-                 sort_signal_first):
+                 holding_period):
         self._score_var = score_var
         self._split_perc = split_perc
         self._holding_period = holding_period
-        self._sort_signal_first = sort_signal_first
 
     def process(self, trade_data, signals):
 
@@ -117,13 +113,8 @@ class PortfolioConstructor(object):
 
         allocs = {x: 0 for x in scores.index}
 
-        if self._sort_signal_first:
-            df = pd.DataFrame({'first_sort': signals,
-                               'second_sort': scores}).dropna()
-        else:
-            # NOTE: Flip of scores and signals
-            df = pd.DataFrame({'first_sort': -1 * scores,
-                               'second_sort': -1 * signals}).dropna()
+        df = pd.DataFrame({'first_sort': signals,
+                           'second_sort': scores}).dropna()
 
         df = df.sort_values('first_sort')
         counts = df.shape[0] / 2

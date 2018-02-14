@@ -95,6 +95,36 @@ class TestRunManager(unittest.TestCase):
         benchmark = {'1': {'p2': 30, 'p1': 20}}
         self.assertDictEqual(run1.column_params, benchmark)
 
+    def test_import_return_frame_with_drop_params(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          drop_params=[('p1', 10)],
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        data = pd.DataFrame()
+        data['0'] = [1, 2, 3, 4, 5.] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data.index = convert_date_array(data.index)
+        data = data.drop('0', axis=1)
+        assert_frame_equal(run1.returns, data)
+        benchmark = {'1': {'p2': 30, 'p1': 20}}
+        self.assertDictEqual(run1.column_params, benchmark)
+
+    def test_import_return_frame_with_keep_params(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          keep_params=[('p1', 10)],
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        data = pd.DataFrame()
+        data['0'] = [1, 2, 3, 4, 5.] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data.index = convert_date_array(data.index)
+        data = data.drop('1', axis=1)
+        assert_frame_equal(run1.returns, data)
+        benchmark = {'0': {'p2': 20, 'p1': 10}}
+        self.assertDictEqual(run1.column_params, benchmark)
+
     def test_import_return_frame(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
                           simulation_data_path=self.base_path)
@@ -185,6 +215,15 @@ class TestRunManager(unittest.TestCase):
         result = filter_classified_params(cparams, drop)
         benchmark = {'p2': {'20': ['0', '3']},
                      'p1': {'10': ['0'], '20': ['3']}}
+        self.assertDictEqual(result, benchmark)
+
+    def test_filter_classified_params(self):
+        cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
+                   'p1': {'10': ['0', '2'], '20': ['1', '3']}}
+        keep = [('p2', '30')]
+        result = filter_classified_params_keep(cparams, keep)
+        benchmark = {'p2': {'30': ['1', '2']},
+                     'p1': {'10': ['2'], '20': ['1']}}
         self.assertDictEqual(result, benchmark)
 
     def test_classify_params(self):

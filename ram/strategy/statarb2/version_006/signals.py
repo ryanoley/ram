@@ -17,7 +17,7 @@ class SignalModel(object):
                 {'type': 'reg'},
                 {'type': 'tree', 'min_samples_leaf': 500, 'max_features': 0.5},
                 {'type': 'tree', 'min_samples_leaf': 500, 'max_features': 0.8},
-                {'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.5},
+                #{'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.5},
                 {'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.8},
             ]
         })
