@@ -106,6 +106,7 @@ class DataContainer(object):
         trade_data['splits'] = make_variable_dict(test, 'SplitMultiplier', 1)
         trade_data['liquidity'] = make_variable_dict(test, 'AvgDolVol')
 
+        trade_data['ret_10d'] = rank_filter_data(test, 'ret_10d', keep_inds)
         trade_data['prma_5'] = rank_filter_data(test, 'prma_5', keep_inds)
         trade_data['prma_10'] = rank_filter_data(test, 'prma_10', keep_inds)
         trade_data['prma_15'] = rank_filter_data(test, 'prma_15', keep_inds)
