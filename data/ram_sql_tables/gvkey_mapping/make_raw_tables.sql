@@ -1,10 +1,6 @@
 
--------------------------------------------------------------
--- Create tables
-
-/*
-
--- Copy of raw PIT table
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 if object_id('ram.dbo.ram_compustat_pit_map_raw', 'U') is not null 
 	drop table ram.dbo.ram_compustat_pit_map_raw
@@ -32,11 +28,9 @@ insert into ram.dbo.ram_compustat_pit_map_raw
 select * from all_data
 order by GVKey, Changedate
 
-*/
 
-/*
-
--- Mapping SecIntCodes from CSVSecurity to PIT table at time of copy
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 if object_id('ram.dbo.ram_compustat_pit_map_us', 'U') is not null 
 	drop table ram.dbo.ram_compustat_pit_map_us
@@ -80,12 +74,8 @@ left join		pit_secintcode_1 C
 								and SecIntCode is not null)
 
 
-
-*/
-
-/*
-
--- Copy of CSVSecurity table to use as baseline
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 if object_id('ram.dbo.ram_compustat_csvsecurity_map_raw', 'U') is not null 
 	drop table ram.dbo.ram_compustat_csvsecurity_map_raw
@@ -96,6 +86,7 @@ create table	ram.dbo.ram_compustat_csvsecurity_map_raw (
 				SecIntCode int,
 				Cusip varchar(15),
 				EXCNTRY varchar(15),
+				DLDTEI smalldatetime,
 				AsOfDate smalldatetime
 				primary key (GVKey, SecIntCode)
 )
@@ -106,14 +97,15 @@ select		GVKey,
 			SECINTCODE, 
 			CUSIP,
 			EXCNTRY,
+			DLDTEI,
 			DATEADD(dd, DATEDIFF(dd, 0, getdate()), 0) as AsOfDate
 from		qai.dbo.CSVSecurity
 where		SECINTCODE is not null
-*/
 
-/*
 
--- Create empty table for the diffs to the CSVSecurity table
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 if object_id('ram.dbo.ram_compustat_csvsecurity_map_diffs', 'U') is not null 
 	drop table ram.dbo.ram_compustat_csvsecurity_map_diffs
@@ -124,7 +116,7 @@ create table	ram.dbo.ram_compustat_csvsecurity_map_diffs (
 				SecIntCode int,
 				Cusip varchar(15),
 				EXCNTRY varchar(15),
+				DLDTEI smalldatetime,
 				AsOfDate smalldatetime
 				primary key (GVKey, SecIntCode, AsOfDate)
 )
-*/

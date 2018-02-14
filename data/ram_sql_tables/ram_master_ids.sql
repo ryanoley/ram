@@ -154,8 +154,85 @@ where		not	(I2.SIC = 0 and I.Issuer like '%FUND%')
 
 )
 
+-------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------
+
+, problematic_mappings as (
+-- These are IdcCodes that are being mapped to multiple SecCodes
+select			IdcCode, 
+				Count(*) as Count_ 
+from			(select distinct SecCode, IdcCode from sec_map) a
+group by IdcCode
+)
+
+
+-- Of the problematic IdcCodes, select the SecCode that has a DsInfoCode mapping
+, altmap_1 as (
+select distinct SecCode, IdcCode from sec_map
+where IdcCode in (select distinct IdcCode 
+				  from problematic_mappings
+			      where Count_ > 1)
+and DsInfoCode is not null
+)
+
+
+, altmap_1_count as (
+-- Count to get rid of doubles from altmap_1
+select		IdcCode, Count(*) as Count_ 
+from		altmap_1
+group by IdcCode
+)
+
+
+, altmap_1_final as (
+select * from altmap_1
+where IdcCode in (select IdcCode from altmap_1_count where Count_ = 1)
+)
+
+-- Get remaining problematic mappings, and just randomly select one
+
+, altmap_2 as (
+select distinct SecCode, IdcCode from sec_map
+where IdcCode in (select distinct IdcCode 
+				  from problematic_mappings
+			      where Count_ > 1)
+and IdcCode not in (select IdcCode from altmap_1_final)
+)
+
+, altmap_2_final as (
+select		IdcCode, 
+			min(SecCode) as SecCode 
+from		altmap_2
+group by	IdcCode
+)
+
+
+, altmap as (
+select * from altmap_1_final
+union
+select * from altmap_2_final
+)
+
+
+, altmap_final as (
+select distinct SecCode, IdcCode from sec_map
+where IdcCode not in (select IdcCode from altmap)
+union
+select * from altmap
+)
+
+
+, sec_map_2 as (
+select			A.*
+from			sec_map A
+join			altmap_final B
+	on			A.SecCode = B.SecCode
+	and			A.IdcCode = B.IdcCode
+)
+
+
 insert into ram.dbo.ram_master_ids
-select * from sec_map
+select * from sec_map_2
 
 
 -- Filter Indexes - Primarily for research for Commented out here but used in research table
