@@ -14,19 +14,22 @@ class PortfolioConstructor(object):
 
     def get_args(self):
         return make_arg_iter({
-            'score_var': ['prma_5', 'prma_10', 'prma_15', 'prma_20'],
+            'score_var': ['prma_5', 'prma_10', 'prma_15',
+                          'prma_20', 'ret_10d'],
             'split_perc': [20, 30, 40],
-            #'n_ports': [1, 2, 3, 4, 5]
-            'n_ports': [1]
+            'holding_period': [3, 4, 5],
+            'sort_signal_first': [False, True]
         })
 
     def set_args(self,
                  score_var,
                  split_perc,
-                 n_ports):
+                 holding_period,
+                 sort_signal_first):
         self._score_var = score_var
         self._split_perc = split_perc
-        self._n_ports = n_ports
+        self._holding_period = holding_period
+        self._sort_signal_first = sort_signal_first
 
     def process(self, trade_data, signals):
 
@@ -45,13 +48,9 @@ class PortfolioConstructor(object):
         months = np.diff([x.month for x in unique_test_dates])
 
         # Get last day of period
-        change_ind = np.where(months)[0][0] + 1
-        unique_test_dates = unique_test_dates[:(change_ind+1)]
-
-        # Get rebalance indexes
-        # rebalance_inds = np.linspace(
-        #     0, len(unique_test_dates), self._n_ports+1).astype(int)
-        # rebalance_inds = rebalance_inds[:-1]
+        change_ind = np.where(months)[0][0]
+        change_ind2 = change_ind + self._holding_period + 1
+        unique_test_dates = unique_test_dates[:change_ind2]
 
         # Output object
         outdata_dates = []
@@ -62,6 +61,8 @@ class PortfolioConstructor(object):
         outdata_exposure = []
         outdata_openpositions = []
 
+        sizes = SizeContainer(self._holding_period)
+
         for i, date in enumerate(unique_test_dates):
 
             portfolio.update_prices(
@@ -71,11 +72,20 @@ class PortfolioConstructor(object):
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
 
+            elif i <= change_ind:
+                sizes.update_sizes(
+                    i,
+                    self.get_day_position_sizes(scores.loc[date],
+                                                signals.loc[date])
+                )
+                pos_sizes = sizes.get_sizes()
+                portfolio.update_position_sizes(pos_sizes, closes[date])
+
             else:
-            #elif i in rebalance_inds:
-                sizes = self.get_day_position_sizes(scores.loc[date],
-                                                    signals.loc[date])
-                portfolio.update_position_sizes(sizes, closes[date])
+                # Not putting on any new positions for this month's universe
+                sizes.update_sizes(i)
+                pos_sizes = sizes.get_sizes()
+                portfolio.update_position_sizes(pos_sizes, closes[date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()
@@ -107,16 +117,22 @@ class PortfolioConstructor(object):
 
         allocs = {x: 0 for x in scores.index}
 
-        df = pd.DataFrame({'signals': signals, 'scores': scores}).dropna()
-        df = df.sort_values('signals')
+        if self._sort_signal_first:
+            df = pd.DataFrame({'first_sort': signals,
+                               'second_sort': scores}).dropna()
+        else:
+            # NOTE: Flip of scores and signals
+            df = pd.DataFrame({'first_sort': -1 * scores,
+                               'second_sort': -1 * signals}).dropna()
 
+        df = df.sort_values('first_sort')
         counts = df.shape[0] / 2
 
         longs = df.iloc[counts:]
         shorts = df.iloc[:counts]
 
-        longs = longs.sort_values('scores')
-        shorts = shorts.sort_values('scores', ascending=False)
+        longs = longs.sort_values('second_sort')
+        shorts = shorts.sort_values('second_sort', ascending=False)
 
         counts = int(longs.shape[0] * (self._split_perc * 0.01))
         longs = longs.iloc[:counts]
@@ -131,3 +147,25 @@ class PortfolioConstructor(object):
         allocs = {s: v / counts * BOOKSIZE for s, v in allocs.iteritems()}
 
         return allocs
+
+
+
+class SizeContainer(object):
+
+    def __init__(self, n_days):
+        self.n_days = n_days
+        self.sizes = {}
+
+    def update_sizes(self, index, sizes={}):
+        self.sizes[index] = sizes
+
+    def get_sizes(self):
+        # Init output with all seccods
+        output = {x: 0 for x in set(sum([x.keys() for x
+                                         in self.sizes.values()], []))}
+        inds = self.sizes.keys()
+        inds.sort()
+        for i in inds[-self.n_days:]:
+            for s, v in self.sizes[i].iteritems():
+                output[s] += v / float(self.n_days)
+        return output
