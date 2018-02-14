@@ -81,12 +81,14 @@ class StatArbStrategy2(Strategy):
 
     def get_column_parameters(self):
         output_params = {}
-        for i, (x, y) in enumerate(
+        for i, (x, y, z) in enumerate(
                 itertools.product(
                     self.data.get_args(),
+                    self.signals.get_args(),
                     self.constructor.get_args())):
             params = dict(x)
             params.update(y)
+            params.update(z)
             output_params[i] = params
         return output_params
 
