@@ -28,12 +28,14 @@ class StatArbStrategy2(Strategy):
             from ram.strategy.statarb2.version_001.constructor import PortfolioConstructor
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
+            self.signals = DummySignals()
 
         elif self.strategy_code_version == 'version_002':
             from ram.strategy.statarb2.version_002.data import DataContainer
             from ram.strategy.statarb2.version_002.constructor import PortfolioConstructor
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
+            self.signals = DummySignals()
 
         elif self.strategy_code_version == 'version_003':
             from ram.strategy.statarb2.version_003.data import DataContainer
@@ -48,18 +50,22 @@ class StatArbStrategy2(Strategy):
             from ram.strategy.statarb2.version_004.constructor import PortfolioConstructor
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
+            self.signals = DummySignals()
 
         elif self.strategy_code_version == 'version_005':
             from ram.strategy.statarb2.version_005.data import DataContainer
             from ram.strategy.statarb2.version_005.constructor import PortfolioConstructor
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
+            self.signals = DummySignals()
 
         elif self.strategy_code_version == 'version_006':
             from ram.strategy.statarb2.version_006.data import DataContainer
             from ram.strategy.statarb2.version_006.constructor import PortfolioConstructor
+            from ram.strategy.statarb2.version_006.signals import SignalModel
             self.data = DataContainer()
             self.constructor = PortfolioConstructor()
+            self.signals = SignalModel()
 
         else:
             print('Correct strategy code not specified')
@@ -97,20 +103,19 @@ class StatArbStrategy2(Strategy):
         i = 0
 
         for ad in self.data.get_args():
+
             self.data.set_args(**ad)
 
-            if hasattr(self, 'signals'):
-                self.signals.set_args(1)
+            for as_ in self.signals.get_args():
+                self.signals.set_args(**as_)
                 signals = self.signals.get_signals(self.data)
-            else:
-                signals = pd.DataFrame([])
 
-            for ac in self.constructor.get_args():
-                self.constructor.set_args(**ac)
-                results = self.constructor.process(self.data.trade_data,
-                                                   signals)
-                self._capture_output(results, i)
-                i += 1
+                for ac in self.constructor.get_args():
+                    self.constructor.set_args(**ac)
+                    results = self.constructor.process(self.data.trade_data,
+                                                       signals)
+                    self._capture_output(results, i)
+                    i += 1
 
         self.write_index_results(self.output_returns, time_index)
         self.write_index_results(self.output_all_output,
@@ -137,6 +142,15 @@ class StatArbStrategy2(Strategy):
 
     def implementation_training(self):
         pass
+
+
+class DummySignals(object):
+    def get_args(self):
+        return [{'v1': 10}]
+
+    def set_args(self, **kwargs):
+        pass
+
 
 
 if __name__ == '__main__':
