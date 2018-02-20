@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.statarb2.version_001.constructor import *
+from ram.strategy.statarb2.version_002.constructor import *
 
 
 class TestPortfolioConstructor(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestPortfolioConstructor(unittest.TestCase):
         benchmark = [1, 2, 4]
         self.assertListEqual(result, benchmark)
 
-    def test_get_day_position_sizes(self):
+    def Xtest_get_day_position_sizes(self):
         cons = PortfolioConstructor()
         cons._prma_x = 10
         cons._split_perc = 30

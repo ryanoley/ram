@@ -145,17 +145,6 @@ class TestRunManager(unittest.TestCase):
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
 
-    def test_import_long_short_returns(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
-                          simulation_data_path=self.base_path)
-        run1.import_long_short_returns()
-        result = run1.long_short_returns
-        benchmark = pd.Series(
-            [0.1, 0.2, 0.3, 0.4, 0.5],
-            index=['2010-01-{0:02d}'.format(i) for i in range(1, 6)],
-            name='LongRet_0')
-        assert_array_equal(result.LongRet_0.values, benchmark.values)
-
     def test_import_stats(self):
         run1 = RunManager('TestStrategy', 'run_0001',
                           simulation_data_path=self.base_path)

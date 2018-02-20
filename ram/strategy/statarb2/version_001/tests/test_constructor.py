@@ -17,7 +17,7 @@ class TestPortfolioConstructor(unittest.TestCase):
         benchmark = [1, 2, 4]
         self.assertListEqual(result, benchmark)
 
-    def test_get_day_position_sizes(self):
+    def Xtest_get_day_position_sizes(self):
         cons = PortfolioConstructor()
         cons._prma_x = 10
         cons._split_perc = 30

@@ -20,7 +20,7 @@ class TestMain(unittest.TestCase):
         self.assertTrue('training_qtrs' in result)
         self.assertTrue('params' in result)
         self.assertTrue('drop_ibes' in result)
-        self.assertTrue('model_params' in result)
+        #self.assertTrue('model_params' in result)
         self.assertTrue('drop_accounting' in result)
         self.assertTrue('drop_starmine' in result)
         self.assertTrue('response_params' in result)

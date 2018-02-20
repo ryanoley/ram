@@ -36,7 +36,6 @@ class PortfolioConstructor(object):
         closes = trade_data['closes']
         dividends = trade_data['dividends']
         splits = trade_data['splits']
-        liquidity = trade_data['liquidity']
 
         # Dates to iterate over - just one month plus one day
         unique_test_dates = np.unique(closes.keys())
@@ -63,7 +62,6 @@ class PortfolioConstructor(object):
 
             portfolio.update_prices(
                 closes[date], dividends[date], splits[date])
-
 
             if date == unique_test_dates[-1]:
                 portfolio.close_portfolio_positions()
@@ -104,26 +102,27 @@ class PortfolioConstructor(object):
             'Turnover': outdata_turnover,
             'Exposure': outdata_exposure,
             'OpenPositions': outdata_openpositions
-
         }, index=outdata_dates)
 
         return daily_df
 
     def get_day_position_sizes(self, scores, signals):
-
+        """
+        For scores, Longs are low.
+        For signals, Longs are high.
+        """
         allocs = {x: 0 for x in scores.index}
 
-        df = pd.DataFrame({'first_sort': signals,
-                           'second_sort': scores}).dropna()
-
-        df = df.sort_values('first_sort')
+        df = pd.DataFrame({'signals': signals,
+                           'scores': scores}).dropna()
+        df = df.sort_values('signals')
         counts = df.shape[0] / 2
 
         longs = df.iloc[counts:]
         shorts = df.iloc[:counts]
 
-        longs = longs.sort_values('second_sort')
-        shorts = shorts.sort_values('second_sort', ascending=False)
+        longs = longs.sort_values('scores')
+        shorts = shorts.sort_values('scores', ascending=False)
 
         counts = int(longs.shape[0] * (self._split_perc * 0.01))
         longs = longs.iloc[:counts]

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.statarb2.version_001.constructor import *
+from ram.strategy.statarb2.version_006.constructor import *
 
 
 class TestPortfolioConstructor(unittest.TestCase):
@@ -11,28 +11,15 @@ class TestPortfolioConstructor(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_filter_seccodes(self):
-        data = {1: 10, 2: 5, 3: 30, 4: np.nan}
-        result = filter_seccodes(data, 12)
-        benchmark = [1, 2, 4]
-        self.assertListEqual(result, benchmark)
-
     def test_get_day_position_sizes(self):
         cons = PortfolioConstructor()
-        cons._prma_x = 10
-        cons._split_perc = 30
-        cons._daily_drop = True
-        scores = {'A': -10, 'B': -5, 'C': 5, 'D': 10, 'E': np.nan}
-        day_rets = {'A': -2, 'B': -1, 'C': 1, 'D': 2, 'E': 100}
-        result = cons.get_day_position_sizes(scores, day_rets)
-        benchmark = {'A': 1000000.0, 'C': 0.0, 'B': 0.0,
-                     'D': -1000000.0, 'E': 0.0}
-        self.assertDictEqual(result, benchmark)
         cons._split_perc = 50
-        cons._daily_drop = False
-        result = cons.get_day_position_sizes(scores, day_rets)
-        benchmark = {'A': 500000.0, 'C': -500000.0, 'B': 500000.0,
-                     'E': 0.0, 'D': -500000.0}
+        scores = pd.Series(index=['a', 'b', 'c', 'd'])
+        signals = scores.copy()
+        scores[:] = [2, -1, 4, -3]
+        signals[:] = [1, 2, 3, 4]
+        result = cons.get_day_position_sizes(scores, signals)
+        benchmark = {'a': -1000000.0, 'c': 0.0, 'b': 0.0, 'd': 1000000.0}
         self.assertDictEqual(result, benchmark)
 
     def test_SizeContainer(self):

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram.strategy.statarb2.version_004.data import *
+from ram.strategy.statarb2.version_005.data import *
 
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
@@ -13,7 +13,7 @@ class TestData(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_rank_filter_data(self):
+    def Xtest_rank_filter_data(self):
         data = pd.DataFrame()
         data['SecCode'] = ['A'] * 4 + ['B'] * 4 + ['C'] * 4
         data['Date'] = [dt.date(2010, 1, i) for i in range(1, 5)] * 3

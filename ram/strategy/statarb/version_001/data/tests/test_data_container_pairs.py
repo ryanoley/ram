@@ -162,14 +162,21 @@ class TestDataContainerPairs(unittest.TestCase):
     def test_make_anchor_ret(self):
         data4 = self.data3.copy()
         data4['EARNINGSFLAG'] = [0, 1, 0, 0, 0, 0, 0, 0] * 2
+        data4.AdjClose.iloc[10:13] = [10, 5, 10]
         result = make_anchor_ret(data4, init_offset=1, window=2)
-        benchmark = np.array([0, 0, 0, 1/3., 2/3., 0, 0, 0] * 2)
-        assert_array_almost_equal(result.EARNINGS_AnchorRet.values, benchmark)
+        benchmark = np.array([0.75, 0.75, 0.75, 1, 1, 0.75, 0.75, 0.75, 0.75,
+                              0.75, 0.75, 0.5, 0.5, 0.75, 0.75, 0.75])
+        assert_array_almost_equal(
+            result.EARNINGS_AnchorRet_Rank.values, benchmark)
 
     def test_make_ern_return(self):
-        result = make_ern_return(self.data3)
+        data4 = self.data3.copy()
+        data4['EARNINGSFLAG'] = [0, 1, 0, 0, 0, 0, 0, 0] * 2
+        data4.AdjVwap.iloc[10:13] = [10, 5, 10]
+        result = make_ern_return(data4)
         benchmark = self.data3[['SecCode', 'Date']].copy()
-        benchmark['EARNINGS_Ret'] = [0.] * 4 + [1.] * 4 + [0.] * 4 + [1.] * 4
+        benchmark['EARNINGS_Ret_Rank'] = \
+            [0.75] * 3 + [1.] * 5 + [0.75] * 3 + [0.5] * 5
         assert_frame_equal(result, benchmark)
 
     def test_make_ibes_increases_decreases(self):
