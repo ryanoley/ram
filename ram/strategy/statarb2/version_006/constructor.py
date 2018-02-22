@@ -134,9 +134,10 @@ class PortfolioConstructor(object):
 
         counts = self._per_side_count * 2
         for s in longs.index.values:
-            allocs[s] = 1 / counts * BOOKSIZE
+            allocs[s] = 1 / float(counts) * BOOKSIZE
+
         for s in shorts.index.values:
-            allocs[s] = -1 / counts * BOOKSIZE
+            allocs[s] = -1 / float(counts) * BOOKSIZE
 
         return allocs
 
