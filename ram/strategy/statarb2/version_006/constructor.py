@@ -14,17 +14,18 @@ class PortfolioConstructor(object):
 
     def get_args(self):
         return make_arg_iter({
-            'score_var': ['prma_10', 'prma_15', 'prma_20', 'ret_10d'],
-            'split_perc': [10, 20, 30],
+            'score_var': ['prma_10', 'prma_15', 'prma_20', 'ret_10d',
+                          'boll_10', 'boll_20', 'rsi_15'],
+            'per_side_count': [10, 20, 30],
             'holding_period': [3, 5, 7, 9]
         })
 
     def set_args(self,
                  score_var,
-                 split_perc,
+                 per_side_count,
                  holding_period):
         self._score_var = score_var
-        self._split_perc = split_perc
+        self._per_side_count = per_side_count
         self._holding_period = holding_period
 
     def process(self, trade_data, signals):
@@ -124,9 +125,8 @@ class PortfolioConstructor(object):
         longs = longs.sort_values('scores')
         shorts = shorts.sort_values('scores', ascending=False)
 
-        counts = int(longs.shape[0] * (self._split_perc * 0.01))
-        longs = longs.iloc[:counts]
-        shorts = shorts.iloc[:counts]
+        longs = longs.iloc[:self._per_side_count]
+        shorts = shorts.iloc[:self._per_side_count]
 
         for s in longs.index:
             allocs[s] = 1
