@@ -33,6 +33,13 @@ class PortfolioConstructor(object):
         portfolio = Portfolio()
 
         scores = trade_data[self._score_var]
+        scores.columns = ['SecCode', 'Date', 'scores']
+
+        scores = scores.merge(signals)
+        scores = scores.sort_values(['Date', 'Signal'])
+        blank_allocs = {x: 0 for x in scores.SecCode.unique()}
+
+        scores.set_index(['Date', 'SecCode'], inplace=True)
 
         closes = trade_data['closes']
         dividends = trade_data['dividends']
@@ -71,7 +78,7 @@ class PortfolioConstructor(object):
                 sizes.update_sizes(
                     i,
                     self.get_day_position_sizes(scores.loc[date],
-                                                signals.loc[date])
+                                                blank_allocs)
                 )
                 pos_sizes = sizes.get_sizes()
                 portfolio.update_position_sizes(pos_sizes, closes[date])
@@ -107,20 +114,17 @@ class PortfolioConstructor(object):
 
         return daily_df
 
-    def get_day_position_sizes(self, scores, signals):
+    def get_day_position_sizes(self, scores, allocs):
         """
         For scores, Longs are low.
         For signals, Longs are high.
         """
-        allocs = {x: 0 for x in scores.index}
+        allocs = allocs.copy()
 
-        df = pd.DataFrame({'signals': signals,
-                           'scores': scores}).dropna()
-        df = df.sort_values('signals')
-        counts = df.shape[0] / 2
+        counts = scores.shape[0] / 2
 
-        longs = df.iloc[counts:]
-        shorts = df.iloc[:counts]
+        longs = scores.iloc[counts:]
+        shorts = scores.iloc[:counts]
 
         longs = longs.sort_values('scores')
         shorts = shorts.sort_values('scores', ascending=False)
@@ -128,13 +132,11 @@ class PortfolioConstructor(object):
         longs = longs.iloc[:self._per_side_count]
         shorts = shorts.iloc[:self._per_side_count]
 
-        for s in longs.index:
-            allocs[s] = 1
-        for s in shorts.index:
-            allocs[s] = -1
-
-        counts = float(sum([abs(x) for x in allocs.values()]))
-        allocs = {s: v / counts * BOOKSIZE for s, v in allocs.iteritems()}
+        counts = self._per_side_count * 2
+        for s in longs.index.values:
+            allocs[s] = 1 / counts * BOOKSIZE
+        for s in shorts.index.values:
+            allocs[s] = -1 / counts * BOOKSIZE
 
         return allocs
 

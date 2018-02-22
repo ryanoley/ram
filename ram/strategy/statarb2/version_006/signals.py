@@ -38,22 +38,19 @@ class SignalModel(object):
     def get_signals(self, data_container):
         output = data_container.test_data[['SecCode', 'Date',
                                            'keep_inds']].copy()
-
         features = data_container.features
         inds = data_container.train_data.TrainFlag
-
         self.skl_model.fit(X=data_container.train_data[features][inds],
                            y=data_container.train_data['Response'][inds])
-
         preds = self.skl_model.predict_proba(
             data_container.test_data[features])
-
         output.loc[:, 'preds'] = _get_preds(self.skl_model, preds)
-
         output.preds = np.where(output.keep_inds, output.preds, np.nan)
         output = output.pivot(index='Date', columns='SecCode',
                               values='preds')
         output = output.rank(axis=1, pct=True)
+        output = output.unstack().reset_index().dropna()
+        output.columns = ['SecCode', 'Date', 'Signal']
         return output
 
 

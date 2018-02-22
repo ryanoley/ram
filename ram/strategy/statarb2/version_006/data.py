@@ -133,15 +133,14 @@ class DataContainer(object):
         trade_data['dividends'] = make_variable_dict(test, 'RCashDividend', 0)
         trade_data['splits'] = make_variable_dict(test, 'SplitMultiplier', 1)
 
-        trade_data['ret_10d'] = rank_filter_data(test, 'ret_10d', keep_inds)
-        trade_data['prma_5'] = rank_filter_data(test, 'prma_5', keep_inds)
-        trade_data['prma_10'] = rank_filter_data(test, 'prma_10', keep_inds)
-        trade_data['prma_15'] = rank_filter_data(test, 'prma_15', keep_inds)
-        trade_data['prma_20'] = rank_filter_data(test, 'prma_20', keep_inds)
-        trade_data['boll_10'] = rank_filter_data(test, 'boll_10', keep_inds)
-        trade_data['boll_20'] = rank_filter_data(test, 'boll_20', keep_inds)
-        trade_data['rsi_15'] = rank_filter_data(test, 'rsi_15', keep_inds)
-
+        trade_data['ret_10d'] = test.loc[keep_inds, ['SecCode', 'Date', 'ret_10d']]
+        trade_data['prma_5'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_5']]
+        trade_data['prma_10'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_10']]
+        trade_data['prma_15'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_15']]
+        trade_data['prma_20'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_20']]
+        trade_data['boll_10'] = test.loc[keep_inds, ['SecCode', 'Date', 'boll_10']]
+        trade_data['boll_20'] = test.loc[keep_inds, ['SecCode', 'Date', 'boll_20']]
+        trade_data['rsi_15'] = test.loc[keep_inds, ['SecCode', 'Date', 'rsi_15']]
         self.trade_data = trade_data
 
     def _make_features(self, data):
