@@ -7,7 +7,7 @@ from ram.strategy.statarb.utils import make_arg_iter
 from ram.strategy.statarb.utils import make_variable_dict
 from ram.strategy.statarb2.portfolio import Portfolio
 
-BOOKSIZE = 2e6
+BOOKSIZE = 4e6
 
 
 class PortfolioConstructor(object):

@@ -20,15 +20,19 @@ class DataContainer(object):
     def get_args(self):
         return make_arg_iter({
             'response_days': self._response_days_args,
+            'response_type': ['Simple', 'Smoothed']
         })
 
-    def set_args(self, response_days):
+    def set_args(self, response_days, response_type):
         self._response_days = response_days
-        self.train_data['Response'] = self.train_data['Response_{}'.format(response_days)]
+        self._response_type = response_type
+        self.train_data['Response'] = self.train_data[
+            'Response_{}_{}'.format(response_type, response_days)]
         # Add training flag given number of response days
         training_dates = self.train_data.Date.unique()
         training_dates = training_dates[:-self._response_days]
-        self.train_data['TrainFlag'] = self.train_data.Date.isin(training_dates)
+        self.train_data['TrainFlag'] = \
+            self.train_data.Date.isin(training_dates)
 
     def process_training_data(self, data, market_data, time_index):
 
@@ -139,8 +143,8 @@ class DataContainer(object):
 
     def _make_responses(self, data):
         for i, days in enumerate(self._response_days_args):
-            temp = simple_responses(data, days=days)
-            temp.columns = ['SecCode', 'Date', 'Response_{}'.format(days)]
+            temp = simple_responses(data, days=days).merge(
+                smoothed_responses(data, days=days))
             if i == 0:
                 responses = temp
             else:
@@ -156,7 +160,21 @@ def simple_responses(data, days=2):
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
     rets2 = (rets.pct_change(days).shift(-days).rank(axis=1, pct=True) >= 0.5).astype(int)
     output = rets2.unstack().reset_index()
-    output.columns = ['SecCode', 'Date', 'Response']
+    output.columns = ['SecCode', 'Date', 'Response_Simple_{}'.format(days)]
+    return output
+
+
+def smoothed_responses(data, days=2):
+    assert isinstance(days, int)
+    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+    for i in range(1, days+1):
+        if i == 1:
+            rank = rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+        else:
+            rank += rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+    output = (rank.rank(axis=1, pct=True) >= 0.5).astype(int)
+    output = output.unstack().reset_index()
+    output.columns = ['SecCode', 'Date', 'Response_Smoothed_{}'.format(days)]
     return output
 
 

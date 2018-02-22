@@ -15,7 +15,6 @@ class TestPortfolioConstructor(unittest.TestCase):
         cons = PortfolioConstructor()
         zscores = pd.Series([10, -10, 5, -5, 0],
                             index=self.ids)
-        import pdb; pdb.set_trace()
         result = cons.get_day_position_sizes(zscores)
 
     def Xtest_PortfolioContainer_add_port(self):

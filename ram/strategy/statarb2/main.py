@@ -99,14 +99,10 @@ class StatArbStrategy2(Strategy):
 
     def run_index(self, time_index):
 
-        if (time_index < 6):
-            return
-
         if (time_index < 54) and self._write_flag:
             return
 
         i = 0
-
         for ad in self.data.get_args():
 
             self.data.set_args(**ad)

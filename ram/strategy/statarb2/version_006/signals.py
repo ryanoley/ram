@@ -1,4 +1,5 @@
 import numpy as np
+import datetime as dt
 
 from ram.strategy.statarb.utils import make_arg_iter
 
@@ -14,15 +15,17 @@ class SignalModel(object):
     def get_args(self):
         return make_arg_iter({
             'model': [
-                {'type': 'reg'},
                 {'type': 'tree', 'min_samples_leaf': 500, 'max_features': 0.5},
                 {'type': 'tree', 'min_samples_leaf': 500, 'max_features': 0.8},
                 #{'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.5},
-                {'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.8},
-            ]
+                #{'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.8},
+                {'type': 'reg'},
+            ],
+            'sample_weight': [True, False]
         })
 
-    def set_args(self, model):
+    def set_args(self, model, sample_weight):
+        self._sample_weight = sample_weight
         if model['type'] == 'tree':
             self.skl_model = ExtraTreesClassifier(n_jobs=-1,
                                                   random_state=123,
@@ -41,8 +44,18 @@ class SignalModel(object):
         features = data_container.features
         inds = data_container.train_data.TrainFlag
 
-        self.skl_model.fit(X=data_container.train_data[features][inds],
-                           y=data_container.train_data['Response'][inds])
+        if self._sample_weight:
+            unique_dates = data_container.train_data.Date[inds].unique()
+            # weight last year higher
+            cut = unique_dates[-1] - dt.timedelta(days=364)
+            weights = np.where(data_container.train_data.Date[inds] >= cut, 1.25, 1)
+            self.skl_model.fit(X=data_container.train_data[features][inds],
+                               y=data_container.train_data['Response'][inds],
+                               sample_weight=weights)
+        else:
+
+            self.skl_model.fit(X=data_container.train_data[features][inds],
+                               y=data_container.train_data['Response'][inds])
 
         preds = self.skl_model.predict_proba(
             data_container.test_data[features])
