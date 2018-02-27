@@ -33,7 +33,7 @@ select			Code,
 				Cusip,
 				Ticker,
 				case
-					when Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
+					when Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T', 'S')	-- U.S. Exchanges
 					then 1
 					else 0
 				end as ExchangeFlag,
