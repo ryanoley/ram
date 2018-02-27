@@ -33,6 +33,9 @@ class SignalModel(object):
         else:
             self.skl_model = LogisticRegression()
 
+    def get_model(self):
+        return self.skl_model
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_signals(self, data_container):

@@ -11,6 +11,10 @@ from ram.strategy.base import Strategy, StrategyVersionContainer
 
 from ram.strategy.statarb2.data_blueprints import blueprint_container
 
+from ram.strategy.statarb2.implementation.preprocess_new_models import \
+    import_current_top_params
+
+
 strategy_versions = StrategyVersionContainer()
 strategy_versions.add_version('version_001', 'Factor Rank L/S')
 strategy_versions.add_version('version_002', 'Dispersion')
@@ -141,8 +145,41 @@ class StatArbStrategy2(Strategy):
             self.output_all_output = self.output_all_output.join(
                 results, how='outer')
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def implementation_training(self):
-        pass
+        # Import top params from wherever
+        top_params = import_current_top_params().keys()
+
+        # Process
+        run_map = self.implementation_training_prep(top_params)
+
+        # Placeholder to determine if data should be reloaded
+        current_stack_index = None
+        for i, vals in run_map.iterrows():
+            if vals.stack_index != current_stack_index:
+                self.strategy_code_version = vals.strategy_version
+                self.prepped_data_version = vals.data_version
+                current_stack_index = vals.stack_index
+                print('[[Stacking data]]')
+                self.strategy_init()
+                self.implementation_training_stack_version_data(
+                    vals.data_version)
+                all_params = self.import_run_column_params(
+                    vals.run_name)
+            params = all_params[vals.column_name]
+            # Fit model and cache
+            data_params = dict([(k, params[k]) for k
+                                in self.data.get_args().keys()])
+            self.data.set_args(**data_params)
+            signal_params = dict([(k, params[k]) for k
+                                  in self.signals.get_args().keys()])
+            self.signals.set_args(**signal_params)
+            self.signals.get_signals(self.data)
+            self.implementation_training_write_params_model(
+                vals.param_name, params, self.signals.get_model())
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 class DummySignals(object):
