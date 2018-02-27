@@ -59,11 +59,7 @@ select			M.SecCode,
 				Cusip,
 				Issuer,
 				Ticker,
-				case
-					when A.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
-					then 1
-					else 0
-				end as ExchangeFlag,
+				1 as ExchangeFlag, -- Set as 1 while manually selecting ETFs 
 				A.StartDate,
 				coalesce(DATEADD(day, -1, lead(A.StartDate, 1) over (
 					partition by Code 
