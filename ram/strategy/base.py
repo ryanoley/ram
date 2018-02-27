@@ -348,8 +348,11 @@ class Strategy(object):
             strip_str = self._strategy_implementation_model_dir+'/'
             all_files = [x.replace(strip_str, '') for x in all_files]
             all_files = [x.split('/')[0] for x in all_files]
-            max_model = max(all_files)
-            new_ind = int(max_model.replace('models_', '')) + 1
+            if all_files:
+                max_model = max(all_files)
+                new_ind = int(max_model.replace('models_', '')) + 1
+            else:
+                new_ind = 1
             path = os.path.join(self._strategy_implementation_model_dir,
                                 'models_{0:04d}'.format(new_ind))
         else:
