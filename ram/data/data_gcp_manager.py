@@ -76,6 +76,7 @@ def get_trained_model_dirs(strategy):
     gs_files = [x for x in gs_files if x.find(strategy) > -1]
     gs_files = [x for x in gs_files if x.find('trained_models') > -1]
     gs_model_dirs = list(set([x.split('/')[3] for x in gs_files]))
+    gs_model_dirs.sort()
     return gs_model_dirs
 
 
