@@ -264,7 +264,6 @@ class Strategy(object):
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
-            return  #### TEMP!!
         return
 
     def import_run_column_params(self, run_name):
