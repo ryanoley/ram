@@ -31,7 +31,7 @@ def get_bloomberg_file_prefix_date(
 def get_qadirect_file_prefix_dates():
     # QADIRECT - also cleans out old data
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_raw_data')
+                                'StatArbStrategy2', 'daily_raw_data')
     all_files = os.listdir(raw_data_dir)
     all_files.remove('market_index_data.csv')
     prefix = max([x.split('_')[0] for x in all_files])
@@ -40,7 +40,7 @@ def get_qadirect_file_prefix_dates():
 
 def get_qadirect_data_dates():
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_raw_data')
+                                'StatArbStrategy2', 'daily_raw_data')
     all_files = os.listdir(raw_data_dir)
     all_files.remove('market_index_data.csv')
     max_date_prefix = max([x.split('_')[0] for x in all_files])
@@ -92,7 +92,7 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     bloomberg = bloomberg.fillna(1)
 
     # Write bloomberg data to file
-    path = os.path.join(imp_data_dir, 'StatArbStrategy',
+    path = os.path.join(imp_data_dir, 'StatArbStrategy2',
                         'live_pricing', 'bloomberg_scaling.csv')
     bloomberg.to_csv(path, index=None)
     return message
@@ -210,11 +210,11 @@ def main():
 
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                         'StatArbStrategy', 'pretrade_data_check.csv')
+                         'StatArbStrategy2', 'pretrade_data_check.csv')
     output.to_csv(dpath, index=None)
     # Archive
     ddir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy', 'pretrade_check_archive')
+                        'StatArbStrategy2', 'pretrade_check_archive')
     if not os.path.isdir(ddir):
         os.mkdir(ddir)
     dpath = os.path.join(ddir, 'pretrade_data_check_{}.csv'.format(

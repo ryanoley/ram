@@ -6,7 +6,7 @@ from tqdm import tqdm
 import datetime as dt
 
 from ram import config
-from ram.strategy.statarb import statarb_config
+from ram.strategy.statarb2 import prod_config
 from ram.strategy.base import read_json
 
 from ram.data.data_handler_sql import DataHandlerSQL
@@ -18,9 +18,9 @@ def main():
 
     # Location of production blueprints
     blueprints_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                   'StatArbStrategy',
+                                   'StatArbStrategy2',
                                    'preprocessed_data',
-                                   statarb_config.preprocessed_data_dir)
+                                   prod_config.preprocessed_data_dir)
     blueprints = os.listdir(blueprints_path)
     blueprints = [x for x in blueprints if x.find('blueprint') > -1]
 
@@ -36,7 +36,7 @@ def main():
         blueprint.output_file_name = \
             '{}_{}'.format(today.strftime('%Y%m%d'), b.strip('.json'))
         # Run
-        dc.run_live(blueprint, 'StatArbStrategy')
+        dc.run_live(blueprint, 'StatArbStrategy2')
 
     # Get ticker mapping
     unique_seccodes = get_unique_seccodes_from_data()
@@ -54,7 +54,7 @@ def main():
 
     # Get hash table for odd tickers
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
+                        'StatArbStrategy2',
                         'live_pricing',
                         'odd_ticker_hash.json')
     odd_tickers = json.load(open(path, 'r'))
@@ -62,7 +62,7 @@ def main():
 
     # Write ticker mapping to file
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
+                        'StatArbStrategy2',
                         'live_pricing',
                         'ticker_mapping.csv')
     mapping.to_csv(path, index=None)
@@ -76,7 +76,7 @@ def main():
                                   end_date=end_date)
     scaling = scaling[scaling.Date == scaling.Date.max()]
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
+                        'StatArbStrategy2',
                         'live_pricing',
                         'seccode_scaling.csv')
     scaling.to_csv(path, index=None)
@@ -84,7 +84,7 @@ def main():
 
 def get_unique_seccodes_from_data():
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_raw_data')
+                                'StatArbStrategy2', 'daily_raw_data')
     all_files = os.listdir(raw_data_dir)
     all_files.remove('market_index_data.csv')
     max_date_prefix = max([x.split('_')[0] for x in all_files])

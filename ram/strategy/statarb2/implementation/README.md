@@ -51,7 +51,7 @@ python ram/data/data_gcp_manager.py -s 4 -lm            # List all trained model
 python ram/data/data_gcp_manager.py -s 4 -m 17 --download
 ```
 
-6. Update `statarb_config/trained_models_dir_name` to downloaded dir
+6. Update `prod_configs/trained_models_dir_name` to downloaded dir
 
 
 ## Morning pre-processing
