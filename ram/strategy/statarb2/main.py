@@ -167,14 +167,17 @@ class StatArbStrategy2(Strategy):
                     vals.data_version)
                 all_params = self.import_run_column_params(
                     vals.run_name)
-            params = all_params[vals.column_name]
+
+            params = all_params['11']
+            #params = all_params[vals.column_name]
             # Fit model and cache
-            data_params = dict([(k, params[k]) for k
-                                in self.data.get_args().keys()])
+            all_data_args = self.data.get_args()[0].keys()
+            data_params = dict([(x, params[x]) for x in all_data_args])
             self.data.set_args(**data_params)
-            signal_params = dict([(k, params[k]) for k
-                                  in self.signals.get_args().keys()])
+            all_signal_args = self.signals.get_args()[0].keys()
+            signal_params = dict([(x, params[x]) for x in all_signal_args])
             self.signals.set_args(**signal_params)
+
             self.signals.get_signals(self.data)
             self.implementation_training_write_params_model(
                 vals.param_name, params, self.signals.get_model())
@@ -184,7 +187,7 @@ class StatArbStrategy2(Strategy):
 
 class DummySignals(object):
     def get_args(self):
-        return [{'v1': 10}]
+        return []
 
     def set_args(self, **kwargs):
         pass
