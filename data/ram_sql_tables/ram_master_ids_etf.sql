@@ -22,7 +22,14 @@ values
     (59820, 68917),		-- XLU
     (59821, 68910),		-- XLV
     (103857, 72958),	-- XOP
-    (59802, 73822)		-- IYH
+    (59799, 73913), 	-- IYE
+    (59805, 73908), 	-- IYM
+    (59803, 73901), 	-- IYJ
+    (59804, 73909), 	-- IYK
+    (59802, 73822), 	-- IYH
+    (59800, 73807), 	-- IYF
+    (59810, 73910), 	-- IYZ
+    (59778, 73828)   	-- IDU
 
 -------------------------------------------------------------
 -- Create tables
@@ -52,11 +59,7 @@ select			M.SecCode,
 				Cusip,
 				Issuer,
 				Ticker,
-				case
-					when A.Exchange in ('A', 'B', 'C', 'D', 'E', 'F', 'T')	-- U.S. Exchanges
-					then 1
-					else 0
-				end as ExchangeFlag,
+				1 as ExchangeFlag, -- Set as 1 while manually selecting ETFs 
 				A.StartDate,
 				coalesce(DATEADD(day, -1, lead(A.StartDate, 1) over (
 					partition by Code 

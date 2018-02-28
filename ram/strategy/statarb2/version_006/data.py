@@ -20,7 +20,8 @@ class DataContainer(object):
     def get_args(self):
         return make_arg_iter({
             'response_days': self._response_days_args,
-            'response_type': ['Simple', 'Smoothed']
+            #'response_type': ['Simple', 'Smoothed']
+            'response_type': ['Simple']
         })
 
     def set_args(self, response_days, response_type):
@@ -41,7 +42,10 @@ class DataContainer(object):
             (data.SecCode == data.SecCode.shift(1)).astype(int) + 1
 
         open_ = clean_pivot_raw_data(data, 'AdjOpen')
+        high = clean_pivot_raw_data(data, 'AdjHigh')
+        low = clean_pivot_raw_data(data, 'AdjLow')
         close = clean_pivot_raw_data(data, 'AdjClose')
+        volume = clean_pivot_raw_data(data, 'AdjVolume')
 
         feat = FeatureAggregator()
 
@@ -52,6 +56,26 @@ class DataContainer(object):
         prma = PRMA()
         for i in [5, 10, 15, 20]:
             feat.add_feature(data_rank(prma.fit(close, i)), 'prma_{}'.format(i))
+
+        vol = VOL()
+        for i in [10, 20, 50]:
+            feat.add_feature(data_rank(vol.fit(close, i)), 'vol_{}'.format(i))
+
+        disc = DISCOUNT()
+        for i in [30, 50]:
+            feat.add_feature(data_rank(disc.fit(close, i)), 'disc_{}'.format(i))
+
+        bol = BOLL()
+        for i in [10, 20, 40]:
+            feat.add_feature(data_rank(bol.fit(close, i)), 'boll_{}'.format(i))
+
+        rsi = RSI()
+        for i in [15, 30]:
+            feat.add_feature(data_rank(rsi.fit(close, i)), 'rsi_{}'.format(i))
+
+        mfi = MFI()
+        for i in [15, 30]:
+            feat.add_feature(data_rank(mfi.fit(high, low, close, volume, i)), 'mfi_{}'.format(i))
 
         # Smoothed prma
         feat.add_feature(data_rank(prma.fit(close, 10) / prma.fit(close, 2)), 'prma_2_10')
@@ -109,12 +133,14 @@ class DataContainer(object):
         trade_data['dividends'] = make_variable_dict(test, 'RCashDividend', 0)
         trade_data['splits'] = make_variable_dict(test, 'SplitMultiplier', 1)
 
-        trade_data['ret_10d'] = rank_filter_data(test, 'ret_10d', keep_inds)
-        trade_data['prma_5'] = rank_filter_data(test, 'prma_5', keep_inds)
-        trade_data['prma_10'] = rank_filter_data(test, 'prma_10', keep_inds)
-        trade_data['prma_15'] = rank_filter_data(test, 'prma_15', keep_inds)
-        trade_data['prma_20'] = rank_filter_data(test, 'prma_20', keep_inds)
-
+        trade_data['ret_10d'] = test.loc[keep_inds, ['SecCode', 'Date', 'ret_10d']]
+        trade_data['prma_5'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_5']]
+        trade_data['prma_10'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_10']]
+        trade_data['prma_15'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_15']]
+        trade_data['prma_20'] = test.loc[keep_inds, ['SecCode', 'Date', 'prma_20']]
+        trade_data['boll_10'] = test.loc[keep_inds, ['SecCode', 'Date', 'boll_10']]
+        trade_data['boll_20'] = test.loc[keep_inds, ['SecCode', 'Date', 'boll_20']]
+        trade_data['rsi_15'] = test.loc[keep_inds, ['SecCode', 'Date', 'rsi_15']]
         self.trade_data = trade_data
 
     def _make_features(self, data):

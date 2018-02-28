@@ -14,17 +14,18 @@ class PortfolioConstructor(object):
 
     def get_args(self):
         return make_arg_iter({
-            'score_var': ['prma_10', 'prma_15', 'prma_20', 'ret_10d'],
-            'split_perc': [10, 20, 30],
+            'score_var': ['prma_10', 'prma_15', 'prma_20', 'ret_10d',
+                          'boll_10', 'boll_20', 'rsi_15'],
+            'per_side_count': [10, 20, 30],
             'holding_period': [3, 5, 7, 9]
         })
 
     def set_args(self,
                  score_var,
-                 split_perc,
+                 per_side_count,
                  holding_period):
         self._score_var = score_var
-        self._split_perc = split_perc
+        self._per_side_count = per_side_count
         self._holding_period = holding_period
 
     def process(self, trade_data, signals):
@@ -32,6 +33,13 @@ class PortfolioConstructor(object):
         portfolio = Portfolio()
 
         scores = trade_data[self._score_var]
+        scores.columns = ['SecCode', 'Date', 'scores']
+
+        scores = scores.merge(signals)
+        scores = scores.sort_values(['Date', 'Signal'])
+        blank_allocs = {x: 0 for x in scores.SecCode.unique()}
+
+        scores.set_index(['Date', 'SecCode'], inplace=True)
 
         closes = trade_data['closes']
         dividends = trade_data['dividends']
@@ -70,7 +78,7 @@ class PortfolioConstructor(object):
                 sizes.update_sizes(
                     i,
                     self.get_day_position_sizes(scores.loc[date],
-                                                signals.loc[date])
+                                                blank_allocs)
                 )
                 pos_sizes = sizes.get_sizes()
                 portfolio.update_position_sizes(pos_sizes, closes[date])
@@ -106,35 +114,30 @@ class PortfolioConstructor(object):
 
         return daily_df
 
-    def get_day_position_sizes(self, scores, signals):
+    def get_day_position_sizes(self, scores, allocs):
         """
         For scores, Longs are low.
         For signals, Longs are high.
         """
-        allocs = {x: 0 for x in scores.index}
+        allocs = allocs.copy()
 
-        df = pd.DataFrame({'signals': signals,
-                           'scores': scores}).dropna()
-        df = df.sort_values('signals')
-        counts = df.shape[0] / 2
+        counts = scores.shape[0] / 2
 
-        longs = df.iloc[counts:]
-        shorts = df.iloc[:counts]
+        longs = scores.iloc[counts:]
+        shorts = scores.iloc[:counts]
 
         longs = longs.sort_values('scores')
         shorts = shorts.sort_values('scores', ascending=False)
 
-        counts = int(longs.shape[0] * (self._split_perc * 0.01))
-        longs = longs.iloc[:counts]
-        shorts = shorts.iloc[:counts]
+        longs = longs.iloc[:self._per_side_count]
+        shorts = shorts.iloc[:self._per_side_count]
 
-        for s in longs.index:
-            allocs[s] = 1
-        for s in shorts.index:
-            allocs[s] = -1
+        counts = self._per_side_count * 2
+        for s in longs.index.values:
+            allocs[s] = 1 / float(counts) * BOOKSIZE
 
-        counts = float(sum([abs(x) for x in allocs.values()]))
-        allocs = {s: v / counts * BOOKSIZE for s, v in allocs.iteritems()}
+        for s in shorts.index.values:
+            allocs[s] = -1 / float(counts) * BOOKSIZE
 
         return allocs
 
