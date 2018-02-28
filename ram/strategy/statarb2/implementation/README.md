@@ -33,7 +33,7 @@ python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for
 python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 ```
 
-### On Cloud Instance
+#### On Cloud Instance
 
 3. Check that `prod_configs.py` is updated
 

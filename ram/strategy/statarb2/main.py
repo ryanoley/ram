@@ -167,9 +167,7 @@ class StatArbStrategy2(Strategy):
                     vals.data_version)
                 all_params = self.import_run_column_params(
                     vals.run_name)
-
-            params = all_params['11']
-            #params = all_params[vals.column_name]
+            params = all_params[vals.column_name]
             # Fit model and cache
             all_data_args = self.data.get_args()[0].keys()
             data_params = dict([(x, params[x]) for x in all_data_args])
