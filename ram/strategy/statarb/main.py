@@ -22,7 +22,8 @@ from ram.strategy.statarb.implementation.preprocess_new_models import \
 
 # HELPER
 strategy_versions = StrategyVersionContainer()
-strategy_versions.add_version('version_001', 'Current implementation')
+strategy_versions.add_version('version_001', 'Pairs Implementation')
+strategy_versions.add_version('version_002', 'Smart Factor')
 
 
 class StatArbStrategy(Strategy):
@@ -34,9 +35,17 @@ class StatArbStrategy(Strategy):
             self.data = deepcopy(main.data)
             self.signals = deepcopy(main.signals)
             self.constructor = deepcopy(main.constructor)
+
+        elif self.strategy_code_version == 'version_002':
+            from ram.strategy.statarb.version_002 import main
+            self.data = deepcopy(main.data)
+            self.signals = deepcopy(main.signals)
+            self.constructor = deepcopy(main.constructor)
+
         else:
             print('Correct strategy code not specified')
             sys.exit()
+
         # Set args
         self._data_args = make_arg_iter(self.data.get_args())
         self._signals_args = make_arg_iter(self.signals.get_args())
