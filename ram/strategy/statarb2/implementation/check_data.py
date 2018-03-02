@@ -176,6 +176,8 @@ def _check_date(date, today):
 
 def main():
 
+    import pdb; pdb.set_trace()
+
     yesterday, today = get_trading_dates()
 
     output = pd.DataFrame()

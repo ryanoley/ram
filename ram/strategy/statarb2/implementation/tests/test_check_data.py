@@ -9,8 +9,8 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from gearbox import convert_date_array
-from ram.strategy.statarb.implementation.check_data import *
-from ram.strategy.statarb.implementation.check_data import \
+from ram.strategy.statarb2.implementation.check_data import *
+from ram.strategy.statarb2.implementation.check_data import \
     _import_bloomberg_dividends, _import_bloomberg_splits, \
     _import_bloomberg_spinoffs
 
@@ -24,9 +24,9 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         if os.path.exists(self.imp_dir):
             shutil.rmtree(self.imp_dir)
         os.mkdir(self.imp_dir)
-        path = os.path.join(self.imp_dir, 'StatArbStrategy')
+        path = os.path.join(self.imp_dir, 'StatArbStrategy2')
         os.mkdir(path)
-        path = os.path.join(self.imp_dir, 'StatArbStrategy', 'live_pricing')
+        path = os.path.join(self.imp_dir, 'StatArbStrategy2', 'live_pricing')
         os.mkdir(path)
         path = os.path.join(self.imp_dir, 'bloomberg_data')
         os.mkdir(path)
@@ -93,7 +93,7 @@ class TestImplementationDailyDataPull(unittest.TestCase):
         result = process_bloomberg_data(self.imp_dir)
         self.assertEqual(result, 'Spotcheck dividend multiplier; ')
         result = pd.read_csv(
-            os.path.join(self.imp_dir, 'StatArbStrategy',
+            os.path.join(self.imp_dir, 'StatArbStrategy2',
                          'live_pricing', 'bloomberg_scaling.csv'))
         benchmark = pd.DataFrame()
         benchmark['Ticker'] = ['TSLA', 'AAPL']

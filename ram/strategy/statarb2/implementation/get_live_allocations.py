@@ -6,8 +6,8 @@ import pandas as pd
 import datetime as dt
 
 from ram import config
-from ram.strategy.statarb import statarb_config
-from ram.strategy.statarb.main import StatArbStrategy
+from ram.strategy.statarb2 import prod_config
+from ram.strategy.statarb2.main import StatArbStrategy2
 
 from gearbox import convert_date_array
 
@@ -21,7 +21,7 @@ def import_raw_data(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     """
     Loads implementation raw data and processes it
     """
-    statarb_path = os.path.join(implementation_dir, 'StatArbStrategy',
+    statarb_path = os.path.join(implementation_dir, 'StatArbStrategy2',
                                 'daily_raw_data')
     all_files = _get_all_raw_data_file_names(statarb_path)
     todays_files = _get_max_date_files(all_files)
@@ -104,7 +104,7 @@ def _import_live_pricing(implementation_dir):
               'CLOSE': np.float64, 'LAST': np.float64, 'OPEN': np.float64,
               'HIGH': np.float64, 'LOW': np.float64, 'VWAP': np.float64,
               'VOLUME': np.float64}
-    path = os.path.join(implementation_dir, 'StatArbStrategy',
+    path = os.path.join(implementation_dir, 'StatArbStrategy2',
                         'live_pricing', 'prices.csv')
     live_data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     live_data['AdjOpen'] = live_data.OPEN
@@ -119,7 +119,7 @@ def _import_live_pricing(implementation_dir):
 
 
 def _import_scaling_data(implementation_dir):
-    path = os.path.join(implementation_dir, 'StatArbStrategy',
+    path = os.path.join(implementation_dir, 'StatArbStrategy2',
                         'live_pricing', 'seccode_scaling.csv')
     scaling = pd.read_csv(path)
     scaling.SecCode = scaling.SecCode.astype(str)
@@ -130,7 +130,7 @@ def _import_scaling_data(implementation_dir):
 
 
 def _import_bloomberg_data(implementation_dir):
-    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
+    dpath = os.path.join(implementation_dir, 'StatArbStrategy2',
                          'live_pricing', 'bloomberg_scaling.csv')
     data = pd.read_csv(dpath)
     cols = np.array(['Ticker', 'DivMultiplier', 'SpinoffMultiplier',
@@ -139,7 +139,7 @@ def _import_bloomberg_data(implementation_dir):
     assert np.all(data.columns == cols)
     data.columns = ['Ticker', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
                     'BbrgSplitMultiplier']
-    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
+    dpath = os.path.join(implementation_dir, 'StatArbStrategy2',
                          'live_pricing', 'ticker_mapping.csv')
     tickers = pd.read_csv(dpath)
     data = data.merge(tickers)
@@ -152,10 +152,10 @@ def _import_bloomberg_data(implementation_dir):
 
 def import_run_map(
         implementation_dir=config.IMPLEMENTATION_DATA_DIR,
-        trained_model_dir_name=statarb_config.trained_models_dir_name):
+        trained_model_dir_name=prod_config.trained_models_dir_name):
 
     path = os.path.join(implementation_dir,
-                        'StatArbStrategy',
+                        'StatArbStrategy2',
                         'trained_models',
                         trained_model_dir_name,
                         'run_map.csv')
@@ -172,7 +172,7 @@ def import_run_map(
 
 def import_models_params(
         implementation_dir=config.IMPLEMENTATION_DATA_DIR,
-        trained_model_dir_name=statarb_config.trained_models_dir_name):
+        trained_model_dir_name=prod_config.trained_models_dir_name):
     """
     Returns
     -------
@@ -180,7 +180,7 @@ def import_models_params(
         Holds parameter and sklearn model for each trained model
     """
     path = os.path.join(implementation_dir,
-                        'StatArbStrategy',
+                        'StatArbStrategy2',
                         'trained_models',
                         trained_model_dir_name)
     model_files, param_files = _get_model_files(path)
@@ -223,7 +223,7 @@ def import_portfolio_manager_positions(
     positions = pd.read_csv(os.path.join(position_sheet_dir, file_name))
     positions = positions[['position', 'symbol', 'share_count']]
     # Locate positions with correct statarb prefix
-    inds = [x.find('StatArb_') > -1 for x in positions.position]
+    inds = [x.find('StatArb2_') > -1 for x in positions.position]
     positions = positions.loc[inds].reset_index(drop=True)
     return positions
 
@@ -232,9 +232,9 @@ def import_portfolio_manager_positions(
 
 class StatArbImplementation(object):
 
-    def __init__(self, StatArbStrategy=StatArbStrategy):
+    def __init__(self, StatArbStrategy=StatArbStrategy2):
         # Used for testing
-        self.StatArbStrategy = StatArbStrategy
+        self.StatArbStrategy = StatArbStrategy2
 
     def add_raw_data(self, data):
         self.raw_data = data
@@ -349,6 +349,8 @@ def send_orders(out_df):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def main():
+
+    import pdb; pdb.set_trace()
 
     raw_data = import_raw_data()
 

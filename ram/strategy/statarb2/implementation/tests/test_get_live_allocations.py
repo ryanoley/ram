@@ -7,22 +7,24 @@ import pandas as pd
 import datetime as dt
 
 from ram import config
-from ram.strategy.statarb import statarb_config
+from ram.strategy.statarb2 import prod_config
 
 from ram.strategy.base import Strategy
+
 
 from ram.strategy.statarb.abstract.portfolio_constructor import \
     BasePortfolioConstructor
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
 
+
 from sklearn.linear_model import LinearRegression
 
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.statarb.implementation.get_live_allocations import *
-from ram.strategy.statarb.implementation.get_live_allocations import \
+from ram.strategy.statarb2.implementation.get_live_allocations import *
+from ram.strategy.statarb2.implementation.get_live_allocations import \
     _get_max_date_files, _get_all_raw_data_file_names, \
     _import_format_raw_data, _format_raw_data_name, _get_model_files, \
     _extract_params, _add_sizes, _import_live_pricing, _import_scaling_data, \
