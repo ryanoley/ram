@@ -21,6 +21,7 @@ class TestDataContainer(unittest.TestCase):
             'TimeIndex': 1,
             'AdjClose': [10, 9, 5, 5, 10, 4],
             'RClose': [10, 9, 5, 5, 10, 3],
+            'AvgDolVol': [10] * 6,
             'V1': range(6),
             'V2': range(1, 7),
             'TestFlag': [False] * 4 + [True] * 2,
@@ -65,6 +66,10 @@ class TestDataContainer(unittest.TestCase):
         data2 = data.copy()
 
         data2['SecCode'] = 'IBM'
+        for f in accounting_features:
+            data2[f] *= 10
+        for f in starmine_features:
+            data2[f] *= 10
 
         self.data4 = data.append(data2).reset_index(drop=True)
 
@@ -86,11 +91,16 @@ class TestDataContainer(unittest.TestCase):
         data4['SecCode'] = '10922530'
         self.market_data = data.append(data2).append(data3).append(data4)
 
-    def Xtest_prep_live_data(self):
+    def test_prep_live_data(self):
         dc = DataContainer()
         dc.prep_live_data(self.data4, self.market_data)
+        self.assertTrue(hasattr(dc, '_live_prepped_data'))
+        self.assertTrue(hasattr(dc, '_constructor_data'))
+        result = dc._live_prepped_data['data_features_1']
+        self.assertEqual(result.shape[0], 2)
+        self.assertListEqual(result.Date.tolist(), [0, 0])
 
-    def Xtest_process_live_data(self):
+    def test_process_live_data(self):
         live_data = pd.DataFrame({
             'SecCode': ['AAPL', 'IBM', 'TSLA'],
             'Ticker': ['AAPL', 'IBM', 'TSLA'],
@@ -104,46 +114,80 @@ class TestDataContainer(unittest.TestCase):
         dc.prep_live_data(self.data4, self.market_data)
         dc.process_live_data(live_data)
 
-    def test_set_args(self):
-        import pdb; pdb.set_trace()
+    def test_merge_live_pricing_data(self):
+        data = pd.DataFrame()
+        data['SecCode'] = ['A', 'A', 'B', 'B']
+        data['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2)] * 2
+        data['TestFlag'] = [True, True, True, True]
+        data['V1'] = [1, 2, 3, 4]
+        data['V2'] = [3, 4, 5, 6]
+        live_data = pd.DataFrame()
+        live_data['SecCode'] = ['A', 'B']
+        live_data['Ticker'] = ['A', 'B']
+        live_data['V1'] = [10, 20]
+        result = merge_live_pricing_data(data, live_data)
+        self.assertEqual(result.shape[0], 6)
+
+    def test_make_features(self):
         dc = DataContainer()
+        result, rlist = dc._make_features(self.data4)
+        rlist.sort()
+        benchmark = accounting_features + starmine_features
+        benchmark.sort()
+        self.assertListEqual(rlist, benchmark)
+        # Test data
+        benchmark = pd.Series([0.75] + [0.5] * 5 + [0.75] + [1.0] * 5,
+                              name='PE')
+        assert_series_equal(result.PE, benchmark)
+
+    def test_make_technical_features(self):
+        dc = DataContainer()
+        result, rlist = dc._make_technical_features(self.data4)
+        # Most of the data doesn't process because there aren't
+        # enough dates. Just simple test to draw attention to any changes
+        self.assertEqual(len(rlist), 24)
+
+    def test_set_args(self):
+        dc = DataContainer()
+        self.data4['Response_Simple_3'] = 0
+        dc._processed_train_data = self.data4
+        dc._processed_test_data = self.data4
+        dc.set_args(response_days=3, response_type='Simple')
         # Setup
-        response_params = {'asdf': '1234'}
-        dc._response_arg_map = {}
-        dc._response_arg_map[str(response_params)] = 0
-        dc._processed_train_responses = pd.DataFrame({
-            'SecCode': ['A', 'B', 'C'] * 2,
-            'Date': ['d'] * 6,
-            'TimeIndex': [0, 0, 0, 1, 1, 1],
-            0: [0, 1, 0] * 2
-        })
-        dc._processed_train_data = pd.DataFrame({
-            'SecCode': ['A', 'B', 'C'] * 2,
-            'Date': ['d'] * 6,
-            'TimeIndex': [0, 0, 0, 1, 1, 1],
-            'V1': range(6)
-        })
-        dc._processed_test_data = pd.DataFrame({
-            'SecCode': ['A', 'B', 'C'] * 2,
-            'Date': ['d'] * 6,
-            'TimeIndex': [2] * 6,
-            'V1': range(6)
-        })
-        dc.set_args(response_params, training_qtrs=1)
-        dc.get_train_data()
-        dc.get_train_responses()
-        dc.get_test_data()
+        benchmark = self.data4.Date.iloc[:3].tolist()
+        benchmark = benchmark * 2
+        self.assertListEqual(dc.train_data.Date.tolist(), benchmark)
 
     def test_make_responses(self):
         dc = DataContainer()
-        dc._make_responses(self.data)
-        result = dc._processed_train_responses.columns.tolist()
-        params_count = len(dc.get_args()['response_params'])
-        benchmark = ['SecCode', 'TimeIndex', 'Date'] + range(params_count)
-        self.assertListEqual(result, benchmark)
-        result = dc._response_arg_map.values()
-        result.sort()
-        self.assertListEqual(result, range(params_count))
+        dates = ['2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04',
+                 '2015-01-05', '2015-01-06', '2015-01-07', '2015-01-08',
+                 '2015-01-09', '2015-01-10', '2015-01-11', '2015-01-12']
+        data = pd.DataFrame()
+        data['Date'] = convert_date_array((dates))
+        data = data.append(data).append(data).append(
+            data).reset_index(drop=True)
+        data['SecCode'] = ['A'] * 12 + ['B'] * 12 + ['C'] * 12 + ['D'] * 12
+        data['AdjClose'] = range(1, 13) + range(101, 113) + \
+            range(1001, 1013) + range(10001, 10013)
+        result = dc._make_responses(data)
+        benchmark = ['SecCode', 'Date',
+                     'Response_Simple_5', 'Response_Smoothed_5',
+                     'Response_Simple_10', 'Response_Smoothed_10']
+        self.assertListEqual(result.columns.tolist(), benchmark)
+        self.assertEqual(result.Response_Simple_10.sum(), 6)
+
+    def test_trim_to_one_month(self):
+        data = pd.DataFrame()
+        data['SecCode'] = ['A'] * 8
+        data['Date'] = convert_date_array([
+            '2015-01-01', '2015-01-02', '2015-01-03', '2015-01-04',
+            '2015-02-01', '2015-02-02', '2015-02-03', '2015-02-04'])
+        data['TestFlag'] = False
+        dc = DataContainer()
+        result = dc._trim_to_one_month(data)
+        self.assertEqual(result.shape[0], 4)
+        self.assertEqual(result.Date.iloc[0], dt.date(2015, 2, 1))
 
     def test_create_split_multiplier(self):
         result = create_split_multiplier(self.data2)

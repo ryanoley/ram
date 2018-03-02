@@ -17,8 +17,6 @@ LOW_LIQUIDITY_FILTER = 3
 class DataContainer(BaseDataContainer):
 
     def __init__(self):
-        self._time_index_data_for_responses = {}
-        self._time_index_response_data = {}
         # Deliverable
         self._processed_train_data = pd.DataFrame()
         self._processed_test_data = pd.DataFrame()
@@ -68,22 +66,16 @@ class DataContainer(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def prep_live_data(self, data, market_data):
-        pair_info = self._get_pairs_info(data)
-        # Non pricing features
-        data = self._make_earnings_data(data)
-
         data['TimeIndex'] = -1
         data_features_1, features_1 = self._make_features(data, live_flag=True)
         market_data = market_data[['SecCode', 'Date', 'AdjClose']].copy()
         market_data = market_data[market_data.SecCode.isin(['50311', '11113'])]
-
         self._live_prepped_data = {}
         self._live_prepped_data['data'] = data
         self._live_prepped_data['market_data'] = market_data
-        self._live_prepped_data['features'] = features_1
         self._live_prepped_data['data_features_1'] = data_features_1
+        self._live_prepped_data['features'] = features_1
         self._constructor_data = {}
-        self._constructor_data['pair_info'] = pair_info
 
     def process_live_data(self, live_pricing_data):
         """
@@ -95,54 +87,35 @@ class DataContainer(BaseDataContainer):
         features_1 = self._live_prepped_data['features']
         data_features_1 = self._live_prepped_data['data_features_1']
         del self._live_prepped_data
-
         # Pop index pricing
         live_market = live_pricing_data[
             live_pricing_data.SecCode.isin(['50311', '11113'])]
         live_pricing_data = live_pricing_data[
             ~live_pricing_data.SecCode.isin(['50311', '11113'])]
-
         # Get live data for sec codes in this data set
         live_pricing_data = live_pricing_data[
             live_pricing_data.SecCode.isin(data.SecCode.unique())].copy()
-
         # Check no zero values
         no_data = live_pricing_data.Ticker[live_pricing_data.AdjClose == 0]
         if len(no_data):
             print('NO DATA FOR FOLLOWING TICKERS:')
             print(no_data.tolist())
             live_pricing_data = live_pricing_data.replace(0, np.nan)
-
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
         market_data = merge_live_pricing_market_data(market_data, live_market)
-
         data = adjust_todays_prices(data)
-
         # Cleanup
         data = self._initial_clean(data, -1)
-
         # Technical variable calculation
         data_features_2, features_2 = self._make_technical_features(
             data, live_flag=True)
-
-        data_features_2_m, features_2_m = \
-            self._make_technical_market_features(market_data, live_flag=True)
-
         # Merge technical and non-technical
-        pdata = data_features_1.merge(data_features_2).merge(data_features_2_m)
-        features = features_1 + features_2 + features_2_m
-
-        # Zscores - PERHAPS SHORTEN DATA FOR SPEED?
-        zscores = self._get_pairs_z_score(data,
-                                          self._constructor_data['pair_info'],
-                                          live_flag=True)
-        zscores = zscores.to_frame().T
-
+        pdata = data_features_1.merge(data_features_2)
+        features = features_1 + features_2
         # Merge market data
         self.test_data = pdata
         self._features = features
-        self._constructor_data['zscores'] = zscores
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -155,7 +128,8 @@ class DataContainer(BaseDataContainer):
         tdata, features_t = self._make_technical_features(data)
         responses = self._make_responses(data)
 
-        pdata = adata.merge(tdata).merge(responses)
+        pdata = data[['SecCode', 'Date', 'TestFlag', 'TimeIndex',
+            'keep_inds']].merge(adata).merge(tdata).merge(responses)
         features = features_a + features_t
 
         # Trim to just one quarter's data for training
@@ -262,7 +236,11 @@ class DataContainer(BaseDataContainer):
         feat = FeatureAggregator()
 
         # Daily returns
-        feat.add_feature(data_rank(close / open_), 'day_ret')
+        day_ret = data_rank(close / open_)
+        if live_flag:
+            day_ret = day_ret.iloc[-1]
+            day_ret.name = 0
+        feat.add_feature(day_ret, 'day_ret')
 
         # PRMA vals
         prma = PRMA(live_flag)
@@ -290,19 +268,40 @@ class DataContainer(BaseDataContainer):
             feat.add_feature(data_rank(mfi.fit(high, low, close, volume, i)), 'mfi_{}'.format(i))
 
         # Smoothed prma
-        feat.add_feature(data_rank(prma.fit(close, 10) / prma.fit(close, 2)), 'prma_2_10')
-        feat.add_feature(data_rank(prma.fit(close, 10) / prma.fit(close, 3)), 'prma_3_10')
-        feat.add_feature(data_rank(prma.fit(close, 20) / prma.fit(close, 4)), 'prma_4_20')
-        feat.add_feature(data_rank(prma.fit(close, 30) / prma.fit(close, 5)), 'prma_5_30')
+        ret = data_rank(prma.fit(close, 10) / prma.fit(close, 2))
+        if live_flag:
+            ret = ret.iloc[-1]
+            ret.name = 0
+        feat.add_feature(ret, 'prma_2_10')
+
+        ret = data_rank(prma.fit(close, 10) / prma.fit(close, 3))
+        if live_flag:
+            ret = ret.iloc[-1]
+            ret.name = 0
+        feat.add_feature(ret, 'prma_3_10')
+
+        ret = data_rank(prma.fit(close, 20) / prma.fit(close, 4))
+        if live_flag:
+            ret = ret.iloc[-1]
+            ret.name = 0
+        feat.add_feature(ret, 'prma_4_20')
+
+        ret = data_rank(prma.fit(close, 30) / prma.fit(close, 5))
+        if live_flag:
+            ret = ret.iloc[-1]
+            ret.name = 0
+        feat.add_feature(ret, 'prma_5_30')
 
         # LONG returns
-        feat.add_feature(data_rank(close.pct_change(10)), 'ret_10d')
-        feat.add_feature(data_rank(close.pct_change(20)), 'ret_20d')
-        feat.add_feature(data_rank(close.pct_change(40)), 'ret_40d')
+        for i in [10, 20, 40]:
+            ret = data_rank(close.pct_change(i))
+            if live_flag:
+                ret = ret.iloc[-1]
+                ret.name = 0
+            feat.add_feature(ret, 'ret_{}d'.format(i))
 
         # Create output
-        pdata = data[['SecCode', 'Date', 'TestFlag',
-                      'TimeIndex', 'keep_inds']].copy()
+        pdata = data[['SecCode', 'Date']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
         # Adjust date for faster live imp
         if live_flag:
