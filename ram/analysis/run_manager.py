@@ -332,7 +332,7 @@ class RunManagerGCP(RunManager):
         all_files = list(bucket.list_blobs())
         # Get unique runs from StrategyClass blobs
         all_simulation_files = [x.name for x in all_files if x.name.find(
-            'simulations/{}'.format(strategy_class)) >= 0]
+            'simulations/{}/'.format(strategy_class)) >= 0]
         all_files_2 = [x.name for x in all_files]
         all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
         all_runs.sort()
