@@ -131,8 +131,7 @@ class BasePortfolioConstructor(object):
                 1 if x.shares != 0 else 0
                 for x in portfolio.positions.values()])
 
-        stats = {}
-        return daily_df, stats
+        return daily_df
 
 
 def filter_seccodes(data_dict, min_value):
