@@ -307,9 +307,8 @@ class Strategy(object):
         # Get all run versions for increment for this run
         if self._gcp_implementation:
             all_files = [x.name for x in self._gcp_bucket.list_blobs()]
-            all_files = [x for x in all_files if x.startswith(
-                self._strategy_output_dir)]
             strip_str = self._strategy_output_dir + '/'
+            all_files = [x for x in all_files if x.startswith(strip_str)]
             all_files = [x.replace(strip_str, '') for x in all_files]
             all_files = [x for x in all_files if x.find('run') >= 0]
             new_ind = int(max(all_files).split('/')[0].split('_')[1]) + 1 \
