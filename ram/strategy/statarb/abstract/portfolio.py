@@ -26,9 +26,23 @@ class Portfolio(object):
         return
 
     def update_position_sizes(self, sizes, exec_prices):
-        for symbol, size in sizes.iteritems():
-            self.positions[symbol].update_position_size(
-                size, exec_prices[symbol])
+        del_symbols = []
+        for symbol, pos in self.positions.iteritems():
+            if symbol in sizes:
+                self.positions[symbol].update_position_size(
+                    sizes[symbol], exec_prices[symbol])
+            # Remove symbols that have no pricing provided
+            elif symbol not in exec_prices:
+                del_symbols.append(symbol)
+            else:
+                self.positions[symbol].update_position_size(
+                    0, exec_prices[symbol])
+        # Cleanup
+        for symbol in del_symbols:
+            if self.positions[symbol].shares == 0:
+                del self.positions[symbol]
+            else:
+                raise ValueError('Still open shares')
         return
 
     def get_portfolio_exposure(self):
@@ -51,16 +65,7 @@ class Portfolio(object):
         return port_turnover
 
     def get_portfolio_stats(self):
-        counts = [x.min_ticket_charge_achieved
-                  for x in self.positions.values()]
-        counts = [x for x in counts if ~np.isnan(x)]
-        if counts:
-            min_ticket_charge_prc = sum(counts) / float(len(counts))
-        else:
-            min_ticket_charge_prc = 0
-        return {
-            'min_ticket_charge_prc': min_ticket_charge_prc
-        }
+        return {'stat1': 1}
 
     def close_portfolio_positions(self):
         for position in self.positions.values():

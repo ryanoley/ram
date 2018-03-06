@@ -27,7 +27,6 @@ class Position(object):
         if np.isnan(price) | (price == 0):
             self.open_position = False
         # Stats
-        self.min_ticket_charge_achieved = np.nan
         self.losing_day_count = 0
 
     def update_position_prices(self, price, dividend, split):
@@ -76,22 +75,10 @@ class Position(object):
         self.exposure = self.shares * self.current_price
         self.daily_pl += -1 * abs(d_shares) * self.comm
         self.daily_turnover += abs(d_shares) * float(exec_price)
-        self._min_ticket_charge(d_shares)
-
-    def _min_ticket_charge(self, shares_traded):
-        """
-        Checks if traded shares covers 3 dollar ticket charge.
-        """
-        if shares_traded == 0:
-            self.min_ticket_charge_achieved = np.nan
-        else:
-            cost = abs(shares_traded) * self.comm
-            self.min_ticket_charge_achieved = 1 if cost >= 3.00 else 0
 
     def close_position(self):
         self.daily_pl += -1 * abs(self.shares) * self.comm
         self.daily_turnover = abs(self.shares) * self.current_price
-        self._min_ticket_charge(self.shares)
         self.exposure = 0
         self.open_position = False
 

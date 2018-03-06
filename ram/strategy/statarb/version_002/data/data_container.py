@@ -41,27 +41,36 @@ class DataContainer(BaseDataContainer):
         training_dates = train_data.Date.unique()
         training_dates = training_dates[:-response_days]
         train_data = train_data[train_data.Date.isin(training_dates)]
-        self.train_data = train_data
-        self.test_data = test_data
-        self.train_data_responses = train_data[
+        self._train_data = train_data
+        self._test_data = test_data
+        self._train_data_responses = train_data[
             'Response_{}_{}'.format(response_type, response_days)]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_train_data(self):
-        return self.train_data
+        return self._train_data
 
     def get_train_responses(self):
-        return self.train_data_responses
+        return self._train_data_responses
 
     def get_train_features(self):
         return self._features
 
     def get_test_data(self):
-        return self.test_data
+        return self._test_data
+
+    def get_test_dates(self):
+        return self._test_dates
 
     def get_constructor_data(self):
         return self._constructor_data
+
+    def get_pricing_data(self):
+        return self._pricing_data
+
+    def get_other_data(self):
+        return self._other_data
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -114,7 +123,7 @@ class DataContainer(BaseDataContainer):
         pdata = data_features_1.merge(data_features_2)
         features = features_1 + features_2
         # Merge market data
-        self.test_data = pdata
+        self._test_data = pdata
         self._features = features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -141,16 +150,18 @@ class DataContainer(BaseDataContainer):
         self._processed_test_data = pdata[pdata.TestFlag]
         self._features = features
 
+        test_dates = data.Date[data.TestFlag].unique()
+        test_dates = [t for t in test_dates if t.month == test_dates[0].month]
+        self._test_dates = test_dates
+
         # Process some data
         score_vars = PortfolioConstructor().get_args()['score_var']
-        self._constructor_data = {
-            'pricing': data[data.TestFlag][['SecCode', 'Date',
-                                            'MarketCap', 'AvgDolVol',
-                                            'RClose', 'RCashDividend',
-                                            'SplitMultiplier']],
-            'scores': pdata[pdata.TestFlag][
-                ['SecCode', 'Date', 'keep_inds'] + score_vars],
-        }
+        self._pricing_data = data[data.TestFlag][['SecCode', 'Date',
+                                                  'MarketCap', 'AvgDolVol',
+                                                  'RClose', 'RCashDividend',
+                                                  'SplitMultiplier']]
+        self._other_data = \
+            pdata[pdata.TestFlag][['SecCode', 'Date', 'keep_inds']+score_vars]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -317,6 +328,7 @@ class DataContainer(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _initial_clean(self, data, time_index):
+        data = data.sort_values(['SecCode', 'Date'])
         data['TimeIndex'] = time_index
         data = create_split_multiplier(data)
         data['keep_inds'] = \

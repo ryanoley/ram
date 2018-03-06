@@ -92,12 +92,19 @@ class StatArbStrategy(Strategy):
 
         # Iterate
         i = 0
+
+        # '60042'
         for args1 in self._data_args:
 
             self.data.set_args(**args1)
 
-            for args2 in self._signals_args:
+            self.constructor.set_test_dates(self.data.get_test_dates())
+            self.constructor.set_pricing_data(time_index,
+                                              self.data.get_pricing_data())
+            self.constructor.set_other_data(time_index,
+                                            self.data.get_other_data())
 
+            for args2 in self._signals_args:
                 self.signals.set_args(**args2)
                 self.signals.set_features(self.data.get_train_features())
                 self.signals.set_train_data(self.data.get_train_data())
@@ -108,16 +115,13 @@ class StatArbStrategy(Strategy):
                 self.signals.fit_model()
                 signals = self.signals.get_signals()
 
-                # HACK
-                # Make sure that there is no dependence on variables
-                self.constructor.set_signals_constructor_data(
-                    signals, self.data.get_constructor_data())
+                self.constructor.set_signal_data(time_index, signals)
 
                 for ac in self._constructor_args:
 
                     self.constructor.set_args(**ac)
 
-                    result, stats = self.constructor.get_period_daily_pl()
+                    result, stats = self.constructor.get_period_daily_pl(i)
 
                     self._capture_output(result, stats, i)
                     i += 1
@@ -170,8 +174,7 @@ class StatArbStrategy(Strategy):
 
     def _capture_output(self, results, stats, arg_index):
         results = results.copy()
-        book = self.constructor.booksize
-        returns = pd.DataFrame(results.PL / book)
+        returns = pd.DataFrame(results.PL / self.constructor.booksize)
         returns.columns = [arg_index]
         # Rename columns
         results.columns = ['{}_{}'.format(x, arg_index)
