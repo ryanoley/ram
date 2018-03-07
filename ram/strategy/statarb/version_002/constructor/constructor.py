@@ -41,8 +41,8 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
     def get_day_position_sizes(self, date, column_index):
         """
-        For scores, Longs are low.
-        For signals, Longs are high.
+        For signals, Longs are high. (Signal is from sklearn model)
+        For scores, Longs are low. (Score is technical var)
         """
         if column_index in self._sizes:
             sizes = self._sizes[column_index]

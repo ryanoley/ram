@@ -15,16 +15,16 @@ class TestPortfolioConstructor(unittest.TestCase):
 
     def setUp(self):
         other_data = pd.DataFrame()
-        other_data['SecCode'] = ['A', 'A', 'B', 'B']
-        other_data['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2)] * 2
+        other_data['SecCode'] = ['A', 'B', 'C', 'D']
+        other_data['Date'] = [dt.date(2010, 1, 1)] * 4
         other_data['keep_inds'] = True
         other_data['V1'] = [1, 2, 3, 4]
         other_data['V2'] = [8, 7, 6, 5]
         self.other_data = other_data
         # Signals
         signal_data = pd.DataFrame()
-        signal_data['SecCode'] = ['A', 'A', 'B', 'B']
-        signal_data['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2)] * 2
+        signal_data['SecCode'] = ['A', 'B', 'C', 'D']
+        signal_data['Date'] = [dt.date(2010, 1, 1)] * 4
         signal_data['Signal'] = [10, 20, 15, 5]
         self.signal_data = signal_data
 
@@ -50,7 +50,7 @@ class TestPortfolioConstructor(unittest.TestCase):
                       per_side_count=1,
                       holding_period=2)
         result = cons.get_day_position_sizes(dt.date(2010, 1, 1), 0)
-        benchmark = {'A': -2500000.0, 'B': 2500000.0}
+        benchmark = {'A': -2500000.0, 'C': 2500000.0}
         self.assertDictEqual(result, benchmark)
 
     def tearDown(self):

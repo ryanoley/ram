@@ -20,19 +20,21 @@ class SignalModel(BaseSignalGenerator):
             'model': [
                 {'type': 'tree', 'min_samples_leaf': 500, 'max_features': 0.5},
                 {'type': 'tree', 'min_samples_leaf': 500, 'max_features': 0.8},
-                # {'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.5},
-                # {'type': 'tree', 'min_samples_leaf': 2000, 'max_features': 0.8},
+                # {'type': 'tree', 'min_samples_leaf': 2000,
+                #  'max_features': 0.5},
+                # {'type': 'tree', 'min_samples_leaf': 2000,
+                #  'max_features': 0.8},
                 {'type': 'reg'},
             ]
         }
 
     def set_args(self, model):
         if model['type'] == 'tree':
-            self.skl_model = ExtraTreesClassifier(n_jobs=-1,
-                                                  random_state=123,
-                                                  min_samples_leaf=model['min_samples_leaf'],
-                                                  max_features=model['max_features'],
-                                                  n_estimators=30)
+            self.skl_model = ExtraTreesClassifier(
+                n_jobs=-1, random_state=123,
+                min_samples_leaf=model['min_samples_leaf'],
+                max_features=model['max_features'],
+                n_estimators=30)
         else:
             self.skl_model = LogisticRegression()
 
