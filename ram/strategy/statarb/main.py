@@ -86,9 +86,9 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, time_index):
         # HACK: If training and writing, don't train until 2009, but stack data
-        # if self._write_flag and \
-        #         (int(self._prepped_data_files[time_index][:4]) < 2009):
-        #     return
+        if self._write_flag and \
+                (int(self._prepped_data_files[time_index][:4]) < 2009):
+            return
 
         # Iterate
         i = 0
