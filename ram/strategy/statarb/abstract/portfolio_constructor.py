@@ -132,11 +132,3 @@ class BasePortfolioConstructor(object):
                 for x in portfolio.positions.values()])
 
         return daily_df
-
-
-def filter_seccodes(data_dict, min_value):
-    bad_seccodes = []
-    for key, value in data_dict.iteritems():
-        if value < min_value:
-            bad_seccodes.append(key)
-    return bad_seccodes
