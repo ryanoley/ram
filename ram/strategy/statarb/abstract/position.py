@@ -52,6 +52,7 @@ class Position(object):
             self.daily_pl += dividend * self.shares
         self.current_price = float(price)
         self.exposure = self.shares * self.current_price
+        # Stat calculation
         if self.daily_pl < 0:
             self.losing_day_count += 1
         else:
@@ -80,6 +81,8 @@ class Position(object):
         self.daily_pl += -1 * abs(self.shares) * self.comm
         self.daily_turnover = abs(self.shares) * self.current_price
         self.exposure = 0
+        # DO NOT SET SHARES TO ZERO. USED IN GET get_daily_pl
+        # !! self.shares = 0 !!
         self.open_position = False
 
     # ~~~~~~  Getters  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -101,3 +104,6 @@ class Position(object):
         daily_turnover = float(self.daily_turnover)
         self.daily_turnover = 0
         return daily_turnover
+
+    def get_stats(self):
+        return {'losing_day_count': self.losing_day_count}
