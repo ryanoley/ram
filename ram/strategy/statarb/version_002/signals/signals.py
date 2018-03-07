@@ -39,7 +39,7 @@ class SignalModel(BaseSignalGenerator):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def set_features(self, features):
-        self._features = features
+        self._features = np.sort(features)
 
     def set_train_data(self, train_data):
         self._train_data = train_data
@@ -65,7 +65,7 @@ class SignalModel(BaseSignalGenerator):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_signals(self):
-        output = self._test_data[['SecCode', 'Date']].copy()
+        output = self._test_data[['SecCode', 'Date', 'keep_inds']].copy()
         # Here the features that are coming through have nan values
         # Where were they handled before where they weren't showing up?
         if hasattr(self.skl_model, 'predict_proba'):
@@ -75,7 +75,7 @@ class SignalModel(BaseSignalGenerator):
         else:
             output.loc[:, 'preds'] = self.skl_model.predict(
                 self._test_data[self._features])
-
+        output = output[output.keep_inds]
         output = output.pivot(index='Date', columns='SecCode',
                               values='preds')
         output = output.rank(axis=1, pct=True)

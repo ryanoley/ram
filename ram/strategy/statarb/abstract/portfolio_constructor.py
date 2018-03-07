@@ -123,9 +123,9 @@ class BasePortfolioConstructor(object):
                                 in portfolio.positions.values()])
 
             daily_df.loc[date, 'PL'] = (pl_long + pl_short) / BOOKSIZE
-            daily_df.loc[date, 'LongPL'] = pl_long
-            daily_df.loc[date, 'ShortPL'] = pl_short
-            daily_df.loc[date, 'Turnover'] = daily_turnover
+            daily_df.loc[date, 'LongPL'] = pl_long / BOOKSIZE
+            daily_df.loc[date, 'ShortPL'] = pl_short / BOOKSIZE
+            daily_df.loc[date, 'Turnover'] = daily_turnover / BOOKSIZE
             daily_df.loc[date, 'Exposure'] = daily_exposure
             daily_df.loc[date, 'OpenPositions'] = sum([
                 1 if x.shares != 0 else 0

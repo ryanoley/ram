@@ -50,11 +50,7 @@ class PortfolioConstructor(BasePortfolioConstructor):
             sizes = SizeContainer(self._holding_period)
             self._sizes[column_index] = sizes
 
-        try:
-            scores = self._signals_scores2.loc[date].copy()
-        except:
-            import pdb; pdb.set_trace()
-            scores = self._signals_scores2.loc[date]
+        scores = self._signals_scores2.loc[date].copy()
 
         counts = scores.shape[0] / 2
 

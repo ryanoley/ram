@@ -41,7 +41,7 @@ class SignalModel(object):
     def get_signals(self, data_container):
         output = data_container.test_data[['SecCode', 'Date',
                                            'keep_inds']].copy()
-        features = data_container.features
+        features = np.sort(data_container.features)
         inds = data_container.train_data.TrainFlag
         self.skl_model.fit(X=data_container.train_data[features][inds],
                            y=data_container.train_data['Response'][inds])
