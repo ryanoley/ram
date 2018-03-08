@@ -343,7 +343,7 @@ class ModelSelection(object):
                 sio = cStringIO.StringIO()
                 plt.savefig(sio, format='png')
                 blob = self._gcp_bucket.blob(os.path.join(
-                    self.combo_run_dir, 'best_results.png'))
+                    self._output_dir, 'best_results.png'))
                 blob.upload_from_string(sio.getvalue())
 
             else:
