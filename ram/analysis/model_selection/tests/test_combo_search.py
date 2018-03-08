@@ -44,8 +44,9 @@ class TestCombinationSearch(unittest.TestCase):
             os.path.dirname(os.path.realpath(__file__)), 'combo_search')
 
     def test_start_restart(self):
+        import pdb; pdb.set_trace()
         comb = CombinationSearch(write_flag=False,
-                                 combo_search_output_dir=self.output_dir,
+                                 model_selection_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
@@ -53,7 +54,7 @@ class TestCombinationSearch(unittest.TestCase):
         comb.start(criteria='sharpe')
         #
         comb = CombinationSearch(write_flag=True,
-                                 combo_search_output_dir=self.output_dir,
+                                 model_selection_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
@@ -61,7 +62,7 @@ class TestCombinationSearch(unittest.TestCase):
         comb.start(criteria='sharpe')
         #
         comb = CombinationSearch(write_flag=True,
-                                 combo_search_output_dir=self.output_dir,
+                                 model_selection_output_dir=self.output_dir,
                                  checkpoint_n_epochs=1)
         comb.params['n_periods'] = 3
         comb.add_run(self.run1)
@@ -72,7 +73,7 @@ class TestCombinationSearch(unittest.TestCase):
         benchmark = ['combo_run_0001', 'combo_run_0002']
         self.assertEqual(result, benchmark)
         # Restart
-        comb = CombinationSearch(combo_search_output_dir=self.output_dir,
+        comb = CombinationSearch(model_selection_output_dir=self.output_dir,
                                  restart_combo_name='combo_run_0001',
                                  write_flag=True)
         comb.restart()

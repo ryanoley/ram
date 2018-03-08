@@ -8,6 +8,7 @@ DESCRIPTION = 'Master System'
 PACKAGES = [
     'ram',
     'ram/analysis',
+    'ram/analysis/model_selection',
     'ram/aws',
     'ram/data',
     'ram/strategy',
