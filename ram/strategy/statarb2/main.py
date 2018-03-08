@@ -11,7 +11,7 @@ from ram.strategy.base import Strategy, StrategyVersionContainer
 
 from ram.strategy.statarb2.data_blueprints import blueprint_container
 
-from ram.strategy.statarb2.implementation.preprocess_new_models import \
+from ram.strategy.statarb.implementation.preprocess_new_models import \
     import_current_top_params
 
 

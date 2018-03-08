@@ -32,8 +32,6 @@ class TestPortfolio(unittest.TestCase):
         portfolio.update_prices(closes, dividends, splits)
         portfolio.update_position_sizes(sizes, closes)
         result = portfolio.get_portfolio_stats()
-        benchmark = {'min_ticket_charge_prc': 0.5}
-        self.assertDictEqual(result, benchmark)
 
     def tearDown(self):
         pass

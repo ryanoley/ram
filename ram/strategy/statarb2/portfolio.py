@@ -51,16 +51,7 @@ class Portfolio(object):
         return port_turnover
 
     def get_portfolio_stats(self):
-        counts = [x.min_ticket_charge_achieved
-                  for x in self.positions.values()]
-        counts = [x for x in counts if ~np.isnan(x)]
-        if counts:
-            min_ticket_charge_prc = sum(counts) / float(len(counts))
-        else:
-            min_ticket_charge_prc = 0
-        return {
-            'min_ticket_charge_prc': min_ticket_charge_prc
-        }
+        return {'v1': 0}
 
     def close_portfolio_positions(self):
         for position in self.positions.values():
