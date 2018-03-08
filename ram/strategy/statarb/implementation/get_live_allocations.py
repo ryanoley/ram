@@ -346,6 +346,7 @@ def send_orders(out_df):
     client.send_transmit()
     client.close_zmq_sockets()
 
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def main():

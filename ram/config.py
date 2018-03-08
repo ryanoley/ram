@@ -37,5 +37,3 @@ COMBO_SEARCH_OUTPUT_DIR = os.path.join(BASE_DIR, 'combo_search')
 ERN_PEAD_DIR = os.path.join(os.getenv('DATA'), 'ram', 'data', 'temp_ern_pead')
 
 GCP_STORAGE_BUCKET_NAME = 'ram_data'
-
-SKLEARN_NJOBS = 2
