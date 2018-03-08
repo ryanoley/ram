@@ -20,19 +20,19 @@ class PortfolioConstructor(BasePortfolioConstructor):
     def set_args(self):
         return None
 
-    def set_signals_constructor_data(self):
+    def set_signal_data(self):
         return None
 
-    def get_day_position_sizes(self):
+    def set_other_data(self):
+        return None
+
+    def get_day_position_sizes(self, date, signals):
         return None
 
 
 class TestBasePortfolioConstructor(unittest.TestCase):
 
     def setUp(self):
-        pass
-
-    def test_filter_seccodes(self):
         pass
 
     def test_set_pricing_data(self):
@@ -47,6 +47,9 @@ class TestBasePortfolioConstructor(unittest.TestCase):
         data['AvgDolVol'] = vals
         data['MarketCap'] = vals
         cons.set_pricing_data(1, data)
+        closes = cons._pricing['closes']
+        self.assertEqual(closes[dt.date(2010, 1, 2)]['A'], 20)
+        self.assertEqual(closes[dt.date(2010, 1, 2)]['B'], 40)
         data = pd.DataFrame()
         data['SecCode'] = ['A', 'A', 'B', 'B']
         data['Date'] = [dt.date(2010, 1, 2), dt.date(2010, 1, 3)] * 2
@@ -57,12 +60,15 @@ class TestBasePortfolioConstructor(unittest.TestCase):
         data['AvgDolVol'] = vals
         data['MarketCap'] = vals
         cons.set_pricing_data(2, data)
-        result = cons._pricing['closes'].keys()
+        closes = cons._pricing['closes']
+        result = closes.keys()
         result.sort()
         benchmark = [dt.date(2010, 1, 1),
                      dt.date(2010, 1, 2),
                      dt.date(2010, 1, 3)]
         self.assertListEqual(result, benchmark)
+        self.assertEqual(closes[dt.date(2010, 1, 2)]['A'], 66)
+        self.assertEqual(closes[dt.date(2010, 1, 2)]['B'], 88)
 
     def tearDown(self):
         pass

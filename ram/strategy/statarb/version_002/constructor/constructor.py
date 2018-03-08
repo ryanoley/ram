@@ -41,8 +41,8 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
     def get_day_position_sizes(self, date, column_index):
         """
-        For scores, Longs are low.
-        For signals, Longs are high.
+        For signals, Longs are high. (Signal is from sklearn model)
+        For scores, Longs are low. (Score is technical var)
         """
         if column_index in self._sizes:
             sizes = self._sizes[column_index]
@@ -50,11 +50,7 @@ class PortfolioConstructor(BasePortfolioConstructor):
             sizes = SizeContainer(self._holding_period)
             self._sizes[column_index] = sizes
 
-        try:
-            scores = self._signals_scores2.loc[date].copy()
-        except:
-            import pdb; pdb.set_trace()
-            scores = self._signals_scores2.loc[date]
+        scores = self._signals_scores2.loc[date].copy()
 
         counts = scores.shape[0] / 2
 

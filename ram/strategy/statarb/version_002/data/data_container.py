@@ -8,7 +8,8 @@ from scipy.stats.mstats import winsorize
 from ram.data.feature_creator import *
 
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
-from ram.strategy.statarb.version_002.constructor.constructor import PortfolioConstructor
+from ram.strategy.statarb.version_002.constructor.constructor import \
+    PortfolioConstructor
 
 LOW_PRICE_FILTER = 7
 LOW_LIQUIDITY_FILTER = 3
@@ -29,7 +30,7 @@ class DataContainer(BaseDataContainer):
     def get_args(self):
         return {
             'response_days': self._response_days_args,
-            #'response_type': ['Simple', 'Smoothed']
+            # 'response_type': ['Simple', 'Smoothed']
             'response_type': ['Simple']
         }
 
@@ -138,7 +139,7 @@ class DataContainer(BaseDataContainer):
         responses = self._make_responses(data)
 
         pdata = data[['SecCode', 'Date', 'TestFlag', 'TimeIndex',
-            'keep_inds']].merge(adata).merge(tdata).merge(responses)
+                      'keep_inds']].merge(adata).merge(tdata).merge(responses)
         features = features_a + features_t
 
         # Trim to just one quarter's data for training
@@ -200,7 +201,6 @@ class DataContainer(BaseDataContainer):
                 temp = clean_pivot_raw_data(data, feature, lag=1)
             feat.add_feature(data_rank(temp), feature)
 
-
         pdata = data[['SecCode', 'Date']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
 
@@ -256,27 +256,33 @@ class DataContainer(BaseDataContainer):
         # PRMA vals
         prma = PRMA(live_flag)
         for i in [5, 10, 15, 20]:
-            feat.add_feature(data_rank(prma.fit(close, i)), 'prma_{}'.format(i))
+            feat.add_feature(data_rank(prma.fit(close, i)),
+                             'prma_{}'.format(i))
 
         vol = VOL(live_flag)
         for i in [10, 20, 50]:
-            feat.add_feature(data_rank(vol.fit(close, i)), 'vol_{}'.format(i))
+            feat.add_feature(data_rank(vol.fit(close, i)),
+                             'vol_{}'.format(i))
 
         disc = DISCOUNT(live_flag)
         for i in [30, 50]:
-            feat.add_feature(data_rank(disc.fit(close, i)), 'disc_{}'.format(i))
+            feat.add_feature(data_rank(disc.fit(close, i)),
+                             'disc_{}'.format(i))
 
         bol = BOLL(live_flag)
         for i in [10, 20, 40]:
-            feat.add_feature(data_rank(bol.fit(close, i)), 'boll_{}'.format(i))
+            feat.add_feature(data_rank(bol.fit(close, i)),
+                             'boll_{}'.format(i))
 
         rsi = RSI(live_flag)
         for i in [15, 30]:
-            feat.add_feature(data_rank(rsi.fit(close, i)), 'rsi_{}'.format(i))
+            feat.add_feature(data_rank(rsi.fit(close, i)),
+                             'rsi_{}'.format(i))
 
         mfi = MFI(live_flag)
         for i in [15, 30]:
-            feat.add_feature(data_rank(mfi.fit(high, low, close, volume, i)), 'mfi_{}'.format(i))
+            feat.add_feature(data_rank(mfi.fit(high, low, close, volume, i)),
+                             'mfi_{}'.format(i))
 
         # Smoothed prma
         ret = data_rank(prma.fit(close, 10) / prma.fit(close, 2))
@@ -394,7 +400,8 @@ def simple_responses(data, days=2):
     """
     assert isinstance(days, int)
     rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
-    rets2 = (rets.pct_change(days).shift(-days).rank(axis=1, pct=True) >= 0.5).astype(int)
+    rets2 = (rets.pct_change(days)
+             .shift(-days).rank(axis=1, pct=True) >= 0.5).astype(int)
     output = rets2.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response_Simple_{}'.format(days)]
     return output

@@ -90,14 +90,12 @@ class StatArbStrategy(Strategy):
                 (int(self._prepped_data_files[time_index][:4]) < 2009):
             return
 
-        # Iterate
-        i = 0
-
-        # '60042'
+        column_index = 0
         for args1 in self._data_args:
-
             self.data.set_args(**args1)
 
+            # Once data has been processed, pass relevant information
+            # to portfolio constructor
             self.constructor.set_test_dates(self.data.get_test_dates())
             self.constructor.set_pricing_data(time_index,
                                               self.data.get_pricing_data())
@@ -115,22 +113,19 @@ class StatArbStrategy(Strategy):
                 self.signals.fit_model()
                 signals = self.signals.get_signals()
 
+                # Pass signals to portfolio constructor
                 self.constructor.set_signal_data(time_index, signals)
 
                 for ac in self._constructor_args:
-
                     self.constructor.set_args(**ac)
-
-                    result, stats = self.constructor.get_period_daily_pl(i)
-
-                    self._capture_output(result, stats, i)
-                    i += 1
+                    result = self.constructor.get_period_daily_pl(column_index)
+                    self._capture_output(result, column_index)
+                    column_index += 1
 
         self.write_index_results(self.output_returns, time_index)
         self.write_index_results(self.output_all_output,
                                  time_index,
                                  'all_output')
-        self.write_index_stats(self.output_stats, time_index)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -172,9 +167,9 @@ class StatArbStrategy(Strategy):
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _capture_output(self, results, stats, arg_index):
+    def _capture_output(self, results, arg_index):
         results = results.copy()
-        returns = pd.DataFrame(results.PL / self.constructor.booksize)
+        returns = pd.DataFrame(results.PL)
         returns.columns = [arg_index]
         # Rename columns
         results.columns = ['{}_{}'.format(x, arg_index)
@@ -182,13 +177,11 @@ class StatArbStrategy(Strategy):
         if arg_index == 0:
             self.output_returns = returns
             self.output_all_output = results
-            self.output_stats = {}
         else:
             self.output_returns = self.output_returns.join(returns,
                                                            how='outer')
             self.output_all_output = self.output_all_output.join(
                 results, how='outer')
-        self.output_stats[arg_index] = stats
 
 
 if __name__ == '__main__':

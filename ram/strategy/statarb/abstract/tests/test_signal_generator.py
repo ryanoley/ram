@@ -16,19 +16,37 @@ class SignalGenerator(BaseSignalGenerator):
     def get_args(self):
         return None
 
-    def get_skl_model(self):
+    def set_args(self):
         return None
 
-    def generate_signals(self, data_container, **kwargs):
+    def set_features(self, features):
+        return None
+
+    def set_train_data(self, train_data):
+        return None
+
+    def set_train_responses(self, train_responses):
+        return None
+
+    def set_test_data(self, test_data):
+        return None
+
+    def fit_model(self):
+        return None
+
+    def get_model(self):
+        return None
+
+    def set_model(self):
+        return None
+
+    def get_signals(self):
         return None
 
 
 class TestBaseSignalGenerator(unittest.TestCase):
 
     def setUp(self):
-        pass
-
-    def test_filter_seccodes(self):
         pass
 
     def tearDown(self):

@@ -61,8 +61,11 @@ python ram/strategy/statarb/implementation/get_daily_raw_data.py
 ```
 
 
+## Odd Ticker Hash
 
+`DATA/ram/implementation/StatArbStrategy/live_pricing/odd_ticker_hash.json`
 
+Used to map `{ QADirectTicker: EzeTicker , ...}`
 
-
+TODO: How are we going to keep this up to date?
 
