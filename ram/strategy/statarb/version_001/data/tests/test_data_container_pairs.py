@@ -84,11 +84,11 @@ class TestDataContainerPairs(unittest.TestCase):
         data4['SecCode'] = '10922530'
         self.market_data = data.append(data2).append(data3).append(data4)
 
-    def test_prep_live_data(self):
+    def Xtest_prep_live_data(self):
         dc = DataContainerPairs()
         dc.prep_live_data(self.data4, self.market_data)
 
-    def test_process_live_data(self):
+    def Xtest_process_live_data(self):
         live_data = pd.DataFrame({
             'SecCode': ['AAPL', 'IBM', 'TSLA'],
             'Ticker': ['AAPL', 'IBM', 'TSLA'],
@@ -102,7 +102,7 @@ class TestDataContainerPairs(unittest.TestCase):
         dc.prep_live_data(self.data4, self.market_data)
         dc.process_live_data(live_data)
 
-    def test_set_args(self):
+    def Xtest_set_args(self):
         dc = DataContainerPairs()
         # Setup
         response_params = {'asdf': '1234'}
@@ -131,7 +131,7 @@ class TestDataContainerPairs(unittest.TestCase):
         dc.get_train_responses()
         dc.get_test_data()
 
-    def test_make_responses(self):
+    def Xtest_make_responses(self):
         dc = DataContainerPairs()
         dc._make_responses(self.data)
         result = dc._processed_train_responses.columns.tolist()
@@ -142,7 +142,7 @@ class TestDataContainerPairs(unittest.TestCase):
         result.sort()
         self.assertListEqual(result, range(params_count))
 
-    def test_make_ern_date_blackout(self):
+    def Xtest_make_ern_date_blackout(self):
         result = make_ern_date_blackout(self.data3, -1, 1)
         benchmark = np.array([0, 1, 1, 1, 0, 0, 0, 0]*2)
         assert_array_equal(result.EARNINGS_Blackout.values, benchmark)
@@ -159,7 +159,7 @@ class TestDataContainerPairs(unittest.TestCase):
         benchmark = np.array([0, 0, 0, 0, 0, 0, 0, 1]*2)
         assert_array_equal(result.EARNINGS_Blackout.values, benchmark)
 
-    def test_make_anchor_ret(self):
+    def Xtest_make_anchor_ret(self):
         data4 = self.data3.copy()
         data4['EARNINGSFLAG'] = [0, 1, 0, 0, 0, 0, 0, 0] * 2
         data4.AdjClose.iloc[10:13] = [10, 5, 10]
@@ -169,7 +169,7 @@ class TestDataContainerPairs(unittest.TestCase):
         assert_array_almost_equal(
             result.EARNINGS_AnchorRet_Rank.values, benchmark)
 
-    def test_make_ern_return(self):
+    def Xtest_make_ern_return(self):
         data4 = self.data3.copy()
         data4['EARNINGSFLAG'] = [0, 1, 0, 0, 0, 0, 0, 0] * 2
         data4.AdjVwap.iloc[10:13] = [10, 5, 10]
@@ -179,7 +179,7 @@ class TestDataContainerPairs(unittest.TestCase):
             [0.75] * 3 + [1.] * 5 + [0.75] * 3 + [0.5] * 5
         assert_frame_equal(result, benchmark)
 
-    def test_make_ibes_increases_decreases(self):
+    def Xtest_make_ibes_increases_decreases(self):
         data = pd.DataFrame()
         data['SecCode'] = ['a'] * 9
         data['Date'] = ['2015-01-01', '2015-01-02', '2015-01-03',
@@ -193,7 +193,7 @@ class TestDataContainerPairs(unittest.TestCase):
         benchmark['a'] = [0.0] * 9
         assert_frame_equal(result[1], benchmark)
 
-    def test_make_ibes_discount(self):
+    def Xtest_make_ibes_discount(self):
         data = pd.DataFrame()
         data['SecCode'] = ['a'] * 9
         data['Date'] = ['2015-01-01', '2015-01-02', '2015-01-03',
@@ -209,12 +209,12 @@ class TestDataContainerPairs(unittest.TestCase):
                           0.175, 0.2, 0.2, 0.2]
         assert_frame_equal(result[1], benchmark)
 
-    def test_create_split_multiplier(self):
+    def Xtest_create_split_multiplier(self):
         result = create_split_multiplier(self.data2)
         self.assertTrue('SplitMultiplier' in result)
         self.assertTrue('SplitFactor' not in result)
 
-    def test_make_technical_market_features(self):
+    def Xtest_make_technical_market_features(self):
         dc = DataContainerPairs()
         dates = ['2015-01-{:02d}'.format(x) for x in range(1, 22)] * 2
         data = pd.DataFrame({

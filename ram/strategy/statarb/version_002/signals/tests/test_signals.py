@@ -6,7 +6,7 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.statarb.version_00.signals.signals import *
+from ram.strategy.statarb.version_002.signals.signals import *
 
 
 class TestSignalModel(unittest.TestCase):

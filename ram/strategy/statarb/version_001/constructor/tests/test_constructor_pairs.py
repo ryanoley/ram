@@ -21,7 +21,7 @@ class TestConstructorPairs(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_set_signals_constructor_data(self):
+    def Xtest_set_signals_constructor_data(self):
         zscores = pd.DataFrame(index=[dt.date(2010, 1, 1),
                                       dt.date(2010, 1, 2)])
         zscores['A~B'] = [1, 2]
@@ -69,7 +69,7 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark['cindex'] = range(12)
         assert_frame_equal(result, benchmark)
 
-    def test_tree_model(self):
+    def Xtest_tree_model(self):
         scores = {'a': 10, 'b': 20, 'c': 30, 'd': 40, 'e': 50}
         cols = [x for x in itertools.permutations(['a', 'b', 'c',
                                                    'd', 'e'], 2)]
@@ -97,7 +97,7 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark = {'a': -0.25, 'b': -0.25, 'd': 0, 'e': 0.5}
         self.assertDictEqual(result, benchmark)
 
-    def test_tree_model_get_pos_sizes(self):
+    def Xtest_tree_model_get_pos_sizes(self):
         data = pd.DataFrame()
         data['SecCode'] = ['a', 'a', 'a', 'b', 'b', 'b']
         data['Signal'] = [1, 1, 1, 2, 2, 2]
@@ -111,7 +111,7 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark['offset_size'] = [0, 0, -0.5, -0.5]
         assert_frame_equal(result, benchmark)
 
-    def test_tree_model_aggregate_pos_sizes(self):
+    def Xtest_tree_model_aggregate_pos_sizes(self):
         data = pd.DataFrame()
         data['SecCode'] = ['a', 'a']
         data['OffsetSecCode'] = ['b', 'c']
@@ -124,13 +124,13 @@ class TestConstructorPairs(unittest.TestCase):
             data['pos_size'] = [20, 20]
             result = _tree_model_aggregate_pos_sizes(data)
 
-    def test_basic(self):
+    def Xtest_basic(self):
         scores = {'A': 0, 'C': 4, 'B': 2, 'D': np.nan}
         result = _basic(scores)
         benchmark = {'A': -0.5, 'B': 0, 'C': 0.5, 'D': 0}
         self.assertDictEqual(result, benchmark)
 
-    def test_get_weighting(self):
+    def Xtest_get_weighting(self):
         data = pd.DataFrame({'V1': [3, 1, 2, np.nan, 4, np.nan]})
         result = _get_weighting(data.V1, False, 1)
         self.assertAlmostEqual(np.sum(result), 0)
@@ -149,7 +149,7 @@ class TestConstructorPairs(unittest.TestCase):
         self.assertAlmostEqual(result1[2], result2[6:9].sum())
         self.assertAlmostEqual(result1[3], result2[9:12].sum())
 
-    def test_zscore_rank(self):
+    def Xtest_zscore_rank(self):
         data = pd.DataFrame()
         data['pair'] = ['A~B', 'A~C', 'B~A', 'B~C'] * 2
         data['Date'] = ['2010-01-01'] * 4 + ['2010-01-02'] * 4
@@ -163,7 +163,7 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark = [2.] * 8
         self.assertEqual(result[1].tolist(), benchmark)
 
-    def test_merge_zscores_pair_info(self):
+    def Xtest_merge_zscores_pair_info(self):
         zscores = pd.DataFrame(index=[dt.date(2010, 1, 1),
                                       dt.date(2010, 1, 2)])
         zscores['A~B'] = [10, 20]
@@ -186,7 +186,7 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark['zscore'] = [10, 20, 88, 99]
         assert_frame_equal(result, benchmark)
 
-    def test_merge_zscores_signals(self):
+    def Xtest_merge_zscores_signals(self):
         zscores = pd.DataFrame(index=[dt.date(2010, 1, 1),
                                       dt.date(2010, 1, 2)])
         zscores['A~B'] = [10, 20]
@@ -208,7 +208,7 @@ class TestConstructorPairs(unittest.TestCase):
         benchmark['OffsetSignal'] = [1002, 1003, 1004, 1005]
         assert_frame_equal(result, benchmark)
 
-    def test_final_format(self):
+    def Xtest_final_format(self):
         #import pdb; pdb.set_trace()
         _final_format
 
