@@ -48,7 +48,6 @@ class ModelSelection(object):
 
     def __init__(self,
                  write_flag=False,
-                 restart_version_number=None,
                  checkpoint_n_epochs=10,
                  gcp_cloud_implementation=config.GCP_CLOUD_IMPLEMENTATION,
                  model_selection_output_dir=config.MODEL_SELECTION_OUTPUT_DIR
@@ -63,11 +62,8 @@ class ModelSelection(object):
         else:
             self._init_local_implementation()
 
-        if restart_version_number:
-            self._init_restart(restart_version_number)
-        else:
-            self._init_new_run()
-            self._runs = RunAggregator()
+        self._init_new_run()
+        self._runs = RunAggregator()
 
     def _init_gcp_implementation(self):
         """
@@ -89,60 +85,7 @@ class ModelSelection(object):
             os.mkdir(self._model_selection_dir)
 
     def _init_new_run(self):
-
         self._create_output_dir()
-
-    # def _init_restart(self, restart_version_number):
-    #     assert isinstance(restart_version_number, int)
-
-    #     run_name = '{}_{:04d}'.format(self.__class__.__name__,
-    #                                   restart_version_number)
-    #     self._output_dir = self._model_selection_dir + '/' + run_name
-
-    #     path1 = os.path.join(self._output_dir, 'raw_returns.csv')
-    #     path2 = os.path.join(self._output_dir, 'raw_column_params.json')
-
-    #     #
-    #     path2 = os.path.join(self._output_dir, 'epoch_stats.csv')
-    #     path3 = os.path.join(self._output_dir, 'best_results_rets.csv')
-    #     path4 = os.path.join(self._output_dir, 'best_results_scores.json')
-    #     path5 = os.path.join(self._output_dir, 'best_results_combs.json')
-    #     path6 = os.path.join(self._output_dir, 'combo_search_params.json')
-    #     path7 = os.path.join(self._output_dir, 'all_column_params.json')
-
-    #     if self._gcp_implementation:
-    #         self._raw_returns = read_csv_cloud(path1, self._gcp_bucket)
-    #         self._raw_column_params = read_json_cloud(path2, self._gcp_bucket)
-
-    #         self.epoch_stats = read_csv_cloud(path2, self._gcp_bucket)
-    #         self.best_results_rets = read_csv_cloud(path3, self._gcp_bucket)
-
-    #         self.best_results_scores = read_json_cloud(path4, self._gcp_bucket)
-    #         self.best_results_combs = read_json_cloud(path5, self._gcp_bucket)
-    #         self.params = read_json_cloud(path6, self._gcp_bucket)
-
-    #     else:
-    #         self.runs.returns = pd.read_csv(path1)
-    #         self.epoch_stats = pd.read_csv(path2)
-    #         self.best_results_rets = pd.read_csv(path3)
-
-    #         self.best_results_scores = read_json(path4)
-    #         self.best_results_combs = read_json(path5)
-    #         self.params = read_json(path6)
-    #         self.runs.column_params = read_json(path7)
-
-    #     # Process csv files with dates in indexes
-    #     self.runs.returns = format_dataframe(self.runs.returns, True)
-    #     self.epoch_stats = format_dataframe(self.epoch_stats)
-    #     self.best_results_rets = format_dataframe(self.best_results_rets, True)
-    #     # Combs and scores must have integer keys and numpy arrays
-    #     # in values
-    #     self.best_results_scores = {
-    #         int(x): np.array(y) for x, y
-    #         in self.best_results_scores.iteritems()}
-    #     self.best_results_combs = {
-    #         int(x): np.array(y) for x, y
-    #         in self.best_results_combs.iteritems()}
 
     def _create_output_dir(self):
         """
@@ -172,10 +115,6 @@ class ModelSelection(object):
             self._write_new_run_output()
         self._create_results_objects(self._raw_returns)
         self._loop()
-
-    # def restart(self):
-    #     self._init_restart()
-    #     self._loop()
 
     def _loop(self):
 
@@ -267,7 +206,8 @@ class ModelSelection(object):
             m_rets = m_rets.join(returns, rsuffix='N')
             # Append old and new scores/combs
             m_scores = np.append(self.best_results_scores[time_index], scores)
-            m_combs = np.vstack((self.best_results_column_indexes[time_index], model_indexes))
+            m_combs = np.vstack((self.best_results_column_indexes[time_index],
+                                 model_indexes))
             # Sort all
             best_inds = np.argsort(-m_scores)[:len(scores)]
             # And select best returns
@@ -286,7 +226,8 @@ class ModelSelection(object):
                     self.best_results_returns.loc[:, i] = np.nan
             self.best_results_returns.loc[returns.index] = returns
             self.best_results_scores[time_index] = scores.tolist()
-            self.best_results_column_indexes[time_index] = model_indexes.tolist()
+            self.best_results_column_indexes[time_index] = \
+                model_indexes.tolist()
 
     def _process_epoch_stats(self, epoch_count):
         # Get row index to append
@@ -309,7 +250,8 @@ class ModelSelection(object):
             best_indexes = self.best_results_column_indexes[last_time_index][0]
 
             best_indexes = self._raw_returns.columns[best_indexes]
-            best_indexes = {r: self._raw_column_params[r] for r in best_indexes}
+            best_indexes = {r: self._raw_column_params[r]
+                            for r in best_indexes}
 
             # Plotted figure of best results
             plt.figure()
@@ -369,8 +311,6 @@ class ModelSelection(object):
             # Flush matplotlib
             plt.close('all')
         return
-
-
 
 
 # ~~~~~~ Training/Test Indexes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

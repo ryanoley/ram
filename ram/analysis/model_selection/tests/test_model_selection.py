@@ -1,4 +1,5 @@
 import os
+import time
 import shutil
 import unittest
 import numpy as np
@@ -61,13 +62,7 @@ class TestModelSelection(unittest.TestCase):
                                  gcp_cloud_implementation=False,
                                  model_selection_output_dir=self.output_dir)
         self.assertTrue(os.path.isdir(self.output_dir))
-        benchmark = os.path.join(self.output_dir, 'ModelSelection1_0001')
-        self.assertEqual(select._output_dir, benchmark)
-        select = ModelSelection1(write_flag=True,
-                                 gcp_cloud_implementation=False,
-                                 model_selection_output_dir=self.output_dir)
-        benchmark = os.path.join(self.output_dir, 'ModelSelection1_0002')
-        self.assertEqual(select._output_dir, benchmark)
+        self.assertTrue(os.path.isdir(select._output_dir))
 
     def test_create_training_test_indexes(self):
         dates = np.array([dt.date(2015, 1, 1) + dt.timedelta(days=i)
