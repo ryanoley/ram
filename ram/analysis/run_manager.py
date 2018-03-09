@@ -102,7 +102,7 @@ class RunManager(object):
             gcp_client = storage.Client()
             bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
             cursor = bucket.list_blobs(
-                prefix='simulations/{}'.format(strategy_class))
+                prefix='simulations/{}/'.format(strategy_class))
             all_files = [x.name for x in cursor]
             run_names = list(set([x.split('/')[2] for x in all_files]))
             run_names.sort()
@@ -194,8 +194,8 @@ class RunManager(object):
 
     def _get_run_file_paths(self, filter_text):
         if self._cloud_flag:
-            prefix = 'simulations/{}/{}'.format(self.strategy_class,
-                                                self.run_name)
+            prefix = 'simulations/{}/{}/'.format(self.strategy_class,
+                                                 self.run_name)
             cursor = self._gcp_bucket.list_blobs(prefix=prefix)
             all_blobs = [x.name for x in cursor]
             filtered_blobs = [x for x in all_blobs if x.find(filter_text) >= 0]
