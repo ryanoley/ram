@@ -114,6 +114,10 @@ class ModelSelection(object):
         # If writing out results, setup
         if self._write_flag:
             self._write_new_run_output()
+            print('\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print('Writing run as: {}'.format(self._run_name))
+            print('Max date: {}'.format(self._raw_returns.index.max().date()))
+            print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
         self._create_results_objects(self._raw_returns)
         self._loop()
 
@@ -279,7 +283,8 @@ class ModelSelection(object):
                     self._gcp_bucket)
 
                 # Top params name should be versioned
-                top_params_name = 'params_{}.json'.format(self._run_name)
+                top_params_name = 'current_params_{}.json'.format(
+                    self._run_name)
                 write_json_cloud(best_indexes, os.path.join(
                     self._output_dir, top_params_name),
                     self._gcp_bucket)
@@ -324,8 +329,12 @@ def create_training_test_indexes(dates,
                                  n_periods=0):
 
     """
-    Creates the row indexes that create the training and test data sets.
-    Used as an .iloc[] on the data frame.
+    Creates a list of tuples.
+    * The first entry is an array of training dates
+    * The second entry is an array of test dates
+
+    NOTE: The last entry in the list will have a training set
+    that is the entire date series, and an empty test entry
 
     Parameters
     ----------
@@ -336,6 +345,9 @@ def create_training_test_indexes(dates,
         Number of periods to return in training data. If zero, returns
         growing training set
     """
+    assert isinstance(dates, pd.DatetimeIndex)
+    dates = dates.unique()
+
     if training_freq == 'w':
         # New period starts on the first trading day of the week
         weekdays = np.array([x.weekday() for x in dates])
@@ -368,6 +380,11 @@ def create_training_test_indexes(dates,
         if n_periods < 1:
             d1 = 0
         output.append((dates[d1:d2], dates[d2:d3]))
+
+    # Final entry is all dates and empty test. This is for generating the
+    # current top parameters.
+    output.append((dates, []))
+
     return output
 
 
