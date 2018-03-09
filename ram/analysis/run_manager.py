@@ -168,11 +168,21 @@ class RunManager(object):
         self.column_params = column_params
 
     def import_meta(self):
-        file_path = self._get_run_file_paths('meta.json')[0]
+        file_path = self._get_run_file_paths('/meta.json')[0]
         if self._cloud_flag:
             self.meta = read_json_cloud(file_path, self._gcp_bucket)
         else:
             self.meta = read_json(file_path)
+        # Get data blueprint and add to meta
+        file_path = self._get_run_file_paths('/data_meta.json')
+        if len(file_path) == 0:
+            return
+        if self._cloud_flag:
+            blueprint = read_json_cloud(file_path[0], self._gcp_bucket)
+            self.meta['blueprint'] = blueprint['blueprint']
+        else:
+            blueprint = read_json(file_path[0])
+            self.meta['blueprint'] = blueprint['blueprint']
 
     def import_all_output(self):
         file_paths = self._get_run_file_paths('all_output.csv')

@@ -68,6 +68,9 @@ class TestRunManager(unittest.TestCase):
                 'strategy_code_version': 'version1020'}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
+        data_meta = {'blueprint': {'val': 10}, 'stuff': {}}
+        with open(os.path.join(run_path, 'data_meta.json'), 'w') as f:
+            json.dump(data_meta, f)
         # Create column params
         params = {0: {'p1': 10, 'p2': 20}, 1: {'p1': 20, 'p2': 30}}
         with open(os.path.join(run_path, 'column_params.json'), 'w') as f:
@@ -158,7 +161,8 @@ class TestRunManager(unittest.TestCase):
                      'description': 'Test data',
                      'prepped_data_version': u'version10',
                      'strategy_code_version': u'version1020',
-                     'completed': True}
+                     'completed': True,
+                     'blueprint': {u'val': 10}}
         self.assertDictEqual(run1.meta, benchmark)
 
     def test_import_column_params(self):
