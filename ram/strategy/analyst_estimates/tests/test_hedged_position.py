@@ -11,7 +11,7 @@ class TestHedgedPosition(unittest.TestCase):
         pass
 
     def test_update_position_size(self):
-        position = HedgedPosition('IBM', 100.)
+        position = HedgedPosition('IBM', 100., comm=.005)
 
         position.update_position_size(1000., 100.)
         self.assertEqual(position.shares, 10)
@@ -34,7 +34,7 @@ class TestHedgedPosition(unittest.TestCase):
         self.assertEqual(np.round(position.cumulative_return, 5),
                          np.round((9.95 / 1010) + .05, 5))
 
-        position = HedgedPosition('IBM', 100.)
+        position = HedgedPosition('IBM', 100., comm=.005)
 
         position.update_position_size(-1000., 100.)
         self.assertEqual(position.shares, -10)
@@ -57,7 +57,7 @@ class TestHedgedPosition(unittest.TestCase):
         self.assertEqual(np.round(position.cumulative_return, 5),
                          np.round((-10.05 / 1010) - .05, 5))
 
-        position = HedgedPosition('IBM', 100.)
+        position = HedgedPosition('IBM', 100., comm=.005)
 
         position.update_position_size(-1000., 100.)
         self.assertEqual(position.shares, -10)
