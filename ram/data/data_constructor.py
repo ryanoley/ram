@@ -376,7 +376,7 @@ def _get_versions_cloud(strategy_name):
     all_files = [x.name for x in bucket.list_blobs()]
     all_files = [x for x in all_files if x.find('prepped_data') >= 0]
     all_files = [x for x in all_files if x.find('version') >= 0]
-    all_files = [x for x in all_files if x.find(strategy_name) >= 0]
+    all_files = [x for x in all_files if x.find(strategy_name + '/') >= 0]
     all_files = list(set([x.split('/')[2] for x in all_files]))
     all_files = [x for x in all_files if x.find('archive') == -1]
     all_files.sort()
