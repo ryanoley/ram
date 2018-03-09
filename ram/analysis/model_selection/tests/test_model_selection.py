@@ -92,7 +92,6 @@ class TestModelSelection(unittest.TestCase):
         select.add_run(self.run1)
         select.add_run(self.run2)
         select.start()
-        x = 10
 
     def test_clean_model_indexes(self):
         model_indexes = [[0, 1], [1, 3], [1, 2]]

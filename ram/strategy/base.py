@@ -593,6 +593,8 @@ class Strategy(object):
             write_json(stats, output_path)
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def copytree(src, dst, symlinks=False, ignore=None):
     os.mkdir(dst)
     for item in os.listdir(src):
@@ -604,6 +606,10 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -724,8 +730,7 @@ def make_argument_parser(Strategy):
 
     from ram.data.data_constructor import get_data_version_name
     from ram.data.data_constructor import print_data_versions
-    from ram.analysis.run_manager import get_run_data
-    from ram.analysis.run_manager import get_run_name
+    from ram.analysis.run_manager import RunManager
 
     parser = argparse.ArgumentParser()
 
@@ -794,9 +799,7 @@ def make_argument_parser(Strategy):
         print(versions)
 
     elif args.strategy_list_runs:
-        # TODO
-        runs = get_run_data(Strategy.__name__,
-                            config.GCP_CLOUD_IMPLEMENTATION)
+        runs = RunManager.get_run_names(Strategy.__name__)
         # Adjust column width
         runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
         print(runs)
@@ -839,9 +842,13 @@ def make_argument_parser(Strategy):
         strategy.start(args.description)
 
     elif args.restart_run:
-        run_name = get_run_name(strategy_name=Strategy.__name__,
-                                run_name=args.restart_run,
-                                cloud_flag=config.GCP_CLOUD_IMPLEMENTATION)
+        runs = RunManager.get_run_names(Strategy.__name__)
+        if isinstance(args.restart_run, int):
+            run_name = runs.loc[int(run_name)].RunName
+        elif args.restart_run in runs.RunName.values:
+            run_name = args.restart_run
+        else:
+            raise ValueError('Run not found')
         strategy = Strategy(write_flag=True)
         strategy.restart(run_name)
 

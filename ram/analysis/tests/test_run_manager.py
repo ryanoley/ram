@@ -189,14 +189,6 @@ class TestRunManager(unittest.TestCase):
         benchmark = pd.Series(['10', '20'], name='Val')
         assert_series_equal(result.Val, benchmark)
 
-    def test_parameter_correlations(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
-                          simulation_data_path=self.base_path)
-        run1.import_return_frame()
-        run1.import_column_params()
-        run1.import_stats()
-        result = run1.parameter_correlations('p2')
-
     def test_filter_classified_params(self):
         cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
                    'p1': {'10': ['0', '2'], '20': ['1', '3']}}
@@ -326,13 +318,13 @@ class TestRunManager(unittest.TestCase):
         assert_frame_equal(result, benchmark)
 
     def test_get_run_names(self):
-        result = RunManager.get_run_names('TestStrategy', self.base_path)
+        config.SIMULATIONS_DATA_DIR = self.base_path
+        result = RunManager.get_run_names('TestStrategy')
         benchmark = pd.DataFrame(index=[0])
-        benchmark['Run'] = ['run_0001']
+        benchmark['RunName'] = ['run_0001']
         benchmark['RunDate'] = ['2010-01-01']
         benchmark['Completed'] = True
         benchmark['Description'] = ['Test data']
-        benchmark['Starred'] = ''
         assert_frame_equal(result, benchmark)
 
     def test_get_quarterly_rets(self):
@@ -343,14 +335,6 @@ class TestRunManager(unittest.TestCase):
         result = get_quarterly_rets(data, 'Ret1')
         self.assertEqual(result.values[0].tolist(), [10, 35])
 
-    def test_add_note(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
-                          simulation_data_path=self.base_path)
-        run1.add_note('This is a test note')
-        time.sleep(2)
-        run1.add_note('This is a second test note')
-        result = run1.get_notes()
-        self.assertEqual(result.shape[0], 2)
 
     def tearDown(self):
         shutil.rmtree(self.base_path)

@@ -255,8 +255,16 @@ class ModelSelection(object):
             best_indexes = self.best_results_column_indexes[last_time_index][0]
 
             best_indexes = self._raw_returns.columns[best_indexes]
+
+
             best_indexes = {r: self._raw_column_params[r]
                             for r in best_indexes}
+
+            param_packet = {
+                'datetime_created':
+                    dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                'model_params': best_indexes
+            }
 
             # Plotted figure of best results
             plt.figure()
@@ -285,7 +293,7 @@ class ModelSelection(object):
                 # Top params name should be versioned
                 top_params_name = 'current_params_{}.json'.format(
                     self._run_name)
-                write_json_cloud(best_indexes, os.path.join(
+                write_json_cloud(param_packet, os.path.join(
                     self._output_dir, top_params_name),
                     self._gcp_bucket)
 
@@ -310,7 +318,7 @@ class ModelSelection(object):
                     self._output_dir, 'best_results_column_indexes.json'))
 
                 top_params_name = 'params_{}.json'.format(self._run_name)
-                write_json(best_indexes, os.path.join(
+                write_json(param_packet, os.path.join(
                     self._output_dir, top_params_name))
 
                 # Matplotlib plot
