@@ -94,8 +94,9 @@ class ModelSelection(object):
         if not self._write_flag:
             return
         timestamp = dt.datetime.utcnow().strftime('%Y%m%d%H%M%S')
-        dir_name = '{}_{}'.format(self.__class__.__name__, timestamp)
-        self._output_dir = self._model_selection_dir + '/' + dir_name
+        run_name = '{}_{}'.format(self.__class__.__name__, timestamp)
+        self._run_name = run_name
+        self._output_dir = self._model_selection_dir + '/' + run_name
         if not self._cloud_flag:
             os.mkdir(self._output_dir)
 
@@ -277,8 +278,10 @@ class ModelSelection(object):
                     self._output_dir, 'best_results_column_indexes.json'),
                     self._gcp_bucket)
 
+                # Top params name should be versioned
+                top_params_name = 'params_{}.json'.format(self._run_name)
                 write_json_cloud(best_indexes, os.path.join(
-                    self._output_dir, 'current_top_params.json'),
+                    self._output_dir, top_params_name),
                     self._gcp_bucket)
 
                 # Matplotlib
@@ -301,8 +304,9 @@ class ModelSelection(object):
                 write_json(indexes, os.path.join(
                     self._output_dir, 'best_results_column_indexes.json'))
 
+                top_params_name = 'params_{}.json'.format(self._run_name)
                 write_json(best_indexes, os.path.join(
-                    self._output_dir, 'current_top_params.json'))
+                    self._output_dir, top_params_name))
 
                 # Matplotlib plot
                 plt.savefig(os.path.join(
