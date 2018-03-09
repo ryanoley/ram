@@ -142,6 +142,7 @@ class Strategy(object):
         self._copy_source_code()
         self._create_meta_file(description)
         self._write_column_parameters_file()
+        self._write_blueprint()
         market_data = self.read_market_index_data()
         for time_index in tqdm(range(len(self._prepped_data_files))):
             self.process_raw_data(
@@ -428,6 +429,20 @@ class Strategy(object):
                 write_json_cloud(column_params, out_path, self._gcp_bucket)
             else:
                 write_json(column_params, out_path)
+
+    def _write_blueprint(self):
+        if not self._write_flag:
+            return
+        if self._gcp_implementation:
+            path = os.path.join(self.data_version_dir, 'meta.json')
+            blueprint = read_json_cloud(path, self._gcp_bucket)
+            path = os.path.join(self.strategy_run_output_dir, 'data_meta.json')
+            write_json_cloud(blueprint, path, self._gcp_bucket)
+        else:
+            path = os.path.join(self.data_version_dir, 'meta.json')
+            blueprint = read_json(path)
+            path = os.path.join(self.strategy_run_output_dir, 'data_meta.json')
+            write_json(blueprint, path)
 
     def _shutdown_simulation(self):
         if self._write_flag:
