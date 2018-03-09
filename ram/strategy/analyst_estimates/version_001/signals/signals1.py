@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 
-from ram import config
+from ram.strategy.analyst_estimates import config
 
 NJOBS = config.SKLEARN_NJOBS
 
