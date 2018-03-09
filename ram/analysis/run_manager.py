@@ -80,7 +80,9 @@ class RunManager(object):
         output = pd.DataFrame()
         for i, (run_name, path) in enumerate(zip(*run_names)):
             if config.GCP_CLOUD_IMPLEMENTATION:
-                meta = read_json_cloud(path, self._gcp_bucket)
+                gcp_client = storage.Client()
+                bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+                meta = read_json_cloud(path, bucket)
             else:
                 meta = read_json(path)
             output.loc[i, 'RunName'] = run_name
