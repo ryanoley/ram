@@ -46,7 +46,8 @@ class RunAggregator(object):
                     'run_name': run.run_name,
                     'prepped_data_version': run.meta['prepped_data_version'],
                     'strategy_code_version': code_version,
-                    'description': run.meta['description']
+                    'description': run.meta['description'],
+                    'blueprint': run.meta['blueprint']
                  }
                 agg_params['{}_{}'.format(prefix, k)] = packet
         print('Finished aggregating runs...')
