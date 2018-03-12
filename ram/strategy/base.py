@@ -171,7 +171,6 @@ class Strategy(object):
     def implementation_training(self):
         self._create_implementation_output_dir()
         run_map = self._import_prep_implementation_parameters()
-        import pdb; pdb.set_trace()
         current_stack_index = -1
         for run_data in run_map:
             if run_data['stack_index'] != current_stack_index:
@@ -675,7 +674,6 @@ class StrategyVersionContainer(object):
 # ~~~~~~ Read/Write functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def write_json(out_dictionary, path):
-    assert isinstance(out_dictionary, dict)
     with open(path, 'w') as outfile:
         json.dump(out_dictionary, outfile)
 
@@ -685,7 +683,6 @@ def read_json(path):
 
 
 def write_json_cloud(out_dictionary, path, bucket):
-    assert isinstance(out_dictionary, dict)
     blob = bucket.blob(path)
     blob.upload_from_string(json.dumps(out_dictionary))
 
