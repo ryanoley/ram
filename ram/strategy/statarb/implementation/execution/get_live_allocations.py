@@ -362,6 +362,7 @@ def main():
     strategy = StatArbImplementation()
 
     strategy.add_raw_data(raw_data)
+
     strategy.add_run_map(run_map)
     strategy.add_models_params(models_params)
     strategy.add_positions(positions)

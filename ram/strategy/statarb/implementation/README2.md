@@ -1,48 +1,66 @@
-
 # Implementation Training
 
-## Set Parameter File
-
-In `ram_configs.py`, be sure to set the model selection parameter file name.
+## 1. Move Model Selection Top Parameters File
 
 The Model Selection parameter file should be in:
 ```
 GITHUB/ram/ram/strategy/statarb/implementation/params/
 ```
 
-### Download config file from Google Cloud
+#### Download config file from Google Cloud
 
 ```
 gsutil cp gs://ram_data/model_selection/{model_selection_dir}/current_params_{model_selection_run}.json .
 ```
 
 
-## Workflow through files and functions
+## 2. Set Parameter File Name in StatArb Config
 
-Documents files and functions that are used, and the dependencies.
+The config file is at: `ram/strategy/statarb/statarb_config.py`
 
-The entire process is kicked off through:
+
+## 3. Make sure prepped_data directories are up to date:
 
 ```python
-python ram/strategies/statarb/main.py -s 1 -i
+python ram/strategy/statarb/main.py -dv
+```
+
+The Max Data Date column should be the final date of the training period.
+
+#### To update versions of prepped data
+
+```python
+python ram/strategy/statarb/main.py -d_update {version/index number}
+```
+
+#### To move files to GCP cloud instance from local clients
+
+```python
+python ram/data/data_gcp_manager.py -ls                 # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for strategy
+python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 ```
 
 
-
-### List of Files/Directories that must be present
-
-*
-
-
-### Functions
-
-1. `import_current_top_params`
-
-Gets the parameters for the models that have been selected. The file is one big dictionary, with the following form:
+## 4. Train models
 
 ```python
-{'StatArbStrategy_run_0002_454': {''}}
+python ram/strategies/statarb/main.py -i -w
+```
+
+
+## 5. Download Trained Model Directory
 
 ```
+python ram/data/data_gcp_manager.py -ls                 # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -lm            # List all trained model dirs
+python ram/data/data_gcp_manager.py -s 4 -m 17 --download
+```
+
+
+## 6. Set Trained Models Name in StatArb Config
+
+The config file is at: `ram/strategy/statarb/statarb_config.py`
+
 
 # Daily Training

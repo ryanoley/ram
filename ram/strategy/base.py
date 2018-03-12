@@ -77,18 +77,16 @@ class Strategy(object):
         raise NotImplementedError('Strategy.get_column_parameters')
 
     @abstractmethod
-    def implementation_training(self):
+    def get_implementation_param_path(self):
         """
-        This function should simply be used to load the names of the
-        parameters that need to be training.
-
-        Load through: implementation_training_cache_params
-
-        Input should be list with items in the following format:
-        `Strategy_run_RUNNUM_COLNUM`, as they are printed out from
-        combo_search.
         """
-        raise NotImplementedError('Strategy.implementation_training')
+        raise NotImplementedError('Strategy.get_implementation_param_path')
+
+    @abstractmethod
+    def process_implementation_params(self):
+        """
+        """
+        raise NotImplementedError('Strategy.process_implementation_params')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -170,6 +168,23 @@ class Strategy(object):
         self._shutdown_simulation()
         return
 
+    def implementation_training(self):
+        self._create_implementation_output_dir()
+        run_map = self._import_prep_implementation_parameters()
+        import pdb; pdb.set_trace()
+        current_stack_index = -1
+        for run_data in run_map:
+            if run_data['stack_index'] != current_stack_index:
+                self.strategy_code_version = run_data['strategy_code_version']
+                self.prepped_data_version = run_data['prepped_data_version']
+                current_stack_index = run_data['stack_index']
+                print('[[Stacking data]]')
+                self.strategy_init()
+                self._implementation_training_stack_version_data()
+            self.process_implementation_params(run_data['run_name'],
+                                               run_data['column_params'])
+        return
+
     # ~~~~~~ GCP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _init_gcp_implementation(self):
@@ -219,44 +234,44 @@ class Strategy(object):
 
     # ~~~~~~ Implementation Training Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def implementation_training_prep(self, top_params):
-        """
-        param_name, run_name, strategy_version, data_version
-        """
-        top_params = clean_top_params(top_params)
-        output = pd.DataFrame(columns=['param_name', 'run_name',
-                                       'strategy_version', 'data_version',
-                                       'column_name'])
-        for i, (param, run) in enumerate(zip(*top_params)):
-            output.loc[i, 'param_name'] = param
-            output.loc[i, 'run_name'] = run
-            meta = self._import_run_meta(run)
-            output.loc[i, 'strategy_version'] = meta['strategy_code_version']
-            output.loc[i, 'data_version'] = meta['prepped_data_version']
-            output.loc[i, 'column_name'] = param.split('_')[-1]
-        # Unique versions of strategy/data need their own data stack
-        output['stack_index'] = 0
-        for i in range(len(output)):
-            output.loc[i, 'stack_index'] = '{}~{}'.format(
-                output.loc[i, 'strategy_version'],
-                output.loc[i, 'data_version'])
-        output = output.sort_values('stack_index').reset_index(drop=True)
-        # Write to file - THIS IS TERRIBLE IMPLEMENTATION. MOVE at some point
+    def _import_prep_implementation_parameters(self):
+        model_params = read_json(self.get_implementation_param_path())
+        # TODO: Check date on writing
+        created_date = dt.datetime.strptime(
+            model_params['datetime_created'][:10], '%Y-%m-%d')
+        model_params = model_params['model_params']
+        # Organize and sort
+        stack_indexes = [('{}~{}'.format(
+            p['strategy_code_version'], p['prepped_data_version']), k)
+            for k, p in model_params.iteritems()]
+        stack_indexes.sort()
+        # Output organize
+        output = []
+        for index, run in stack_indexes:
+            packet = {}
+            packet['run_name'] = run
+            packet['prepped_data_version'] = \
+                model_params[run]['prepped_data_version']
+            packet['strategy_code_version'] = \
+                model_params[run]['strategy_code_version']
+            packet['column_params'] = model_params[run]['column_params']
+            packet['stack_index'] = index
+            output.append(packet)
+        # Write to file
         if self._write_flag & self._gcp_implementation:
             path = os.path.join(self.implementation_output_dir,
-                                'run_map.csv')
-            to_csv_cloud(output, path, self._gcp_bucket)
+                                'run_map.json')
+            write_json_cloud(output, path, self._gcp_bucket)
         elif self._write_flag:
             path = os.path.join(self.implementation_output_dir,
-                                'run_map.csv')
-            output.to_csv(path, index=None)
+                                'run_map.json')
+            write_json(output, path)
         return output
 
-    def implementation_training_stack_version_data(self, data_version):
+    def _implementation_training_stack_version_data(self):
         """
         To be used by derived class to prep data
         """
-        self.prepped_data_version = data_version
         self._init_prepped_data_dir()
         self._get_prepped_data_file_names()
         market_data = self.read_market_index_data()
@@ -266,16 +281,6 @@ class Strategy(object):
                 time_index,
                 market_data.copy())
         return
-
-    def import_run_column_params(self, run_name):
-        path = os.path.join(self._strategy_output_dir,
-                            run_name,
-                            'column_params.json')
-        if self._gcp_implementation:
-            column_params = read_json_cloud(path, self._gcp_bucket)
-        else:
-            column_params = read_json(path)
-        return column_params
 
     def implementation_training_write_params_model(self,
                                                    run_name,
@@ -625,10 +630,6 @@ def copytree(src, dst, symlinks=False, ignore=None):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class StrategyVersionContainer(object):
 
     def __init__(self):
@@ -869,9 +870,6 @@ def make_argument_parser(Strategy):
 
     elif args.implementation_training:
         strategy = Strategy(write_flag=args.write_flag)
-        strategy._create_implementation_output_dir()
-
         if not args.write_flag:
             import pdb; pdb.set_trace()
-
         strategy.implementation_training()
