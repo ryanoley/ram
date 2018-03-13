@@ -13,6 +13,8 @@ GITHUB/ram/ram/strategy/statarb/implementation/params/
 gsutil cp gs://ram_data/model_selection/{model_selection_dir}/current_params_{model_selection_run}.json .
 ```
 
+TODO: Create `data_gcp_manager.py` routine for this
+
 
 ## 2. Set Parameter File Name in StatArb Config
 
@@ -44,6 +46,8 @@ python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 
 ## 4. Train models
 
+This step requires the correct config to be set from step 2.
+
 ```python
 python ram/strategies/statarb/main.py -i -w
 ```
@@ -64,3 +68,8 @@ The config file is at: `ram/strategy/statarb/statarb_config.py`
 
 
 # Daily Training
+
+
+## 1. Get Raw Data (10 am)
+
+`get_daily_raw_data.py`
