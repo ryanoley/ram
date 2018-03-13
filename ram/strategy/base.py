@@ -255,6 +255,7 @@ class Strategy(object):
                 model_params[run]['strategy_code_version']
             packet['column_params'] = model_params[run]['column_params']
             packet['stack_index'] = index
+            packet['blueprint'] = model_params[run]['blueprint']
             output.append(packet)
         # Write to file
         if self._write_flag & self._gcp_implementation:
