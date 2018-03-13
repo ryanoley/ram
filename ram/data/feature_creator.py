@@ -199,7 +199,7 @@ class RSI(BaseTechnicalFeature):
     RSI = 100 - 100 / (1 + RS)
     """
     def calculate_all_dates(self, data, window):
-        changes = data.pct_change()
+        changes = data.diff()
         gain = pd.DataFrame(np.where(changes > 0, changes, 0))
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.rolling(window).mean()
@@ -211,7 +211,7 @@ class RSI(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, window):
         window = window + 1
-        changes = data.iloc[-window:].pct_change()
+        changes = data.iloc[-window:].diff()
         gain = pd.DataFrame(np.where(changes > 0, changes, 0))
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.mean()
