@@ -56,7 +56,10 @@ class TestStrategy(Strategy):
     def get_strategy_source_versions(self):
         return strategy_versions
 
-    def implementation_training(self):
+    def get_implementation_param_path(self):
+        pass
+
+    def process_implementation_params(self):
         pass
 
 
@@ -127,42 +130,8 @@ class TestStrategyBase(unittest.TestCase):
         model = joblib.load(path)
         assert_array_equal(model.coef_, benchmark)
 
-    def test_implementation_training_prep(self):
-        self.strategy._write_flag = True
-        self.strategy._get_prepped_data_file_names()
-        # Create four distinct meta files to represent runs
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test')
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test2')
-        # Change strategy
-        self.strategy.prepped_data_version = 'version_9999'
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test3')
-        self.strategy.strategy_code_version = 'version_7676'
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test4')
-        top_params = ['TestStrategy_run_0001_10',
-                      'TestStrategy_run_0002_20',
-                      'TestStrategy_run_0003_30',
-                      'TestStrategy_run_0004_40']
-        self.strategy._create_implementation_output_dir()
-        result = self.strategy.implementation_training_prep(top_params)
-        benchmark = pd.DataFrame()
-        benchmark['param_name'] = ['run_0001_10', 'run_0002_20',
-                                   'run_0003_30', 'run_0004_40']
-        benchmark['run_name'] = ['run_0001', 'run_0002',
-                                 'run_0003', 'run_0004']
-        benchmark['strategy_version'] = ['version_0002', 'version_0002',
-                                         'version_0002', 'version_7676']
-        benchmark['data_version'] = ['version_0001', 'version_0001',
-                                     'version_9999', 'version_9999']
-        benchmark['column_name'] = ['10', '20', '30', '40']
-        benchmark['stack_index'] = ['version_0002~version_0001',
-                                    'version_0002~version_0001',
-                                    'version_0002~version_9999',
-                                    'version_7676~version_9999']
-        assert_frame_equal(result, benchmark)
+    def Xtest_import_prep_implementation_parameters(self):
+        result = self.strategy._import_prep_implementation_parameters()
 
     def test_get_prepped_data_files(self):
         self.strategy._get_prepped_data_file_names()
