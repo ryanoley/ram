@@ -8,7 +8,7 @@ from ram.strategy.statarb.abstract.portfolio_constructor import \
 
 class PortfolioConstructor(BasePortfolioConstructor):
 
-    _sizes = {}
+    _size_containers = {}
 
     def get_args(self):
         return {
@@ -44,11 +44,11 @@ class PortfolioConstructor(BasePortfolioConstructor):
         For signals, Longs are high. (Signal is from sklearn model)
         For scores, Longs are low. (Score is technical var)
         """
-        if column_index in self._sizes:
-            sizes = self._sizes[column_index]
+        if column_index in self._size_containers:
+            size_container = self._size_containers[column_index]
         else:
-            sizes = SizeContainer(self._holding_period)
-            self._sizes[column_index] = sizes
+            size_container = SizeContainer(self._holding_period)
+            self._size_containers[column_index] = size_container
 
         scores = self._signals_scores2.loc[date].copy()
 
@@ -71,9 +71,9 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
         for i in shorts.index.values:
             allocs[i] = -1 / float(counts) * BOOKSIZE
-        sizes.update_sizes(allocs)
+        size_container.update_sizes(allocs)
 
-        return sizes.get_sizes()
+        return size_container.get_sizes()
 
 
 class SizeContainer(object):
