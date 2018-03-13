@@ -9,8 +9,8 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from gearbox import convert_date_array
-from ram.strategy.statarb.implementation.check_data import *
-from ram.strategy.statarb.implementation.check_data import \
+from ram.strategy.statarb.implementation.execution.check_data import *
+from ram.strategy.statarb.implementation.execution.check_data import \
     _import_bloomberg_dividends, _import_bloomberg_splits, \
     _import_bloomberg_spinoffs
 
@@ -91,7 +91,7 @@ class TestImplementationDailyDataPull(unittest.TestCase):
 
     def test_process_bloomberg_data(self):
         result = process_bloomberg_data(self.imp_dir)
-        self.assertEqual(result, 'Spotcheck dividend multiplier; ')
+        self.assertEqual(result, "Spotcheck dividend multiplier ['TSLA']; ")
         result = pd.read_csv(
             os.path.join(self.imp_dir, 'StatArbStrategy',
                          'live_pricing', 'bloomberg_scaling.csv'))

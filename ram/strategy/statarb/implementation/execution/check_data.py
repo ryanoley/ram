@@ -63,8 +63,10 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     try:
         output = _import_bloomberg_dividends(imp_data_dir)
         bloomberg = output
-        if np.any(np.abs(output.DivMultiplier - 1) > .1):
-            message += 'Spotcheck dividend multiplier; '
+        inds = np.abs(output.DivMultiplier - 1) > .1
+        if np.any(inds):
+            message += 'Spotcheck dividend multiplier {}; '.format(
+                output.Ticker[inds].tolist())
     except Exception as e:
         message += 'Dividends: {}; '.format(e.__repr__())
 
@@ -72,9 +74,11 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     try:
         output = _import_bloomberg_spinoffs(imp_data_dir)
         bloomberg = bloomberg.merge(output, how='outer')
-        if np.any(output.SpinoffMultiplier < .1) | \
-                np.any(output.SpinoffMultiplier > 10):
-            message += 'Spotcheck spinoff multiplier; '
+        inds = (output.SpinoffMultiplier < .1) | \
+            (output.SpinoffMultiplier > 10)
+        if np.any(inds):
+            message += 'Spotcheck spinoff multiplier {}; '.format(
+                output.Ticker[inds].tolist())
     except Exception as e:
         message += 'Spinoffs: {}; '.format(e.__repr__())
 
@@ -82,9 +86,11 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     try:
         output = _import_bloomberg_splits(imp_data_dir)
         bloomberg = bloomberg.merge(output, how='outer')
-        if np.any(output.SplitMultiplier < .1) | \
-                np.any(output.SplitMultiplier > 10):
-            message += 'Spotcheck split multiplier; '
+        inds = (output.SplitMultiplier < .1) | \
+                np.any(output.SplitMultiplier > 10)
+        if np.any(inds):
+            message += 'Spotcheck split multiplier {}; '.format(
+                output.Ticker[inds].tolist())
     except Exception as e:
         message += 'Splits: {}; '.format(e.__repr__())
 
