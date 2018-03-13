@@ -1,6 +1,6 @@
 @echo off
 
-set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\
+set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\exection
 
 echo ------------------------------
 echo --  Data check for StatArb  --
