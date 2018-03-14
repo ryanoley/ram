@@ -73,7 +73,7 @@ class FeatureAggregator(object):
         features.sort()
         output = self._data.pivot_table(
             values='val', index=['SecCode', 'Date'],
-            columns='label', aggfunc='sum').reset_index()
+            columns='label', aggfunc='mean').reset_index()
         # Add back in missing columns
         output = output.loc[:, ['SecCode', 'Date']+features]
         del output.index.name
