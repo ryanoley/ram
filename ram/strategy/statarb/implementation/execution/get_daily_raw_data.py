@@ -17,7 +17,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 def main():
 
     # RAW DAILY DATA
-    # pull_daily_raw_data()
+    pull_daily_raw_data()
 
     # MAPPING
     unique_seccodes = write_ticker_mapping()
