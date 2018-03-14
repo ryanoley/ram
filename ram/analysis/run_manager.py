@@ -63,11 +63,10 @@ class RunManager(object):
         if config.GCP_CLOUD_IMPLEMENTATION:
             gcp_client = storage.Client()
             bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
-            cursor = bucket.list_blobs(prefix='simulations/')
-            all_files = [x.name for x in cursor]
-            all_files.remove('simulations/')
-            strategies = list(set([x.split('/')[1] for x in all_files]))
-            strategies.sort()
+            cursor = bucket.list_blobs(prefix='simulations/', delimiter='/')
+            for blob in cursor:
+                pass
+            strategies = [prefix for prefix in cursor.prefixes]
             return strategies
         else:
             path = config.SIMULATIONS_DATA_DIR

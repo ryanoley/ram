@@ -12,7 +12,7 @@ pypyodbc.connection_timeout = 8
 
 class DataHandlerSQL(object):
 
-    def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
+    def __init__(self, table='ram.dbo.ram_equity_pricing'):
         self._table = table
 
     def _connect(self):

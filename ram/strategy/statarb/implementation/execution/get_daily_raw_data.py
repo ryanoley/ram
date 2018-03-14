@@ -17,12 +17,13 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 def main():
 
     # RAW DAILY DATA
-    pull_daily_raw_data()
+    # pull_daily_raw_data()
 
     # MAPPING
     unique_seccodes = write_ticker_mapping()
 
-    # PREP FOR BLOOMBERG DATA
+    # Scaling
+    dh = DataHandlerSQL()
     end_date = dt.date.today()
     start_date = end_date - dt.timedelta(days=7)
     scaling = dh.get_seccode_data(seccodes=unique_seccodes,
@@ -30,10 +31,15 @@ def main():
                                   start_date=start_date,
                                   end_date=end_date)
     scaling = scaling[scaling.Date == scaling.Date.max()]
+
+    today = dt.datetime.utcnow()
+    file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'seccode_scaling.csv')
+
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
-                        'live_pricing',
-                        'seccode_scaling.csv')
+                        'daily_raw_data',
+                        file_name)
+
     scaling.to_csv(path, index=None)
 
 
@@ -74,7 +80,17 @@ def write_ticker_mapping():
     odd_tickers = json.load(open(path, 'r'))
     mapping.Ticker = mapping.Ticker.replace(to_replace=odd_tickers)
 
-    # Write ticker mapping to file
+    # Write ticker mapping to two locations
+    today = dt.datetime.utcnow()
+    file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'ticker_mapping.csv')
+
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'daily_raw_data',
+                        file_name)
+    mapping.to_csv(path, index=None)
+
+    # For live_prices pull
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'live_pricing',
@@ -105,7 +121,7 @@ def get_unique_seccodes_from_data():
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                                 'StatArbStrategy', 'daily_raw_data')
     all_files = os.listdir(raw_data_dir)
-    all_files.remove('market_index_data.csv')
+    all_files = [x for x in all_files if x.find('version') > -1]
     max_date_prefix = max([x.split('_')[0] for x in all_files])
     # Read in dates for files
     todays_files = [x for x in all_files if x.find(max_date_prefix) > -1]
