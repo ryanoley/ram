@@ -44,8 +44,10 @@ def get_qadirect_data_dates():
     all_files = os.listdir(raw_data_dir)
     all_files.remove('market_index_data.csv')
     max_date_prefix = max([x.split('_')[0] for x in all_files])
+
     # Read in dates for files
-    todays_files = [x for x in all_files if x.find(max_date_prefix) > -1]
+    todays_files = [x for x in all_files if x.find('version') > -1]
+    todays_files = [x for x in todays_files if x.find(max_date_prefix) > -1]
     max_dates = []
     for f in todays_files:
         data = pd.read_csv(os.path.join(raw_data_dir, f), nrows=3000)
