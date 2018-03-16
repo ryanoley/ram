@@ -111,7 +111,7 @@ class DataConstructor(object):
 
         # HACK
         elif blueprint.constructor_type == 'universe_live':
-            t1, t2, t3 = self._make_date_iterator(blueprint)[-1]
+            t1, t2, t3 = self._make_implementation_dates(blueprint)
             adj_filter_date = t2 - dt.timedelta(days=1)
             data = dh.get_filtered_univ_data(
                 features=blueprint.features,
@@ -288,6 +288,24 @@ class DataConstructor(object):
                        end_periods[train_period_length+test_period_length:])
         iterator = [x for x in iterator if x[1].year >= start_year]
         return iterator
+
+    def _make_implementation_dates(self, blueprint):
+        date_params = blueprint.universe_date_parameters
+        frequency = date_params['frequency']
+        if frequency == 'M':
+            today = dt.date.today()
+            filter_date = dt.date(today.year, today.month, 1)
+            # Forward date
+            end_date = filter_date + \
+                dt.timedelta(days=(32 * date_params['test_period_length']))
+            end_date = dt.date(end_date.year, end_date.month, 1)
+            # Training period begin date - add one extra just in case
+            start_date = filter_date - \
+                dt.timedelta(days=(28 * date_params['train_period_length']))
+            start_date = dt.date(start_date.year, start_date.month, 1)
+            return start_date, filter_date, end_date
+        else:
+            raise NotImplementedError()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

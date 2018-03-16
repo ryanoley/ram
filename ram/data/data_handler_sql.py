@@ -242,7 +242,8 @@ class DataHandlerSQL(object):
     def get_ticker_seccode_map(self):
         query_string = \
             """
-            select A.SecCode, Ticker, Issuer from ram.dbo.ram_master_ids A
+            select A.SecCode, Ticker, Cusip, Issuer
+            from ram.dbo.ram_master_ids A
             join (select SecCode, max(StartDate) as StartDate
                   from ram.dbo.ram_master_ids group by SecCode) B
             on A.SecCode = B.SecCode
@@ -252,7 +253,7 @@ class DataHandlerSQL(object):
             """
         mapping = self.sql_execute(query_string)
         mapping = pd.DataFrame(mapping)
-        mapping.columns = ['SecCode', 'Ticker', 'Issuer']
+        mapping.columns = ['SecCode', 'Ticker', 'Cusip', 'Issuer']
         mapping.SecCode = mapping.SecCode.astype(str)
         return mapping
 

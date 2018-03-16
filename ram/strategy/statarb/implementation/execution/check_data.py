@@ -55,9 +55,29 @@ def get_qadirect_data_dates():
     return todays_files, convert_date_array(max_dates)
 
 
+def get_universe_seccodes(imp_dir=config.IMPLEMENTATION_DATA_DIR):
+    raw_data_dir = os.path.join(imp_dir,
+                                'StatArbStrategy', 'daily_raw_data')
+    all_files = os.listdir(raw_data_dir)
+    try:
+        all_files.remove('market_index_data.csv')
+    except:
+        pass
+    max_date_prefix = max([x.split('_')[0] for x in all_files])
+    # Read in dates for files
+    todays_files = [x for x in all_files if x.find('version') > -1]
+    todays_files = [x for x in todays_files if x.find(max_date_prefix) > -1]
+    all_seccodes = []
+    for f in todays_files:
+        data = pd.read_csv(os.path.join(raw_data_dir, f))
+        all_seccodes += data.SecCode.unique().tolist()
+    return np.unique(all_seccodes)
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
+def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR,
+                           mapping=None):
     message = ''
     bloomberg = pd.DataFrame()
 
@@ -99,10 +119,37 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     # Fill nans with 1 so they don't change prices downstream
     bloomberg = bloomberg.fillna(1)
 
+    # MERGE HERE WITH TICKERS
+    univ = pd.DataFrame({'SecCode': get_universe_seccodes(imp_data_dir)})
+    univ.SecCode = univ.SecCode.astype(str)
+
+    # For testing
+    if not np.any(mapping):
+        dh = DataHandlerSQL()
+        mapping = dh.get_ticker_seccode_map()
+        mapping.Cusip = mapping.Cusip.astype(str)
+
+    mapping = univ.merge(mapping, how='left')
+
+    mapping1 = \
+        mapping[['SecCode', 'Ticker', 'Issuer']].merge(bloomberg, how='left')
+    mapping2 = \
+        mapping[['SecCode', 'Cusip', 'Issuer']].merge(bloomberg, how='left')
+
+    output = mapping1.dropna().append(mapping2.dropna()).drop_duplicates()
+    output = output[['SecCode', 'DivMultiplier',
+                     'SpinoffMultiplier', 'SplitMultiplier']]
+
     # Write bloomberg data to file
     path = os.path.join(imp_data_dir, 'StatArbStrategy',
                         'live_pricing', 'bloomberg_scaling.csv')
-    bloomberg.to_csv(path, index=None)
+    output.to_csv(path, index=None)
+
+    d = dt.date.today().strftime('%Y%m%d')
+    file_name = '{}_bloomberg_scaling.csv'.format(d)
+    path = os.path.join(imp_data_dir, 'StatArbStrategy',
+                        'daily_raw_data', file_name)
+    output.to_csv(path, index=None)
     return message
 
 
@@ -111,17 +158,19 @@ def _import_bloomberg_dividends(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     file_name = prefix_date.strftime('%Y%m%d') + '_dividends.csv'
     data = pd.read_csv(os.path.join(imp_data_dir, 'bloomberg_data', file_name))
     # Check columns
-    columns = ['DPS Last Gross', 'Dvd Ex Dt', 'Market Cap', 'Market Cap#1',
-               'P/E', 'Price:D-1', 'Short Name', 'Ticker']
+    columns = ['CUSIP', 'DPS Last Gross', 'Dvd Ex Dt', 'Market Cap',
+               'Market Cap#1', 'Price:D-1', 'Short Name', 'Ticker']
     if not np.all(data.columns == columns):
         raise Exception("Dividend columns do not match")
-    data.columns = ['CashDividend', 'ExDate', 'temp1', 'temp2', 'temp3',
+    data.columns = ['Cusip', 'CashDividend', 'ExDate', 'temp1', 'temp2',
                     'ClosePrice', 'temp4', 'Ticker']
+
     data['DivMultiplier'] = data.CashDividend / data.ClosePrice + 1
     data.ExDate = convert_date_array(data.ExDate)
     data = data[data.ExDate == dt.date.today()]
-    data.Ticker = [x.replace(' US', '') for x in data.Ticker]
-    data = data[['Ticker', 'DivMultiplier']]
+    data.Ticker = data.Ticker.apply(lambda x: x.replace(' US', ''))
+    data.Cusip = data.Cusip.astype(str).apply(lambda x: x[:8])
+    data = data[['Ticker', 'Cusip', 'DivMultiplier']]
     data = data[data.DivMultiplier != 1]
     return data.reset_index(drop=True).dropna()
 
@@ -131,17 +180,18 @@ def _import_bloomberg_splits(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     file_name = prefix_date.strftime('%Y%m%d') + '_splits.csv'
     data = pd.read_csv(os.path.join(imp_data_dir, 'bloomberg_data', file_name))
     # Check columns
-    columns = ['Current Stock Split Adjustment Factor', 'Market Cap',
-               'Market Cap#1', 'Next Stock Split Ratio', 'Price:D-1',
-               'Short Name', 'Stk Splt Ex Dt', 'Ticker']
+    columns = ['CUSIP', 'Current Stock Split Adjustment Factor',
+               'Market Cap', 'Next Stock Split Ratio', 'Short Name',
+               'Stk Splt Ex Dt', 'Ticker']
     if not np.all(data.columns == columns):
         raise Exception("Split columns do not match")
-    data.columns = ['SplitMultiplierOLD', 'temp1', 'temp2', 'SplitMultiplier',
-                    'temp4', 'temp5', 'SplitExDate', 'Ticker']
+    data.columns = ['Cusip', 'temp1', 'temp2', 'SplitMultiplier',
+                    'temp4', 'SplitExDate', 'Ticker']
     data.SplitExDate = convert_date_array(data.SplitExDate)
     data = data[data.SplitExDate == dt.date.today()]
-    data.Ticker = [x.replace(' US', '') for x in data.Ticker]
-    data = data[['Ticker', 'SplitMultiplier']]
+    data.Ticker = data.Ticker.apply(lambda x: x.replace(' US', ''))
+    data.Cusip = data.Cusip.astype(str).apply(lambda x: x[:8])
+    data = data[['Ticker', 'Cusip', 'SplitMultiplier']]
     return data.reset_index(drop=True).dropna()
 
 
@@ -150,29 +200,19 @@ def _import_bloomberg_spinoffs(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
     file_name = prefix_date.strftime('%Y%m%d') + '_spinoffs.csv'
     data = pd.read_csv(os.path.join(imp_data_dir, 'bloomberg_data', file_name))
     # Check columns
-    if data.shape[1] == 7:
-        columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
-                   'Spin Adj Fact Curr', 'Spinoff Ex Date', 'Ticker']
-        new_cols = ['temp1', 'temp2', 'temp3', 'temp4', 'SpinFactor',
-                    'SpinExDate', 'Ticker']
-    else:
-        # Check columns
-        columns = ['Market Cap', 'Market Cap#1', 'Price:D-1', 'Short Name',
-                   'Spin Adj Fact Curr', 'Spin Adj Fact Nxt',
-                   'Spinoff Ex Date', 'Ticker']
-        new_cols = ['temp1', 'temp2', 'temp3', 'temp4', 'SpinFactor', 'temp5',
-                    'SpinExDate', 'Ticker']
-
+    columns = ['CUSIP', 'CUSIP#1', 'Market Cap', 'Short Name',
+               'Spin Adj Fact Curr', 'Spin Adj Fact Nxt',
+               'Spinoff Ex Date', 'Ticker']
     if not np.all(data.columns == columns):
         raise Exception("Spinoff columns do not match")
-
-    data.columns = new_cols
-
+    data.columns = ['Cusip', 'temp1', 'temp2', 'temp3', 'temp4',
+                    'SpinFactor', 'SpinExDate', 'Ticker']
     data.SpinExDate = convert_date_array(data.SpinExDate)
     data = data[data.SpinExDate == dt.date.today()]
-    data.Ticker = [x.replace(' US', '') for x in data.Ticker]
+    data.Ticker = data.Ticker.apply(lambda x: x.replace(' US', ''))
+    data.Cusip = data.Cusip.astype(str).apply(lambda x: x[:8])
     data['SpinoffMultiplier'] = 1 / data.SpinFactor
-    data = data[['Ticker', 'SpinoffMultiplier']]
+    data = data[['Ticker', 'Cusip', 'SpinoffMultiplier']]
     return data.reset_index(drop=True).dropna()
 
 

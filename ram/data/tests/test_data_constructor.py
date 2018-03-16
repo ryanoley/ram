@@ -198,6 +198,17 @@ class TestDataConstructor(unittest.TestCase):
                             'daily_raw_data', 'asdf.csv')
         self.assertTrue(os.path.isfile(path))
 
+    def test_make_implementation_dates(self):
+        dc = DataConstructor(self.prepped_data_dir)
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
+        blueprint.constructor_type = 'universe_live'
+        blueprint.universe_date_parameters['frequency'] = 'M'
+        blueprint.universe_date_parameters['test_period_length'] = 2
+        result = dc._make_implementation_dates(blueprint)
+        today = dt.date.today()
+        benchmark = dt.date(today.year, today.month, 1)
+        self.assertEqual(result[1], benchmark)
+
     def tearDown(self):
         if os.path.isdir(self.prepped_data_dir):
             shutil.rmtree(self.prepped_data_dir)
