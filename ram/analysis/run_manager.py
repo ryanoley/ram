@@ -145,7 +145,9 @@ class RunManager(object):
         file_paths = self._get_run_file_paths('stats.json')
         self.stats = {}
         if not file_paths:
-            return
+            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
+                                             in self.column_params}
+
         for path in file_paths:
             if self._cloud_flag:
                 stats = read_json_cloud(path, self._gcp_bucket)
