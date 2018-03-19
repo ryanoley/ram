@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -118,6 +119,7 @@ class ModelSelection(object):
             print('Writing run as: {}'.format(self._run_name))
             print('Max date: {}'.format(self._raw_returns.index.max().date()))
             print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
+            time.sleep(0.5)  # To make output look nice in Notebook
         self._create_results_objects(self._raw_returns)
         self._loop()
 
