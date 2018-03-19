@@ -748,90 +748,88 @@ def make_argument_parser(Strategy):
 
     parser = argparse.ArgumentParser()
 
-    # DataConstructor related functionality
+    # Blueprint and Data Construction Functionality
     parser.add_argument(
-        '-db', '--data_list_blueprints', action='store_true',
+        '-bl', '--list_blueprints', action='store_true',
         help='List all Strategy data blueprints')
     parser.add_argument(
-        '-dv', '--data_list_versions', action='store_true',
-        help='List all Strategy data versions')
-    parser.add_argument(
-        '-d_make', '--data_make_from_blueprint', type=str,
+        '-b', '--data_from_blueprint', type=str, metavar='',
         help='Runs DataConstructor and creates new version from blueprint. '
         'Input should be either name of blueprint or index number.')
+
+    # Data Version Functionality
     parser.add_argument(
-        '-d_update', '--data_update_version', type=str,
+        '-dl', '--list_data_versions', action='store_true',
+        help='List all Strategy data versions')
+    parser.add_argument(
+        '-du', '--update_data_version', type=str, metavar='',
         help='Runs DataConstructor and updates version. '
+        'Input should be either name of version or index number.')
+    parser.add_argument(
+        '-d', '--data_version', type=str, metavar='',
+        help='Strategy data version to be used in simulation. '
         'Input should be either name of version or index number.')
 
     # Strategy related functionality
     parser.add_argument(
-        '-sv', '--strategy_list_source_versions', action='store_true',
+        '-sl', '--list_strategy_source_versions', action='store_true',
         help='List all Strategy source code versions')
     parser.add_argument(
-        '-sr', '--strategy_list_runs', action='store_true',
-        help='List all Strategy runs')
-
-    # Simulation functionality
-    parser.add_argument(
-        '-s', '--strategy_version', type=str,
+        '-s', '--strategy_version', type=str, metavar='',
         help='Strategy source code to be used in simulation. Simple string '
         'passed to derived strategy class')
-    parser.add_argument(
-        '-d', '--data_version', type=str,
-        help='Strategy data version to be used in simulation. '
-        'Input should be either name of version or index number.')
+    # Simulation tags
     parser.add_argument(
         '-w', '--write_flag', action='store_true',
         help='Write simulation')
     parser.add_argument(
-        '-r', '--restart_run', type=str,
-        help='Restart run. Enter index or name')
-    parser.add_argument(
         '-i', '--implementation_training', action='store_true',
         help='Run implementation code')
     parser.add_argument(
-        '--description', default=None,
+        '--description', default=None, metavar='',
         help='Run description. Used namely in a batch file')
+
+    # Run-Related Functionality (simulation data)
+    parser.add_argument(
+        '-rl', '--list_strategy_runs', action='store_true',
+        help='List all Strategy runs')
+    parser.add_argument(
+        '-r', '--restart_run', type=str, metavar='',
+        help='Restart run. Enter index or name')
 
     args = parser.parse_args()
 
-    # ~~~~~~ DATA/STRATEGY EXPLORATION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~ Blueprint/Data Construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    if args.data_list_blueprints:
+    if args.list_blueprints:
         # TODO
         blueprints = Strategy.get_data_blueprint_container()
         print(blueprints)
 
-    elif args.data_list_versions:
+    elif args.data_from_blueprint:
+        blueprints = Strategy.get_data_blueprint_container()
+        blueprint = blueprints.get_blueprint_by_name_or_index(
+            args.data_from_blueprint)
+        DataConstructor().run(blueprint)
+
+    # ~~~~~~ Data Versions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    elif args.list_data_versions:
         print_data_versions(strategy_name=Strategy.__name__,
                             cloud_flag=config.GCP_CLOUD_IMPLEMENTATION)
 
-    elif args.strategy_list_source_versions:
-        # TODO
+    elif args.update_data_version:
+        data_version = get_data_version_name(
+            strategy_name=Strategy.__name__,
+            version_name=args.update_data_version,
+            cloud_flag=config.GCP_CLOUD_IMPLEMENTATION)
+        DataConstructor().rerun(Strategy.__name__, data_version)
+
+    # ~~~~~~ Strategy Sources ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    elif args.list_strategy_source_versions:
         versions = Strategy.get_strategy_source_versions()
         print(versions)
-
-    elif args.strategy_list_runs:
-        runs = RunManager.get_run_names(Strategy.__name__)
-        # Adjust column width
-        runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
-        print(runs)
-
-    # ~~~~~~ DATA CONSTRUCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    elif args.data_make_from_blueprint:
-        blueprints = Strategy.get_data_blueprint_container()
-        blueprint = blueprints.get_blueprint_by_name_or_index(
-            args.data_make_from_blueprint)
-        DataConstructor().run(blueprint)
-
-    elif args.data_update_version:
-        update_data_version = get_data_version_name(
-            strategy_name=Strategy.__name__,
-            version_name=args.data_update_version,
-            cloud_flag=config.GCP_CLOUD_IMPLEMENTATION)
-        DataConstructor().rerun(Strategy.__name__, update_data_version)
 
     # ~~~~~~ SIMULATION COMMANDS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -855,19 +853,29 @@ def make_argument_parser(Strategy):
 
         strategy.start(args.description)
 
-    elif args.restart_run:
-        runs = RunManager.get_run_names(Strategy.__name__)
-        if isinstance(args.restart_run, int):
-            run_name = runs.loc[int(run_name)].RunName
-        elif args.restart_run in runs.RunName.values:
-            run_name = args.restart_run
-        else:
-            raise ValueError('Run not found')
-        strategy = Strategy(write_flag=True)
-        strategy.restart(run_name)
-
     elif args.implementation_training:
         strategy = Strategy(write_flag=args.write_flag)
         if not args.write_flag:
             import pdb; pdb.set_trace()
         strategy.implementation_training()
+
+    # ~~~~~~ RUN-Related Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    elif args.list_strategy_runs:
+        runs = RunManager.get_run_names(Strategy.__name__)
+        # Adjust column width
+        runs['Description'] = runs.Description.apply(lambda x: x[:20] + ' ...')
+        print(runs)
+
+    elif args.restart_run:
+        runs = RunManager.get_run_names(Strategy.__name__)
+        try:
+            run_name = runs.loc[int(args.restart_run)].RunName
+        except:
+            if args.restart_run in runs.RunName.values:
+                run_name = args.restart_run
+            else:
+                raise ValueError('Run not found')
+
+        strategy = Strategy(write_flag=True)
+        strategy.restart(run_name)
