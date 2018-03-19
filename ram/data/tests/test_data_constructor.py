@@ -54,7 +54,7 @@ class TestDataConstructor(unittest.TestCase):
                             'version_0001', 'meta.json')
         self.assertTrue(os.path.isfile(path))
 
-    def test_write_archive_meta_data(self):
+    def test_write_archive_meta_data2(self):
         blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         self.assertTrue(dc._check_parameters(blueprint))
