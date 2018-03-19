@@ -280,14 +280,13 @@ class DataConstructor(object):
             periods = range(1, 13)
         all_periods = [dt.datetime(y, m, 1) for y, m in itertools.product(
             range(start_year-3, 2020), periods)]
-        # Filter
-        ind = np.where(np.array(all_periods) > dt.datetime.utcnow())[0][0] + 1
-        all_periods = all_periods[:ind]
         end_periods = [x - dt.timedelta(days=1) for x in all_periods]
         iterator = zip(all_periods[:-(train_period_length+test_period_length)],
                        all_periods[train_period_length:-test_period_length],
                        end_periods[train_period_length+test_period_length:])
+        # Filter
         iterator = [x for x in iterator if x[1].year >= start_year]
+        iterator = [x for x in iterator if x[1] <= dt.datetime.utcnow()]
         return iterator
 
     def _make_implementation_dates(self, blueprint):
