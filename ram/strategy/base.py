@@ -495,6 +495,9 @@ class Strategy(object):
             all_files = os.listdir(os.path.join(self.strategy_run_output_dir,
                                                 'index_outputs'))
             all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
+        if len(all_files) == 0:
+            print('\nSimulation likely never ran; no return files.\n')
+            sys.exit()
         # Delete final file if it isn't same as matching raw data file
         last_run_file = max(all_files)
         run_path = os.path.join(self.strategy_run_output_dir,
@@ -878,4 +881,5 @@ def make_argument_parser(Strategy):
                 raise ValueError('Run not found')
 
         strategy = Strategy(write_flag=True)
+
         strategy.restart(run_name)
