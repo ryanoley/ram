@@ -462,11 +462,11 @@ def print_data_versions(strategy_name,
     # Presentation
     _print_line_underscore('Available Verions for {}'.format(strategy_name))
     print('  Key\tVersion\t\t'
-          'File Count\tMax Train Date\tDescription')
+          'nFiles\tMax Train Date\tDescription')
     keys = stats.keys()
     keys.sort()
     for key in keys:
-        print('  [{}]\t{}\t{}\t\t{}\t\t{}'.format(
+        print('  [{}]\t{}\t{}\t{}\t{}'.format(
             key,
             stats[key]['version'],
             stats[key]['file_count'],
@@ -484,7 +484,7 @@ def _get_strategy_version_stats(strategy_name, prepped_data_dir):
         stats = _get_min_max_dates_counts(
             prepped_data_dir, strategy_name, version)
         max_train_date = meta['max_train_date'] if 'max_train_date' \
-            in meta else None
+            in meta else '          '
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
@@ -502,7 +502,7 @@ def _get_strategy_version_stats_cloud(strategy_name):
         meta = _get_meta_data_cloud(strategy_name, version)
         stats = _get_min_max_dates_counts_cloud(strategy_name, version)
         max_train_date = meta['max_train_date'] if 'max_train_date' \
-            in meta else None
+            in meta else '          '
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],

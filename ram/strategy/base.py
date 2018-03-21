@@ -805,7 +805,6 @@ def make_argument_parser(Strategy):
     # ~~~~~~ Blueprint/Data Construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     if args.list_blueprints:
-        # TODO
         blueprints = Strategy.get_data_blueprint_container()
         print(blueprints)
 
