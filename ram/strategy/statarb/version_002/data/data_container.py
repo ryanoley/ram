@@ -31,12 +31,14 @@ class DataContainer(BaseDataContainer):
         return {
             'response_days': self._response_days_args,
             # 'response_type': ['Simple', 'Smoothed']
-            'response_type': ['Simple']
+            'response_type': ['Simple'],
+            'training_period_length': [72, None]  # 72 months = 6 years
         }
 
-    def set_args(self, response_days, response_type):
+    def set_args(self, response_days, response_type, training_period_length):
         self._response_days = response_days
         self._response_type = response_type
+        self._training_period_length = training_period_length
         train_data, test_data = self._get_train_test()
         # Add training flag given number of response days
         training_dates = train_data.Date.unique()
@@ -77,6 +79,7 @@ class DataContainer(BaseDataContainer):
 
     def prep_live_data(self, data, market_data):
         data['TimeIndex'] = -1
+        data['keep_inds'] = True
         data_features_1, features_1 = self._make_features(data, live_flag=True)
         market_data = market_data[['SecCode', 'Date', 'AdjClose']].copy()
         market_data = market_data[market_data.SecCode.isin(['50311', '11113'])]
@@ -88,10 +91,6 @@ class DataContainer(BaseDataContainer):
         self._constructor_data = {}
 
     def process_live_data(self, live_pricing_data):
-        """
-        Notes:
-        HOW DO WE HANDLE LIVE SPLITS??
-        """
         data = self._live_prepped_data['data']
         market_data = self._live_prepped_data['market_data']
         features_1 = self._live_prepped_data['features']
@@ -102,6 +101,7 @@ class DataContainer(BaseDataContainer):
             live_pricing_data.SecCode.isin(['50311', '11113'])]
         live_pricing_data = live_pricing_data[
             ~live_pricing_data.SecCode.isin(['50311', '11113'])]
+
         # Get live data for sec codes in this data set
         live_pricing_data = live_pricing_data[
             live_pricing_data.SecCode.isin(data.SecCode.unique())].copy()
@@ -111,10 +111,16 @@ class DataContainer(BaseDataContainer):
             print('NO DATA FOR FOLLOWING TICKERS:')
             print(no_data.tolist())
             live_pricing_data = live_pricing_data.replace(0, np.nan)
+
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
         market_data = merge_live_pricing_market_data(market_data, live_market)
         data = adjust_todays_prices(data)
+
+        # Calculate avgdolvol
+        import pdb; pdb.set_trace()
+
+
         # Cleanup
         data = self._initial_clean(data, -1)
         # Technical variable calculation
@@ -318,7 +324,10 @@ class DataContainer(BaseDataContainer):
             feat.add_feature(ret, 'ret_{}d'.format(i))
 
         # Create output
-        pdata = data[['SecCode', 'Date']].copy()
+        if live_flag:
+            pdata = data[['SecCode', 'Date', 'keep_inds']].copy()
+        else:
+            pdata = data[['SecCode', 'Date']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
         # Adjust date for faster live imp
         if live_flag:
@@ -350,10 +359,19 @@ class DataContainer(BaseDataContainer):
         return data
 
     def _get_train_test(self):
-        return (
-            self._processed_train_data.copy(),
-            self._processed_test_data.copy()
-        )
+        if self._training_period_length:
+            train = self._processed_train_data.copy()
+            test = self._processed_test_data.copy()
+            # Shorten
+            unique_time_index = train.TimeIndex.unique()
+            keep_time_index = unique_time_index[-self._training_period_length:]
+            train = train[train.TimeIndex.isin(keep_time_index)]
+            return train, test
+        else:
+            return (
+                self._processed_train_data.copy(),
+                self._processed_test_data.copy()
+            )
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
