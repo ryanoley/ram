@@ -42,7 +42,10 @@ class TestStrategy(Strategy):
         pass
 
     def run_index(self, index):
-        pass
+        data = pd.DataFrame()
+        data['V1'] = [1, 2]
+        data['V2'] = [1, 2]
+        return data, data, {}
 
     def get_column_parameters(self):
         return {0: {'V1': 1, 'V2': 2}, 1: {'V1': 3, 'V2': 5}}
@@ -94,6 +97,9 @@ class TestStrategyBase(unittest.TestCase):
             'SecCode': [10, 20, 30], 'V1': [3, 4, 5]})
         data.to_csv(os.path.join(data_version_dir, '20100101_data.csv'),
                     index=False)
+        data = pd.DataFrame({
+            'Date': ['2010-02-01', '2010-02-02', '2010-02-03'],
+            'SecCode': [10, 20, 30], 'V1': [3, 4, 5]})
         data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'),
                     index=False)
 
@@ -142,7 +148,7 @@ class TestStrategyBase(unittest.TestCase):
         result = self.strategy.read_data_from_index(1)
         benchmark = pd.DataFrame()
         benchmark['Date'] = convert_date_array(
-            ['2010-01-01', '2010-01-02', '2010-01-03'])
+            ['2010-02-01', '2010-02-02', '2010-02-03'])
         benchmark['SecCode'] = ['10', '20', '30']
         benchmark['V1'] = [3, 4, 5]
         assert_frame_equal(result, benchmark)
@@ -241,9 +247,13 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
         df = pd.DataFrame(
-            {'v1': [10, 20, 30, 40], 'v2': [3, 4, 5, 6]},
-            index=['2010-01-01', '2010-01-02', '2010-01-03', '2010-01-04'])
+            {'v1': [10, 20, 30], 'v2': [3, 4, 5]},
+            index=['2010-01-01', '2010-01-02', '2010-01-03'])
         self.strategy.write_index_results(df, 0)
+        df = pd.DataFrame(
+            {'v1': [10, 20], 'v2': [3, 4]},
+            index=['2010-02-01', '2010-02-02'])
+        self.strategy.write_index_results(df, 1)
         # New Strategy
         strategy = TestStrategy(
             write_flag=True,
@@ -253,23 +263,11 @@ class TestStrategyBase(unittest.TestCase):
         strategy._init_simulations_output_dir()
         strategy._import_run_meta_for_restart('run_0001')
         strategy._get_prepped_data_file_names()
+        path = os.path.join(strategy.strategy_run_output_dir, 'index_outputs')
+        self.assertEqual(len(os.listdir(path)), 2)
         strategy._get_max_run_time_index_for_restart()
         self.assertEqual(strategy._restart_time_index, 1)
-        df = pd.DataFrame(
-            {'v1': [10, 20], 'v2': [3, 4]},
-            index=['2010-01-01', '2010-01-02'])
-        self.strategy.write_index_results(df, 0)
-        strategy = TestStrategy(
-            write_flag=True,
-            ram_prepped_data_dir=self.prepped_data_dir,
-            ram_simulations_dir=self.simulation_output_dir,
-            ram_implementation_dir=self.implementation_output_dir)
-        strategy._import_run_meta_for_restart('run_0001')
-        strategy._get_prepped_data_file_names()
-        strategy._get_max_run_time_index_for_restart()
-        self.assertEqual(strategy._restart_time_index, 0)
-        path = os.path.join(strategy.strategy_run_output_dir, 'index_outputs')
-        self.assertEqual(len(os.listdir(path)), 0)
+        self.assertEqual(len(os.listdir(path)), 1)
 
     def test_read_write_json(self):
         meta = {'V1': 2, 'V2': 4}

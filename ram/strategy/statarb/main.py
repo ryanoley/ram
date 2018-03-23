@@ -127,10 +127,8 @@ class StatArbStrategy(Strategy):
                     self._capture_output(result, column_index)
                     column_index += 1
 
-        self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_all_output,
-                                 time_index,
-                                 'all_output')
+        return self.output_returns, self.output_all_output, {}
+
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

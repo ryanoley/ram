@@ -147,7 +147,10 @@ class Strategy(object):
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
-            self.run_index(time_index)
+            returns, all_output, stats = self.run_index(time_index)
+            self.write_index_results(returns, time_index, 'returns')
+            self.write_index_results(all_output, time_index, 'all_output')
+            # self.write_index_stats(stats, time_index)
         self._shutdown_simulation()
         return
 
@@ -158,13 +161,20 @@ class Strategy(object):
         self._get_max_run_time_index_for_restart()
         market_data = self.read_market_index_data()
         for time_index in tqdm(range(len(self._prepped_data_files))):
+            # Stack data
             self.process_raw_data(
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
-            if time_index < self._restart_time_index:
+            # We want to process one period before writing it out
+            if not time_index >= (self._restart_time_index - 1):
                 continue
-            self.run_index(time_index)
+            returns, all_output, stats = self.run_index(time_index)
+            # Write
+            if time_index >= self._restart_time_index:
+                self.write_index_results(returns, time_index, 'returns')
+                self.write_index_results(all_output, time_index, 'all_output')
+                # self.write_index_stats(stats, time_index)
         self._shutdown_simulation()
         return
 
@@ -483,27 +493,19 @@ class Strategy(object):
         self._init_prepped_data_dir()
 
     def _get_max_run_time_index_for_restart(self):
-        if self._gcp_implementation:
-            all_files = [x.name for x in self._gcp_bucket.list_blobs()]
-            all_files = [x for x in all_files
-                         if x.find(self.strategy_run_output_dir) >= 0]
-            all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
-            all_files = [
-                x.replace(self.strategy_run_output_dir+'/index_outputs/', '')
-                for x in all_files]
-        else:
-            all_files = os.listdir(os.path.join(self.strategy_run_output_dir,
-                                                'index_outputs'))
-            all_files = [x for x in all_files if x.find('_returns.csv') >= 0]
+        # Get all files from returns directory
+        all_files = self._get_return_files()
         if len(all_files) == 0:
             print('\nSimulation likely never ran; no return files.\n')
             sys.exit()
-        # Delete final file if it isn't same as matching raw data file
+
+        # Import last run file and matching data file
         last_run_file = max(all_files)
         run_path = os.path.join(self.strategy_run_output_dir,
                                 'index_outputs', last_run_file)
         data_path = os.path.join(self.data_version_dir,
                                  '{}_data.csv'.format(last_run_file[:8]))
+
         if self._gcp_implementation:
             rdata = read_csv_cloud(run_path, self._gcp_bucket)
             rdata = rdata.set_index(rdata.columns[0])
@@ -512,52 +514,79 @@ class Strategy(object):
         else:
             rdata = pd.read_csv(run_path, index_col=0)
             ddata = pd.read_csv(data_path)
-        max_run_file_date = convert_date_array(rdata.index).max()
-        max_data_file_date = convert_date_array(ddata.Date).max()
-        # Check if final file needs to be updated
-        if max_run_file_date < max_data_file_date:
+
+        # DELETE last run file because it is not complete?
+        # Infer monthly or quarterly
+        d_periods = np.diff([int(x[4:6]) for x in all_files])
+        d_periods = d_periods[d_periods > 0]
+
+        if min(d_periods) == 1:
+            run_dates = np.unique(convert_date_array(rdata.index))
+            data_dates = np.unique(convert_date_array(ddata.Date))
+            # Get data_dates from same month as run_dates
+            r_year = run_dates[0].year
+            r_month = run_dates[0].month
+            data_dates = np.array([d for d in data_dates
+                                   if (d.year == r_year) &
+                                   (d.month == r_month)])
+            keep_last_file = np.all(data_dates == run_dates)
+
+        elif min(d_periods) == 3:
+            raise NotImplementedError()
+
+        else:
+            raise NotImplementedError()
+
+        if not keep_last_file:
             # Pop from all_files
-            all_files = all_files[:-1]
+            all_files.remove(last_run_file)
             if self._gcp_implementation:
                 blob = self._gcp_bucket.blob(run_path)
                 blob.delete()
             else:
                 os.remove(run_path)
-        if all_files:
-            # Get restart index number number
-            max_returns_data = max([int(x.split('_')[0]) for x in all_files])
-            prepped_data_indexes = np.array([int(x.split('_')[0]) for x
-                                             in self._prepped_data_files])
-            # Check if run is necessary
-            if max_returns_data == prepped_data_indexes[-1]:
-                print('No updating of run necessary')
-                sys.exit()
-            self._restart_time_index = \
-                sum(max_returns_data >= prepped_data_indexes)
-        else:
-            self._restart_time_index = 0
+        # Get start index for prepped files
+        max_file_prefix = int(max(all_files)[:8])
+        data_prefixes = [int(x[:8]) for x in self._prepped_data_files]
+        # Check if run is necessary
+        if max_file_prefix == max(data_prefixes):
+            print('No updating of run necessary')
+            sys.exit()
+        # Get the index of the first file to WRITE
+        ind = sum(np.array(data_prefixes) < max_file_prefix) + 1
+        self._restart_time_index = ind
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_prepped_data_file_names(self):
+    def _get_return_files(self):
+        """
+        Files are located in /simulations/{Strategy}/{run_00xx}/index_outputs
+        """
         if self._gcp_implementation:
-            all_files = [x.name for x in self._gcp_bucket.list_blobs()]
-            all_files = [x for x in all_files
-                         if x.startswith(self.data_version_dir)]
-            strip_str = self.data_version_dir + '/'
-            all_files = [x.replace(strip_str, '') for x in all_files]
-            self._prepped_data_files = [x for x in all_files
-                                        if x.find('_data.csv') > 0]
-            self._prepped_data_files = [
-                x for x in self._prepped_data_files
-                if x.find('market_index_data') == -1]
+            prefix = os.path.join(self.strategy_run_output_dir,
+                                  'index_outputs')
+            cursor = bucket.list_blobs(prefix=prefix)
+            all_files = [x.name for x in cursor]
+            all_files = [x.split('/')[-1] for x in all_files]
+        else:
+            all_files = os.listdir(os.path.join(self.strategy_run_output_dir,
+                                                'index_outputs'))
+        return [x for x in all_files if x.find('_returns.csv') > -1]
+
+    def _get_prepped_data_file_names(self):
+        """
+        Files are located in /prepped_data/{Strategy}/{version_00xx}
+        """
+        if self._gcp_implementation:
+            cursor = bucket.list_blobs(prefix=self.data_version_dir)
+            all_files = [x.name for x in cursor]
+            all_files = [x.split('/')[-1] for x in all_files]
         else:
             all_files = os.listdir(self.data_version_dir)
-            self._prepped_data_files = [
-                x for x in all_files if x[-8:] == 'data.csv']
-            self._prepped_data_files = [
-                x for x in self._prepped_data_files
-                if x.find('market_index_data') == -1]
+        data_files = [x for x in all_files if x.find('_data.csv') > -1]
+        if 'market_index_data.csv' in data_files:
+            data_files.remove('market_index_data.csv')
+        self._prepped_data_files = data_files
         self._prepped_data_files.sort()
 
     # ~~~~~~ To Be Used by Derived Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
