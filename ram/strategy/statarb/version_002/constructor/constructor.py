@@ -5,6 +5,8 @@ import datetime as dt
 from ram.strategy.statarb.abstract.portfolio_constructor import \
     BasePortfolioConstructor, BOOKSIZE
 
+from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
+
 
 class PortfolioConstructor(BasePortfolioConstructor):
 
@@ -46,6 +48,7 @@ class PortfolioConstructor(BasePortfolioConstructor):
         """
         if column_index in self._size_containers:
             size_container = self._size_containers[column_index]
+
         else:
             size_container = SizeContainer(self._holding_period)
             self._size_containers[column_index] = size_container
@@ -67,36 +70,10 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
         allocs = {}
         for i in longs.index.values:
-            allocs[i] = 1 / float(counts) * BOOKSIZE
+            allocs[i] = 1 / float(counts) * BOOKSIZE / self._holding_period
 
         for i in shorts.index.values:
-            allocs[i] = -1 / float(counts) * BOOKSIZE
+            allocs[i] = -1 / float(counts) * BOOKSIZE / self._holding_period
         size_container.update_sizes(allocs)
 
         return size_container.get_sizes()
-
-
-class SizeContainer(object):
-
-    def __init__(self, n_days):
-        self.n_days = n_days
-        self.sizes = {}
-        self.index = 0
-
-    def update_sizes(self, sizes):
-        self.sizes[self.index] = sizes
-        # Clean out old
-        if (self.index - self.n_days) in self.sizes:
-            del self.sizes[self.index - self.n_days]
-        self.index += 1
-
-    def get_sizes(self):
-        # Init output with all seccods
-        output = {x: 0 for x in set(sum([x.keys() for x
-                                         in self.sizes.values()], []))}
-
-        for i in self.sizes.keys():
-            for j in self.sizes[i].keys():
-                output[j] += self.sizes[i][j] / float(self.n_days)
-
-        return output

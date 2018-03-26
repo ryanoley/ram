@@ -117,6 +117,8 @@ class BasePortfolioConstructor(object):
             daily_turnover = portfolio.get_portfolio_daily_turnover()
             daily_exposure = portfolio.get_portfolio_exposure()
 
+            # Min/Max position sizes
+            exposures = [x.exposure for x in portfolio.positions.values()]
             daily_df.loc[date, 'PL'] = (pl_long + pl_short) / BOOKSIZE
             daily_df.loc[date, 'LongPL'] = pl_long / BOOKSIZE
             daily_df.loc[date, 'ShortPL'] = pl_short / BOOKSIZE
@@ -125,5 +127,7 @@ class BasePortfolioConstructor(object):
             daily_df.loc[date, 'OpenPositions'] = sum([
                 1 if x.shares != 0 else 0
                 for x in portfolio.positions.values()])
+            daily_df.loc[date, 'MaxPosSize'] = max(exposures)
+            daily_df.loc[date, 'MinPosSize'] = min(exposures)
 
         return daily_df
