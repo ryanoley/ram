@@ -138,6 +138,7 @@ class StatArbStrategy(Strategy):
                             in self.data.get_args().keys()])
 
         self.data.set_args(**data_params)
+        #
         signal_params = dict([(k, params[k]) for k
                               in self.signals.get_args().keys()])
         self.signals.set_args(**signal_params)
@@ -147,8 +148,34 @@ class StatArbStrategy(Strategy):
             self.data.get_train_responses())
         self.signals.set_test_data(self.data.get_test_data())
         self.signals.fit_model()
+        signals = self.signals.get_signals()
+        #
+        self.constructor.set_test_dates(self.data.get_test_dates())
+        self.constructor.set_pricing_data(0,
+                                          self.data.get_pricing_data())
+        self.constructor.set_other_data(0,
+                                        self.data.get_other_data())
+
+        self.constructor.set_signal_data(0, signals)
+
+        constructor_params = dict([(k, params[k]) for k
+                                   in self.constructor.get_args().keys()])
+        import pdb; pdb.set_trace()
+        self.constructor.set_args(**constructor_params)
+
+        # This just needs to hold size containers which should then be
+        # written out
+        self.constructor.get_period_daily_pl(0)
+
+        # Delete
+        del self.constructor._portfolios[0]
+        sizes = self.constructor._size_containers.pop(0)
+
+        output = {'params': params}
+        output['sizes'] = sizes.to_json()
+
         self.implementation_training_write_params_model(
-            run_name, params, self.signals.get_model())
+            run_name, output, self.signals.get_model())
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

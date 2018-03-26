@@ -296,6 +296,8 @@ class Strategy(object):
                                                    run_name,
                                                    params,
                                                    model):
+        if not self._write_flag:
+            return
         # Set paths for output files
         model_cache_path = os.path.join(self.implementation_output_dir,
                                         run_name + '_skl_model.pkl')
