@@ -567,7 +567,7 @@ class Strategy(object):
         if self._gcp_implementation:
             prefix = os.path.join(self.strategy_run_output_dir,
                                   'index_outputs')
-            cursor = bucket.list_blobs(prefix=prefix)
+            cursor = self._gcp_bucket.list_blobs(prefix=prefix)
             all_files = [x.name for x in cursor]
             all_files = [x.split('/')[-1] for x in all_files]
         else:
@@ -580,7 +580,8 @@ class Strategy(object):
         Files are located in /prepped_data/{Strategy}/{version_00xx}
         """
         if self._gcp_implementation:
-            cursor = bucket.list_blobs(prefix=self.data_version_dir)
+
+            cursor = self._gcp_bucket.list_blobs(prefix=self.data_version_dir)
             all_files = [x.name for x in cursor]
             all_files = [x.split('/')[-1] for x in all_files]
         else:
