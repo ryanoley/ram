@@ -165,6 +165,9 @@ class StatArbStrategy(Strategy):
 
         self._process_implementation(params)
 
+        del self.constructor._portfolios[0]
+        del self.constructor._size_containers[0]
+
         self.implementation_training_write_params_model(
             run_name, output, self.signals.get_model())
 
