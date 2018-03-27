@@ -28,19 +28,6 @@ class TestPortfolioConstructor(unittest.TestCase):
         signal_data['Signal'] = [10, 20, 15, 5]
         self.signal_data = signal_data
 
-    def test_SizeContainer(self):
-        size_container = SizeContainer(n_days=2)
-        sizes = {'A': 100, 'B': 300, 'C': -1000}
-        size_container.update_sizes(sizes)
-        result = size_container.get_sizes()
-        benchmark = {'A': 50.0, 'B': 150.0, 'C': -500.0}
-        self.assertDictEqual(result, benchmark)
-        sizes = {'A': 200, 'B': 400, 'C': -500}
-        size_container.update_sizes(sizes)
-        result = size_container.get_sizes()
-        benchmark = {'A': 150.0, 'B': 350.0, 'C': -750.0}
-        self.assertDictEqual(result, benchmark)
-
     def test_set_args_get_day_position_sizes(self):
         cons = PortfolioConstructor()
         cons._holding_period = 2

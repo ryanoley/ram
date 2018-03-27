@@ -74,6 +74,6 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
         for i in shorts.index.values:
             allocs[i] = -1 / float(counts) * BOOKSIZE / self._holding_period
-        size_container.update_sizes(allocs)
+        size_container.update_sizes(allocs, date)
 
         return size_container.get_sizes()

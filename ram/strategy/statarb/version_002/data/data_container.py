@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from scipy.stats.mstats import winsorize
-
 from ram.data.feature_creator import *
 
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
@@ -30,24 +28,30 @@ class DataContainer(BaseDataContainer):
     def get_args(self):
         return {
             'response_days': self._response_days_args,
-            # 'response_type': ['Simple', 'Smoothed']
-            'response_type': ['Simple'],
-            'training_period_length': [72, None]  # 72 months = 6 years
+            'response_type': ['Simple']
         }
 
-    def set_args(self, response_days, response_type, training_period_length):
+    def set_args(self,
+                 response_days,
+                 response_type,
+                 live_flag=False):
         self._response_days = response_days
         self._response_type = response_type
-        self._training_period_length = training_period_length
         train_data, test_data = self._get_train_test()
+
+        if live_flag:
+            self._test_data = test_data
+            return
+
         # Add training flag given number of response days
         training_dates = train_data.Date.unique()
-        training_dates = training_dates[:-response_days]
+        training_dates = training_dates[:-response_days].copy()
         train_data = train_data[train_data.Date.isin(training_dates)]
         self._train_data = train_data
         self._test_data = test_data
         self._train_data_responses = train_data[
             'Response_{}_{}'.format(response_type, response_days)]
+
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -78,30 +82,33 @@ class DataContainer(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def prep_live_data(self, data, market_data):
+        """
+        This is data that is as of yesterday
+        """
         data['TimeIndex'] = -1
         data['keep_inds'] = True
-        data_features_1, features_1 = self._make_features(data, live_flag=True)
+        prepped_data, prepped_features = self._make_features(data,
+                                                             live_flag=True)
         market_data = market_data[['SecCode', 'Date', 'AdjClose']].copy()
         market_data = market_data[market_data.SecCode.isin(['50311', '11113'])]
         self._live_prepped_data = {}
-        self._live_prepped_data['data'] = data
+        self._live_prepped_data['raw_data'] = data
         self._live_prepped_data['market_data'] = market_data
-        self._live_prepped_data['data_features_1'] = data_features_1
-        self._live_prepped_data['features'] = features_1
+        self._live_prepped_data['prepped_data'] = prepped_data
+        self._live_prepped_data['prepped_features'] = prepped_features
         self._constructor_data = {}
 
     def process_live_data(self, live_pricing_data):
-        data = self._live_prepped_data['data']
+        data = self._live_prepped_data['raw_data']
         market_data = self._live_prepped_data['market_data']
-        features_1 = self._live_prepped_data['features']
-        data_features_1 = self._live_prepped_data['data_features_1']
+        prepped_data = self._live_prepped_data['prepped_data']
+        prepped_features = self._live_prepped_data['prepped_features']
         del self._live_prepped_data
         # Pop index pricing
         live_market = live_pricing_data[
             live_pricing_data.SecCode.isin(['50311', '11113'])]
         live_pricing_data = live_pricing_data[
             ~live_pricing_data.SecCode.isin(['50311', '11113'])]
-
         # Get live data for sec codes in this data set
         live_pricing_data = live_pricing_data[
             live_pricing_data.SecCode.isin(data.SecCode.unique())].copy()
@@ -111,27 +118,33 @@ class DataContainer(BaseDataContainer):
             print('NO DATA FOR FOLLOWING TICKERS:')
             print(no_data.tolist())
             live_pricing_data = live_pricing_data.replace(0, np.nan)
-
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
         market_data = merge_live_pricing_market_data(market_data, live_market)
         data = adjust_todays_prices(data)
-
         # Calculate avgdolvol
-        import pdb; pdb.set_trace()
-
-
+        data = calculate_avgdolvol(data)
         # Cleanup
         data = self._initial_clean(data, -1)
         # Technical variable calculation
-        data_features_2, features_2 = self._make_technical_features(
+        data_tech, features_tech = self._make_technical_features(
             data, live_flag=True)
         # Merge technical and non-technical
-        pdata = data_features_1.merge(data_features_2)
-        features = features_1 + features_2
-        # Merge market data
-        self._test_data = pdata
+        pdata = prepped_data.merge(data_tech)
+        features = prepped_features + features_tech
+        # Separate training from test data
+        self._processed_train_data = pd.DataFrame({'Date': [0]})
+        self._processed_test_data = pdata
         self._features = features
+        # TODO: is this needed
+        self._test_dates = [0]
+        # Process some data
+        score_vars = PortfolioConstructor().get_args()['score_var']
+        self._other_data = pdata[['SecCode', 'Date', 'keep_inds']+score_vars]
+        # self._pricing_data = data[data.TestFlag][['SecCode', 'Date',
+        #                                           'MarketCap', 'AvgDolVol',
+        #                                           'RClose', 'RCashDividend',
+        #                                           'SplitMultiplier']]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -184,8 +197,13 @@ class DataContainer(BaseDataContainer):
 
     def _make_features(self, data, live_flag=False):
         """
-        Everything but Technical features. Separated for speed during
-        implementation.
+        Makes fundamental features. Separated for speed during implementation.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Entire dataframe that is available from a file, training and
+            test data.
         """
         feat = FeatureAggregator()
 
@@ -209,10 +227,9 @@ class DataContainer(BaseDataContainer):
 
         pdata = data[['SecCode', 'Date']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
-
         if live_flag:
             max_date = pdata.Date.max()
-            pdata = pdata[pdata.Date == max_date].copy()
+            pdata = pdata[pdata.Date == max_date]
             pdata.Date = 0
 
         pdata = pdata.merge(feat.make_dataframe())
@@ -234,21 +251,6 @@ class DataContainer(BaseDataContainer):
         close = clean_pivot_raw_data(data, 'AdjClose')
         volume = clean_pivot_raw_data(data, 'AdjVolume')
         avgdolvol = clean_pivot_raw_data(data, 'AvgDolVol')
-
-        # If live_flag adjust avg dol volume because it will have been a
-        # nan that was fixed by clean_pivot_raw_data
-        if live_flag:
-            vwap = clean_pivot_raw_data(data, 'AdjVwap')
-            new_dolvol = (volume.iloc[-1] * vwap.iloc[-1]) / 1e6
-            avgdolvol.iloc[-1] = (avgdolvol.iloc[-2] * 30 + new_dolvol) / 31.
-            # TEMP: print out average discount from day before
-            print('\nAVG diff in avgdolvol: {}'.format(
-                avgdolvol.iloc[-2:].pct_change().iloc[-1].mean()))
-            rets = close.iloc[-2:].pct_change().iloc[-1].fillna(0)
-            print('AdjClose returns')
-            print(' Min: {}'.format(rets.min()))
-            print(' Max: {}'.format(rets.max()))
-            print(' Std: {}'.format(rets.std()))
 
         feat = FeatureAggregator()
 
@@ -328,6 +330,7 @@ class DataContainer(BaseDataContainer):
             pdata = data[['SecCode', 'Date', 'keep_inds']].copy()
         else:
             pdata = data[['SecCode', 'Date']].copy()
+
         n_id_features = pdata.shape[1]  # For capturing added features
         # Adjust date for faster live imp
         if live_flag:
@@ -343,7 +346,7 @@ class DataContainer(BaseDataContainer):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _initial_clean(self, data, time_index):
-        data = data.sort_values(['SecCode', 'Date'])
+        data = data.sort_values(['SecCode', 'Date']).reset_index(drop=True)
         data['TimeIndex'] = time_index
         data = create_split_multiplier(data)
         data['keep_inds'] = \
@@ -359,19 +362,10 @@ class DataContainer(BaseDataContainer):
         return data
 
     def _get_train_test(self):
-        if self._training_period_length:
-            train = self._processed_train_data.copy()
-            test = self._processed_test_data.copy()
-            # Shorten
-            unique_time_index = train.TimeIndex.unique()
-            keep_time_index = unique_time_index[-self._training_period_length:]
-            train = train[train.TimeIndex.isin(keep_time_index)]
-            return train, test
-        else:
-            return (
-                self._processed_train_data.copy(),
-                self._processed_test_data.copy()
-            )
+        return (
+            self._processed_train_data.copy(),
+            self._processed_test_data.copy()
+        )
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -392,22 +386,33 @@ def merge_live_pricing_data(data, live_pricing_data):
     new_cols = list(set(data.columns) - set(live_pricing_data.columns))
     live_pricing_data = live_pricing_data.join(
         pd.DataFrame(columns=new_cols), how='left')
-    live_pricing_data['Date'] = dt.datetime.utcnow().date()
+    live_pricing_data['Date'] = dt.date.today()
     live_pricing_data['TestFlag'] = True
-    return data.append(live_pricing_data)
+    return data.append(live_pricing_data)[data.columns].reset_index(drop=True)
 
 
 def merge_live_pricing_market_data(data, live_pricing_data):
     # Add missing columns to live pricing data, and merge
     live_pricing_data = live_pricing_data[['SecCode', 'AdjClose']].copy()
-    live_pricing_data['Date'] = dt.datetime.utcnow().date()
-    return data.append(live_pricing_data)
+    live_pricing_data['Date'] = dt.date.today()
+    return data.append(live_pricing_data)[data.columns].reset_index(drop=True)
 
 
 def adjust_todays_prices(data):
     data.AdjVwap = np.where(data.AdjVwap.isnull(), data.AdjClose, data.AdjVwap)
     data.RClose = np.where(data.RClose.isnull(), data.AdjClose, data.RClose)
     return data
+
+
+def calculate_avgdolvol(data, days=30):
+    vwap = data.pivot(index='Date', columns='SecCode', values='AdjVwap')
+    vol = data.pivot(index='Date', columns='SecCode', values='AdjVolume')
+    dolvol = vol * vwap
+    avgdolvol = dolvol.rolling(days).mean().unstack().reset_index()
+    avgdolvol.columns = ['SecCode', 'Date', 'AvgDolVol']
+    if 'AvgDolVol' in data.columns:
+        data = data.drop('AvgDolVol', axis=1)
+    return data.merge(avgdolvol)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

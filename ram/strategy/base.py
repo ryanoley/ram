@@ -290,6 +290,15 @@ class Strategy(object):
                 self.read_data_from_index(time_index),
                 time_index,
                 market_data.copy())
+            # TODO: FIX THIS HACK
+            # Attach previous periods training data for getting correct
+            # sizes in SizeContainer
+            if time_index == (len(self._prepped_data_files) - 2):
+                self.data._imp_train = self.data._processed_train_data.copy()
+                self.data._imp_test = self.data._processed_test_data.copy()
+                self.data._imp_test_dates = list(self.data._test_dates)
+                self.data._imp_pricing = self.data._pricing_data.copy()
+                self.data._imp_other = self.data._other_data.copy()
         return
 
     def implementation_training_write_params_model(self,
@@ -390,6 +399,9 @@ class Strategy(object):
             path = os.path.join(self._strategy_implementation_model_dir,
                                 'models_{0:04d}'.format(new_ind))
             os.mkdir(path)
+        print('\nCreated Implementation output at:')
+        print(path)
+        print('\n')
         self.implementation_output_dir = path
 
     def _copy_source_code(self):
