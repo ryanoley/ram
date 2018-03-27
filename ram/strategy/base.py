@@ -287,8 +287,6 @@ class Strategy(object):
         self._get_prepped_data_file_names()
         market_data = self.read_market_index_data()
         for time_index in tqdm(range(len(self._prepped_data_files))):
-            if time_index < 168:
-                continue
             self.process_raw_data(
                 self.read_data_from_index(time_index),
                 time_index,
