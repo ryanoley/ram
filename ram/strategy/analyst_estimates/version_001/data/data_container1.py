@@ -21,8 +21,8 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'response_days': [19],
-            'training_qtrs': [16, 24, 32, -99],
+            'response_days': [20],
+            'training_qtrs': [28, 32, 36],
             'ind_vars': [True]
         }
 
@@ -70,11 +70,14 @@ class DataContainer1(object):
 
     def create_features(self, data):
 
-        # SPLITS
+        # Splits
         data = create_split_multiplier(data)
 
         # Industry Binary Vars
         data = get_industry_binaries(data)
+
+        # # Open Return
+        # data['OpenRet'] = (data.LEAD1_AdjOpen / data.AdjClose) - 1
 
         # Previous Earnings Return
         data = get_previous_ern_return(data,
@@ -131,8 +134,6 @@ class DataContainer1(object):
         data = get_vwap_returns(data, 20, hedged=True,
                                 market_data=self._market_data)
         data = get_vwap_returns(data, 21, hedged=True,
-                                market_data=self._market_data)
-        data = get_vwap_returns(data, 22, hedged=True,
                                 market_data=self._market_data)
 
         # ~~~~~~ Clean and Filter ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -226,7 +227,7 @@ class DataContainer1(object):
             self.features = inp_features
 
         if inp_rets is None:
-            self.ret_cols = ['Ret19', 'Ret20', 'Ret21', 'Ret22']
+            self.ret_cols = ['Ret19', 'Ret20', 'Ret21']
         else:
             self.ret_cols = inp_rets
         return

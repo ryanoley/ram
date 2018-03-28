@@ -3,7 +3,7 @@ import numpy as np
 
 class Position(object):
 
-    def __init__(self, symbol, price, comm=0.005):
+    def __init__(self, symbol, price, comm=0.0225):
         """
         Parameters
         ----------

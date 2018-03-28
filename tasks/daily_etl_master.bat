@@ -15,7 +15,6 @@ echo Daily ETL Master - %date%_!time! - Start
 echo. & echo ~~ ram_table_update batch !time!~~
 start /b /WAIT %GITHUB%\ram\data\ram_sql_tables\ram_table_update.bat
 
-
 :: Position sheet scraper
 echo. & echo ~~ position_sheet_scraper !time!~~
 python %GITHUB%\ram\tasks\position_sheet_scraper.py

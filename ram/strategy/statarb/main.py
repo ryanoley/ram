@@ -10,6 +10,7 @@ import datetime as dt
 from copy import deepcopy
 
 from ram import config
+from ram.strategy.base import read_json
 from ram.strategy.statarb import statarb_config
 
 from ram.strategy.base import Strategy, StrategyVersionContainer
@@ -17,12 +18,11 @@ from ram.strategy.statarb.utils import make_arg_iter
 
 from ram.strategy.statarb.data_blueprints import blueprint_container
 
-from ram.strategy.statarb.implementation.preprocess_new_models import \
-    import_current_top_params
 
 # HELPER
 strategy_versions = StrategyVersionContainer()
-strategy_versions.add_version('version_001', 'Current implementation')
+strategy_versions.add_version('version_001', 'Pairs Implementation')
+strategy_versions.add_version('version_002', 'Smart Factor')
 
 
 class StatArbStrategy(Strategy):
@@ -34,9 +34,17 @@ class StatArbStrategy(Strategy):
             self.data = deepcopy(main.data)
             self.signals = deepcopy(main.signals)
             self.constructor = deepcopy(main.constructor)
+
+        elif self.strategy_code_version == 'version_002':
+            from ram.strategy.statarb.version_002 import main
+            self.data = deepcopy(main.data)
+            self.signals = deepcopy(main.signals)
+            self.constructor = deepcopy(main.constructor)
+
         else:
             print('Correct strategy code not specified')
             sys.exit()
+
         # Set args
         self._data_args = make_arg_iter(self.data.get_args())
         self._signals_args = make_arg_iter(self.signals.get_args())
@@ -70,26 +78,36 @@ class StatArbStrategy(Strategy):
             output_params[col_ind] = params
         return output_params
 
+    def get_implementation_param_path(self):
+        return os.path.join(os.getenv('GITHUB'), 'ram', 'ram',
+                            'strategy', 'statarb', 'implementation',
+                            'params', statarb_config.parameter_json)
+
     def process_raw_data(self, data, time_index, market_data=None):
-        self.data.process_training_market_data(market_data)
-        self.data.process_training_data(data, time_index)
+        self.data.process_training_data(data, market_data, time_index)
 
     # ~~~~~~ Simulation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def run_index(self, time_index):
         # HACK: If training and writing, don't train until 2009, but stack data
+        # Changed to 2003 for longer simulation
         if self._write_flag and \
-                (int(self._prepped_data_files[time_index][:4]) < 2009):
+                (int(self._prepped_data_files[time_index][:4]) < 2003):
             return
 
-        # Iterate
-        i = 0
+        column_index = 0
         for args1 in self._data_args:
-
             self.data.set_args(**args1)
 
-            for args2 in self._signals_args:
+            # Once data has been processed, pass relevant information
+            # to portfolio constructor
+            self.constructor.set_test_dates(self.data.get_test_dates())
+            self.constructor.set_pricing_data(time_index,
+                                              self.data.get_pricing_data())
+            self.constructor.set_other_data(time_index,
+                                            self.data.get_other_data())
 
+            for args2 in self._signals_args:
                 self.signals.set_args(**args2)
                 self.signals.set_features(self.data.get_train_features())
                 self.signals.set_train_data(self.data.get_train_data())
@@ -100,70 +118,105 @@ class StatArbStrategy(Strategy):
                 self.signals.fit_model()
                 signals = self.signals.get_signals()
 
-                # HACK
-                # Make sure that there is no dependence on variables
-                self.constructor.set_signals_constructor_data(
-                    signals, self.data.get_constructor_data())
+                # Pass signals to portfolio constructor
+                self.constructor.set_signal_data(time_index, signals)
 
                 for ac in self._constructor_args:
-
                     self.constructor.set_args(**ac)
+                    result = self.constructor.get_period_daily_pl(column_index)
+                    self._capture_output(result, column_index)
+                    column_index += 1
 
-                    result, stats = self.constructor.get_period_daily_pl()
+        return self.output_returns, self.output_all_output, {}
 
-                    self._capture_output(result, stats, i)
-                    i += 1
-
-        self.write_index_results(self.output_returns, time_index)
-        self.write_index_results(self.output_all_output,
-                                 time_index,
-                                 'all_output')
-        self.write_index_stats(self.output_stats, time_index)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def implementation_training(self):
-        # Import top params from wherever
-        top_params = import_current_top_params().keys()
+    def process_implementation_params(self, run_name, params):
+        # TODO: Hack to get proper training and test files for first part
+        # of training
+        master_train_data = self.data._processed_train_data.copy()
+        master_test_data = self.data._processed_test_data.copy()
+        master_test_dates = list(self.data._test_dates)
+        master_pricing = self.data._pricing_data.copy()
+        master_other = self.data._other_data.copy()
 
-        # Process
-        run_map = self.implementation_training_prep(top_params)
-        # Placeholder to determine if data should be reloaded
-        current_stack_index = None
-        for i, vals in run_map.iterrows():
-            if vals.stack_index != current_stack_index:
-                self.strategy_code_version = vals.strategy_version
-                self.prepped_data_version = vals.data_version
-                current_stack_index = vals.stack_index
-                print('[[Stacking data]]')
-                self.strategy_init()
-                self.implementation_training_stack_version_data(
-                    vals.data_version)
-                all_params = self.import_run_column_params(
-                    vals.run_name)
-            params = all_params[vals.column_name]
-            # Fit model and cache
-            data_params = dict([(k, params[k]) for k
-                                in self.data.get_args().keys()])
-            self.data.set_args(**data_params)
-            signal_params = dict([(k, params[k]) for k
-                                  in self.signals.get_args().keys()])
-            self.signals.set_args(**signal_params)
-            self.signals.set_features(self.data.get_train_features())
-            self.signals.set_train_data(self.data.get_train_data())
-            self.signals.set_train_responses(
-                self.data.get_train_responses())
-            self.signals.set_test_data(self.data.get_test_data())
-            self.signals.fit_model()
-            self.implementation_training_write_params_model(
-                vals.param_name, params, self.signals.get_model())
+        self.data._processed_train_data = self.data._imp_train
+        self.data._processed_test_data = self.data._imp_test
+        self.data._test_dates = self.data._imp_test_dates
+        self.data._pricing_data = self.data._imp_pricing
+        self.data._other_data = self.data._imp_other
+
+        self._process_implementation(params)
+
+        # Get sizes and clean out containers
+        del self.constructor._portfolios[0]
+        sizes = self.constructor._size_containers.pop(0)
+
+        output = {'params': params}
+        output['sizes'] = sizes.to_json()
+
+        # Retrain to get model
+        self.data._processed_train_data = master_train_data
+        self.data._processed_test_data = master_test_data
+        self.data._test_dates = list(master_test_dates)
+        self.data._pricing_data = master_pricing
+        self.data._other_data = master_other
+
+        self._process_implementation(params)
+
+        del self.constructor._portfolios[0]
+        del self.constructor._size_containers[0]
+
+        self.implementation_training_write_params_model(
+            run_name, output, self.signals.get_model())
+
+
+    def _process_implementation(self, params):
+        # Extract params
+        data_params = dict([(k, params[k]) for k
+                            in self.data.get_args().keys()])
+
+        signal_params = dict([(k, params[k]) for k
+                              in self.signals.get_args().keys()])
+
+        constructor_params = dict([(k, params[k]) for k
+                                   in self.constructor.get_args().keys()])
+
+        # Fit data
+        self.data.set_args(**data_params)
+
+        self.signals.set_args(**signal_params)
+        self.signals.set_features(self.data.get_train_features())
+        self.signals.set_train_data(self.data.get_train_data())
+        self.signals.set_train_responses(
+            self.data.get_train_responses())
+        self.signals.set_test_data(self.data.get_test_data())
+        self.signals.fit_model()
+        signals = self.signals.get_signals()
+        #
+
+        self.constructor.set_test_dates(self.data.get_test_dates())
+        self.constructor.set_pricing_data(0,
+                                          self.data.get_pricing_data())
+        self.constructor.set_other_data(0,
+                                        self.data.get_other_data())
+
+        self.constructor.set_signal_data(0, signals)
+
+
+        self.constructor.set_args(**constructor_params)
+
+        # This just needs to hold size containers which should then be
+        # written out
+        self.constructor.get_period_daily_pl(0)
+
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _capture_output(self, results, stats, arg_index):
+    def _capture_output(self, results, arg_index):
         results = results.copy()
-        book = self.constructor.booksize
-        returns = pd.DataFrame(results.PL / book)
+        returns = pd.DataFrame(results.PL)
         returns.columns = [arg_index]
         # Rename columns
         results.columns = ['{}_{}'.format(x, arg_index)
@@ -171,13 +224,11 @@ class StatArbStrategy(Strategy):
         if arg_index == 0:
             self.output_returns = returns
             self.output_all_output = results
-            self.output_stats = {}
         else:
             self.output_returns = self.output_returns.join(returns,
                                                            how='outer')
             self.output_all_output = self.output_all_output.join(
                 results, how='outer')
-        self.output_stats[arg_index] = stats
 
 
 if __name__ == '__main__':

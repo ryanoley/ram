@@ -104,7 +104,6 @@ def write_output(data, file_name):
     data.to_csv(file_path, index=None)
 
 
-
 def main():
 
     import os
@@ -135,6 +134,9 @@ def main():
             break
         except:
             time.sleep(10)
+
+    data = blbg.eqs('QUANT_TICKER_CUSIP')
+    write_output(data, 'ticker_cusip')
 
     blbg.stopSession()
 

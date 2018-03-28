@@ -26,9 +26,29 @@ class Portfolio(object):
         return
 
     def update_position_sizes(self, sizes, exec_prices):
-        for symbol, size in sizes.iteritems():
+        portfolio_symbols = self.positions.keys()
+        new_symbols = set(sizes.keys()) - set(portfolio_symbols)
+        # Update positions in portfolio
+        for symbol in portfolio_symbols:
+            if symbol in sizes:
+                self.positions[symbol].update_position_size(
+                    sizes[symbol], exec_prices[symbol])
+            # Remove symbols that have no pricing provided
+            elif symbol not in exec_prices:
+                if self.positions[symbol].shares == 0:
+                    del self.positions[symbol]
+                else:
+                    raise ValueError('Still open shares')
+            # Otherwise just set position to size 0
+            else:
+                self.positions[symbol].update_position_size(
+                    0, exec_prices[symbol])
+        # Add new symbols
+        for symbol in new_symbols:
+            self.positions[symbol] = Position(symbol=symbol,
+                                              price=exec_prices[symbol])
             self.positions[symbol].update_position_size(
-                size, exec_prices[symbol])
+                    sizes[symbol], exec_prices[symbol])
         return
 
     def get_portfolio_exposure(self):
@@ -51,16 +71,13 @@ class Portfolio(object):
         return port_turnover
 
     def get_portfolio_stats(self):
-        counts = [x.min_ticket_charge_achieved
-                  for x in self.positions.values()]
-        counts = [x for x in counts if ~np.isnan(x)]
-        if counts:
-            min_ticket_charge_prc = sum(counts) / float(len(counts))
-        else:
-            min_ticket_charge_prc = 0
-        return {
-            'min_ticket_charge_prc': min_ticket_charge_prc
-        }
+        output = {'worst_losing_day_count': 0}
+        for position in self.positions.values():
+            stats = position.get_stats()
+            output['worst_losing_day_count'] = \
+                max(output['worst_losing_day_count'],
+                    stats['losing_day_count'])
+        return output
 
     def close_portfolio_positions(self):
         for position in self.positions.values():

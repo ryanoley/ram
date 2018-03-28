@@ -11,6 +11,9 @@ from ram.strategy.statarb.main import StatArbStrategy
 
 from gearbox import convert_date_array
 
+from ramex.orders.orders import MOCOrder
+from ramex.client.client import ExecutionClient
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -74,6 +77,14 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
         scaling.BbrgSplitMultiplier
     scaling['VolumeMultiplier'] = scaling.BbrgSplitMultiplier
     scaling = scaling[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
+
+    # Index scaling
+    scaling_t = pd.DataFrame()
+    scaling_t['SecCode'] = ['50311', '11113']
+    scaling_t['PricingMultiplier'] = 1
+    scaling_t['VolumeMultiplier'] = 1
+    scaling = scaling.append(scaling_t).reset_index(drop=True)
+
     # IMPORT LIVE AND ADJUST
     live_data = _import_live_pricing(implementation_dir)
     data = live_data.merge(scaling)
@@ -156,6 +167,8 @@ def import_run_map(
     data = data.sort_values('data_version').reset_index()
     return data
 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def import_models_params(
         implementation_dir=config.IMPLEMENTATION_DATA_DIR,
@@ -259,7 +272,7 @@ class StatArbImplementation(object):
 
     def run_live(self, live_data):
 
-        sizes = {}
+        orders = pd.DataFrame()
 
         for name, objs in self.models_params_strategy.iteritems():
             strategy = objs['strategy']
@@ -285,10 +298,13 @@ class StatArbImplementation(object):
             scores = signals[['SecCode', 'preds']].set_index(
                 'SecCode').to_dict()['preds']
 
-            sizes = _add_sizes(
-                sizes, strategy.constructor.get_day_position_sizes(0, scores))
+            sizes = strategy.constructor .get_day_position_sizes(0, scores)
+            sizes = pd.Series(sizes).reset_index()
+            sizes.columns = ['SecCode', 'Dollars']
+            sizes['Strategy'] = name
+            orders = orders.append(sizes)
 
-        return sizes
+        return orders
 
 
 def _extract_params(all_params, selected_params):
@@ -306,51 +322,78 @@ def _add_sizes(all_sizes, model_sizes):
     return all_sizes
 
 
-def _write_output(out_df, implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def write_output(out_df, implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
     file_name = 'allocations_{}.csv'.format(timestamp)
     path = os.path.join(implementation_dir, 'StatArbStrategy', 'allocations', file_name)
     out_df.to_csv(path, index=None)
 
+
+def send_orders(out_df):
+    client = ExecutionClient()
+    for _, o in out_df.iterrows():
+        shares = int(o.Dollars / o.RClose)
+        if shares == 0:
+            continue
+        order = MOCOrder(symbol=o.Ticker,
+                         quantity=shares,
+                         strategy_id=o.Strategy)
+        client.send_moc_order(order)
+        print(order)
+
+    client.send_transmit()
+    client.close_zmq_sockets()
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if __name__ == '__main__':
+def main():
 
     raw_data = import_raw_data()
+
     run_map = import_run_map()
+
     models_params = import_models_params()
+
     positions = import_portfolio_manager_positions()
 
     strategy = StatArbImplementation()
+
     strategy.add_raw_data(raw_data)
+
     strategy.add_run_map(run_map)
     strategy.add_models_params(models_params)
     strategy.add_positions(positions)
 
     strategy.prep()
 
-    ### IDEA: perhaps have some sort of infinite loop that has a
-    ### try/except statement in it just in case there is a problem
-
-    _ = raw_input("Press Enter to continue...")
-
-    t1 = dt.datetime.utcnow()
-
+    #_ = raw_input("Press Enter to continue...")
     live_data = import_live_pricing()
 
-    sizes = strategy.run_live(live_data)
+    orders = strategy.run_live(live_data)
+    out_df = live_data[['SecCode', 'Ticker', 'RClose']].merge(
+        orders, how='outer')
 
-    sizes = pd.Series(sizes).reset_index()
-    sizes.columns = ['SecCode', 'Dollars']
+    send_orders(out_df)
 
-    out_df = live_data[['SecCode', 'Ticker']].merge(sizes, how='outer')
+    # while True:
+    #     try:
+    #         live_data = import_live_pricing()
 
-    _write_output(out_df)
+    #         orders = strategy.run_live(live_data)
+    #         out_df = live_data[['SecCode', 'Ticker', 'RClose']].merge(
+    #             orders, how='outer')
 
-    t2 = dt.datetime.utcnow()
+    #         send_orders(out_df)
+    #         write_output(out_df)
+    #         break
 
-    print(t2 - t1)
+    #     except Exception as e:
+    #         print(e)
+    #         _ = raw_input("[ERROR] - Press any key to re-run and transmit")
 
 
-
-
+if __name__ == '__main__':
+    main()

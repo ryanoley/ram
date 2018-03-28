@@ -18,6 +18,8 @@ class BasePortfolioConstructor(object):
     __metaclass__ = ABCMeta
 
     def __init__(self):
+        self._pricing = {}
+        self._portfolios = {}
         self.booksize = BOOKSIZE
 
     @abstractmethod
@@ -29,9 +31,12 @@ class BasePortfolioConstructor(object):
         raise NotImplementedError('BasePortfolioConstructor.set_args')
 
     @abstractmethod
-    def set_signals_constructor_data(self):
-        raise NotImplementedError('BasePortfolioConstructor.'
-                                  'set_signals_constructor_data')
+    def set_signal_data(self):
+        raise NotImplementedError('BasePortfolioConstructor.set_signal_data')
+
+    @abstractmethod
+    def set_other_data(self):
+        raise NotImplementedError('BasePortfolioConstructor.set_other_data')
 
     @abstractmethod
     def get_day_position_sizes(self, date, signals):
@@ -43,81 +48,86 @@ class BasePortfolioConstructor(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def get_period_daily_pl(self):
+    def set_test_dates(self, test_dates):
+        self._test_dates = np.sort(test_dates)
 
-        portfolio = Portfolio()
-        self.portfolio = portfolio
+    def set_pricing_data(self, time_index, data):
+        """
+        Combines previous and current pricing data in case there are still
+        positions that are on
+        """
+        if (time_index - 2) in self._pricing:
+            del self._pricing[(time_index - 2)]
+        self._pricing[time_index] = data.copy()
+        # Combine
+        self._pricing['closes'] = \
+            self._combine_pricing(time_index, 'RClose')
+        self._pricing['divs'] = \
+            self._combine_pricing(time_index, 'RCashDividend', 0)
+        self._pricing['splits'] = \
+            self._combine_pricing(time_index, 'SplitMultiplier', 0)
 
-        # Process needed values into dictionaries for efficiency
-        scores = make_variable_dict(self._signals, 'preds')
-        closes = make_variable_dict(self._pricing, 'RClose')
-        dividends = make_variable_dict(self._pricing, 'RCashDividend', 0)
-        splits = make_variable_dict(self._pricing, 'SplitMultiplier', 1)
-        liquidity = make_variable_dict(self._pricing, 'AvgDolVol')
-        market_cap = make_variable_dict(self._pricing, 'MarketCap')
-        # Dates to iterate over
-        unique_test_dates = np.unique(self._pricing.Date)
+    def _combine_pricing(self, time_index, val_name, fill_val=np.nan):
+        if (time_index - 1) in self._pricing:
+            old_vals = make_variable_dict(self._pricing[time_index-1],
+                                          val_name, fill_val)
+        else:
+            old_vals = {}
+        new_vals = make_variable_dict(self._pricing[time_index],
+                                      val_name, fill_val)
+        all_dates = list(set(new_vals.keys() + old_vals.keys()))
+        output = {}
+        for d in all_dates:
+            if d in old_vals:
+                output[d] = old_vals[d]
+            else:
+                output[d] = {}
+            if d in new_vals:
+                output[d].update(new_vals[d])
+        return output
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def get_period_daily_pl(self, column_index):
+
+        if column_index in self._portfolios:
+            portfolio = self._portfolios[column_index]
+        else:
+            portfolio = Portfolio()
+            self._portfolios[column_index] = portfolio
 
         # Output object
-        daily_df = pd.DataFrame(index=unique_test_dates,
+        daily_df = pd.DataFrame(index=self._test_dates,
                                 columns=['PL', 'Exposure', 'Turnover'],
                                 dtype=float)
 
-        for i, date in enumerate(unique_test_dates):
-
-            # If a low liquidity/price value, set score to nan
-            # Update every five days
-            if i % 5 == 0:
-                low_liquidity_seccodes = filter_seccodes(
-                    liquidity[date], LOW_LIQUIDITY_FILTER)
-                low_price_seccodes = filter_seccodes(
-                    closes[date], LOW_PRICE_FILTER)
-
-            for seccode in set(low_liquidity_seccodes+low_price_seccodes):
-                scores[date][seccode] = np.nan
+        for i, date in enumerate(self._test_dates):
 
             portfolio.update_prices(
-                closes[date], dividends[date], splits[date])
+                self._pricing['closes'][date],
+                self._pricing['divs'][date],
+                self._pricing['splits'][date])
 
-            if date == unique_test_dates[-1]:
-                portfolio.close_portfolio_positions()
-            else:
-                sizes = self.get_day_position_sizes(date, scores[date])
-                portfolio.update_position_sizes(sizes, closes[date])
+            sizes = self.get_day_position_sizes(date, column_index)
+
+            portfolio.update_position_sizes(sizes,
+                                            self._pricing['closes'][date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()
             daily_turnover = portfolio.get_portfolio_daily_turnover()
             daily_exposure = portfolio.get_portfolio_exposure()
 
-            min_pos_size = min([pos.exposure for pos
-                                in portfolio.positions.values()])
-            max_pos_size = max([pos.exposure for pos
-                                in portfolio.positions.values()])
-
-            daily_df.loc[date, 'PL'] = pl_long + pl_short
-            daily_df.loc[date, 'LongPL'] = pl_long
-            daily_df.loc[date, 'ShortPL'] = pl_short
-            daily_df.loc[date, 'Turnover'] = daily_turnover
+            # Min/Max position sizes
+            exposures = [x.exposure for x in portfolio.positions.values()]
+            daily_df.loc[date, 'PL'] = (pl_long + pl_short) / BOOKSIZE
+            daily_df.loc[date, 'LongPL'] = pl_long / BOOKSIZE
+            daily_df.loc[date, 'ShortPL'] = pl_short / BOOKSIZE
+            daily_df.loc[date, 'Turnover'] = daily_turnover / BOOKSIZE
             daily_df.loc[date, 'Exposure'] = daily_exposure
             daily_df.loc[date, 'OpenPositions'] = sum([
                 1 if x.shares != 0 else 0
                 for x in portfolio.positions.values()])
-            # Daily portfolio stats
-            daily_stats = portfolio.get_portfolio_stats()
-            daily_df.loc[date, 'TicketChargePrc'] = \
-                daily_stats['min_ticket_charge_prc']
-            daily_df.loc[date, 'MeanSignal'] = \
-                np.nanmean(scores[date].values())
-            daily_df.loc[date, 'MinPosSize'] = min_pos_size / self.booksize
-            daily_df.loc[date, 'MaxPosSize'] = max_pos_size / self.booksize
-        # Time Index aggregate stats
-        stats = {}
-        return daily_df, stats
+            daily_df.loc[date, 'MaxPosSize'] = max(exposures)
+            daily_df.loc[date, 'MinPosSize'] = min(exposures)
 
-
-def filter_seccodes(data_dict, min_value):
-    bad_seccodes = []
-    for key, value in data_dict.iteritems():
-        if value < min_value:
-            bad_seccodes.append(key)
-    return bad_seccodes
+        return daily_df

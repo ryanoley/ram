@@ -6,11 +6,14 @@ import itertools as it
 
 class PairSelector(object):
 
-    def rank_pairs(self, data, filter_n_pairs_per_seccode=None):
+    def rank_pairs(self,
+                   data,
+                   filter_n_pairs_per_seccode=None,
+                   eval_col='AdjClose'):
         # Reshape Close data
         close_data = data.pivot(index='Date',
                                 columns='SecCode',
-                                values='AdjClose')
+                                values=eval_col)
         cut_date = data.Date[~data.TestFlag].max()
         train_close = close_data.loc[close_data.index <= cut_date]
         train_close = train_close.T.dropna().T
@@ -90,7 +93,8 @@ class PairSelector(object):
         close1 = close_data.loc[:, pair_info.PrimarySecCode]
         close2 = close_data.loc[:, pair_info.OffsetSecCode]
         spreads = pd.DataFrame(np.subtract(np.log(close1.values),
-                                           np.log(close2.values)))
+                                           np.log(close2.values)),
+                               index=close1.index)
         # Add correct column names
         spreads.columns = ['{0}~{1}'.format(x, y) for x, y in
                            zip(pair_info.PrimarySecCode,

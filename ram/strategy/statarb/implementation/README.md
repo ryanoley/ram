@@ -16,7 +16,10 @@ As `ComboSearch` grinds away, it will checkpoint the best current results into a
 3. Update preprocess_version in `statarb_config`
 
 
-## (Re-) Training models
+
+
+
+## (Re-) Training models - (Morning of first trading day of month)
 
 1. On local client, update the prepped data versions for the aforementioned runs. This can be done by simply running the version through the main command. The `d_update` with a given version will drop the final period's data, and recreate with most up-to-date data:
 
@@ -33,7 +36,17 @@ python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for
 python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 ```
 
-3. Check that `statarb_configs.py` is updated
+3. If re-training, re-run research code:
+
+
+4. If re-training, re-run combo selection code:
+
+
+
+
+5. Check that `statarb_configs.py` is updated
+
+
 
 4. Train models by simply invoking:
 
@@ -61,8 +74,11 @@ python ram/strategy/statarb/implementation/get_daily_raw_data.py
 ```
 
 
+## Odd Ticker Hash
 
+`DATA/ram/implementation/StatArbStrategy/live_pricing/odd_ticker_hash.json`
 
+Used to map `{ QADirectTicker: EzeTicker , ...}`
 
-
+TODO: How are we going to keep this up to date?
 

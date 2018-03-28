@@ -152,6 +152,18 @@ class TestFeatureCreator(unittest.TestCase):
         result2 = RSI().calculate_last_date(data, 3)
         assert_array_almost_equal(result1.iloc[-1].values, result2.values)
 
+    def test_data_fill_median(self):
+        data = pd.DataFrame(index=range(3, 8))
+        data['V1'] = [np.nan, 1, 2, 3, 4]
+        data['V2'] = [np.nan, 3, 4, 5, 6]
+        data['V3'] = [np.nan, np.nan, 10, 23, np.nan]
+        result = data_fill_median(data)
+        benchmark = pd.DataFrame(index=range(3, 8))
+        benchmark['V1'] = [2, 1, 2, 3, 4.]
+        benchmark['V2'] = [2, 3, 4, 5, 6.]
+        benchmark['V3'] = [2, 2, 10, 23, 5.]
+        assert_frame_equal(result, benchmark)
+
     def tearDown(self):
         pass
 

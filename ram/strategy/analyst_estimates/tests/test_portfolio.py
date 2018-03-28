@@ -32,8 +32,8 @@ class TestPortfolio(unittest.TestCase):
         self.portfolio.update_position_sizes(sizes, closes)
         self.assertEqual(self.portfolio.positions['IBM'].shares, 1)
         self.assertEqual(self.portfolio.positions['AAPL'].shares, -2)
-        self.assertEqual(self.portfolio.positions['IBM'].daily_pl, -.005)
-        self.assertEqual(self.portfolio.positions['AAPL'].daily_pl, -.01)
+        self.assertEqual(self.portfolio.positions['IBM'].daily_pl, -.0225)
+        self.assertEqual(self.portfolio.positions['AAPL'].daily_pl, -.045)
         self.assertEqual(self.portfolio.positions['IBM'].daily_turnover, 100)
         self.assertEqual(self.portfolio.positions['AAPL'].daily_turnover, 100)
 
@@ -57,14 +57,14 @@ class TestPortfolio(unittest.TestCase):
         closes = {'IBM':100., 'AAPL':50.}
         self.portfolio.update_position_sizes(sizes, closes)
         pl_long, pl_short = self.portfolio.get_portfolio_daily_pl()
-        self.assertEqual(pl_long, -.005)
-        self.assertEqual(pl_short, -.01)
+        self.assertEqual(pl_long, -.0225)
+        self.assertEqual(pl_short, -.045)
 
         closes = {'IBM':101., 'AAPL':49.}
         self.portfolio.update_prices(closes)
         pl_long, pl_short = self.portfolio.get_portfolio_daily_pl()
-        self.assertEqual(pl_long, 0.995)
-        self.assertEqual(pl_short, 1.99)
+        self.assertEqual(pl_long, 0.9775)
+        self.assertEqual(pl_short, 1.955)
 
         sizes = {'IBM':0, 'AAPL':0}
         closes = {'IBM':100., 'AAPL':50.}

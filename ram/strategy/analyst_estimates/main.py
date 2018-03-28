@@ -47,7 +47,7 @@ class AnalystEstimates(Strategy):
             return
         elif len(self.data._processed_test_data) == 0:
             return
-        elif self._write_flag and time_index < 8:
+        elif self._write_flag and time_index < 16:
             return
 
         i = 0

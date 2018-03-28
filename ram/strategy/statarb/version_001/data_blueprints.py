@@ -20,6 +20,15 @@ base.universe_date_parameters['train_period_length'] = 4
 base.universe_date_parameters['test_period_length'] = 1
 base.universe_date_parameters['start_year'] = 2001
 
+base.market_data_params['features'] = ['AdjClose']
+
+base.market_data_params['seccodes'] = [
+    50311, 61258, 61259, 11097, 11099,
+    11100, 10955, 11101, 11102, 11096,
+    11103, 11104, 11113, 11132814, 10922530
+]
+
+
 base.features = [
     # Pricing
     'AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap', 'AdjVolume',

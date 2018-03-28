@@ -68,6 +68,9 @@ class TestRunManager(unittest.TestCase):
                 'strategy_code_version': 'version1020'}
         with open(os.path.join(run_path, 'meta.json'), 'w') as f:
             json.dump(meta, f)
+        data_meta = {'blueprint': {'val': 10}, 'stuff': {}}
+        with open(os.path.join(run_path, 'data_meta.json'), 'w') as f:
+            json.dump(data_meta, f)
         # Create column params
         params = {0: {'p1': 10, 'p2': 20}, 1: {'p1': 20, 'p2': 30}}
         with open(os.path.join(run_path, 'column_params.json'), 'w') as f:
@@ -95,6 +98,36 @@ class TestRunManager(unittest.TestCase):
         benchmark = {'1': {'p2': 30, 'p1': 20}}
         self.assertDictEqual(run1.column_params, benchmark)
 
+    def test_import_return_frame_with_drop_params(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          drop_params=[('p1', 10)],
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        data = pd.DataFrame()
+        data['0'] = [1, 2, 3, 4, 5.] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data.index = convert_date_array(data.index)
+        data = data.drop('0', axis=1)
+        assert_frame_equal(run1.returns, data)
+        benchmark = {'1': {'p2': 30, 'p1': 20}}
+        self.assertDictEqual(run1.column_params, benchmark)
+
+    def test_import_return_frame_with_keep_params(self):
+        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
+                          keep_params=[('p1', 10)],
+                          simulation_data_path=self.base_path)
+        run1.import_return_frame()
+        data = pd.DataFrame()
+        data['0'] = [1, 2, 3, 4, 5.] * 2
+        data['1'] = [6, 7, 8, 9, 10.] * 2
+        data.index = ['2010-01-{0:02d}'.format(i) for i in range(1, 11)]
+        data.index = convert_date_array(data.index)
+        data = data.drop('1', axis=1)
+        assert_frame_equal(run1.returns, data)
+        benchmark = {'0': {'p2': 20, 'p1': 10}}
+        self.assertDictEqual(run1.column_params, benchmark)
+
     def test_import_return_frame(self):
         run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
                           simulation_data_path=self.base_path)
@@ -115,17 +148,6 @@ class TestRunManager(unittest.TestCase):
         data.index = convert_date_array(data.index)
         assert_frame_equal(run1.returns, data)
 
-    def test_import_long_short_returns(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
-                          simulation_data_path=self.base_path)
-        run1.import_long_short_returns()
-        result = run1.long_short_returns
-        benchmark = pd.Series(
-            [0.1, 0.2, 0.3, 0.4, 0.5],
-            index=['2010-01-{0:02d}'.format(i) for i in range(1, 6)],
-            name='LongRet_0')
-        assert_array_equal(result.LongRet_0.values, benchmark.values)
-
     def test_import_stats(self):
         run1 = RunManager('TestStrategy', 'run_0001',
                           simulation_data_path=self.base_path)
@@ -139,7 +161,8 @@ class TestRunManager(unittest.TestCase):
                      'description': 'Test data',
                      'prepped_data_version': u'version10',
                      'strategy_code_version': u'version1020',
-                     'completed': True}
+                     'completed': True,
+                     'blueprint': {u'val': 10}}
         self.assertDictEqual(run1.meta, benchmark)
 
     def test_import_column_params(self):
@@ -170,14 +193,6 @@ class TestRunManager(unittest.TestCase):
         benchmark = pd.Series(['10', '20'], name='Val')
         assert_series_equal(result.Val, benchmark)
 
-    def test_parameter_correlations(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=0,
-                          simulation_data_path=self.base_path)
-        run1.import_return_frame()
-        run1.import_column_params()
-        run1.import_stats()
-        result = run1.parameter_correlations('p2')
-
     def test_filter_classified_params(self):
         cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
                    'p1': {'10': ['0', '2'], '20': ['1', '3']}}
@@ -185,6 +200,15 @@ class TestRunManager(unittest.TestCase):
         result = filter_classified_params(cparams, drop)
         benchmark = {'p2': {'20': ['0', '3']},
                      'p1': {'10': ['0'], '20': ['3']}}
+        self.assertDictEqual(result, benchmark)
+
+    def test_filter_classified_params(self):
+        cparams = {'p2': {'30': ['1', '2'], '20': ['0', '3']},
+                   'p1': {'10': ['0', '2'], '20': ['1', '3']}}
+        keep = [('p2', '30')]
+        result = filter_classified_params_keep(cparams, keep)
+        benchmark = {'p2': {'30': ['1', '2']},
+                     'p1': {'10': ['2'], '20': ['1']}}
         self.assertDictEqual(result, benchmark)
 
     def test_classify_params(self):
@@ -298,13 +322,13 @@ class TestRunManager(unittest.TestCase):
         assert_frame_equal(result, benchmark)
 
     def test_get_run_names(self):
-        result = RunManager.get_run_names('TestStrategy', self.base_path)
+        config.SIMULATIONS_DATA_DIR = self.base_path
+        result = RunManager.get_run_names('TestStrategy')
         benchmark = pd.DataFrame(index=[0])
-        benchmark['Run'] = ['run_0001']
+        benchmark['RunName'] = ['run_0001']
         benchmark['RunDate'] = ['2010-01-01']
         benchmark['Completed'] = True
         benchmark['Description'] = ['Test data']
-        benchmark['Starred'] = ''
         assert_frame_equal(result, benchmark)
 
     def test_get_quarterly_rets(self):
@@ -315,14 +339,6 @@ class TestRunManager(unittest.TestCase):
         result = get_quarterly_rets(data, 'Ret1')
         self.assertEqual(result.values[0].tolist(), [10, 35])
 
-    def test_add_note(self):
-        run1 = RunManager('TestStrategy', 'run_0001', test_periods=-1,
-                          simulation_data_path=self.base_path)
-        run1.add_note('This is a test note')
-        time.sleep(2)
-        run1.add_note('This is a second test note')
-        result = run1.get_notes()
-        self.assertEqual(result.shape[0], 2)
 
     def tearDown(self):
         shutil.rmtree(self.base_path)

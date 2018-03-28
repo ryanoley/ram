@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
 
-set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\
+set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\execution\
 set LOGFILE=%LOGDIR%\statarb_daily_data_pull.log
 
 echo -----------------------------

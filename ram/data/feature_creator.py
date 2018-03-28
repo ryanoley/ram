@@ -33,6 +33,15 @@ def data_rank(pdata):
     return ranks
 
 
+def data_fill_median(data):
+    row_median = data.median(axis=1).fillna(method='backfill')
+    fill_df = pd.concat([row_median] * data.shape[1], axis=1)
+    fill_df.columns = data.columns
+    fill_df.index = data.index
+    data = data.fillna(fill_df)
+    return data
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class FeatureAggregator(object):
@@ -40,7 +49,7 @@ class FeatureAggregator(object):
     def __init__(self, live_flag=False):
         self._data = pd.DataFrame()
 
-    def add_feature(self, data, label):
+    def add_feature(self, data, label, fill_median=True):
         """
         Assumes input has SecCodes in the columns, dates in the row index,
         essentially from the Pivot table. If it is a Series, it is assumed
@@ -49,15 +58,24 @@ class FeatureAggregator(object):
         if isinstance(data, pd.Series):
             # It is assumed that these are the correct labels
             data = data.to_frame().T
+        if fill_median:
+            data = data_fill_median(data)
         data = data.unstack().reset_index()
         data.columns = ['SecCode', 'Date', 'val']
         data['label'] = label
         self._data = self._data.append(data)
 
     def make_dataframe(self):
+        """
+        Will put back in missing values if there was nothing to handle
+        """
+        features = self._data.label.unique().tolist()
+        features.sort()
         output = self._data.pivot_table(
             values='val', index=['SecCode', 'Date'],
-            columns='label', aggfunc='sum').reset_index()
+            columns='label', aggfunc='mean').reset_index()
+        # Add back in missing columns
+        output = output.loc[:, ['SecCode', 'Date']+features]
         del output.index.name
         del output.columns.name
         return output
@@ -181,7 +199,7 @@ class RSI(BaseTechnicalFeature):
     RSI = 100 - 100 / (1 + RS)
     """
     def calculate_all_dates(self, data, window):
-        changes = data.pct_change()
+        changes = data.diff()
         gain = pd.DataFrame(np.where(changes > 0, changes, 0))
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.rolling(window).mean()
@@ -193,7 +211,7 @@ class RSI(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, window):
         window = window + 1
-        changes = data.iloc[-window:].pct_change()
+        changes = data.iloc[-window:].diff()
         gain = pd.DataFrame(np.where(changes > 0, changes, 0))
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.mean()

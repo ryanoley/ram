@@ -54,7 +54,7 @@ class TestDataConstructor(unittest.TestCase):
                             'version_0001', 'meta.json')
         self.assertTrue(os.path.isfile(path))
 
-    def test_write_archive_meta_data(self):
+    def test_write_archive_meta_data2(self):
         blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         self.assertTrue(dc._check_parameters(blueprint))
@@ -197,6 +197,17 @@ class TestDataConstructor(unittest.TestCase):
         path = os.path.join(self.implementation_data_dir, 'TestStrategy',
                             'daily_raw_data', 'asdf.csv')
         self.assertTrue(os.path.isfile(path))
+
+    def test_make_implementation_dates(self):
+        dc = DataConstructor(self.prepped_data_dir)
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
+        blueprint.constructor_type = 'universe_live'
+        blueprint.universe_date_parameters['frequency'] = 'M'
+        blueprint.universe_date_parameters['test_period_length'] = 2
+        result = dc._make_implementation_dates(blueprint)
+        today = dt.date.today()
+        benchmark = dt.date(today.year, today.month, 1)
+        self.assertEqual(result[1], benchmark)
 
     def tearDown(self):
         if os.path.isdir(self.prepped_data_dir):

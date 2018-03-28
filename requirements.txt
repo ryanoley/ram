@@ -6,8 +6,6 @@ pypyodbc
 quandl
 tqdm
 matplotlib
-seaborn
-pandas_datareader
 numba
 ipdb
 ipython
