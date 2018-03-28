@@ -180,6 +180,7 @@ class Strategy(object):
 
     def implementation_training(self):
         self._create_implementation_output_dir()
+        self._create_implementation_meta_file()
         run_map = self._import_prep_implementation_parameters()
         current_stack_index = -1
         for run_data in run_map:
@@ -437,6 +438,23 @@ class Strategy(object):
                 'start_time': str(dt.datetime.utcnow())[:19]
             }
             out_path = os.path.join(self.strategy_run_output_dir, 'meta.json')
+            if self._gcp_implementation:
+                write_json_cloud(meta, out_path, self._gcp_bucket)
+            else:
+                write_json(meta, out_path)
+
+    def _create_implementation_meta_file(self):
+        if self._write_flag:
+            git_branch, git_commit = get_git_branch_commit()
+            # Create meta object
+            meta = {
+                'latest_git_commit': git_commit,
+                'git_branch': git_branch,
+                'execution_confirm': False,
+                'datetime_created': str(dt.datetime.utcnow())[:19]
+            }
+            out_path = os.path.join(self.implementation_output_dir,
+                                    'meta.json')
             if self._gcp_implementation:
                 write_json_cloud(meta, out_path, self._gcp_bucket)
             else:

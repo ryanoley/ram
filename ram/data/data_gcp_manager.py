@@ -228,7 +228,7 @@ if __name__ == '__main__':
             print '\n[ERROR] - Name or index must be included via `-s`\n'
         else:
             strategy = get_strategy_name(args.strategy_name)
-            print_run_dirs(strategy)
+            print_trained_model_dirs(strategy)
 
     elif args.list_runs:
         if args.strategy_name is None:
