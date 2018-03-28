@@ -135,8 +135,22 @@ def main():
         except:
             time.sleep(10)
 
-    data = blbg.eqs('QUANT_TICKER_CUSIP')
-    write_output(data, 'ticker_cusip')
+
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_TICKER_CUSIP')
+            write_output(data, 'ticker_cusip')
+            break
+        except:
+            time.sleep(10)
+
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_TICKER_CUSIP2')
+            write_output(data, 'ticker_cusip2')
+            break
+        except:
+            time.sleep(10)
 
     blbg.stopSession()
 
