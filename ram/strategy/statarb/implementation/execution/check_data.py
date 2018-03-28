@@ -150,6 +150,8 @@ def process_bloomberg_data(imp_data_dir=config.IMPLEMENTATION_DATA_DIR,
     path = os.path.join(imp_data_dir, 'StatArbStrategy',
                         'daily_raw_data', file_name)
     output.to_csv(path, index=None)
+    if len(message) == 0:
+        message = '*'
     return message
 
 
@@ -219,7 +221,7 @@ def _import_bloomberg_spinoffs(imp_data_dir=config.IMPLEMENTATION_DATA_DIR):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _check_date(date, today):
-    return '[WARNING] - Not up-to-date' if date != today else ''
+    return '[WARNING] - Not up-to-date' if date != today else '*'
 
 
 def main():
