@@ -12,6 +12,7 @@ PACKAGES = [
     'ram/aws',
     'ram/data',
     'ram/strategy',
+    # ~~~ Intraday Reversion ~~~
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
     # ~~~ Analyst Estimates ~~~
@@ -26,7 +27,6 @@ PACKAGES = [
     'ram/strategy/statarb/abstract',
     'ram/strategy/statarb/implementation',
     'ram/strategy/statarb/implementation/execution',
-    'ram/strategy/statarb/implementation/training',
     'ram/strategy/statarb/version_001',
     'ram/strategy/statarb/version_001/constructor',
     'ram/strategy/statarb/version_001/data',
