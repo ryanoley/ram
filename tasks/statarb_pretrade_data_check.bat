@@ -6,6 +6,7 @@ echo ------------------------------
 echo --  Data check for StatArb  --
 echo ------------------------------
 
+python %SCRIPTDIR%\prep_bloomberg_data.py
 python %SCRIPTDIR%\check_data.py
 
 START %DATA%\ram\implementation\StatArbStrategy\pretrade_data_check.csv
