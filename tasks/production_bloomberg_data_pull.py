@@ -1,8 +1,10 @@
 import os
-import datetime as dt
-import blpapi
+import time
 import pandas as pd
-from datetime import datetime, date
+import datetime as dt
+
+import blpapi
+
 
 
 class Blbg(object):
@@ -109,17 +111,46 @@ def main():
     blbg = Blbg()
     blbg.set_refData_service()
 
-    data = blbg.eqs('QUANT_SCREENSPINOFF')
-    write_output(data, 'spinoffs')
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_SCREENSPINOFF')
+            write_output(data, 'spinoffs')
+            break
+        except:
+            time.sleep(10)
 
-    data = blbg.eqs('QUANT_SCREENSPLITS')
-    write_output(data, 'splits')
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_SCREENSPLITS')
+            write_output(data, 'splits')
+            break
+        except:
+            time.sleep(10)
 
-    data = blbg.eqs('QUANT_SCREENDVDS')
-    write_output(data, 'dividends')
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_SCREENDVDS')  
+            write_output(data, 'dividends')
+            break
+        except:
+            time.sleep(10)
 
-    data = blbg.eqs('QUANT_TICKER_CUSIP')
-    write_output(data, 'ticker_cusip')
+
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_TICKER_CUSIP')
+            write_output(data, 'ticker_cusip')
+            break
+        except:
+            time.sleep(10)
+
+    for i in range(10):
+        try:
+            data = blbg.eqs('QUANT_TICKER_CUSIP2')
+            write_output(data, 'ticker_cusip2')
+            break
+        except:
+            time.sleep(10)
 
     blbg.stopSession()
 
