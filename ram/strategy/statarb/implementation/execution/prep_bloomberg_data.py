@@ -141,12 +141,18 @@ def process_bloomberg_data():
     bloomberg = pd.DataFrame()
 
     qad_map = map_seccodes_bloomberg_tickers()
+    # Check for missing codes
+    flags = qad_map.BloombergId.isnull().sum()
+    if flags > 0:
+        message.append('[{}] SecCodes missing Bloomberg ids'.format(flags))
+    else:
+        message.append('*')
 
     # DIVIDENDS
     try:
         divs = import_bloomberg_dividends()
-        inds = np.abs(divs.DivMultiplier - 1) > .1
-        if np.any(inds):
+        flags = np.abs(divs.DivMultiplier - 1) > .1
+        if np.any(flags):
             message.append('Spotcheck dividend multiplier')
         else:
             message.append('*')
@@ -156,9 +162,9 @@ def process_bloomberg_data():
     # SPINOFFS
     try:
         spins = import_bloomberg_spinoffs()
-        inds = (spins.SpinoffMultiplier < .1) | \
+        flags = (spins.SpinoffMultiplier < .1) | \
             (spins.SpinoffMultiplier > 10)
-        if np.any(inds):
+        if np.any(flags):
             message.append('Spotcheck spinoff multiplier')
         else:
             message.append('*')
@@ -169,9 +175,9 @@ def process_bloomberg_data():
     try:
         splits = import_bloomberg_splits()
 
-        inds = (splits.SplitMultiplier < .1) | \
+        flags = (splits.SplitMultiplier < .1) | \
             (splits.SplitMultiplier > 10)
-        if np.any(inds):
+        if np.any(flags):
             message.append('Spotcheck split multiplier')
         else:
             message.append('*')
@@ -208,14 +214,17 @@ def main():
 
     message = process_bloomberg_data()
 
-    output.loc[0, 'Desc'] = 'Bloomberg Dividends'
+    output.loc[0, 'Desc'] = 'Bloomberg ID Mapping'
     output.loc[0, 'Message'] = message[0]
 
-    output.loc[1, 'Desc'] = 'Bloomberg Spinoffs'
+    output.loc[1, 'Desc'] = 'Bloomberg Dividends'
     output.loc[1, 'Message'] = message[1]
 
-    output.loc[2, 'Desc'] = 'Bloomberg Splits'
+    output.loc[2, 'Desc'] = 'Bloomberg Spinoffs'
     output.loc[2, 'Message'] = message[2]
+
+    output.loc[3, 'Desc'] = 'Bloomberg Splits'
+    output.loc[3, 'Message'] = message[3]
 
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
