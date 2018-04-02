@@ -19,7 +19,6 @@ start /b /WAIT %GITHUB%\ram\data\ram_sql_tables\ram_table_update.bat
 echo. & echo ~~ position_sheet_scraper !time!~~
 python %GITHUB%\ram\tasks\position_sheet_scraper.py
 
-
 :: Table Monitor
 echo. & echo ~~ table_monitor !time!~~
 %SQLCMD% -i %GITHUB%\ram\data\ram_sql_tables\table_monitor.sql
