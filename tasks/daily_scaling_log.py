@@ -32,7 +32,6 @@ def write_params_to_archive(params_path, archive_path):
 ###############################################################################
 
 def main():
-    import ipdb; ipdb.set_trace()
     ###########################################################################
     # Paths to prod params
     params_path = os.path.join(DATA, 'port_params.json')
@@ -41,9 +40,9 @@ def main():
     ###########################################################################
     # Read in scaling params and write out
     assert(os.path.isfile(params_path))
-
     write_params_to_archive(params_path, archive_path)
 
+    # Copy file with date timestamp
     dtstr = dt.date.today().strftime('%Y%m%d')
     output_file = 'port_params_{}.json'.format(dtstr)
     output_path = os.path.join(DATA, 'archive', output_file)
