@@ -12,7 +12,7 @@ echo -----------------------------
 echo ---------------------------------
 echo Daily data pull - %date%_!time! - Start
 
-python %SCRIPTDIR%\get_daily_raw_data.py
+python %SCRIPTDIR%\get_daily_data.py
 
 echo Daily data pull - %date%_!time! - End
 echo:

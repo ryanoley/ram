@@ -8,6 +8,7 @@ import datetime as dt
 from ram import config
 from ram.strategy.statarb import statarb_config
 from ram.strategy.statarb.main import StatArbStrategy
+from ram.data.data_handler_sql import DataHandlerSQL
 
 from gearbox import convert_date_array
 
@@ -17,46 +18,67 @@ from ramex.client.client import ExecutionClient
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def get_trading_dates():
+    """
+    Returns previous trading date, and current trading date
+    """
+    today = dt.date.today()
+    dh = DataHandlerSQL()
+    dates = dh.prior_trading_date([today, today+dt.timedelta(days=1)])
+    return dates[0], dates[1]
+
+
 def import_raw_data(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     """
     Loads implementation raw data and processes it
     """
-    statarb_path = os.path.join(implementation_dir, 'StatArbStrategy',
-                                'daily_raw_data')
-    all_files = _get_all_raw_data_file_names(statarb_path)
-    todays_files = _get_max_date_files(all_files)
+    statarb_path = os.path.join(implementation_dir,
+                                'StatArbStrategy',
+                                'daily_data')
+
+    todays_files = get_todays_files(statarb_path)
+
+    yesterday, today = get_trading_dates()
+
     output = {}
-    print('Importing raw_data...')
+    print('Importing data...')
     for f in todays_files:
-        name = _format_raw_data_name(f)
-        output[name] = _import_format_raw_data(os.path.join(statarb_path, f))
-    output['market_data'] = _import_format_raw_data(
+        name = format_data_name(f)
+        data = import_format_raw_data(os.path.join(statarb_path, f))
+        assert data.Date.max() == yesterday
+        output[name] = data
+    output['market_data'] = import_format_raw_data(
         os.path.join(statarb_path, 'market_index_data.csv'))
     return output
 
 
-def _get_all_raw_data_file_names(raw_data_dir_path):
+def get_todays_files(statarb_path):
+    all_files = get_all_data_file_names(statarb_path)
+    return get_max_date_files(all_files)
+
+
+def get_all_data_file_names(data_dir_path):
     """
     Filters out market_index_data.csv
     """
-    all_files = os.listdir(raw_data_dir_path)
-    all_files = [x for x in all_files if x.find('current_blueprint') > 0]
+    all_files = os.listdir(data_dir_path)
+    all_files = [x for x in all_files if x.find('version') > 0]
     all_files.sort()
     return all_files
 
 
-def _get_max_date_files(all_files):
+def get_max_date_files(all_files):
     max_date = max([x.split('_')[0] for x in all_files])
     todays_files = [x for x in all_files if x.find(max_date) > -1]
     todays_files = [x for x in todays_files if x.find('.csv') > -1]
     return todays_files
 
 
-def _format_raw_data_name(file_name):
+def format_data_name(file_name):
     return file_name[file_name.rfind('version'):].replace('.csv', '')
 
 
-def _import_format_raw_data(path):
+def import_format_raw_data(path):
     data = pd.read_csv(path)
     data.Date = convert_date_array(data.Date)
     data.SecCode = data.SecCode.astype(int).astype(str)
@@ -65,10 +87,10 @@ def _import_format_raw_data(path):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+def import_pricing_data(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     # SCALING DATA
-    scaling_data = _import_scaling_data(implementation_dir)
-    bloomberg_data = _import_bloomberg_data(implementation_dir)
+    scaling_data = import_scaling_data(implementation_dir)
+    bloomberg_data = import_bloomberg_data(implementation_dir)
     scaling = scaling_data.merge(bloomberg_data, how='left').fillna(1)
     scaling['PricingMultiplier'] = \
         scaling.QADirectDividendFactor * \
@@ -86,7 +108,7 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     scaling = scaling.append(scaling_t).reset_index(drop=True)
 
     # IMPORT LIVE AND ADJUST
-    live_data = _import_live_pricing(implementation_dir)
+    live_data = import_live_pricing(implementation_dir)
     data = live_data.merge(scaling)
     data['RClose'] = data.AdjClose
     data.AdjOpen = data.AdjOpen * data.PricingMultiplier
@@ -96,10 +118,22 @@ def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     data.AdjVwap = data.AdjVwap * data.PricingMultiplier
     data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
     data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
+
+    # Write - This is used for analyzing our execution
+    today = dt.datetime.utcnow()
+    file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'live_pricing.csv')
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'daily_data',
+                        file_name)
+    live_data.to_csv(path, index=None)
+
+
+
     return data
 
 
-def _import_live_pricing(implementation_dir):
+def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
     dtypes = {'SecCode': str, 'Ticker': str, 'Issuer': str,
               'CLOSE': np.float64, 'LAST': np.float64, 'OPEN': np.float64,
               'HIGH': np.float64, 'LOW': np.float64, 'VWAP': np.float64,
@@ -115,34 +149,41 @@ def _import_live_pricing(implementation_dir):
     live_data['AdjVwap'] = live_data.VWAP
     live_data = live_data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
                            'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
+
+    # Write to file - TODO: This should be moved elsewhere for performance
+    # reasons
+    today = dt.datetime.utcnow()
+    file_name = '{}_{}'.format(today.strftime('%Y%m%d'),
+                               'adj_live_pricing.csv')
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'daily_data',
+                        file_name)
+    live_data.to_csv(path, index=None)
     return live_data
 
 
-def _import_scaling_data(implementation_dir):
+def import_scaling_data(implementation_dir):
     path = os.path.join(implementation_dir, 'StatArbStrategy',
                         'live_pricing', 'seccode_scaling.csv')
-    scaling = pd.read_csv(path)
-    scaling.SecCode = scaling.SecCode.astype(str)
-    scaling.Date = convert_date_array(scaling.Date)
-    scaling['QADirectDividendFactor'] = scaling.DividendFactor
-    scaling = scaling[['SecCode', 'QADirectDividendFactor']]
-    return scaling
+    data = pd.read_csv(path)
+    data.SecCode = data.SecCode.astype(str)
+    data.Date = convert_date_array(data.Date)
+    data['QADirectDividendFactor'] = data.DividendFactor
+    data = data[['SecCode', 'QADirectDividendFactor']]
+    return data
 
 
-def _import_bloomberg_data(implementation_dir):
+def import_bloomberg_data(implementation_dir):
     dpath = os.path.join(implementation_dir, 'StatArbStrategy',
                          'live_pricing', 'bloomberg_scaling.csv')
-    data = pd.read_csv(dpath)
-    cols = np.array(['Ticker', 'DivMultiplier', 'SpinoffMultiplier',
-                     'SplitMultiplier'])
 
+    data = pd.read_csv(dpath)
+    cols = np.array(['SecCode', 'DivMultiplier', 'SpinoffMultiplier',
+                     'SplitMultiplier'])
     assert np.all(data.columns == cols)
-    data.columns = ['Ticker', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
+    data.columns = ['SecCode', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
                     'BbrgSplitMultiplier']
-    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
-                         'live_pricing', 'ticker_mapping.csv')
-    tickers = pd.read_csv(dpath)
-    data = data.merge(tickers)
     data.SecCode = data.SecCode.astype(str)
     return data[['SecCode', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
                  'BbrgSplitMultiplier']]
@@ -153,18 +194,12 @@ def _import_bloomberg_data(implementation_dir):
 def import_run_map(
         implementation_dir=config.IMPLEMENTATION_DATA_DIR,
         trained_model_dir_name=statarb_config.trained_models_dir_name):
-
     path = os.path.join(implementation_dir,
                         'StatArbStrategy',
                         'trained_models',
                         trained_model_dir_name,
-                        'run_map.csv')
-    data = pd.read_csv(path)
-    # GCP outputs index column, which for this needs to be removed
-    if data.columns[0].find('Unnamed') > -1:
-        data = data.iloc[:, 1:]
-    # Sort by data version
-    data = data.sort_values('data_version').reset_index()
+                        'run_map.json')
+    data = json.load(open(path, 'r'))
     return data
 
 
@@ -183,7 +218,7 @@ def import_models_params(
                         'StatArbStrategy',
                         'trained_models',
                         trained_model_dir_name)
-    model_files, param_files = _get_model_files(path)
+    model_files, param_files = get_model_files(path)
     output = {}
     print('Importing models and parameters...')
     for m, p in zip(model_files, param_files):
@@ -196,13 +231,13 @@ def import_models_params(
     return output
 
 
-def _get_model_files(path):
+def get_model_files(path):
     """
     Return file names from production trained models directories, and
     makes sure the model name is aligned with the param file name
     """
     all_files = os.listdir(path)
-    all_files = [x for x in all_files if x.find('run_map.csv') == -1]
+    all_files = [x for x in all_files if x.find('run_map.json') == -1]
     model_files = [x for x in all_files if x.find('skl_model') > -1]
     model_files.sort()
     param_files = [x for x in all_files if x.find('params') > -1]
@@ -236,34 +271,37 @@ class StatArbImplementation(object):
         # Used for testing
         self.StatArbStrategy = StatArbStrategy
 
-    def add_raw_data(self, data):
-        self.raw_data = data
+    def add_daily_data(self, daily_data):
+        self.daily_data = daily_data
 
-    def add_run_map(self, run_map):
+    def add_run_map_models(self, run_map, models):
         self.run_map = run_map
-
-    def add_models_params(self, models_params):
-        self.models_params_strategy = models_params
+        self.models = models
 
     def add_positions(self, positions):
         self.positions = positions
 
     def prep(self):
-        assert hasattr(self, 'models_params_strategy')
         assert hasattr(self, 'run_map')
-        assert hasattr(self, 'raw_data')
+        assert hasattr(self, 'daily_data')
+        assert hasattr(self, 'models')
         print('Prepping data...')
-        for i, vals in self.run_map.iterrows():
+        self.models_params_strategy = {}
+        for d in self.run_map:
             strategy = self.StatArbStrategy(
-                strategy_code_version=vals.strategy_version
+                strategy_code_version=d['strategy_code_version']
             )
             strategy.strategy_init()
             strategy.data.prep_live_data(
-                data=self.raw_data[vals.data_version],
-                market_data=self.raw_data['market_data']
+                data=self.daily_data[d['prepped_data_version']],
+                market_data=self.daily_data['market_data']
             )
-            self.models_params_strategy[vals.param_name]['strategy'] = \
-                strategy
+            self.models_params_strategy[d['run_name']] = {}
+            self.models_params_strategy[d['run_name']]['strategy'] = strategy
+            self.models_params_strategy[d['run_name']]['column_params'] = \
+                d['column_params']
+            self.models_params_strategy[d['run_name']]['model'] = \
+                self.models[d['run_name']]['model']
         print('Finished prepping data...')
         return
 
@@ -274,31 +312,43 @@ class StatArbImplementation(object):
 
         orders = pd.DataFrame()
 
+        ind = 0
         for name, objs in self.models_params_strategy.iteritems():
             strategy = objs['strategy']
-            params = objs['params']
+            params = objs['column_params']
             model = objs['model']
 
             strategy.data.process_live_data(live_data)
 
-            sparams = _extract_params(params, strategy.signals.get_args())
+            # Process params
+            dparams = extract_params(params, strategy.data.get_args())
+            strategy.data.set_args(live_flag=True, **dparams)
+
+            sparams = extract_params(params, strategy.signals.get_args())
             strategy.signals.set_args(**sparams)
 
             strategy.signals.set_features(strategy.data.get_train_features())
             strategy.signals.set_test_data(strategy.data.get_test_data())
             strategy.signals.set_model(model)
 
-            signals = strategy.signals.get_signals()
+            # strategy.constructor.set_test_dates(strategy.data.get_test_dates())
 
-            cparams = _extract_params(params, strategy.constructor.get_args())
+            # self.constructor.set_pricing_data(time_index,
+            #                                   self.data.get_pricing_data())
+
+            strategy.constructor.set_other_data(0, strategy.data.get_other_data())
+            # Pass signals to portfolio constructor
+            strategy.constructor.set_signal_data(0, strategy.signals.get_signals())
+
+            cparams = extract_params(params, strategy.constructor.get_args())
+
+            import pdb; pdb.set_trace()
             strategy.constructor.set_args(**cparams)
-            strategy.constructor.set_signals_constructor_data(
-                signals, strategy.data.get_constructor_data())
 
-            scores = signals[['SecCode', 'preds']].set_index(
-                'SecCode').to_dict()['preds']
+            sizes = strategy.constructor.get_day_position_sizes(
+                date=0, column_index=ind)
+            ind += 1
 
-            sizes = strategy.constructor .get_day_position_sizes(0, scores)
             sizes = pd.Series(sizes).reset_index()
             sizes.columns = ['SecCode', 'Dollars']
             sizes['Strategy'] = name
@@ -307,19 +357,11 @@ class StatArbImplementation(object):
         return orders
 
 
-def _extract_params(all_params, selected_params):
+def extract_params(all_params, selected_params):
     out = {}
     for key in selected_params.keys():
         out[key] = all_params[key]
     return out
-
-
-def _add_sizes(all_sizes, model_sizes):
-    for key, val in model_sizes.iteritems():
-        if key not in all_sizes:
-            all_sizes[key] = 0
-        all_sizes[key] += val
-    return all_sizes
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -359,18 +401,17 @@ def main():
 
     positions = import_portfolio_manager_positions()
 
+    # Add objects to Implementation instance
     strategy = StatArbImplementation()
-
-    strategy.add_raw_data(raw_data)
-
-    strategy.add_run_map(run_map)
-    strategy.add_models_params(models_params)
+    strategy.add_daily_data(raw_data)
+    strategy.add_run_map_models(run_map, models_params)
     strategy.add_positions(positions)
 
     strategy.prep()
 
     #_ = raw_input("Press Enter to continue...")
-    live_data = import_live_pricing()
+    import pdb; pdb.set_trace()
+    live_data = import_pricing_data()
 
     orders = strategy.run_live(live_data)
     out_df = live_data[['SecCode', 'Ticker', 'RClose']].merge(

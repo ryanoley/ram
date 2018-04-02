@@ -18,7 +18,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 def main():
     check_implementation_folder_structure()
-    pull_daily_raw_data()
+    pull_daily_data()
     unique_seccodes = get_unique_seccodes_from_data()
     write_seccode_ticker_mapping(unique_seccodes)
     write_scaling_data(unique_seccodes)
@@ -26,10 +26,10 @@ def main():
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def pull_daily_raw_data():
+def pull_daily_data():
     blueprints = get_unique_blueprints()
     dc = DataConstructor()
-    print('[[ Pulling raw data ]]')
+    print('[[ Pulling data ]]')
     for b, blueprint in blueprints.iteritems():
         # Convert from universe to universe_live
         blueprint.constructor_type = 'universe_live'
@@ -70,16 +70,16 @@ def get_unique_blueprints():
 def get_unique_seccodes_from_data():
     print('[[ Getting unique SecCodes ]]')
     # Get all version data files for TODAY
-    raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_raw_data')
-    all_files = os.listdir(raw_data_dir)
+    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy', 'daily_data')
+    all_files = os.listdir(data_dir)
     version_files = [x for x in all_files if x.find('version') > -1]
     max_date_prefix = max([x.split('_')[0] for x in version_files])
     # Read in dates for files
     todays_files = [x for x in version_files if x.find(max_date_prefix) > -1]
     seccodes = np.array([])
     for f in todays_files:
-        data = pd.read_csv(os.path.join(raw_data_dir, f))
+        data = pd.read_csv(os.path.join(data_dir, f))
         # Filter only active securities
         data = data[data.Date == data.Date.max()]
         seccodes = np.append(seccodes, data.SecCode.astype(str).unique())
@@ -115,13 +115,15 @@ def write_seccode_ticker_mapping(unique_seccodes):
     odd_tickers = json.load(open(path, 'r'))
     mapping.Ticker = mapping.Ticker.replace(to_replace=odd_tickers)
 
+    # Re-org columns
+    mapping = mapping[['SecCode', 'Ticker', 'Issuer']]
+
     # Write ticker mapping to two locations
     today = dt.datetime.utcnow()
     file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'ticker_mapping.csv')
-
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
-                        'daily_raw_data',
+                        'daily_data',
                         file_name)
     mapping.to_csv(path, index=None)
 
@@ -147,12 +149,17 @@ def write_scaling_data(unique_seccodes):
                                   end_date=end_date)
     scaling = scaling[scaling.Date == scaling.Date.max()]
 
-    today = dt.datetime.utcnow()
-    file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'seccode_scaling.csv')
-
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
-                        'daily_raw_data',
+                        'live_pricing',
+                        'seccode_scaling.csv')
+    scaling.to_csv(path, index=None)
+
+    today = dt.datetime.utcnow()
+    file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'seccode_scaling.csv')
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'daily_data',
                         file_name)
 
     scaling.to_csv(path, index=None)
@@ -167,7 +174,7 @@ def check_implementation_folder_structure(
     statarb_path = os.path.join(implementation_dir, 'StatArbStrategy')
     if not os.path.isdir(statarb_path):
         os.mkdir(statarb_path)
-    path = os.path.join(statarb_path, 'daily_raw_data')
+    path = os.path.join(statarb_path, 'daily_data')
     if not os.path.isdir(path):
         os.mkdir(path)
     return

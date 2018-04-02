@@ -21,7 +21,7 @@ def get_trading_dates():
 
 def get_qadirect_data_dates():
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_raw_data')
+                                'StatArbStrategy', 'daily_data')
     all_files = os.listdir(raw_data_dir)
     all_files.remove('market_index_data.csv')
     max_date_prefix = max([x.split('_')[0] for x in all_files])

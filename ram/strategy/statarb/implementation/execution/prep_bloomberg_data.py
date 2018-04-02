@@ -36,9 +36,9 @@ def map_seccodes_bloomberg_tickers():
     data['Ticker'] = data.BloombergId.apply(lambda x: x.replace(' US', ''))
 
     # Import QAD Ticke Mapping
-    raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_raw_data')
-    dpath1 = os.path.join(raw_data_dir, '{}_ticker_mapping.csv'.format(prefix))
+    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy', 'daily_data')
+    dpath1 = os.path.join(data_dir, '{}_ticker_mapping.csv'.format(prefix))
     qad_map = pd.read_csv(dpath1)
     qad_map = qad_map[~qad_map.Ticker.isin(['$SPX.X', '$VIX.X'])]
 
@@ -202,7 +202,7 @@ def process_bloomberg_data():
     d = dt.date.today().strftime('%Y%m%d')
     file_name = '{}_bloomberg_scaling.csv'.format(d)
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy',
-                        'daily_raw_data', file_name)
+                        'daily_data', file_name)
     bloomberg.to_csv(path, index=None)
 
     return message
