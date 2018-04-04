@@ -82,7 +82,7 @@ select			Code,
 				case when Low > 0 then Low else Null end as Low,
 				case when Close_ > 0 then Close_ else Null end as Close_,
 				case when Volume > 0 then Volume else Null end as Volume
-from			qai.prc.PrcExc
+from			qai.prc.PrcDly
 where			Code in (select distinct IdcCode from #id_table)
 )
 
@@ -95,7 +95,7 @@ select			Code,
 				case when Low > 0 then Low else Null end as Low,
 				case when Close_ > 0 then Close_ else Null end as Close_,
 				case when Volume > 0 then Volume else Null end as Volume
-from			qai.prc.PrcDly
+from			qai.prc.PrcExc
 where			Code in (select distinct IdcCode from #id_table)
 )
 
