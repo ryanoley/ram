@@ -188,7 +188,7 @@ class DataConstructor(object):
         path = os.path.join(self._implementation_dir, strategy_name)
         if not os.path.isdir(path):
             os.mkdir(path)
-        path = os.path.join(path, 'daily_raw_data')
+        path = os.path.join(path, 'daily_data')
         if not os.path.isdir(path):
             os.mkdir(path)
         self._output_dir = path
