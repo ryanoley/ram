@@ -14,6 +14,7 @@ from ram.strategy.statarb.version_002.constructor.constructor import *
 class TestPortfolioConstructor(unittest.TestCase):
 
     def setUp(self):
+
         other_data = pd.DataFrame()
         other_data['SecCode'] = ['A', 'B', 'C', 'D']
         other_data['Date'] = [dt.date(2010, 1, 1)] * 4
@@ -31,8 +32,8 @@ class TestPortfolioConstructor(unittest.TestCase):
     def test_set_args_get_day_position_sizes(self):
         cons = PortfolioConstructor()
         cons._holding_period = 2
-        cons.set_other_data(0, self.other_data)
-        cons.set_signal_data(0, self.signal_data)
+        cons.set_other_data(self.other_data)
+        cons.set_signal_data(self.signal_data)
         cons.set_args(score_var='V2',
                       per_side_count=1,
                       holding_period=2)

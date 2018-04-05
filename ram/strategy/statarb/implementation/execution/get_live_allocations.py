@@ -22,23 +22,23 @@ from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 #  1. Import raw data
 ###############################################################################
 
-def import_raw_data():
-    files = get_todays_file_names()
+def import_raw_data(data_dir=config.IMPLEMENTATION_DATA_DIR):
+    files = get_todays_file_names(data_dir)
     # Get yesterday to confirm date
     yesterday = get_previous_trading_date()
     output = {}
     print('Importing data...')
     for f in files:
         name = clean_data_file_name(f)
-        data = import_format_raw_data(f)
+        data = import_format_raw_data(f, data_dir)
         assert data.Date.max() == yesterday
         output[name] = data
     output['market_data'] = import_format_raw_data('market_index_data.csv')
     return output
 
 
-def get_todays_file_names():
-    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+def get_todays_file_names(data_dir=config.IMPLEMENTATION_DATA_DIR):
+    data_dir = os.path.join(data_dir,
                             'StatArbStrategy',
                             'daily_data')
     timestamp = dt.date.today().strftime('%Y%m%d')
@@ -60,8 +60,9 @@ def clean_data_file_name(file_name):
     return file_name[file_name.rfind('version'):].replace('.csv', '')
 
 
-def import_format_raw_data(file_name):
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+def import_format_raw_data(file_name,
+                           data_dir=config.IMPLEMENTATION_DATA_DIR):
+    path = os.path.join(data_dir,
                         'StatArbStrategy',
                         'daily_data',
                         file_name)
@@ -75,11 +76,12 @@ def import_format_raw_data(file_name):
 #  2. Import run map
 ###############################################################################
 
-def import_run_map():
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+def import_run_map(data_path=config.IMPLEMENTATION_DATA_DIR,
+                   models_dir=statarb_config.trained_models_dir_name):
+    path = os.path.join(data_path,
                         'StatArbStrategy',
                         'trained_models',
-                        statarb_config.trained_models_dir_name,
+                        models_dir,
                         'run_map.json')
     return json.load(open(path, 'r'))
 
@@ -88,17 +90,18 @@ def import_run_map():
 #  3. Import sklearn models and model parameters
 ###############################################################################
 
-def import_models_params():
+def import_models_params(data_path=config.IMPLEMENTATION_DATA_DIR,
+                         models_dir=statarb_config.trained_models_dir_name):
     """
     Returns
     -------
     output : dict
         Holds parameter and sklearn model for each trained model
     """
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    path = os.path.join(data_path,
                         'StatArbStrategy',
                         'trained_models',
-                        statarb_config.trained_models_dir_name)
+                        models_dir)
     model_files, param_files = get_model_files(path)
     output = {}
     print('Importing models and parameters...')
@@ -345,13 +348,14 @@ def merge_scaling(qad_scaling, bloomberg_scaling):
     return data
 
 
-def import_live_pricing():
+def import_live_pricing(
+        data_dir=os.path.join(os.getenv('DATA'), 'live_prices')):
     # Manually set column types
     dtypes = {'SecCode': str, 'Ticker': str, 'Issuer': str,
               'CLOSE': np.float64, 'LAST': np.float64, 'OPEN': np.float64,
               'HIGH': np.float64, 'LOW': np.float64, 'VWAP': np.float64,
               'VOLUME': np.float64}
-    path = os.path.join(os.getenv('DATA'), 'live_prices', 'prices.csv')
+    path = os.path.join(data_dir, 'prices.csv')
     data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     data.SecCode = data.SecCode.astype(str)
     data = data.rename(columns={

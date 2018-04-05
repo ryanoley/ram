@@ -26,11 +26,10 @@ class TestDataContainer(unittest.TestCase):
         container._processed_train_data = data.copy()
         container._processed_test_data = data.copy()
         container.set_args(response_days=2,
-                           response_type='Simple',
-                           training_period_length=4)
-        self.assertListEqual(range(2, 8), container._train_data.index.tolist())
+                           response_type='Simple')
+        self.assertListEqual(range(8), container._train_data.index.tolist())
         self.assertListEqual(
-            range(2, 8), container._train_data_responses.index.tolist())
+            range(8), container._train_data_responses.index.tolist())
 
     def test_get_train_test(self):
         data = pd.DataFrame({
@@ -39,11 +38,10 @@ class TestDataContainer(unittest.TestCase):
             'TimeIndex': [1, 1, 2, 2, 3, 3],
         })
         container = DataContainer()
-        container._training_period_length = 2
         container._processed_train_data = data.copy()
         container._processed_test_data = data.copy()
         result = container._get_train_test()
-        assert_frame_equal(result[0], data.iloc[2:])
+        assert_frame_equal(result[0], data)
 
     def test_prep_live_data(self):
         features = accounting_features + starmine_features
@@ -51,6 +49,8 @@ class TestDataContainer(unittest.TestCase):
         data['SecCode'] = ['AAPL', 'TSLA', 'BAC']
         data['Date'] = '2010-01-01'
         data[features] = 10
+        data['RClose'] = 100
+        data['AvgDolVol'] = 100
         data2 = data.copy()
         data2['Date'] = '2010-01-02'
         data2[features] = 20
@@ -60,7 +60,6 @@ class TestDataContainer(unittest.TestCase):
         market_data['Date'] = 1
         market_data['AdjClose'] = 1
         container = DataContainer()
-        import pdb; pdb.set_trace()
         container.prep_live_data(data, market_data)
         self.assertTrue('raw_data' in container._live_prepped_data)
         self.assertTrue('market_data' in container._live_prepped_data)
@@ -137,7 +136,7 @@ class TestDataContainer(unittest.TestCase):
         data = data.append(data2).reset_index(drop=True)
         container = DataContainer()
         result = container._make_features(data, live_flag=True)
-        self.assertEqual(result[0].Date.unique()[0], 0)
+        self.assertEqual(result[0].Date.unique()[0], dt.date.today())
         features.sort()
         self.assertListEqual(features, result[1])
 
@@ -155,10 +154,12 @@ class TestDataContainer(unittest.TestCase):
         data['AdjClose'] = range(180)
         data['AdjVolume'] = range(180)
         data['AvgDolVol'] = range(180)
+        data['keep_inds'] = True
         container = DataContainer()
         result = container._make_technical_features(data, live_flag=True)
-        self.assertListEqual(result[0].SecCode.tolist(), ['AAPL', 'TSLA', 'BAC'])
-        self.assertEqual(result[0].Date.iloc[0], 0)
+        self.assertListEqual(result[0].SecCode.tolist(),
+                             ['AAPL', 'TSLA', 'BAC'])
+        self.assertEqual(result[0].Date.iloc[0], dt.date.today())
         self.assertIsInstance(result[1], list)
 
     def Xtest_initial_clean(self):

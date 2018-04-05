@@ -26,6 +26,7 @@ from ram.strategy.statarb.implementation.execution.get_live_allocations import *
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
 class Signals(BaseSignalGenerator):
 
     def get_args(self):
@@ -62,6 +63,9 @@ class Signals(BaseSignalGenerator):
 
 
 class PortfolioConstructorTest(BasePortfolioConstructor):
+
+    def __init__(self):
+        self._size_containers = {}
 
     def get_args(self):
         return {'V2': [8, 9]}
@@ -198,6 +202,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         os.mkdir(path2)
         path3 = os.path.join(path, 'live_pricing')
         os.mkdir(path3)
+        path4 = os.path.join(path, 'live_prices')  # Outside of ram
+        os.mkdir(path4)
         # Raw Data
         data = pd.DataFrame()
         yesteday = get_previous_trading_date()
@@ -206,7 +212,7 @@ class TestGetLiveAllocations(unittest.TestCase):
                         yesteday] * 2
         data['SecCode'] = [14141.0] * 3 + ['43242'] * 3
         data['AdjClose'] = range(6)
-        today = dt.datetime.utcnow().strftime('%Y%m%d')
+        today = dt.date.today().strftime('%Y%m%d')
         data.to_csv(os.path.join(
             path2, today + '_version_0010.csv'), index=False)
         data.to_csv(os.path.join(
@@ -243,6 +249,10 @@ class TestGetLiveAllocations(unittest.TestCase):
         with open(os.path.join(path1m, 'run_map.json'), 'w') as outfile:
             outfile.write(json.dumps(run_map))
         # Create sklearn model and params
+        meta = {'someinfo': True}
+        with open(os.path.join(path1m, 'meta.json'), 'w') as outfile:
+            outfile.write(json.dumps(meta))
+        # Create sklearn model and params
         model = LinearRegression()
         X = np.random.randn(100, 3)
         y = np.random.randn(100)
@@ -272,7 +282,7 @@ class TestGetLiveAllocations(unittest.TestCase):
         data['LOW'] = [1, 2, 'na']
         data['VWAP'] = [1, np.nan, 3]
         data['VOLUME'] = [None, 2, 3]
-        data.to_csv(os.path.join(path3, 'prices.csv'), index=None)
+        data.to_csv(os.path.join(path4, 'prices.csv'), index=None)
         # Scaling data
         data = pd.DataFrame()
         data['SecCode'] = [1234, 4242, 3535]
@@ -304,6 +314,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         today = dt.datetime.utcnow().strftime('%Y%m%d')
         positions.to_csv(os.path.join(self.imp_dir, today + '_positions.csv'),
                          index=0)
+        # SizeContainers
+        self.size_containers = {'run_0003_1000': {}}
 
     def test_import_raw_data(self):
         result = import_raw_data(self.imp_dir)
@@ -312,43 +324,19 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark = ['market_data', 'version_0010', 'version_0018']
         self.assertListEqual(result, benchmark)
 
-    def test_get_all_data_file_names(self):
-        path = os.path.join(self.imp_dir, 'StatArbStrategy', 'daily_data')
-        result = get_all_data_file_names(path)
+    def test_get_todays_file_names(self):
+        result = get_todays_file_names(self.imp_dir)
         today = dt.datetime.utcnow().strftime('%Y%m%d')
-        yesterday = (dt.datetime.utcnow() - dt.timedelta(days=1)).strftime('%Y%m%d')
         benchmark = [
-            yesterday + '_version_0010.csv',
-            yesterday + '_version_0018.csv',
             today + '_version_0010.csv',
             today + '_version_0018.csv'
         ]
         self.assertListEqual(result, benchmark)
 
-    def test_get_max_date_files(self):
-        all_files = [
-            '20100101_version_0010.csv',
-            '20110101_version_0010.csv',
-            '20100101_version_0013.csv',
-            '20110101_version_0013.csv',
-            '20100101_version_0018.csv',
-            '20110101_version_0018.csv'
-        ]
-        result = get_max_date_files(all_files)
-        benchmark = [
-            '20110101_version_0010.csv',
-            '20110101_version_0013.csv',
-            '20110101_version_0018.csv'
-        ]
-        self.assertListEqual(result, benchmark)
-
     def test_import_format_raw_data(self):
-        statarb_path = os.path.join(self.imp_dir, 'StatArbStrategy',
-                                    'daily_data')
-        todays_files = get_todays_files(statarb_path)
-        path = os.path.join(statarb_path, todays_files[0])
-
-        result = import_format_raw_data(path)
+        statarb_path = os.path.join(self.imp_dir)
+        todays_files = get_todays_file_names(statarb_path)
+        result = import_format_raw_data(todays_files[0], statarb_path)
         benchmark = pd.DataFrame()
         yesteday = get_previous_trading_date()
         benchmark['Date'] = [yesteday - dt.timedelta(days=2),
@@ -358,14 +346,14 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark['AdjClose'] = range(6)
         assert_frame_equal(result, benchmark)
 
-    def test_format_data_name(self):
+    def test_clean_data_file_name(self):
         file_name = '20110101_version_0018.csv'
-        result = format_data_name(file_name)
+        result = clean_data_file_name(file_name)
         benchmark = 'version_0018'
         self.assertEqual(result, benchmark)
 
     def test_import_run_map(self):
-        result = import_run_map(self.imp_dir, 'models_0005')
+        result = import_run_map()
 
     def test_import_model_params(self):
         output = import_models_params(self.imp_dir, 'models_0005')
@@ -438,14 +426,17 @@ class TestGetLiveAllocations(unittest.TestCase):
         imp = StatArbImplementation(StatArbStrategyTest)
         imp.add_daily_data(raw_data)
         imp.add_run_map_models(run_map, models_params)
-        imp.add_positions(positions)
+        imp.add_size_containers(self.size_containers)
+        # import pdb; pdb.set_trace()
         imp.prep()
-        live_data = import_live_pricing(self.imp_dir)
+        ddir = os.path.join(self.imp_dir, 'StatArbStrategy', 'live_prices')
+        live_data = import_live_pricing(ddir)
         # live_data['SecCode'] = [14141, 43242]
         # imp.run_live(live_data)
 
     def test_import_live_pricing(self):
-        result = import_live_pricing(self.imp_dir)
+        ddir = os.path.join(self.imp_dir, 'StatArbStrategy', 'live_prices')
+        result = import_live_pricing(ddir)
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['1234', '4242', '3535']
         benchmark['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
@@ -455,22 +446,6 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark['AdjClose'] = [1, 2, np.nan]
         benchmark['AdjVolume'] = [np.nan, 2, 3]
         benchmark['AdjVwap'] = [1, np.nan, 3]
-        assert_frame_equal(result, benchmark)
-
-    def test_import_scaling_data(self):
-        result = import_scaling_data(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['SecCode'] = ['1234', '4242', '3535']
-        benchmark['QADirectDividendFactor'] = [1, 1.1, 1.2]
-        assert_frame_equal(result, benchmark)
-
-    def test_import_bloomberg_data(self):
-        result = import_bloomberg_data(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['SecCode'] = ['5151', '72727']
-        benchmark['BbrgDivMultiplier'] = [1.5, 1.0]
-        benchmark['BbrgSpinoffMultiplier'] = [10, 20.]
-        benchmark['BbrgSplitMultiplier'] = [2.0, 3.0]
         assert_frame_equal(result, benchmark)
 
     def test_extract_params(self):
