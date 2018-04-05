@@ -7,8 +7,8 @@ import datetime as dt
 
 def get_fund_manager_stat_arb_positions():
 
-    base_path = os.getenv('DATA2')
-    file_path = '/Common Folders/Roundabout/Operations/Roundabout Accounting/'
+    base_path = os.getenv('RAMSHARE')
+    file_path = '/Roundabout/Operations/Roundabout Accounting/'
     file_path += 'Roundabout Daily P&L 2016.xlsx'
     path = base_path + file_path
     data = pd.read_excel(path)
