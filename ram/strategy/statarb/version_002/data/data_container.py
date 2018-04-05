@@ -86,7 +86,9 @@ class DataContainer(BaseDataContainer):
         This is data that is as of yesterday
         """
         data['TimeIndex'] = -1
-        data['keep_inds'] = True
+        data['keep_inds'] = \
+            (data.AvgDolVol >= LOW_LIQUIDITY_FILTER) & \
+            (data.RClose >= LOW_PRICE_FILTER)
         prepped_data, prepped_features = self._make_features(data,
                                                              live_flag=True)
         market_data = market_data[['SecCode', 'Date', 'AdjClose']].copy()
@@ -104,6 +106,7 @@ class DataContainer(BaseDataContainer):
         prepped_data = self._live_prepped_data['prepped_data']
         prepped_features = self._live_prepped_data['prepped_features']
         del self._live_prepped_data
+
         # Pop index pricing
         live_market = live_pricing_data[
             live_pricing_data.SecCode.isin(['50311', '11113'])]
@@ -137,7 +140,7 @@ class DataContainer(BaseDataContainer):
         self._processed_test_data = pdata
         self._features = features
         # TODO: is this needed
-        self._test_dates = [0]
+        self._test_dates = [dt.date.today()]
         # Process some data
         score_vars = PortfolioConstructor().get_args()['score_var']
         self._other_data = pdata[['SecCode', 'Date', 'keep_inds']+score_vars]
@@ -240,6 +243,8 @@ class DataContainer(BaseDataContainer):
 
         pdata.loc[:, si_vars] = pdata.loc[:, si_vars].fillna(0.5)
         features = pdata.columns[n_id_features:].tolist()
+        if live_flag:
+            pdata.Date = dt.date.today()
         return pdata, features
 
     def _make_technical_features(self, data, live_flag=False):
@@ -341,6 +346,9 @@ class DataContainer(BaseDataContainer):
 
         # Extract features
         features = pdata.columns[n_id_features:].tolist()
+
+        if live_flag:
+            pdata.Date = dt.date.today()
         return pdata, features
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

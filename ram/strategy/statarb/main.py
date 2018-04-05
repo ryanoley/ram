@@ -7,7 +7,6 @@ import inspect
 import itertools
 import pandas as pd
 import datetime as dt
-from copy import deepcopy
 
 from ram import config
 from ram.strategy.base import read_json
@@ -21,7 +20,7 @@ from ram.strategy.statarb.data_blueprints import blueprint_container
 
 # HELPER
 strategy_versions = StrategyVersionContainer()
-strategy_versions.add_version('version_001', 'Pairs Implementation')
+
 strategy_versions.add_version('version_002', 'Smart Factor')
 
 
@@ -29,17 +28,11 @@ class StatArbStrategy(Strategy):
 
     def strategy_init(self):
         # Set source code versions
-        if self.strategy_code_version == 'version_001':
-            from ram.strategy.statarb.version_001 import main
-            self.data = deepcopy(main.data)
-            self.signals = deepcopy(main.signals)
-            self.constructor = deepcopy(main.constructor)
-
-        elif self.strategy_code_version == 'version_002':
+        if self.strategy_code_version == 'version_002':
             from ram.strategy.statarb.version_002 import main
-            self.data = deepcopy(main.data)
-            self.signals = deepcopy(main.signals)
-            self.constructor = deepcopy(main.constructor)
+            self.data = main.data()
+            self.signals = main.signals()
+            self.constructor = main.constructor()
 
         else:
             print('Correct strategy code not specified')

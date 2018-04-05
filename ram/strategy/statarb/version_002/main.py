@@ -4,6 +4,6 @@ from ram.strategy.statarb.version_002.data.data_container import \
 from ram.strategy.statarb.version_002.constructor.constructor import \
     PortfolioConstructor
 
-data = DataContainer()
-signals = SignalModel()
-constructor = PortfolioConstructor()
+data = DataContainer
+signals = SignalModel
+constructor = PortfolioConstructor

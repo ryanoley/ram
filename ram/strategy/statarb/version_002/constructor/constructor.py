@@ -10,7 +10,9 @@ from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
 class PortfolioConstructor(BasePortfolioConstructor):
 
-    _size_containers = {}
+    def __init__(self):
+        super(PortfolioConstructor, self).__init__()
+        self._size_containers = {}
 
     def get_args(self):
         return {
@@ -34,11 +36,11 @@ class PortfolioConstructor(BasePortfolioConstructor):
         scores2 = scores2.set_index(['Date', 'SecCode'])
         self._signals_scores2 = scores2
 
-    def set_signal_data(self, time_index, signals):
+    def set_signal_data(self, signals):
         self._signals = signals.copy()
         self._signals_scores = self._scores.merge(signals)
 
-    def set_other_data(self, time_index, data):
+    def set_other_data(self, data):
         self._scores = data
 
     def get_day_position_sizes(self, date, column_index):

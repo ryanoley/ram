@@ -200,7 +200,7 @@ class TestGetLiveAllocations(unittest.TestCase):
         os.mkdir(path3)
         # Raw Data
         data = pd.DataFrame()
-        yesteday, _ = get_trading_dates()
+        yesteday = get_previous_trading_date()
         data['Date'] = [yesteday - dt.timedelta(days=2),
                         yesteday - dt.timedelta(days=1),
                         yesteday] * 2
@@ -350,7 +350,7 @@ class TestGetLiveAllocations(unittest.TestCase):
 
         result = import_format_raw_data(path)
         benchmark = pd.DataFrame()
-        yesteday, _ = get_trading_dates()
+        yesteday = get_previous_trading_date()
         benchmark['Date'] = [yesteday - dt.timedelta(days=2),
                              yesteday - dt.timedelta(days=1),
                              yesteday] * 2
@@ -433,7 +433,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         raw_data = import_raw_data(self.imp_dir)
         run_map = import_run_map(self.imp_dir, 'models_0005')
         models_params = import_models_params(self.imp_dir, 'models_0005')
-        positions = import_portfolio_manager_positions(self.imp_dir)
+        # TODO: RamexAccounting needs to be implemented here
+        positions = {}
         imp = StatArbImplementation(StatArbStrategyTest)
         imp.add_daily_data(raw_data)
         imp.add_run_map_models(run_map, models_params)
@@ -488,14 +489,6 @@ class TestGetLiveAllocations(unittest.TestCase):
         result = extract_params(all_params, p1)
         benchmark = {'V2': 20}
         self.assertDictEqual(result, benchmark)
-
-    def test_import_portfolio_manager_positions(self):
-        result = import_portfolio_manager_positions(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['position'] = ['5050_StatArb_A0123', '1010_StatArb_A0123']
-        benchmark['symbol'] = ['AAPL', 'IBM']
-        benchmark['share_count'] = [1000, -1000]
-        assert_frame_equal(result, benchmark)
 
     def tearDown(self):
         if os.path.exists(self.imp_dir):
