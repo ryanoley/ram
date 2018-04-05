@@ -177,6 +177,7 @@ class RunManager(object):
         # Get data blueprint and add to meta
         file_path = self._get_run_file_paths('/data_meta.json')
         if len(file_path) == 0:
+            self.meta['blueprint'] = {'value': 'no blueprint data'}
             return
         if self._cloud_flag:
             blueprint = read_json_cloud(file_path[0], self._gcp_bucket)

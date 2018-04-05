@@ -46,12 +46,14 @@ class TestModelSelection(unittest.TestCase):
         self.run1.meta = {
             'prepped_data_version': 'version_0001',
             'strategy_code_version': 'version_0202',
-            'description': 'run1'
+            'description': 'run1',
+            'blueprint': {}
         }
         self.run2.meta = {
             'prepped_data_version': 'version_0002',
             'strategy_code_version': 'version_0202',
-            'description': 'run2'
+            'description': 'run2',
+            'blueprint': {}
         }
         # Output dir
         self.output_dir = os.path.join(
