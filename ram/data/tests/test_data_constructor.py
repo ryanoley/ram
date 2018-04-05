@@ -195,7 +195,7 @@ class TestDataConstructor(unittest.TestCase):
             ram_implementation_dir=self.implementation_data_dir)
         dc.run_live(blueprint, 'TestStrategy')
         path = os.path.join(self.implementation_data_dir, 'TestStrategy',
-                            'daily_raw_data', 'asdf.csv')
+                            'daily_data', 'asdf.csv')
         self.assertTrue(os.path.isfile(path))
 
     def test_make_implementation_dates(self):
