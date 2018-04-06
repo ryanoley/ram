@@ -25,27 +25,27 @@ class TestEzeFuncs(unittest.TestCase):
             f.write("SPY\n")
 
     def test_get_all_etb_files(self):
-        result = get_all_etb_files(ETB_DIR = os.getcwd())
+        result = get_all_etb_files(ETB_DIR=os.getcwd())
         benchmark = ['010118.EZBR.txt', '020118.EZBR.txt']
         self.assertEqual(result, benchmark)
 
     def test_get_max_etb_data(self):
-        result = get_max_etb_data(ETB_DIR = os.getcwd())
-        benchmark = pd.DataFrame(data={'Ticker':['IWM', 'QQQ', 'SPY']})
+        result = get_max_etb_data(ETB_DIR=os.getcwd())
+        benchmark = pd.DataFrame(data={'Ticker': ['IWM', 'QQQ', 'SPY']})
         assert_frame_equal(result, benchmark)
 
     def test_get_etb_status(self):
-        inp_tickers = ['QQQ','VXX']
+        inp_tickers = ['QQQ', 'VXX']
         result = etb_status(inp_tickers, ETB_DIR=os.getcwd())
-        benchmark = pd.DataFrame(data={'Ticker':['QQQ','VXX'],
-                                        'ETB_HTB':['ETB', 'HTB']},
+        benchmark = pd.DataFrame(data={'Ticker': ['QQQ', 'VXX'],
+                                       'ETB_HTB': ['ETB', 'HTB']},
                                  columns=['Ticker', 'ETB_HTB'])
         assert_frame_equal(result, benchmark)
 
-        inp_tickers = np.array(['GOOGL','VXX'])
+        inp_tickers = np.array(['GOOGL', 'VXX'])
         result = etb_status(inp_tickers, ETB_DIR=os.getcwd())
-        benchmark = pd.DataFrame(data={'Ticker':['GOOGL','VXX'],
-                                        'ETB_HTB':['HTB', 'HTB']},
+        benchmark = pd.DataFrame(data={'Ticker': ['GOOGL', 'VXX'],
+                                       'ETB_HTB': ['HTB', 'HTB']},
                                  columns=['Ticker', 'ETB_HTB'])
         assert_frame_equal(result, benchmark)
 
