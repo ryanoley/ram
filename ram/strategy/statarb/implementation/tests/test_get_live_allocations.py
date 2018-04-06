@@ -6,26 +6,25 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from numpy.testing import assert_array_equal
+from pandas.util.testing import assert_series_equal, assert_frame_equal
+
+from sklearn.linear_model import LinearRegression
+
 from ram import config
 from ram.strategy.statarb import statarb_config
 
 from ram.strategy.base import Strategy
-
 from ram.strategy.statarb.abstract.portfolio_constructor import \
     BasePortfolioConstructor
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
+
 from ramex.orders.orders import MOCOrder
+from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
-from sklearn.linear_model import LinearRegression
-
-from numpy.testing import assert_array_equal
-from pandas.util.testing import assert_series_equal, assert_frame_equal
-
-from ram.strategy.statarb.implementation.execution.get_live_allocations import *
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from ram.strategy.statarb.implementation.execution. \
+    get_live_allocations import *
 
 
 class Signals(BaseSignalGenerator):
@@ -352,7 +351,9 @@ class TestGetLiveAllocations(unittest.TestCase):
         positions.to_csv(os.path.join(self.imp_dir, today + '_positions.csv'),
                          index=0)
         # SizeContainers
-        self.size_containers = {'run_0003_1000': {}}
+        sizes = SizeContainer(2)
+        sizes.update_sizes({'A': 100, 'B': 200}, dt.date.today())
+        self.size_containers = {'run_0003_1000': sizes}
 
     def test_import_raw_data(self):
         result = import_raw_data(self.imp_dir)
@@ -519,8 +520,16 @@ class TestGetLiveAllocations(unittest.TestCase):
         self.assertEqual(result[1].quantity, -17)
         self.assertEqual(result[2].quantity, 50)
 
-    def Xtest_write_size_containers(self):
-        write_size_containers(strategy, self.imp_dir)
+    def test_write_size_containers(self):
+        imp = StatArbImplementation(StatArbStrategyTest)
+        imp.add_size_containers(self.size_containers)
+        write_size_containers(imp, self.imp_dir)
+        #
+        file_name = '{}.json'.format(dt.date.today().strftime('%Y%m%d'))
+        path = os.path.join(self.imp_dir,
+                            'StatArbStrategy',
+                            'size_containers')
+        self.assertEqual(os.listdir(path)[0], file_name)
 
     def test_get_size_containers(self):
         result = get_size_containers(self.imp_dir, 'models_0005')

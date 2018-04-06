@@ -163,11 +163,20 @@ def get_size_containers(data_path=config.IMPLEMENTATION_DATA_DIR,
 
     output = {}
     if meta['execution_confirm']:
-        # TODO: These are reconcilled at the end of the day?
-        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+        path = os.path.join(data_path,
                             'StatArbStrategy',
                             'size_containers')
+        # TODO: Confirm this is correct file somewhere - pretrade_check?
+        containers_path = os.path.join(path, max(os.listdir(path)))
+        sizes = json.load(open(containers_path, 'r'))
+
+        for k, v in sizes.iteritems():
+            sc = SizeContainer(-1)
+            sc.from_json(v)
+            output[k] = sc
+
         return output
+
     # Otherwise
     _, param_files = get_model_files(models_path)
     for f in param_files:
@@ -451,11 +460,15 @@ def write_output(out_df):
 
 def write_size_containers(strategy,
                           data_dir=config.IMPLEMENTATION_DATA_DIR):
-
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy',
-                            'trained_models',
-                            statarb_config.trained_models_dir_name)
+    today = dt.date.today().strftime('%Y%m%d')
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'size_containers',
+                        '{}.json'.format(today))
+    output = {}
+    for k, v in strategy.size_containers.iteritems():
+        output[k] = v.to_json()
+    json.dump(output, open(path, 'w'))
 
 
 ###############################################################################
@@ -464,7 +477,6 @@ def write_size_containers(strategy,
 
 def main():
 
-    import pdb; pdb.set_trace()
     ###########################################################################
     # 1. Import raw data
     raw_data = import_raw_data()
