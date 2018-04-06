@@ -18,7 +18,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 def main():
     check_implementation_folder_structure()
-    pull_daily_data()
+    # pull_daily_data()
     unique_seccodes = get_unique_seccodes_from_data()
     write_seccode_ticker_mapping(unique_seccodes)
     write_scaling_data(unique_seccodes)
@@ -68,22 +68,27 @@ def get_unique_blueprints():
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def get_unique_seccodes_from_data():
+    """
+    For all versions of data, get last two file's worth of unique
+    seccodes. Older file is for overlapping time periods
+    """
     print('[[ Getting unique SecCodes ]]')
-    # Get all version data files for TODAY
-    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy', 'daily_data')
-    all_files = os.listdir(data_dir)
-    version_files = [x for x in all_files if x.find('version') > -1]
-    max_date_prefix = max([x.split('_')[0] for x in version_files])
-    # Read in dates for files
-    todays_files = [x for x in version_files if x.find(max_date_prefix) > -1]
-    seccodes = np.array([])
-    for f in todays_files:
-        data = pd.read_csv(os.path.join(data_dir, f))
-        # Filter only active securities
-        data = data[data.Date == data.Date.max()]
-        seccodes = np.append(seccodes, data.SecCode.astype(str).unique())
-    return np.unique(seccodes)
+    # Get prepped data versions
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'trained_models',
+                        statarb_config.trained_models_dir_name,
+                        'run_map.json')
+    run_map = json.load(open(path, 'r'))
+    versions = list(set([x['prepped_data_version'] for x in run_map]))
+    seccodes = []
+    for v in versions:
+        path = os.path.join(config.PREPPED_DATA_DIR, 'StatArbStrategy', v)
+        files = [x for x in os.listdir(path) if x[:2] == '20'][-2:]
+        for f in files:
+            data = pd.read_csv(os.path.join(path, f))
+            seccodes += data.SecCode.unique().tolist()
+    return list(set(seccodes))
 
 
 def write_seccode_ticker_mapping(unique_seccodes):

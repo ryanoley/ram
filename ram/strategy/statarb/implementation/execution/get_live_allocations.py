@@ -1,6 +1,8 @@
 import os
+import sys
 import json
 import pickle
+import logging
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -167,7 +169,14 @@ def get_size_containers(data_path=config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
                             'size_containers')
         # TODO: Confirm this is correct file somewhere - pretrade_check?
-        containers_path = os.path.join(path, max(os.listdir(path)))
+        files = os.listdir(path)
+        # Get files before today in case it is re-run
+        today = dt.date.today().strftime('%Y%m%d')
+        if max(files)[:8] == today:
+            print('[WARNING] - SizeContainers for today already available.')
+            print('            Using previous day\'s file.')
+        file_name = max([x for x in files if x[:8] < today])
+        containers_path = os.path.join(path, file_name)
         sizes = json.load(open(containers_path, 'r'))
 
         for k, v in sizes.iteritems():
@@ -430,6 +439,7 @@ def make_orders(orders, positions):
     LOGIC: Positions holds the shares we have. Orders holds the shares
     we want--from Positions.Quantity to Orders.Quantity.
     """
+    # Drop anything with
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
     orders = orders.groupby('Ticker')['NewShares'].sum().reset_index()
@@ -507,21 +517,21 @@ def main():
     while True:
         try:
             live_data = get_live_pricing_data()
-
             import pdb; pdb.set_trace()
             orders = strategy.run_live(live_data)
-
             out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
                                   how='left')
-
+            import pdb; pdb.set_trace()
             send_orders(out_df, positions)
             write_output(out_df)
-            import pdb; pdb.set_trace()
             write_size_containers(strategy)
+
             break
 
         except Exception as e:
+            exc_info = sys.exc_info()
             print(e)
+            print(logging.Formatter().formatException(exc_info))
             _ = raw_input("[ERROR] - Press any key to re-run and transmit")
 
 
