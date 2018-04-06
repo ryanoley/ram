@@ -54,8 +54,6 @@ class TestSizeContainer(unittest.TestCase):
         size_container2.from_json(json.loads(result))
         self.assertDictEqual(size_container.to_json(),
                              size_container2.to_json())
-        self.assertListEqual(size_container2.dates, [dt.date(2010, 1, 2),
-                                                     dt.date(2010, 1, 3)])
         self.assertEqual(size_container2.n_days, 2)
 
     def tearDown(self):
