@@ -240,18 +240,31 @@ class DataHandlerSQL(object):
             )).flatten()
         return self._dates
 
-    def get_ticker_seccode_map(self):
+    def get_live_seccode_ticker_map(self):
         query_string = \
-            """
-            select A.SecCode, Ticker, Cusip, Issuer
-            from ram.dbo.ram_master_ids A
-            join (select SecCode, max(StartDate) as StartDate
-                  from ram.dbo.ram_master_ids group by SecCode) B
-            on A.SecCode = B.SecCode
-            and A.StartDate = B.StartDate
-            where A.Ticker is not null
-            and A.Ticker != ''
-            """
+        """
+        select A.SecCode, Ticker, Cusip, Issuer
+        from ram.dbo.ram_master_ids A
+        join (select SecCode, max(StartDate) as StartDate
+              from ram.dbo.ram_master_ids group by SecCode) B
+        on A.SecCode = B.SecCode
+        and A.StartDate = B.StartDate
+        where A.Ticker is not null
+        and A.EndDate > getdate() -- Active
+        and A.ExchangeFlag = 1 -- U.S Exchanges
+        and A.Ticker != ''
+        union
+        select A.SecCode, Ticker, Cusip, Issuer
+        from ram.dbo.ram_master_ids_etf A
+        join (select SecCode, max(StartDate) as StartDate
+              from ram.dbo.ram_master_ids_etf group by SecCode) B
+        on A.SecCode = B.SecCode
+        and A.StartDate = B.StartDate
+        where A.Ticker is not null
+        and A.EndDate > getdate() -- Active
+        and A.ExchangeFlag = 1 -- U.S Exchanges
+        and A.Ticker != ''
+        """
         mapping = self.sql_execute(query_string)
         mapping = pd.DataFrame(mapping)
         mapping.columns = ['SecCode', 'Ticker', 'Cusip', 'Issuer']

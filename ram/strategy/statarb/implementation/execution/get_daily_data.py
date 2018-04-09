@@ -184,7 +184,7 @@ def write_seccode_ticker_mapping(unique_seccodes):
     unique_seccodes = pd.DataFrame({'SecCode': unique_seccodes})
 
     dh = DataHandlerSQL()
-    mapping = dh.get_ticker_seccode_map()
+    mapping = dh.get_live_seccode_ticker_map()
     mapping = mapping.merge(unique_seccodes, how='right')
 
     # Hard-coded SecCodes for indexes
