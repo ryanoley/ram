@@ -239,7 +239,7 @@ class DataHandlerSQL(object):
             )).flatten()
         return self._dates
 
-    def get_ticker_seccode_map(self):
+    def get_seccode_to_ticker_map(self):
         query_string = \
             """
             select A.SecCode, Ticker, Cusip, Issuer
@@ -254,6 +254,24 @@ class DataHandlerSQL(object):
         mapping = self.sql_execute(query_string)
         mapping = pd.DataFrame(mapping)
         mapping.columns = ['SecCode', 'Ticker', 'Cusip', 'Issuer']
+        mapping.SecCode = mapping.SecCode.astype(str)
+        return mapping
+
+    def get_ticker_to_seccode_map(self):
+        query_string = \
+            """
+            select A.Ticker, SecCode, Cusip, Issuer
+            from ram.dbo.ram_master_ids A
+            join (select Ticker, max(StartDate) as StartDate
+                  from ram.dbo.ram_master_ids group by Ticker) B
+            on A.Ticker = B.Ticker
+            and A.StartDate = B.StartDate
+            where A.Ticker is not null
+            and A.Ticker != ''
+            """
+        mapping = self.sql_execute(query_string)
+        mapping = pd.DataFrame(mapping)
+        mapping.columns = ['Ticker', 'SecCode', 'Cusip', 'Issuer']
         mapping.SecCode = mapping.SecCode.astype(str)
         return mapping
 
