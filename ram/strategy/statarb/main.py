@@ -97,8 +97,7 @@ class StatArbStrategy(Strategy):
             self.constructor.set_test_dates(self.data.get_test_dates())
             self.constructor.set_pricing_data(time_index,
                                               self.data.get_pricing_data())
-            self.constructor.set_other_data(time_index,
-                                            self.data.get_other_data())
+            self.constructor.set_other_data(self.data.get_other_data())
 
             for args2 in self._signals_args:
                 self.signals.set_args(**args2)
@@ -112,7 +111,7 @@ class StatArbStrategy(Strategy):
                 signals = self.signals.get_signals()
 
                 # Pass signals to portfolio constructor
-                self.constructor.set_signal_data(time_index, signals)
+                self.constructor.set_signal_data(signals)
 
                 for ac in self._constructor_args:
                     self.constructor.set_args(**ac)
