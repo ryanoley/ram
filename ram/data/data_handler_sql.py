@@ -252,6 +252,17 @@ class DataHandlerSQL(object):
         and A.EndDate > getdate() -- Active
         and A.ExchangeFlag = 1 -- U.S Exchanges
         and A.Ticker != ''
+        union
+        select A.SecCode, Ticker, Cusip, Issuer
+        from ram.dbo.ram_master_ids_etf A
+        join (select SecCode, max(StartDate) as StartDate
+              from ram.dbo.ram_master_ids_etf group by SecCode) B
+        on A.SecCode = B.SecCode
+        and A.StartDate = B.StartDate
+        where A.Ticker is not null
+        and A.EndDate > getdate() -- Active
+        and A.ExchangeFlag = 1 -- U.S Exchanges
+        and A.Ticker != ''
         """
         mapping = self.sql_execute(query_string)
         mapping = pd.DataFrame(mapping)
