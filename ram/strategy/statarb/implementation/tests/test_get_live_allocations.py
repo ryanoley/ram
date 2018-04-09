@@ -6,25 +6,25 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
+from numpy.testing import assert_array_equal
+from pandas.util.testing import assert_series_equal, assert_frame_equal
+
+from sklearn.linear_model import LinearRegression
+
 from ram import config
 from ram.strategy.statarb import statarb_config
 
 from ram.strategy.base import Strategy
-
 from ram.strategy.statarb.abstract.portfolio_constructor import \
     BasePortfolioConstructor
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
 
-from sklearn.linear_model import LinearRegression
+from ramex.orders.orders import MOCOrder
+from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
-from numpy.testing import assert_array_equal
-from pandas.util.testing import assert_series_equal, assert_frame_equal
-
-from ram.strategy.statarb.implementation.execution.get_live_allocations import *
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from ram.strategy.statarb.implementation.execution. \
+    get_live_allocations import *
 
 
 class Signals(BaseSignalGenerator):
@@ -198,12 +198,16 @@ class TestGetLiveAllocations(unittest.TestCase):
         os.mkdir(path1)
         path1m = os.path.join(path1, 'models_0005')
         os.mkdir(path1m)
+        path1m2 = os.path.join(path1, 'models_0006')
+        os.mkdir(path1m2)
         path2 = os.path.join(path, 'daily_data')
         os.mkdir(path2)
         path3 = os.path.join(path, 'live_pricing')
         os.mkdir(path3)
         path4 = os.path.join(path, 'live_prices')  # Outside of ram
         os.mkdir(path4)
+        path5 = os.path.join(path, 'size_containers')
+        os.mkdir(path5)
         # Raw Data
         data = pd.DataFrame()
         yesteday = get_previous_trading_date()
@@ -249,10 +253,15 @@ class TestGetLiveAllocations(unittest.TestCase):
         with open(os.path.join(path1m, 'run_map.json'), 'w') as outfile:
             outfile.write(json.dumps(run_map))
         # Create sklearn model and params
-        meta = {'someinfo': True}
+        meta = {'execution_confirm': False}
         with open(os.path.join(path1m, 'meta.json'), 'w') as outfile:
             outfile.write(json.dumps(meta))
-        # Create sklearn model and params
+
+        meta = {'execution_confirm': True}
+        with open(os.path.join(path1m2, 'meta.json'), 'w') as outfile:
+            outfile.write(json.dumps(meta))
+
+        # Create sklearn model
         model = LinearRegression()
         X = np.random.randn(100, 3)
         y = np.random.randn(100)
@@ -263,13 +272,40 @@ class TestGetLiveAllocations(unittest.TestCase):
         path = os.path.join(path1m, 'run_009_12_skl_model.pkl')
         with open(path, 'w') as outfile:
             outfile.write(pickle.dumps(model))
-        params = {'V1': 3, 'V2': 10, 'V3': 3}
+        # Run Params with SizeContainers
+        # Get last two days
+        today = dt.date.today()
+        t1 = (today - dt.timedelta(days=2)).strftime('%Y%m%d')
+        t2 = (today - dt.timedelta(days=1)).strftime('%Y%m%d')
+        params = {
+            'params': {'v1': 10, 'v2': 30},
+            'sizes': {
+                'dates': [t1, t2],
+                'n_days': 10,
+                'sizes': {
+                    t1: {'A': 100000, 'B': -200000},
+                    t2: {'A': 200000, 'B': -300000}
+                }
+            }
+        }
         path = os.path.join(path1m, 'run_0003_1000_params.json')
         with open(path, 'w') as outfile:
             outfile.write(json.dumps(params))
+        params = {
+            'params': {'v1': 10, 'v2': 30},
+            'sizes': {
+                'dates': [t1, t2],
+                'n_days': 5,
+                'sizes': {
+                    t1: {'A': -400000, 'B': 500000},
+                    t2: {'A': -500000, 'B': 800000}
+                }
+            }
+        }
         path = os.path.join(path1m, 'run_009_12_params.json')
         with open(path, 'w') as outfile:
             outfile.write(json.dumps(params))
+
         # Live pricing
         data = pd.DataFrame()
         data['SecCode'] = [1234, 4242, 3535]
@@ -315,7 +351,9 @@ class TestGetLiveAllocations(unittest.TestCase):
         positions.to_csv(os.path.join(self.imp_dir, today + '_positions.csv'),
                          index=0)
         # SizeContainers
-        self.size_containers = {'run_0003_1000': {}}
+        sizes = SizeContainer(2)
+        sizes.update_sizes({'A': 100, 'B': 200}, dt.date.today())
+        self.size_containers = {'run_0003_1000': sizes}
 
     def test_import_raw_data(self):
         result = import_raw_data(self.imp_dir)
@@ -464,6 +502,53 @@ class TestGetLiveAllocations(unittest.TestCase):
         result = extract_params(all_params, p1)
         benchmark = {'V2': 20}
         self.assertDictEqual(result, benchmark)
+
+    def test_make_orders(self):
+        orders = pd.DataFrame()
+        orders['SecCode'] = ['A', 'A', 'B', 'B']
+        orders['Dollars'] = [100, 100, 200, -140]
+        orders['Strategy'] = ['Strat1', 'Strat2'] * 2
+        orders['Ticker'] = ['A', 'A', 'B', 'B']
+        orders['RClose'] = [10, 10, 20, 20]
+        positions = pd.DataFrame()
+        positions['SecCode'] = ['A', 'B', 'C']
+        positions['Ticker'] = ['A', 'B', 'C']
+        positions['Shares'] = [10, 20, -50]
+        result = make_orders(orders, positions)
+        self.assertIsInstance(result[0], MOCOrder)
+        self.assertEqual(result[0].quantity, 10)
+        self.assertEqual(result[1].quantity, -17)
+        self.assertEqual(result[2].quantity, 50)
+
+    def test_write_size_containers(self):
+        imp = StatArbImplementation(StatArbStrategyTest)
+        imp.add_size_containers(self.size_containers)
+        write_size_containers(imp, self.imp_dir)
+        #
+        file_name = '{}.json'.format(dt.date.today().strftime('%Y%m%d'))
+        path = os.path.join(self.imp_dir,
+                            'StatArbStrategy',
+                            'size_containers')
+        self.assertEqual(os.listdir(path)[0], file_name)
+
+    def test_get_size_containers(self):
+        result = get_size_containers(self.imp_dir, 'models_0005')
+        self.assertEqual(len(result), 2)
+        result1 = result['run_0003_1000']
+        self.assertEqual(result1.n_days, 10)
+        d = result1.dates[0]
+        self.assertEqual(result1.sizes[d]['A'], 100000)
+        self.assertEqual(result1.sizes[d]['B'], -200000)
+        result1 = result['run_009_12']
+        self.assertEqual(result1.n_days, 5)
+        d = result1.dates[0]
+        self.assertEqual(result1.sizes[d]['A'], -400000)
+        self.assertEqual(result1.sizes[d]['B'], 500000)
+        # Check file has been written
+        path = os.path.join(self.imp_dir, 'StatArbStrategy', 'size_containers')
+        file_name = '{}.json'.format((dt.date.today()-
+                                      dt.timedelta(days=1)).strftime('%Y%m%d'))
+        self.assertEqual(os.listdir(path)[0], file_name)
 
     def tearDown(self):
         if os.path.exists(self.imp_dir):

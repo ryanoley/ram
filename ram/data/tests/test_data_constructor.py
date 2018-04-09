@@ -189,14 +189,15 @@ class TestDataConstructor(unittest.TestCase):
                             prepped_data_dir=self.prepped_data_dir)
 
     def test_run_live(self):
-        blueprint = DataConstructorBlueprint('seccodes', 'Test description')
-        blueprint.seccodes_filter_arguments['output_file_name'] = 'asdf'
-        dc = DataConstructor(
-            ram_implementation_dir=self.implementation_data_dir)
-        dc.run_live(blueprint, 'TestStrategy')
-        path = os.path.join(self.implementation_data_dir, 'TestStrategy',
-                            'daily_data', 'asdf.csv')
-        self.assertTrue(os.path.isfile(path))
+        path = self.implementation_data_dir
+        blueprint = DataConstructorBlueprint('universe', 'Test')
+        blueprint.universe_date_parameters['frequency'] = 'M'
+        blueprint.constructor_type = 'universe_live'
+        blueprint.output_file_name = 'asdf'
+        blueprint.output_file_dir = path
+        dc = DataConstructor()
+        dc.run_live(blueprint)
+        self.assertTrue(os.path.isfile(os.path.join(path, 'asdf.csv')))
 
     def test_make_implementation_dates(self):
         dc = DataConstructor(self.prepped_data_dir)

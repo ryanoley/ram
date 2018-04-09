@@ -101,11 +101,10 @@ class DataContainer(BaseDataContainer):
         self._constructor_data = {}
 
     def process_live_data(self, live_pricing_data):
-        data = self._live_prepped_data['raw_data']
-        market_data = self._live_prepped_data['market_data']
-        prepped_data = self._live_prepped_data['prepped_data']
-        prepped_features = self._live_prepped_data['prepped_features']
-        del self._live_prepped_data
+        data = self._live_prepped_data['raw_data'].copy()
+        market_data = self._live_prepped_data['market_data'].copy()
+        prepped_data = self._live_prepped_data['prepped_data'].copy()
+        prepped_features = list(self._live_prepped_data['prepped_features'])
 
         # Pop index pricing
         live_market = live_pricing_data[

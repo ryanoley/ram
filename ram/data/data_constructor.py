@@ -21,11 +21,8 @@ from ram.utils.documentation import get_git_branch_commit
 
 class DataConstructor(object):
 
-    def __init__(self,
-                 ram_prepped_data_dir=config.PREPPED_DATA_DIR,
-                 ram_implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+    def __init__(self, ram_prepped_data_dir=config.PREPPED_DATA_DIR):
         self._prepped_data_dir = ram_prepped_data_dir
-        self._implementation_dir = ram_implementation_dir
 
     # ~~~~~~ Interface ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -41,9 +38,9 @@ class DataConstructor(object):
         self._check_file_completeness(blueprint)
         self._make_data(blueprint)
 
-    def run_live(self, blueprint, strategy_name):
+    def run_live(self, blueprint):
         self._check_parameters(blueprint)
-        self._init_run_live(strategy_name)
+        self._init_run_live(blueprint)
         self._make_data(blueprint)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -183,15 +180,8 @@ class DataConstructor(object):
         self._version_files = [x for x in self._version_files
                                if x not in files_to_drop]
 
-    def _init_run_live(self, strategy_name):
-        # Check if directories exist
-        path = os.path.join(self._implementation_dir, strategy_name)
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        path = os.path.join(path, 'daily_data')
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        self._output_dir = path
+    def _init_run_live(self, blueprint):
+        self._output_dir = blueprint.output_file_dir
 
     # ~~~~~~ Output functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -334,6 +324,7 @@ class DataConstructor(object):
             assert 'test_period_length' in params
             assert 'frequency' in params
             assert 'start_year' in params
+            assert hasattr(blueprint, 'output_file_dir')
             assert hasattr(blueprint, 'output_file_name')
 
         elif blueprint.constructor_type == 'etfs':

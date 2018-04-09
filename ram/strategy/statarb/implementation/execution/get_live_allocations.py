@@ -1,6 +1,8 @@
 import os
+import sys
 import json
 import pickle
+import logging
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -44,6 +46,7 @@ def get_todays_file_names(data_dir=config.IMPLEMENTATION_DATA_DIR):
     timestamp = dt.date.today().strftime('%Y%m%d')
     files = [x for x in os.listdir(data_dir) if x.find(timestamp) > -1]
     files = [x for x in files if x.find('version') > -1]
+    files.sort()
     assert len(files) > 0
     return files
 
@@ -147,32 +150,69 @@ def get_statarb_positions():
 #  5. Get SizeContainers
 ###############################################################################
 
-def get_size_containers():
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
-                        'trained_models',
-                        statarb_config.trained_models_dir_name)
+def get_size_containers(data_path=config.IMPLEMENTATION_DATA_DIR,
+                        models_dir=statarb_config.trained_models_dir_name):
+
+    # Check to see if new SizeContainers need to be created
+    models_path = os.path.join(data_path,
+                               'StatArbStrategy',
+                               'trained_models',
+                               models_dir)
 
     # Check meta file to see if size containers need to be re-created
-    meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
+    meta_path = os.path.join(models_path, 'meta.json')
+    meta = json.load(open(meta_path, 'r'))
 
     output = {}
     if meta['execution_confirm']:
-        # TODO: These are reconcilled at the end of the day?
-        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+        path = os.path.join(data_path,
                             'StatArbStrategy',
                             'size_containers')
+        # TODO: Confirm this is correct file somewhere - pretrade_check?
+        files = os.listdir(path)
+        # Get files before today in case it is re-run
+        today = dt.date.today().strftime('%Y%m%d')
+        if max(files)[:8] == today:
+            print('[WARNING] - SizeContainers for today already available.')
+            print('            Using previous day\'s file.')
+        file_name = max([x for x in files if x[:8] < today])
+        containers_path = os.path.join(path, file_name)
+        sizes = json.load(open(containers_path, 'r'))
+
+        for k, v in sizes.iteritems():
+            sc = SizeContainer(-1)
+            sc.from_json(v)
+            output[k] = sc
+
         return output
 
-    else:
-        _, param_files = get_model_files(path)
-        for f in param_files:
-            size_map = json.load(open(os.path.join(path, f), 'r'))
-            size_map = size_map['sizes']
-            sc = SizeContainer(-1)
-            sc.from_json(size_map)
-            output[f.replace('_params.json', '')] = sc
-        return output
+    # Otherwise
+    _, param_files = get_model_files(models_path)
+    for f in param_files:
+        size_map = json.load(open(os.path.join(models_path, f), 'r'))
+        sc = SizeContainer(-1)
+        sc.from_json(size_map['sizes'])
+        output[f.replace('_params.json', '')] = sc
+    # Update meta file
+    meta['execution_confirm'] = True
+    json.dump(meta, open(meta_path, 'w'))
+    write_new_size_containers(output, data_path)
+    return output
+
+
+def write_new_size_containers(size_containers,
+                              data_dir=config.IMPLEMENTATION_DATA_DIR):
+    # Write size_containers for yesterday's date (doesn't matter if it is
+    # a weekend as above code select max timestamp)
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).strftime('%Y%m%d')
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'size_containers',
+                        '{}.json'.format(yesterday))
+    output = {}
+    for k, v in size_containers.iteritems():
+        output[k] = v.to_json()
+    json.dump(output, open(path, 'w'))
 
 
 ###############################################################################
@@ -219,8 +259,6 @@ class StatArbImplementation(object):
                 d['column_params']
             self.models_params_strategy[d['run_name']]['model'] = \
                 self.models[d['run_name']]['model']
-            print('\n\n')
-            print([self.models_params_strategy.values()[i]['strategy'].constructor._size_containers[0] for i in range(len(self.models_params_strategy))])
         print('Finished prepping data...')
         return
 
@@ -385,19 +423,39 @@ def import_live_pricing(
 ###############################################################################
 
 def send_orders(out_df, positions):
+
+    orders = make_orders(out_df, positions)
+
     client = ExecutionClient()
-    for _, o in out_df.iterrows():
-        shares = int(o.Dollars / o.RClose)
-        if shares == 0:
-            continue
-        order = MOCOrder(basket='statArbBasket',
-                         strategy_id=o.Strategy,
-                         symbol=o.Ticker,
-                         quantity=shares)
-        client.send_order(order)
-        print(order)
+    for o in orders:
+        client.send_order(o)
+        print(o)
     client.send_transmit('statArbBasket')
     client.close_zmq_sockets()
+
+
+def make_orders(orders, positions):
+    """
+    LOGIC: Positions holds the shares we have. Orders holds the shares
+    we want--from Positions.Quantity to Orders.Quantity.
+    """
+    # Drop anything with
+    # Rollup and get shares
+    orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
+    orders = orders.groupby('Ticker')['NewShares'].sum().reset_index()
+    # Then net out/close shares
+    data = orders.merge(positions, how='outer').fillna(0)
+    data['TradeShares'] = data.NewShares - data.Shares
+    output = []
+    for _, o in data.iterrows():
+        if o.TradeShares == 0:
+            continue
+        order = MOCOrder(basket='statArbBasket',
+                         strategy_id='StatArb1',
+                         symbol=o.Ticker,
+                         quantity=o.TradeShares)
+        output.append(order)
+    return output
 
 
 def write_output(out_df):
@@ -410,8 +468,22 @@ def write_output(out_df):
     out_df.to_csv(path, index=None)
 
 
+def write_size_containers(strategy,
+                          data_dir=config.IMPLEMENTATION_DATA_DIR):
+    today = dt.date.today().strftime('%Y%m%d')
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'size_containers',
+                        '{}_size_containers.json'.format(today))
+    output = {}
+    for k, v in strategy.size_containers.iteritems():
+        output[k] = v.to_json()
+    json.dump(output, open(path, 'w'))
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+###############################################################################
+#  MAIN
+###############################################################################
 
 def main():
 
@@ -445,20 +517,19 @@ def main():
     while True:
         try:
             live_data = get_live_pricing_data()
-
-            import pdb; pdb.set_trace()
             orders = strategy.run_live(live_data)
-
             out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
                                   how='left')
-
             send_orders(out_df, positions)
             write_output(out_df)
-            write_size_containers()
+            write_size_containers(strategy)
+
             break
 
         except Exception as e:
+            exc_info = sys.exc_info()
             print(e)
+            print(logging.Formatter().formatException(exc_info))
             _ = raw_input("[ERROR] - Press any key to re-run and transmit")
 
 

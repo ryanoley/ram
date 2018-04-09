@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import datetime as dt
+from shutil import copyfile
 
 from ram import config
 from ram.data.data_handler_sql import DataHandlerSQL
@@ -19,60 +20,129 @@ def get_trading_dates():
     return dates[0], dates[1]
 
 
-def get_qadirect_data_dates():
-    raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_data')
-    all_files = os.listdir(raw_data_dir)
-    all_files.remove('market_index_data.csv')
-    max_date_prefix = max([x.split('_')[0] for x in all_files])
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # Read in dates for files
-    todays_files = [x for x in all_files if x.find('version') > -1]
-    todays_files = [x for x in todays_files if x.find(max_date_prefix) > -1]
-    max_dates = []
-    for f in todays_files:
-        data = pd.read_csv(os.path.join(raw_data_dir, f), nrows=3000)
-        max_dates.append(data.Date.max())
-    return todays_files, convert_date_array(max_dates)
+def get_qadirect_data_info(yesterday):
+    """
+    Get max prefix PER version
+    """
+    # Search through all files in daily data directory
+    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'live')
+    all_files = os.listdir(data_dir)
+    # Get unique versions
+    version_files = [x for x in all_files if x.find('version_') > -1]
+
+    output = pd.DataFrame()
+    for i, v in enumerate(version_files):
+        # Check date
+        data = pd.read_csv(os.path.join(data_dir, v), nrows=3000)
+        max_date = data.Date.max().split('-')
+        max_date = dt.date(int(max_date[0]),
+                           int(max_date[1]),
+                           int(max_date[2]))
+        if max_date != yesterday:
+            message = '[WARNING] - max(Date) is not previous trading date'
+        else:
+            message = '*'
+
+        # Add to output
+        output.loc[i, 'Desc'] = 'Data file: ' + v
+        output.loc[i, 'Message'] = message
+
+    return output
 
 
-def _check_date(date, today):
-    return '[WARNING] - Not up-to-date' if date != today else '*'
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def check_eod_positions(yesterday):
+    dpath = os.path.join(os.getenv('DATA'),
+                         'ramex',
+                         'eod_positions')
+    all_files = os.listdir(dpath)
+    file_name = '{}_positions.csv'.format(yesterday.strftime('%Y%m%d'))
+
+    # Copy target path
+    live_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live',
+                             'eod_positions.csv')
+
+    if file_name in all_files:
+        message = '*'
+        copyfile(os.path.join(dpath, file_name), live_path)
+
+    else:
+        message = '[WARNING] - Missing yesterday\'s file'
+        # Remove file
+        os.remove(live_path)
+
+    output = pd.DataFrame()
+    output.loc[0, 'Desc'] = 'EOD Position File'
+    output.loc[0, 'Message'] = message
+    return output
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def check_size_containers(yesterday):
+    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                         'StatArbStrategy',
+                         'archive',
+                         'size_containers')
+
+    all_files = os.listdir(dpath)
+
+    file_name = '{}_size_containers.json'.format(yesterday.strftime('%Y%m%d'))
+
+    # Copy target path
+    live_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live',
+                             'size_containers.json')
+
+    if file_name in all_files:
+        message = '*'
+        copyfile(os.path.join(dpath, file_name), live_path)
+
+    else:
+        message = '[WARNING] - Missing yesterday\'s file'
+        # Remove file
+        os.remove(live_path)
+
+    output = pd.DataFrame()
+    output.loc[0, 'Desc'] = 'Size containers'
+    output.loc[0, 'Message'] = message
+    return output
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def main():
 
+    yesterday, today = get_trading_dates()
+
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                          'StatArbStrategy', 'bloomberg_data_check.csv')
     bloomberg = pd.read_csv(dpath)
 
-    yesterday, today = get_trading_dates()
+    qad_data = get_qadirect_data_info(yesterday)
 
-    # Check data files
-    output = pd.DataFrame()
-    ind = len(output)
-    for desc, last_date in zip(*get_qadirect_data_dates()):
-        desc = 'Raw data last date: ' + desc[desc.find('version'):]
-        output.loc[ind, 'Desc'] = desc
-        output.loc[ind, 'Message'] = _check_date(last_date, yesterday)
-        ind += 1
+    position_file = check_eod_positions(yesterday)
+
+    size_containers = check_size_containers(yesterday)
 
     # Append
-    output = bloomberg.append(output).reset_index(drop=True)
+    output = qad_data.append(position_file) \
+        .append(size_containers).reset_index(drop=True)
+    # Add date column
+    output['Date'] = dt.date.today()
+    output = bloomberg.append(output)
 
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                          'StatArbStrategy', 'pretrade_data_check.csv')
-    output.to_csv(dpath, index=None)
-    # Archive
-    ddir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy', 'pretrade_check_archive')
-    if not os.path.isdir(ddir):
-        os.mkdir(ddir)
-    dpath = os.path.join(ddir, 'pretrade_data_check_{}.csv'.format(
-        today.strftime('%Y%m%d')))
     output.to_csv(dpath, index=None)
 
 
