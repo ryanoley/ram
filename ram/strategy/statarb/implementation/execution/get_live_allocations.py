@@ -474,7 +474,7 @@ def write_size_containers(strategy,
     path = os.path.join(data_dir,
                         'StatArbStrategy',
                         'size_containers',
-                        '{}.json'.format(today))
+                        '{}_size_containers.json'.format(today))
     output = {}
     for k, v in strategy.size_containers.iteritems():
         output[k] = v.to_json()

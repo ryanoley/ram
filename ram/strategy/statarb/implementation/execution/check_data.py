@@ -78,6 +78,29 @@ def check_eod_positions(yesterday):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def check_size_containers(yesterday):
+    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                         'StatArbStrategy',
+                         'size_containers')
+
+    all_files = os.listdir(dpath)
+
+    file_name = '{}_size_containers.json'.format(yesterday.strftime('%Y%m%d'))
+
+    if file_name in all_files:
+        message = '*'
+    else:
+        message = '[WARNING] - Missing yesterday\'s file'
+
+    output = pd.DataFrame()
+    output.loc[0, 'Desc'] = 'Size containers'
+    output.loc[0, 'Message'] = message
+    return output
+
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def main():
 
     yesterday, today = get_trading_dates()
@@ -90,9 +113,11 @@ def main():
 
     position_file = check_eod_positions(yesterday)
 
+    size_containers = check_size_containers(yesterday)
+
     # Append
     output = bloomberg.append(qad_data).append(position_file) \
-        .reset_index(drop=True)
+        .append(size_containers).reset_index(drop=True)
 
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
