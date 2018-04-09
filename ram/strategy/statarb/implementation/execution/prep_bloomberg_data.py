@@ -195,14 +195,14 @@ def process_bloomberg_data():
 
     # Write bloomberg data to file
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy',
-                        'live_pricing', 'bloomberg_scaling.csv')
+                        'live', 'bloomberg_scaling.csv')
     bloomberg.to_csv(path, index=None)
 
     # Archived
     d = dt.date.today().strftime('%Y%m%d')
     file_name = '{}_bloomberg_scaling.csv'.format(d)
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy',
-                        'daily_data', file_name)
+                        'archive', 'bloomberg_scaling', file_name)
     bloomberg.to_csv(path, index=None)
 
     return message
@@ -210,9 +210,9 @@ def process_bloomberg_data():
 
 def main():
 
-    output = pd.DataFrame()
-
     message = process_bloomberg_data()
+
+    output = pd.DataFrame()
 
     output.loc[0, 'Desc'] = 'Bloomberg ID Mapping'
     output.loc[0, 'Message'] = message[0]
@@ -226,18 +226,13 @@ def main():
     output.loc[3, 'Desc'] = 'Bloomberg Splits'
     output.loc[3, 'Message'] = message[3]
 
+    output['Date'] = dt.date.today()
+
+    output = output[['Date', 'Desc', 'Message']]
+
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                          'StatArbStrategy', 'bloomberg_data_check.csv')
-    output.to_csv(dpath, index=None)
-    # Archive
-    ddir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy', 'pretrade_check_archive')
-    if not os.path.isdir(ddir):
-        os.mkdir(ddir)
-
-    prefix = get_todays_date_prefix()
-    dpath = os.path.join(ddir, 'bloomberg_data_check_{}.csv'.format(prefix))
     output.to_csv(dpath, index=None)
 
 

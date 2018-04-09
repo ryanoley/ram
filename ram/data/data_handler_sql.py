@@ -1,3 +1,4 @@
+import time
 import pypyodbc
 import numpy as np
 import pandas as pd
@@ -337,15 +338,17 @@ class DataHandlerSQL(object):
 
     def sql_execute(self, sqlcmd):
         self._test_time_constraint()
-        try:
-            self._connect()
-            self._cursor.execute(sqlcmd)
-            return_data = self._cursor.fetchall()
-            self._disconnect()
-            return return_data
-        except Exception as e:
-            self._disconnect()
-            raise Exception(e)
+        for i in range(5):
+            try:
+                self._connect()
+                self._cursor.execute(sqlcmd)
+                return_data = self._cursor.fetchall()
+                self._disconnect()
+                return return_data
+            except Exception as e:
+                self._disconnect()
+                print(e)
+                time.sleep(2)
 
     def close_connections(self):
         self._disconnect()
