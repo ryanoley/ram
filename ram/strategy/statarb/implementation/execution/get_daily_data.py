@@ -93,7 +93,7 @@ def write_seccode_ticker_mapping(unique_seccodes):
     """
     print('[[ Mapping Tickers to SecCodes ]]')
     dh = DataHandlerSQL()
-    mapping = dh.get_ticker_seccode_map()
+    mapping = dh.get_live_seccode_ticker_map()
     mapping = mapping.loc[mapping.SecCode.isin(unique_seccodes)]
     # Hard-coded SecCodes for indexes
     indexes = pd.DataFrame()
