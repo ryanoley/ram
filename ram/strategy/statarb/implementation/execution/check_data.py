@@ -19,48 +19,55 @@ def get_trading_dates():
     return dates[0], dates[1]
 
 
-def get_qadirect_data_dates():
+def get_qadirect_data_info(yesterday):
+    """
+    Get max prefix PER version
+    """
+    # Search through all files in daily data directory
     raw_data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                                'StatArbStrategy', 'daily_data')
+                                'StatArbStrategy',
+                                'daily_data')
     all_files = os.listdir(raw_data_dir)
-    all_files.remove('market_index_data.csv')
-    max_date_prefix = max([x.split('_')[0] for x in all_files])
+    # Get unique versions
+    data_files = [x for x in all_files if x.find('version_') > -1]
+    versions = list(set([x[9:].replace('.csv', '') for x in data_files]))
 
-    # Read in dates for files
-    todays_files = [x for x in all_files if x.find('version') > -1]
-    todays_files = [x for x in todays_files if x.find(max_date_prefix) > -1]
-    max_dates = []
-    for f in todays_files:
-        data = pd.read_csv(os.path.join(raw_data_dir, f), nrows=3000)
-        max_dates.append(data.Date.max())
-    return todays_files, convert_date_array(max_dates)
+    output = pd.DataFrame()
+    for i, v in enumerate(versions):
+        max_file = max([x for x in data_files if x.find(v) > -1])
 
+        # Check date
+        data = pd.read_csv(os.path.join(raw_data_dir, max_file), nrows=3000)
+        max_date = data.Date.max().split('-')
+        max_date = dt.date(int(max_date[0]),
+                           int(max_date[1]),
+                           int(max_date[2]))
+        if max_date != yesterday:
+            message = '[WARNING] - max(Date) is not previous trading date'
+        else:
+            message = '*'
 
-def _check_date(date, today):
-    return '[WARNING] - Not up-to-date' if date != today else '*'
+        # Add to output
+        output.loc[i, 'Desc'] = 'Data file: ' + max_file
+        output.loc[i, 'Message'] = message
+
+    return output
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def main():
 
+    yesterday, today = get_trading_dates()
+
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                          'StatArbStrategy', 'bloomberg_data_check.csv')
     bloomberg = pd.read_csv(dpath)
 
-    yesterday, today = get_trading_dates()
-
-    # Check data files
-    output = pd.DataFrame()
-    ind = len(output)
-    for desc, last_date in zip(*get_qadirect_data_dates()):
-        desc = 'Raw data last date: ' + desc[desc.find('version'):]
-        output.loc[ind, 'Desc'] = desc
-        output.loc[ind, 'Message'] = _check_date(last_date, yesterday)
-        ind += 1
+    qad_data = get_qadirect_data_info(yesterday)
 
     # Append
-    output = bloomberg.append(output).reset_index(drop=True)
+    output = bloomberg.append(qad_data).reset_index(drop=True)
 
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
