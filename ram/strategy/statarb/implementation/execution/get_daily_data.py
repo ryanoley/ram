@@ -18,7 +18,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 def main():
     check_implementation_folder_structure()
-    # pull_daily_data()
+    pull_daily_data()
     unique_seccodes = get_unique_seccodes_from_data()
     write_seccode_ticker_mapping(unique_seccodes)
     write_scaling_data(unique_seccodes)
@@ -83,11 +83,16 @@ def get_unique_seccodes_from_data():
     versions = list(set([x['prepped_data_version'] for x in run_map]))
     seccodes = []
     for v in versions:
+        # Get all data files, and exclude market data
         path = os.path.join(config.PREPPED_DATA_DIR, 'StatArbStrategy', v)
-        files = [x for x in os.listdir(path) if x[:2] == '20'][-2:]
-        for f in files:
+        files = [x for x in os.listdir(path) if x.find('_data.csv') > -1]
+        if 'market_index_data.csv' in files:
+            files.remove('market_index_data.csv')
+        files.sort()
+        # Look at IDs for only the last two files
+        for f in files[-2:]:
             data = pd.read_csv(os.path.join(path, f))
-            seccodes += data.SecCode.unique().tolist()
+            seccodes += data.SecCode.astype(str).unique().tolist()
     return list(set(seccodes))
 
 
@@ -97,9 +102,13 @@ def write_seccode_ticker_mapping(unique_seccodes):
     directory.
     """
     print('[[ Mapping Tickers to SecCodes ]]')
+
+    unique_seccodes = pd.DataFrame({'SecCode': unique_seccodes})
+
     dh = DataHandlerSQL()
     mapping = dh.get_ticker_seccode_map()
-    mapping = mapping.loc[mapping.SecCode.isin(unique_seccodes)]
+    mapping = mapping.merge(unique_seccodes, how='right')
+
     # Hard-coded SecCodes for indexes
     indexes = pd.DataFrame()
     indexes['SecCode'] = ['50311', '11113']
