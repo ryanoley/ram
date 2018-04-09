@@ -19,6 +19,8 @@ def get_trading_dates():
     return dates[0], dates[1]
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def get_qadirect_data_info(yesterday):
     """
     Get max prefix PER version
@@ -56,6 +58,26 @@ def get_qadirect_data_info(yesterday):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def check_eod_positions(yesterday):
+    dpath = os.path.join(os.getenv('DATA'),
+                         'ramex',
+                         'eod_positions')
+    all_files = os.listdir(dpath)
+    file_name = '{}_positions.csv'.format(yesterday.strftime('%Y%m%d'))
+
+    if file_name in all_files:
+        message = '*'
+    else:
+        message = '[WARNING] - Missing yesterday\'s file'
+
+    output = pd.DataFrame()
+    output.loc[0, 'Desc'] = 'EOD Position File'
+    output.loc[0, 'Message'] = message
+    return output
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def main():
 
     yesterday, today = get_trading_dates()
@@ -66,8 +88,11 @@ def main():
 
     qad_data = get_qadirect_data_info(yesterday)
 
+    position_file = check_eod_positions(yesterday)
+
     # Append
-    output = bloomberg.append(qad_data).reset_index(drop=True)
+    output = bloomberg.append(qad_data).append(position_file) \
+        .reset_index(drop=True)
 
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
