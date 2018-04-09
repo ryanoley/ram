@@ -517,11 +517,9 @@ def main():
     while True:
         try:
             live_data = get_live_pricing_data()
-            import pdb; pdb.set_trace()
             orders = strategy.run_live(live_data)
             out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
                                   how='left')
-            import pdb; pdb.set_trace()
             send_orders(out_df, positions)
             write_output(out_df)
             write_size_containers(strategy)
