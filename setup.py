@@ -26,7 +26,7 @@ PACKAGES = [
     'ram/strategy/statarb',
     'ram/strategy/statarb/abstract',
     'ram/strategy/statarb/implementation',
-    'ram/strategy/statarb/implementation/execution',
+    'ram/strategy/statarb/implementation/tests',
     'ram/strategy/statarb/version_002',
     'ram/strategy/statarb/version_002/constructor',
     'ram/strategy/statarb/version_002/data',

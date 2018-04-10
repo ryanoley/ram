@@ -19,6 +19,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 def main():
     check_implementation_folder_structure()
+    clear_live_dir()
     pull_version_data()
     copy_version_data_to_archive()
     unique_seccodes = get_unique_seccodes_from_data()
@@ -72,6 +73,17 @@ def check_implementation_folder_structure():
 def _check_create(path):
     if not os.path.isdir(path):
         os.mkdir(path)
+    return
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def clear_live_dir():
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy', 'live')
+    all_files = os.listdir(path)
+    for f in all_files:
+        os.remove(os.path.join(path, f))
     return
 
 

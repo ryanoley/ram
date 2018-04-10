@@ -1,14 +1,21 @@
 import os
+import json
 import numpy as np
 import pandas as pd
 import datetime as dt
 from shutil import copyfile
 
 from ram import config
+from ram.strategy.statarb import statarb_config
+
 from ram.data.data_handler_sql import DataHandlerSQL
+from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
-from gearbox import convert_date_array
+IMP_DIR = config.IMPLEMENTATION_DATA_DIR
+RAMEX_DIR = os.path.join(os.getenv('DATA'), 'ramex')
 
+
+###############################################################################
 
 def get_trading_dates():
     """
@@ -20,17 +27,18 @@ def get_trading_dates():
     return dates[0], dates[1]
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
-def get_qadirect_data_info(yesterday):
+def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
     """
     Get max prefix PER version
     """
     # Search through all files in daily data directory
-    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    data_dir = os.path.join(data_dir,
                             'StatArbStrategy',
                             'live')
     all_files = os.listdir(data_dir)
+
     # Get unique versions
     version_files = [x for x in all_files if x.find('version_') > -1]
 
@@ -54,24 +62,22 @@ def get_qadirect_data_info(yesterday):
     return output
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
-def check_eod_positions(yesterday):
-    dpath = os.path.join(os.getenv('DATA'),
-                         'ramex',
-                         'eod_positions')
-    all_files = os.listdir(dpath)
+def check_eod_positions(yesterday, ramex_dir=RAMEX_DIR, data_dir=IMP_DIR):
+    path = os.path.join(ramex_dir, 'eod_positions')
+    all_files = os.listdir(path)
     file_name = '{}_positions.csv'.format(yesterday.strftime('%Y%m%d'))
 
     # Copy target path
-    live_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    live_path = os.path.join(data_dir,
                              'StatArbStrategy',
                              'live',
                              'eod_positions.csv')
 
     if file_name in all_files:
         message = '*'
-        copyfile(os.path.join(dpath, file_name), live_path)
+        copyfile(os.path.join(path, file_name), live_path)
 
     else:
         message = '[WARNING] - Missing yesterday\'s file'
@@ -84,10 +90,15 @@ def check_eod_positions(yesterday):
     return output
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
-def check_size_containers(yesterday):
-    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+def check_size_containers(yesterday,
+                          data_dir=IMP_DIR,
+                          models_dir=statarb_config.trained_models_dir_name):
+
+    check_new_sizes(yesterday, data_dir, models_dir)
+
+    dpath = os.path.join(data_dir,
                          'StatArbStrategy',
                          'archive',
                          'size_containers')
@@ -115,6 +126,45 @@ def check_size_containers(yesterday):
     output.loc[0, 'Desc'] = 'Size containers'
     output.loc[0, 'Message'] = message
     return output
+
+
+def check_new_sizes(yesterday,
+                    data_dir=IMP_DIR,
+                    models_dir=statarb_config.trained_models_dir_name):
+    """
+    Check to see if new SizeContainers need to be created from newly
+    trained model
+    """
+    path = os.path.join(data_dir, 'StatArbStrategy',
+                        'trained_models', models_dir)
+
+    # Check meta file to see if size containers need to be re-created
+    meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
+
+    if meta['execution_confirm']:
+        return
+
+    # Write new files to archive
+    all_files = os.listdir(path)
+    param_files = [x for x in all_files if x.find('params.json') > -1]
+
+    output = {}
+    for f in param_files:
+        size_map = json.load(open(os.path.join(path, f), 'r'))
+        sc = SizeContainer(-1)
+        sc.from_json(size_map['sizes'])
+        output[f.replace('_params.json', '')] = sc.to_json()
+
+    prefix = yesterday.strftime('%Y%m%d')
+    file_name = '{}_size_containers_NEW_MODEL.json'.format(prefix)
+    outpath = os.path.join(data_dir, 'StatArbStrategy', 'archive',
+                           'size_containers', file_name)
+
+    json.dump(output, open(outpath, 'w'))
+
+    # Update meta file
+    meta['execution_confirm'] = True
+    json.dump(meta, open(os.path.join(path, 'meta.json'), 'w'))
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
