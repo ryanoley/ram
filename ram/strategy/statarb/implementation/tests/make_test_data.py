@@ -244,8 +244,23 @@ class ImplementationDataTestSuite(object):
         data.to_csv(os.path.join(path, file_name), index=None)
 
     def _make_size_containers(self):
-        pass
-
+        dpath = os.path.join(self.data_dir,
+                             'StatArbStrategy',
+                             'archive',
+                             'size_containers')
+        prefix = self.yesterday.strftime('%Y%m%d')
+        file_name = '{}_size_containers.json'.format(prefix)
+        t1 = self.yesterday.strftime('%Y%m%d')
+        t2 = self.today.strftime('%Y%m%d')
+        sizes = {'model1': {
+            'dates': [t1, t2],
+                'n_days': 10,
+                'sizes': {
+                    t1: {'A': 100000, 'B': -200000},
+                    t2: {'A': 200000, 'B': -300000}
+                }
+        }}
+        json.dump(sizes, open(os.path.join(dpath, file_name), 'w'))
 
 ###############################################################################
 

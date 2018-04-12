@@ -60,6 +60,26 @@ class TestPrepData(unittest.TestCase):
         prefix = self.yesterday.strftime('%Y%m%d')
         file_name = '{}_size_containers_NEW_MODEL.json'.format(prefix)
         self.assertTrue(file_name in result)
+        # Check meta file
+        path = os.path.join(self.data_dir, 'StatArbStrategy',
+                            'trained_models', 'models_0005', 'meta.json')
+        result = json.load(open(path, 'r'))
+        self.assertTrue(result['execution_confirm'])
+
+    def test_check_size_containers(self):
+        path = os.path.join(self.data_dir, 'StatArbStrategy', 'live')
+        all_files = os.listdir(path)
+        self.assertFalse('size_containers.json' in all_files)
+        result = check_size_containers(self.yesterday,
+                                       self.data_dir,
+                                       'models_0005')
+        benchmark = pd.DataFrame()
+        benchmark['Desc'] = ['Size containers']
+        benchmark['Message'] = ['New model SizeContainers being used']
+        assert_frame_equal(result, benchmark)
+        path = os.path.join(self.data_dir, 'StatArbStrategy', 'live')
+        all_files = os.listdir(path)
+        self.assertTrue('size_containers.json' in all_files)
 
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()
