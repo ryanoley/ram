@@ -136,27 +136,34 @@ class ImplementationDataTestSuite(object):
             outfile.write(json.dumps(params))
 
         # Run map
-        params = {'blueprint': {'universe_filter_arguments':
-            {'filter': 'AvgDolVol',
-             'where': 'MarketCap >= 200 and Close_ between 5 and 500',
-             'univ_size': 800},
-             'features': ['AdjOpen', 'AdjHigh'],
-             'constructor_type': 'universe',
-             'output_dir_name': 'StatArbStrategy',
-             'universe_date_parameters': {'quarter_frequency_month_offset': 0,
-             'start_year': 2004, 'frequency': 'M', 'train_period_length': 3,
-             'test_period_length': 2},
-             'market_data_params': {'features': ['AdjClose'],
-             'seccodes': [50311, 11113, 11097, 11099, 111000]},
-             'description': 'Sector 20, Version 002'},
-             'prepped_data_version': 'version_0010',
-             'column_params': {'response_days': 5, 'holding_period': 9,
-             'response_type': 'Simple', 'per_side_count': 30,
-             'model': {'max_features': 0.8, 'type': 'tree',
-                       'min_samples_leaf': 500}, 'score_var': 'prma_15'},
-             'stack_index': 'version_002~version_0010',
-             'run_name': 'run_0003_1000',
-             'strategy_code_version': 'version_002'}
+        params = {'blueprint': {
+            'universe_filter_arguments':
+                {'filter': 'AvgDolVol',
+                 'where': 'MarketCap >= 200 and Close_ between 5 and 500',
+                 'univ_size': 800},
+            'features': ['AdjOpen', 'AdjHigh'],
+            'constructor_type': 'universe',
+            'output_dir_name': 'StatArbStrategy',
+            'universe_date_parameters': {
+                'quarter_frequency_month_offset': 0,
+                'start_year': 2004, 'frequency': 'M',
+                'train_period_length': 3,
+                'test_period_length': 2},
+            'market_data_params': {
+                'features': ['AdjClose'],
+                'seccodes': [50311, 11113, 11097, 11099, 111000]},
+                'description': 'Sector 20, Version 002'
+            },
+            'prepped_data_version': 'version_0010',
+            'column_params': {
+                'response_days': 5, 'holding_period': 9,
+                'response_type': 'Simple', 'per_side_count': 30,
+                'model': {'max_features': 0.8, 'type': 'tree',
+                          'min_samples_leaf': 500}, 'score_var': 'prma_15'},
+            'stack_index': 'version_002~version_0010',
+            'run_name': 'run_0003_1000',
+            'strategy_code_version': 'version_002'
+        }
         run_map = [params, params]
 
         # Write
@@ -227,7 +234,7 @@ class ImplementationDataTestSuite(object):
     def _make_position_sheet_files(self):
         data = pd.DataFrame()
         data['position'] = ['5050_StatArb_A0123', '1010_StatArb_A0123',
-                                 'GE Special Sit', 'CUDA Earnings']
+                            'GE Special Sit', 'CUDA Earnings']
         data['symbol'] = ['AAPL', 'IBM', 'GE', 'CUDA']
         data['share_count'] = [1000, -1000, 100, 3333]
         data['market_price'] = [10, 30, 10, 20]
@@ -254,13 +261,14 @@ class ImplementationDataTestSuite(object):
         t2 = self.today.strftime('%Y%m%d')
         sizes = {'model1': {
             'dates': [t1, t2],
-                'n_days': 10,
-                'sizes': {
-                    t1: {'A': 100000, 'B': -200000},
-                    t2: {'A': 200000, 'B': -300000}
-                }
+            'n_days': 10,
+            'sizes': {
+                t1: {'A': 100000, 'B': -200000},
+                t2: {'A': 200000, 'B': -300000}
+            }
         }}
         json.dump(sizes, open(os.path.join(dpath, file_name), 'w'))
+
 
 ###############################################################################
 

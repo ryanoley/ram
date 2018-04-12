@@ -290,9 +290,12 @@ class StatArbImplementation(object):
             strategy.signals.set_test_data(strategy.data.get_test_data())
             strategy.signals.set_model(model)
 
-            strategy.constructor.set_test_dates(strategy.data.get_test_dates())
-            strategy.constructor.set_other_data(strategy.data.get_other_data())
-            strategy.constructor.set_signal_data(strategy.signals.get_signals())
+            strategy.constructor.set_test_dates(
+                strategy.data.get_test_dates())
+            strategy.constructor.set_other_data(
+                strategy.data.get_other_data())
+            strategy.constructor.set_signal_data(
+                strategy.signals.get_signals())
 
             cparams = extract_params(params, strategy.constructor.get_args())
             strategy.constructor.set_args(**cparams)
@@ -390,16 +393,17 @@ def merge_scaling(qad_scaling, bloomberg_scaling):
 def import_live_pricing(live_pricing_dir=LIVE_DIR,
                         data_dir=IMP_DIR):
     # Manually set column types
-    dtypes = {'SecCode': str,
-              'Ticker': str,
-              'Issuer': str,
-              'CLOSE': np.float64,
-              'LAST': np.float64,
-              'OPEN': np.float64,
-              'HIGH': np.float64,
-              'LOW': np.float64,
-              'VWAP': np.float64,
-              'VOLUME': np.float64
+    dtypes = {
+        'SecCode': str,
+        'Ticker': str,
+        'Issuer': str,
+        'CLOSE': np.float64,
+        'LAST': np.float64,
+        'OPEN': np.float64,
+        'HIGH': np.float64,
+        'LOW': np.float64,
+        'VWAP': np.float64,
+        'VOLUME': np.float64
     }
     path = os.path.join(live_pricing_dir, 'prices.csv')
     data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
