@@ -429,22 +429,22 @@ def simple_responses(data, days=2):
     Just return 1 or 0 for Position or Negative return
     """
     assert isinstance(days, int)
-    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
-    rets2 = (rets.pct_change(days)
-             .shift(-days).rank(axis=1, pct=True) >= 0.5).astype(int)
-    output = rets2.unstack().reset_index()
+    close = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+    rets = (close.pct_change(days)
+            .shift(-days).rank(axis=1, pct=True) >= 0.5).astype(int)
+    output = rets.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response_Simple_{}'.format(days)]
     return output
 
 
 def smoothed_responses(data, days=2):
     assert isinstance(days, int)
-    rets = data.pivot(index='Date', columns='SecCode', values='AdjClose')
+    close = data.pivot(index='Date', columns='SecCode', values='AdjClose')
     for i in range(1, days+1):
         if i == 1:
-            rank = rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+            rank = close.pct_change(i).shift(-i).rank(axis=1, pct=True)
         else:
-            rank += rets.pct_change(i).shift(-i).rank(axis=1, pct=True)
+            rank += close.pct_change(i).shift(-i).rank(axis=1, pct=True)
     output = (rank.rank(axis=1, pct=True) >= 0.5).astype(int)
     output = output.unstack().reset_index()
     output.columns = ['SecCode', 'Date', 'Response_Smoothed_{}'.format(days)]
