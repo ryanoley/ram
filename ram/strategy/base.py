@@ -611,7 +611,6 @@ class Strategy(object):
         Files are located in /prepped_data/{Strategy}/{version_00xx}
         """
         if self._gcp_implementation:
-
             cursor = self._gcp_bucket.list_blobs(prefix=self.data_version_dir)
             all_files = [x.name for x in cursor]
             all_files = [x.split('/')[-1] for x in all_files]
