@@ -55,7 +55,7 @@ TODO: Re-design command line arguments.
 
 ## 4. Train models
 
-Training can happen localling or on GCP.
+Training can happen locally or on GCP.
 
 **This step requires the correct config to be set from step 2.**
 
