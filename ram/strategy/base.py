@@ -921,7 +921,7 @@ def make_argument_parser(Strategy):
     elif args.implementation_training:
         strategy = Strategy(write_flag=args.write_flag)
         if not args.write_flag:
-            import pdb; pdb.set_trace()
+            import ipdb; ipdb.set_trace()
         strategy.implementation_training()
 
     # ~~~~~~ RUN-Related Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
