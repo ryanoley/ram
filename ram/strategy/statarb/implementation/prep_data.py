@@ -25,21 +25,13 @@ def clear_live_directory():
                         'live')
     all_files = os.listdir(path)
 
-    # Check meta to confirm wipe of manually_handled_tickers.json
-    today = dt.date.today().strftime('%Y%m%d')
-    if 'meta.json' in all_files:
-        meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
-
     # Drop files
     for f in all_files:
         os.remove(os.path.join(path, f))
 
+    today = dt.date.today().strftime('%Y%m%d')
     meta = {'prepped_date': today}
     json.dump(meta, open(os.path.join(path, 'meta.json'), 'w'))
-
-    if 'handled_bloomberg_tickers.json' not in os.listdir(path):
-        json.dump({'_orig': '_new'}, open(os.path.join(
-            path, 'handled_bloomberg_tickers.json'), 'w'))
 
     return
 
