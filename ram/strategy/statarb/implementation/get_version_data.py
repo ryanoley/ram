@@ -148,8 +148,13 @@ def write_seccode_ticker_mapping(unique_seccodes):
 
     mapping = mapping.append(indexes).reset_index(drop=True)
 
-    # Re-order for live pricing script
-    mapping = mapping[['SecCode', 'Ticker', 'Issuer']]
+    # Get hash table for odd tickers
+    mapping['EzeTicker'] = mapping.Ticker
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'qad_to_eze_ticker_map.json')
+    odd_tickers = json.load(open(path, 'r'))
+    mapping.Ticker = mapping.EzeTicker.replace(to_replace=odd_tickers)
 
     # Write ticker mapping to two locations
     today = dt.datetime.utcnow()
