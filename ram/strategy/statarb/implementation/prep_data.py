@@ -40,12 +40,21 @@ def clear_live_directory():
     json.dump(meta, open(os.path.join(path, 'meta.json'), 'w'))
 
     if 'handled_bloomberg_tickers.json' not in os.listdir(path):
-        json.dump({}, open(os.path.join(
+        json.dump({'_orig': '_new'}, open(os.path.join(
             path, 'handled_bloomberg_tickers.json'), 'w'))
-        json.dump({}, open(os.path.join(
+        json.dump({'_orig': '_new'}, open(os.path.join(
             path, 'handled_eze_tickers.json'), 'w'))
 
     return
+
+
+###############################################################################
+
+def get_killed_seccodes():
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'killed_seccodes.json')
+    return json.load(open(path, 'r')).keys()
 
 
 ###############################################################################
@@ -62,7 +71,7 @@ def get_trading_dates():
 
 ###############################################################################
 
-def copy_version_data_to_archive(today):
+def copy_version_data(today, killed_seccodes):
 
     archive_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                                'StatArbStrategy',
@@ -80,8 +89,11 @@ def copy_version_data_to_archive(today):
 
     for v in version_files:
         v_clean = v.replace('{}_'.format(prefix), '')
-        copyfile(os.path.join(archive_dir, v),
-                 os.path.join(live_dir, v_clean))
+        data = pd.read_csv(os.path.join(archive_dir, v))
+        # Drop some SecCodes
+        data.SecCode = data.SecCode.astype(str)
+        data = data[~data.SecCode.isin(killed_seccodes)]
+        data.to_csv(os.path.join(live_dir, v_clean), index=None)
 
     return
 
@@ -121,7 +133,11 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
     return output
 
 
-def check_ticker_mapping(today):
+def map_live_tickers(today):
+    # Collect message
+    output = pd.DataFrame()
+    output['Desc'] = ['Ticker Mapping']
+
     data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
                             'archive',
@@ -129,18 +145,33 @@ def check_ticker_mapping(today):
     all_files = os.listdir(data_dir)
 
     file_name = '{}_ticker_mapping.csv'.format(today.strftime('%Y%m%d'))
-    if file_name in all_files:
-        message = '*'
-    else:
-        message = '[WARNING] - Incorrect Date in Archive'
 
-    output = pd.DataFrame()
-    output['Desc'] = ['Ticker Mapping']
-    output['Message'] = message
+    if file_name in all_files:
+        output['Message'] = '*'
+    else:
+        output['Message'] = '[WARNING] - Incorrect Date in Archive'
+        return output
+
+    # Format
+    data = pd.read_csv(os.path.join(data_dir, file_name))
+    data = data[['SecCode', 'EzeTicker', 'Issuer']]
+    data = data.rename({'EzeTicker': 'Ticker'}, axis=1)
+
+    # Write file to live directory
+    new_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'live',
+                            'eze_tickers.csv')
+    data.to_csv(new_path, index=None)
+
     return output
 
 
 def check_qad_scaling(today):
+    # Collect message
+    output = pd.DataFrame()
+    output['Desc'] = ['QAD Scaling']
+
     data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
                             'archive',
@@ -149,13 +180,20 @@ def check_qad_scaling(today):
 
     file_name = '{}_seccode_scaling.csv'.format(today.strftime('%Y%m%d'))
     if file_name in all_files:
-        message = '*'
+        output['Message'] = '*'
     else:
-        message = '[WARNING] - Incorrect Date in Archive'
+        output['Message'] = '[WARNING] - Incorrect Date in Archive'
+        return output
 
-    output = pd.DataFrame()
-    output['Desc'] = ['QAD Scaling']
-    output['Message'] = message
+    # Copy file to live directory
+    # Write file to live directory
+    new_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'live',
+                            'seccode_scaling.csv')
+
+    copyfile(os.path.join(data_dir, file_name), new_path)
+
     return output
 
 
@@ -283,7 +321,7 @@ def check_new_sizes(yesterday,
 
 ###############################################################################
 
-def map_seccodes_bloomberg_tickers():
+def map_seccodes_bloomberg_tickers(killed_seccodes):
 
     prefix = dt.date.today().strftime('%Y%m%d')
 
@@ -323,6 +361,7 @@ def map_seccodes_bloomberg_tickers():
     file_name = max(os.listdir(data_dir))
     qad_map = pd.read_csv(os.path.join(data_dir, file_name))
     qad_map = qad_map[~qad_map.Ticker.isin(['$SPX.X', '$VIX.X'])]
+    qad_map = qad_map[~qad_map.SecCode.isin(killed_seccodes)]
 
     # Merge
     qad_map = qad_map.merge(data, how='left', on='Ticker')
@@ -338,18 +377,26 @@ def map_seccodes_bloomberg_tickers():
         ind = qad_map[qad_map.Ticker == k].index[0]
         qad_map.loc[ind, 'BloombergId'] = v + ' US'
 
-
     # Manually handled odd tickers for TODAY
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                          'StatArbStrategy',
                          'live',
                          'handled_bloomberg_tickers.json')
     ticker_map = json.load(open(dpath, 'r'))
-    import pdb; pdb.set_trace()
+    ticker_map.pop('_orig')
 
+    for k, v in ticker_map.iteritems():
+        ind = qad_map[qad_map.Ticker == k].index[0]
+        qad_map.loc[ind, 'BloombergId'] = v + ' US'
 
     if qad_map.BloombergId.isnull().sum() > 0:
         message.append('Mapping missing data')
+        # Write problem file to live directory for debug
+        dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live',
+                             'MISSING_BLOOMBERG_ID.csv')
+        qad_map[qad_map.BloombergId.isnull()].to_csv(dpath, index=None)
 
     qad_map = qad_map[['SecCode', 'BloombergId']]
 
@@ -486,12 +533,12 @@ def import_bloomberg_splits():
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def process_bloomberg_data():
+def process_bloomberg_data(killed_seccodes):
 
     messages = pd.DataFrame()
 
     # ID MAPPING
-    qad_map, messages_ = map_seccodes_bloomberg_tickers()
+    qad_map, messages_ = map_seccodes_bloomberg_tickers(killed_seccodes)
     messages.loc[0, 'Desc'] = 'Bloomberg QAD Mapping'
     messages.loc[0, 'Message'] = process_messages(messages_)
 
@@ -520,10 +567,15 @@ def process_bloomberg_data():
     bloomberg = bloomberg[['SecCode', 'DivMultiplier',
                            'SpinoffMultiplier', 'SplitMultiplier']]
 
+    # Don't write if not complete
+    if not np.all(messages.Message == '*'):
+        return messages
+
     # Write bloomberg data to file
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
-                        'live', 'bloomberg_scaling.csv')
+                        'live',
+                        'bloomberg_scaling.csv')
     bloomberg.to_csv(path, index=None)
 
     # Archived
@@ -558,14 +610,16 @@ def main():
     # CLEAN and write meta
     clear_live_directory()
 
+    killed_seccodes = get_killed_seccodes()
+
     yesterday, today = get_trading_dates()
 
     # PREPPED DATA
-    copy_version_data_to_archive(today)
+    copy_version_data(today, killed_seccodes)
     data = get_qadirect_data_info(yesterday)
     messages = messages.append(data)
 
-    data = check_ticker_mapping(today)
+    data = map_live_tickers(today)
     messages = messages.append(data)
 
     data = check_qad_scaling(today)
@@ -580,7 +634,7 @@ def main():
     messages = messages.append(data)
 
     # BLOOMBERG
-    data = process_bloomberg_data()
+    data = process_bloomberg_data(killed_seccodes)
     messages = messages.append(data)
 
     # Add date column
