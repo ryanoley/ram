@@ -24,12 +24,27 @@ def clear_live_directory():
                         'StatArbStrategy',
                         'live')
     all_files = os.listdir(path)
+
+    # Check meta to confirm wipe of manually_handled_tickers.json
+    today = dt.date.today().strftime('%Y%m%d')
+    meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
+    if meta['prepped_date'] == today:
+        all_files.remove('handled_bloomberg_tickers.json')
+        all_files.remove('handled_eze_tickers.json')
+
+    # Drop files
     for f in all_files:
         os.remove(os.path.join(path, f))
 
-    # Drop in meta file with date stamp
-    meta = {'prepped_date': dt.date.today().strftime('%Y%m%d')}
+    meta = {'prepped_date': today}
     json.dump(meta, open(os.path.join(path, 'meta.json'), 'w'))
+
+    if 'handled_bloomberg_tickers.json' not in os.listdir(path):
+        json.dump({}, open(os.path.join(
+            path, 'handled_bloomberg_tickers.json'), 'w'))
+        json.dump({}, open(os.path.join(
+            path, 'handled_eze_tickers.json'), 'w'))
+
     return
 
 
@@ -309,24 +324,34 @@ def map_seccodes_bloomberg_tickers():
     qad_map = pd.read_csv(os.path.join(data_dir, file_name))
     qad_map = qad_map[~qad_map.Ticker.isin(['$SPX.X', '$VIX.X'])]
 
-    # Import Odd Ticker HashMap
-    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                         'bloomberg_data',
-                         'odd_bloomberg_ticker_hash.json')
-    hash_map = json.load(open(dpath, 'r'))
-
     # Merge
     qad_map = qad_map.merge(data, how='left', on='Ticker')
 
-    # Fill in manually handled values from hash_map
-    for k, v in hash_map.iteritems():
+    # Import Odd Ticker HashMap
+    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                         'bloomberg_data',
+                         'qad_to_bloomberg_ticker_map.json')
+    ticker_map = json.load(open(dpath, 'r'))
+
+    # Fill in manually handled values from ticker_map
+    for k, v in ticker_map.iteritems():
         ind = qad_map[qad_map.Ticker == k].index[0]
         qad_map.loc[ind, 'BloombergId'] = v + ' US'
 
-    qad_map = qad_map[['SecCode', 'BloombergId']]
+
+    # Manually handled odd tickers for TODAY
+    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                         'StatArbStrategy',
+                         'live',
+                         'handled_bloomberg_tickers.json')
+    ticker_map = json.load(open(dpath, 'r'))
+    import pdb; pdb.set_trace()
+
 
     if qad_map.BloombergId.isnull().sum() > 0:
         message.append('Mapping missing data')
+
+    qad_map = qad_map[['SecCode', 'BloombergId']]
 
     return qad_map, message
 
