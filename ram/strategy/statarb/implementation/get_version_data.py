@@ -20,6 +20,7 @@ from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 ###############################################################################
 
 def main():
+
     pull_version_data()
 
     unique_seccodes = get_unique_seccodes_from_data()
@@ -60,6 +61,8 @@ def pull_version_data():
     # Rename market_index_data with prefix
     old_path = os.path.join(path, 'market_index_data.csv')
     new_path = os.path.join(path, '{}_market_index_data.csv'.format(prefix))
+    if os.path.isfile(new_path):
+        os.remove(new_path)
     os.rename(old_path, new_path)
 
     return
@@ -146,16 +149,6 @@ def write_seccode_ticker_mapping(unique_seccodes):
     mapping = mapping.append(indexes).reset_index(drop=True)
 
     # Re-order for live pricing script
-    mapping = mapping[['Cusip', 'Issuer', 'SecCode', 'Ticker']]
-
-    # Get hash table for odd tickers
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
-                        'odd_ticker_hash.json')
-    odd_tickers = json.load(open(path, 'r'))
-    mapping.Ticker = mapping.Ticker.replace(to_replace=odd_tickers)
-
-    # Re-org columns
     mapping = mapping[['SecCode', 'Ticker', 'Issuer']]
 
     # Write ticker mapping to two locations
