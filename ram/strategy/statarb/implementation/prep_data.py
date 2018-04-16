@@ -27,10 +27,8 @@ def clear_live_directory():
 
     # Check meta to confirm wipe of manually_handled_tickers.json
     today = dt.date.today().strftime('%Y%m%d')
-    meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
-    if meta['prepped_date'] == today:
-        all_files.remove('handled_bloomberg_tickers.json')
-        all_files.remove('handled_eze_tickers.json')
+    if 'meta.json' in all_files:
+        meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
 
     # Drop files
     for f in all_files:
@@ -42,8 +40,6 @@ def clear_live_directory():
     if 'handled_bloomberg_tickers.json' not in os.listdir(path):
         json.dump({'_orig': '_new'}, open(os.path.join(
             path, 'handled_bloomberg_tickers.json'), 'w'))
-        json.dump({'_orig': '_new'}, open(os.path.join(
-            path, 'handled_eze_tickers.json'), 'w'))
 
     return
 
@@ -154,8 +150,14 @@ def map_live_tickers(today):
 
     # Format
     data = pd.read_csv(os.path.join(data_dir, file_name))
-    data = data[['SecCode', 'EzeTicker', 'Issuer']]
-    data = data.rename({'EzeTicker': 'Ticker'}, axis=1)
+    data = data[['SecCode', 'Ticker', 'Issuer']]
+
+    # Get hash table for odd tickers
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'qad_to_eze_ticker_map.json')
+    odd_tickers = json.load(open(path, 'r'))
+    data.Ticker = data.Ticker.replace(to_replace=odd_tickers)
 
     # Write file to live directory
     new_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
@@ -287,8 +289,10 @@ def check_new_sizes(yesterday,
     Check to see if new SizeContainers need to be created from newly
     trained model
     """
-    path = os.path.join(data_dir, 'StatArbStrategy',
-                        'trained_models', models_dir)
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'trained_models',
+                        models_dir)
 
     # Check meta file to see if size containers need to be re-created
     meta = json.load(open(os.path.join(path, 'meta.json'), 'r'))
@@ -368,26 +372,15 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
 
     # Import Odd Ticker HashMap
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                         'bloomberg_data',
-                         'qad_to_bloomberg_ticker_map.json')
+                         'StatArbStrategy',
+                         'qad_to_bbrg_ticker_map.json')
     ticker_map = json.load(open(dpath, 'r'))
 
     # Fill in manually handled values from ticker_map
     for k, v in ticker_map.iteritems():
-        ind = qad_map[qad_map.Ticker == k].index[0]
-        qad_map.loc[ind, 'BloombergId'] = v + ' US'
-
-    # Manually handled odd tickers for TODAY
-    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                         'StatArbStrategy',
-                         'live',
-                         'handled_bloomberg_tickers.json')
-    ticker_map = json.load(open(dpath, 'r'))
-    ticker_map.pop('_orig')
-
-    for k, v in ticker_map.iteritems():
-        ind = qad_map[qad_map.Ticker == k].index[0]
-        qad_map.loc[ind, 'BloombergId'] = v + ' US'
+        ind = qad_map[qad_map.Ticker == k].index
+        if len(ind) > 0:
+            qad_map.loc[ind[0], 'BloombergId'] = v + ' US'
 
     if qad_map.BloombergId.isnull().sum() > 0:
         message.append('Mapping missing data')
@@ -653,6 +646,8 @@ def main():
                          'pretrade_checks',
                          '{}_pretrade_data_check.csv'.format(prefix))
     messages.to_csv(dpath, index=None)
+
+    print(messages)
 
 
 if __name__ == '__main__':
