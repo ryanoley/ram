@@ -611,7 +611,6 @@ class Strategy(object):
         Files are located in /prepped_data/{Strategy}/{version_00xx}
         """
         if self._gcp_implementation:
-
             cursor = self._gcp_bucket.list_blobs(prefix=self.data_version_dir)
             all_files = [x.name for x in cursor]
             all_files = [x.split('/')[-1] for x in all_files]
@@ -921,7 +920,7 @@ def make_argument_parser(Strategy):
     elif args.implementation_training:
         strategy = Strategy(write_flag=args.write_flag)
         if not args.write_flag:
-            import pdb; pdb.set_trace()
+            import ipdb; ipdb.set_trace()
         strategy.implementation_training()
 
     # ~~~~~~ RUN-Related Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

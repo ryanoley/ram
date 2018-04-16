@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
 
-set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\execution\
+set SCRIPTDIR=%GITHUB%\ram\ram\strategy\statarb\implementation\
 set LOGFILE=%LOGDIR%\statarb_daily_data_pull.log
 
 echo -----------------------------
@@ -12,7 +12,7 @@ echo -----------------------------
 echo ---------------------------------
 echo Daily data pull - %date%_!time! - Start
 
-python %SCRIPTDIR%\get_daily_data.py
+python %SCRIPTDIR%\get_version_data.py
 
 echo Daily data pull - %date%_!time! - End
 echo:

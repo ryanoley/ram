@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 import datetime as dt
-from shutil import copyfile
+
 
 from ram import config
 from ram.strategy.statarb import statarb_config
@@ -17,84 +17,51 @@ from ram.data.data_constructor import DataConstructor
 from ram.data.data_constructor_blueprint import DataConstructorBlueprint
 
 
+###############################################################################
+
 def main():
-    check_implementation_folder_structure()
     pull_version_data()
-    copy_version_data_to_archive()
+
     unique_seccodes = get_unique_seccodes_from_data()
+
     write_seccode_ticker_mapping(unique_seccodes)
+
     write_scaling_data(unique_seccodes)
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-def check_implementation_folder_structure():
-    """
-    Folder structure is created according to how the system expects
-    it to function.
-    """
-    ddir = config.IMPLEMENTATION_DATA_DIR
-
-    path = os.path.join(ddir, 'StatArbStrategy')
-    _check_create(path)
-
-    path2 = os.path.join(path, 'live')
-    _check_create(path2)
-
-    # Archive has many different file types associated with it
-    path2 = os.path.join(path, 'archive')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'version_data')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'ticker_mapping')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'qad_scaling')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'bloomberg_scaling')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'live_pricing')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'size_containers')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'allocations')
-    _check_create(path2)
-
-    return
-
-
-def _check_create(path):
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    return
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
 def pull_version_data():
+    """
 
+    """
     blueprints = get_unique_blueprints()
 
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy', 'live')
+                        'StatArbStrategy',
+                        'archive',
+                        'version_data')
 
     dc = DataConstructor()
 
     print('[[ Pulling data ]]')
+
+    prefix = dt.date.today().strftime('%Y%m%d')
+
     for b, blueprint in blueprints.iteritems():
         # Manually set instance attributes for running live
         blueprint.constructor_type = 'universe_live'
         blueprint.output_file_dir = path
-        blueprint.output_file_name = b
-
+        blueprint.output_file_name = '{}_{}'.format(prefix, b)
+        # Pull data via DataConstructor
         dc.run_live(blueprint)
         print('  {} completed'.format(b))
+
+    # Rename market_index_data with prefix
+    old_path = os.path.join(path, 'market_index_data.csv')
+    new_path = os.path.join(path, '{}_market_index_data.csv'.format(prefix))
+    os.rename(old_path, new_path)
+
     return
 
 
@@ -109,6 +76,7 @@ def get_unique_blueprints():
                         statarb_config.trained_models_dir_name,
                         'run_map.json')
     run_map = json.load(open(path, 'r'))
+
     # Extract unique prepped data version Blueprints
     blueprints = {}
     for param in run_map:
@@ -120,43 +88,22 @@ def get_unique_blueprints():
     return blueprints
 
 
-def copy_version_data_to_archive():
-
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy', 'live')
-    # Get version and market data, and copy
-    all_files = os.listdir(path)
-    version_files = [x for x in all_files if x.find('version') > -1]
-
-    # Copy version data
-    path2 = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                         'StatArbStrategy', 'archive', 'version_data')
-    prefix = dt.date.today().strftime('%Y%m%d')
-    for v in version_files:
-        copyfile(os.path.join(path, v),
-                 os.path.join(path2, '{}_{}'.format(prefix, v)))
-
-    # Market Data
-    copyfile(os.path.join(path, 'market_index_data.csv'),
-             os.path.join(path2, '{}_market_index_data.csv'.format(prefix)))
-
-    return
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
 def get_unique_seccodes_from_data():
     """
     For all versions of data, get last two file's worth of unique
-    seccodes. Older file is for overlapping time periods
+    seccodes. Older file is for overlapping time periods in SizeContainers.
     """
     print('[[ Getting unique SecCodes ]]')
+
     # Get prepped data versions
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'trained_models',
                         statarb_config.trained_models_dir_name,
                         'run_map.json')
+
     run_map = json.load(open(path, 'r'))
     versions = list(set([x['prepped_data_version'] for x in run_map]))
     seccodes = []
@@ -173,6 +120,8 @@ def get_unique_seccodes_from_data():
             seccodes += data.SecCode.astype(str).unique().tolist()
     return list(set(seccodes))
 
+
+###############################################################################
 
 def write_seccode_ticker_mapping(unique_seccodes):
     """
@@ -219,15 +168,8 @@ def write_seccode_ticker_mapping(unique_seccodes):
                         file_name)
     mapping.to_csv(path, index=None)
 
-    # For live_prices pull
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
-                        'live',
-                        'ticker_mapping.csv')
-    mapping.to_csv(path, index=None)
 
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
 def write_scaling_data(unique_seccodes):
     # Scaling
@@ -241,12 +183,6 @@ def write_scaling_data(unique_seccodes):
                                   end_date=end_date)
     scaling = scaling[scaling.Date == scaling.Date.max()]
 
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
-                        'live',
-                        'seccode_scaling.csv')
-    scaling.to_csv(path, index=None)
-
     today = dt.datetime.utcnow()
     file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'seccode_scaling.csv')
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
@@ -258,7 +194,7 @@ def write_scaling_data(unique_seccodes):
     scaling.to_csv(path, index=None)
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
 
 if __name__ == '__main__':
     main()

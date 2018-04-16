@@ -20,11 +20,15 @@ from ramex.accounting.accounting import RamexAccounting
 from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
 
+LIVE_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
+IMP_DIR = config.IMPLEMENTATION_DATA_DIR
+
+
 ###############################################################################
 #  1. Import raw data
 ###############################################################################
 
-def import_raw_data(data_dir=config.IMPLEMENTATION_DATA_DIR):
+def import_raw_data(data_dir=IMP_DIR):
     files = get_todays_file_names(data_dir)
     # Get yesterday to confirm date
     yesterday = get_previous_trading_date()
@@ -39,13 +43,10 @@ def import_raw_data(data_dir=config.IMPLEMENTATION_DATA_DIR):
     return output
 
 
-def get_todays_file_names(data_dir=config.IMPLEMENTATION_DATA_DIR):
-    data_dir = os.path.join(data_dir,
-                            'StatArbStrategy',
-                            'daily_data')
-    timestamp = dt.date.today().strftime('%Y%m%d')
-    files = [x for x in os.listdir(data_dir) if x.find(timestamp) > -1]
-    files = [x for x in files if x.find('version') > -1]
+def get_todays_file_names(data_dir=IMP_DIR):
+    path = os.path.join(data_dir, 'StatArbStrategy', 'live')
+    all_files = os.listdir(path)
+    files = [x for x in all_files if x.find('version') > -1]
     files.sort()
     assert len(files) > 0
     return files
@@ -64,10 +65,10 @@ def clean_data_file_name(file_name):
 
 
 def import_format_raw_data(file_name,
-                           data_dir=config.IMPLEMENTATION_DATA_DIR):
+                           data_dir=IMP_DIR):
     path = os.path.join(data_dir,
                         'StatArbStrategy',
-                        'daily_data',
+                        'live',
                         file_name)
     data = pd.read_csv(path)
     data.Date = convert_date_array(data.Date)
@@ -79,7 +80,7 @@ def import_format_raw_data(file_name,
 #  2. Import run map
 ###############################################################################
 
-def import_run_map(data_path=config.IMPLEMENTATION_DATA_DIR,
+def import_run_map(data_path=IMP_DIR,
                    models_dir=statarb_config.trained_models_dir_name):
     path = os.path.join(data_path,
                         'StatArbStrategy',
@@ -93,7 +94,7 @@ def import_run_map(data_path=config.IMPLEMENTATION_DATA_DIR,
 #  3. Import sklearn models and model parameters
 ###############################################################################
 
-def import_models_params(data_path=config.IMPLEMENTATION_DATA_DIR,
+def import_models_params(data_path=IMP_DIR,
                          models_dir=statarb_config.trained_models_dir_name):
     """
     Returns
@@ -150,11 +151,11 @@ def get_statarb_positions():
 #  5. Get SizeContainers
 ###############################################################################
 
-def get_size_containers(data_path=config.IMPLEMENTATION_DATA_DIR,
+def get_size_containers(data_dir=IMP_DIR,
                         models_dir=statarb_config.trained_models_dir_name):
 
     # Check to see if new SizeContainers need to be created
-    models_path = os.path.join(data_path,
+    models_path = os.path.join(data_dir,
                                'StatArbStrategy',
                                'trained_models',
                                models_dir)
@@ -165,7 +166,7 @@ def get_size_containers(data_path=config.IMPLEMENTATION_DATA_DIR,
 
     output = {}
     if meta['execution_confirm']:
-        path = os.path.join(data_path,
+        path = os.path.join(data_dir,
                             'StatArbStrategy',
                             'size_containers')
         # TODO: Confirm this is correct file somewhere - pretrade_check?
@@ -196,12 +197,12 @@ def get_size_containers(data_path=config.IMPLEMENTATION_DATA_DIR,
     # Update meta file
     meta['execution_confirm'] = True
     json.dump(meta, open(meta_path, 'w'))
-    write_new_size_containers(output, data_path)
+    write_new_size_containers(output, data_dir)
     return output
 
 
 def write_new_size_containers(size_containers,
-                              data_dir=config.IMPLEMENTATION_DATA_DIR):
+                              data_dir=IMP_DIR):
     # Write size_containers for yesterday's date (doesn't matter if it is
     # a weekend as above code select max timestamp)
     yesterday = (dt.date.today() - dt.timedelta(days=1)).strftime('%Y%m%d')
@@ -289,9 +290,12 @@ class StatArbImplementation(object):
             strategy.signals.set_test_data(strategy.data.get_test_data())
             strategy.signals.set_model(model)
 
-            strategy.constructor.set_test_dates(strategy.data.get_test_dates())
-            strategy.constructor.set_other_data(strategy.data.get_other_data())
-            strategy.constructor.set_signal_data(strategy.signals.get_signals())
+            strategy.constructor.set_test_dates(
+                strategy.data.get_test_dates())
+            strategy.constructor.set_other_data(
+                strategy.data.get_other_data())
+            strategy.constructor.set_signal_data(
+                strategy.signals.get_signals())
 
             cparams = extract_params(params, strategy.constructor.get_args())
             strategy.constructor.set_args(**cparams)
@@ -341,7 +345,7 @@ def get_live_pricing_data():
 
 
 def import_qad_scaling_data():
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    path = os.path.join(IMP_DIR,
                         'StatArbStrategy',
                         'live_pricing',
                         'seccode_scaling.csv')
@@ -354,7 +358,7 @@ def import_qad_scaling_data():
 
 
 def import_bloomberg_scaling_data():
-    dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    dpath = os.path.join(IMP_DIR,
                          'StatArbStrategy',
                          'live_pricing',
                          'bloomberg_scaling.csv')
@@ -386,14 +390,22 @@ def merge_scaling(qad_scaling, bloomberg_scaling):
     return data
 
 
-def import_live_pricing(
-        data_dir=os.path.join(os.getenv('DATA'), 'live_prices')):
+def import_live_pricing(live_pricing_dir=LIVE_DIR,
+                        data_dir=IMP_DIR):
     # Manually set column types
-    dtypes = {'SecCode': str, 'Ticker': str, 'Issuer': str,
-              'CLOSE': np.float64, 'LAST': np.float64, 'OPEN': np.float64,
-              'HIGH': np.float64, 'LOW': np.float64, 'VWAP': np.float64,
-              'VOLUME': np.float64}
-    path = os.path.join(data_dir, 'prices.csv')
+    dtypes = {
+        'SecCode': str,
+        'Ticker': str,
+        'Issuer': str,
+        'CLOSE': np.float64,
+        'LAST': np.float64,
+        'OPEN': np.float64,
+        'HIGH': np.float64,
+        'LOW': np.float64,
+        'VWAP': np.float64,
+        'VOLUME': np.float64
+    }
+    path = os.path.join(live_pricing_dir, 'prices.csv')
     data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     data.SecCode = data.SecCode.astype(str)
     data = data.rename(columns={
@@ -407,13 +419,16 @@ def import_live_pricing(
     })
     data = data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
                  'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
-    # Write to file
+    # Archive
     timestamp = dt.datetime.utcnow().strftime('%Y%m%d')
     file_name = '{}_live_pricing.csv'.format(timestamp)
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+
+    path = os.path.join(data_dir,
                         'StatArbStrategy',
-                        'daily_data',
+                        'archive',
+                        'live_pricing',
                         file_name)
+
     data.to_csv(path, index=None)
     return data
 
@@ -461,18 +476,20 @@ def make_orders(orders, positions):
 def write_output(out_df):
     timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
     file_name = '{}_sent_allocations.csv'.format(timestamp)
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    path = os.path.join(IMP_DIR,
                         'StatArbStrategy',
+                        'archive',
                         'allocations',
                         file_name)
     out_df.to_csv(path, index=None)
 
 
 def write_size_containers(strategy,
-                          data_dir=config.IMPLEMENTATION_DATA_DIR):
+                          data_dir=IMP_DIR):
     today = dt.date.today().strftime('%Y%m%d')
     path = os.path.join(data_dir,
                         'StatArbStrategy',
+                        'archive',
                         'size_containers',
                         '{}_size_containers.json'.format(today))
     output = {}
