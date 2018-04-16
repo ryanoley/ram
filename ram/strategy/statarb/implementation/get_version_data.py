@@ -148,9 +148,6 @@ def write_seccode_ticker_mapping(unique_seccodes):
 
     mapping = mapping.append(indexes).reset_index(drop=True)
 
-    # Re-order for live pricing script
-    mapping = mapping[['SecCode', 'Ticker', 'Issuer']]
-
     # Write ticker mapping to two locations
     today = dt.datetime.utcnow()
     file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'ticker_mapping.csv')
