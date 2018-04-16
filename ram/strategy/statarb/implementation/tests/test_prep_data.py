@@ -38,18 +38,6 @@ class TestPrepData(unittest.TestCase):
         benchmark['Message'] = '*'
         assert_frame_equal(result, benchmark)
 
-    def test_check_eod_positions(self):
-        result = check_eod_positions(self.yesterday,
-                                     os.path.join(self.data_dir, 'ramex'),
-                                     self.data_dir)
-        benchmark = pd.DataFrame()
-        benchmark['Desc'] = ['EOD Position File']
-        benchmark['Message'] = '*'
-        assert_frame_equal(result, benchmark)
-        path = os.path.join(self.data_dir, 'StatArbStrategy', 'live')
-        all_files = os.listdir(path)
-        self.assertTrue('eod_positions.csv' in all_files)
-
     def test_check_new_sizes(self):
         check_new_sizes(self.yesterday, self.data_dir, 'models_0005')
         path = os.path.join(self.data_dir,
@@ -75,7 +63,7 @@ class TestPrepData(unittest.TestCase):
                                        'models_0005')
         benchmark = pd.DataFrame()
         benchmark['Desc'] = ['Size containers']
-        benchmark['Message'] = ['New model SizeContainers being used']
+        benchmark['Message'] = ['NOTE: New model SizeContainers being used']
         assert_frame_equal(result, benchmark)
         path = os.path.join(self.data_dir, 'StatArbStrategy', 'live')
         all_files = os.listdir(path)
