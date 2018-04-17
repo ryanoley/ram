@@ -261,8 +261,7 @@ def check_qad_scaling():
     data = pd.read_csv(path)
     unique_seccodes = data.SecCode.values
 
-    # Copy file to live directory
-    # Write file to live directory
+    # Write file to archive directory
     dh = DataHandlerSQL()
     end_date = dt.date.today()
     start_date = end_date - dt.timedelta(days=7)
