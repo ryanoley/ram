@@ -193,6 +193,7 @@ def map_live_tickers():
                             'StatArbStrategy',
                             'live',
                             'eze_tickers.csv')
+    data = data[['SecCode', 'Ticker', 'Issuer']]
     data.to_csv(new_path, index=None)
 
     return output
