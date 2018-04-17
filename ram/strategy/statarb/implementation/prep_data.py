@@ -129,28 +129,49 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
     return output
 
 
-def map_live_tickers(today):
+###############################################################################
+
+def map_live_tickers():
     # Collect message
     output = pd.DataFrame()
     output['Desc'] = ['Ticker Mapping']
 
+    # Check version data exists
     data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
-                            'archive',
-                            'ticker_mapping')
+                            'live')
     all_files = os.listdir(data_dir)
+    # Get unique versions
+    version_files = [x for x in all_files if x.find('version_') > -1]
 
-    file_name = '{}_ticker_mapping.csv'.format(today.strftime('%Y%m%d'))
-
-    if file_name in all_files:
-        output['Message'] = '*'
-    else:
-        output['Message'] = '[WARNING] - Incorrect Date in Archive'
+    if len(version_files) == 0:
+        output['Message'] = '[WARNING] - No version data in directory'
         return output
 
-    # Format
-    data = pd.read_csv(os.path.join(data_dir, file_name))
-    data = data[['SecCode', 'Ticker', 'Issuer']]
+    else:
+        output['Message'] = '*'
+
+    # Check that size container is available
+    if not os.path.isfile(os.path.join(data_dir, 'size_containers.json')):
+        output['Message'] = '[WARNING] - No size_containers.json'
+        return output
+
+    # Get SecCodes
+    seccodes1 = get_unique_seccodes_from_data(version_files)
+    seccodes2 = get_unique_seccodes_from_size_containers()
+
+    unique_seccodes = list(set(seccodes1 + seccodes2))
+    data = get_seccode_ticker_mapping(unique_seccodes)
+
+    # Archive
+    file_name = '{}_ticker_mapping.csv'.format(
+        dt.date.today().strftime('%Y%m%d'))
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'archive',
+                        'ticker_mapping',
+                        file_name)
+    data.to_csv(path, index=None)
 
     # Get hash table for odd tickers
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
@@ -177,32 +198,103 @@ def map_live_tickers(today):
     return output
 
 
-def check_qad_scaling(today):
+def get_seccode_ticker_mapping(unique_seccodes):
+    """
+    Maps Tickers to SecCodes, and writes in archive and in live_pricing
+    directory.
+    """
+    unique_seccodes = pd.DataFrame({'SecCode': unique_seccodes})
+
+    dh = DataHandlerSQL()
+    mapping = dh.get_live_seccode_ticker_map()
+    mapping = mapping.merge(unique_seccodes, how='right')
+
+    # Hard-coded SecCodes for indexes
+    indexes = pd.DataFrame()
+    indexes['SecCode'] = ['50311', '11113']
+    indexes['Ticker'] = ['$SPX.X', '$VIX.X']
+    indexes['Cusip'] = [np.nan, np.nan]
+    indexes['Issuer'] = ['SPX', 'VIX']
+
+    mapping = mapping.append(indexes).reset_index(drop=True)
+
+    return mapping
+
+
+def get_unique_seccodes_from_data(version_files):
+    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'live')
+    seccodes = []
+    for f in version_files:
+        data = pd.read_csv(os.path.join(data_dir, f))
+        seccodes += data.SecCode.astype(str).unique().tolist()
+    return list(set(seccodes))
+
+
+def get_unique_seccodes_from_size_containers():
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'live',
+                        'size_containers.json')
+    sizes = json.load(open(path, 'r'))
+    seccodes = []
+    for x in sizes.values():
+        for y in x['sizes'].values():
+            seccodes += y.keys()
+    return list(set(seccodes))
+
+
+###############################################################################
+
+def check_qad_scaling():
     # Collect message
     output = pd.DataFrame()
     output['Desc'] = ['QAD Scaling']
 
-    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy',
-                            'archive',
-                            'qad_scaling')
-    all_files = os.listdir(data_dir)
+    # Check if ticker mapping file exists
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'live',
+                        'eze_tickers.csv')
 
-    file_name = '{}_seccode_scaling.csv'.format(today.strftime('%Y%m%d'))
-    if file_name in all_files:
+    if os.path.isfile(path):
         output['Message'] = '*'
     else:
         output['Message'] = '[WARNING] - Incorrect Date in Archive'
         return output
 
+    # Get SecCodes
+    data = pd.read_csv(path)
+    unique_seccodes = data.SecCode.values
+
     # Copy file to live directory
+    # Write file to live directory
+    dh = DataHandlerSQL()
+    end_date = dt.date.today()
+    start_date = end_date - dt.timedelta(days=7)
+    scaling = dh.get_seccode_data(seccodes=unique_seccodes,
+                                  features=['DividendFactor', 'SplitFactor'],
+                                  start_date=start_date,
+                                  end_date=end_date)
+    scaling = scaling[scaling.Date == scaling.Date.max()]
+
+    today = dt.datetime.utcnow()
+    file_name = '{}_{}'.format(today.strftime('%Y%m%d'), 'seccode_scaling.csv')
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'archive',
+                        'qad_scaling',
+                        file_name)
+
+    scaling.to_csv(path, index=None)
+
     # Write file to live directory
     new_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
                             'live',
                             'seccode_scaling.csv')
-
-    copyfile(os.path.join(data_dir, file_name), new_path)
+    scaling.to_csv(new_path, index=None)
 
     return output
 
@@ -639,22 +731,24 @@ def main():
     data = get_qadirect_data_info(yesterday)
     messages = messages.append(data)
 
-    data = map_live_tickers(today)
-    messages = messages.append(data)
-
-    data = check_qad_scaling(today)
-    messages = messages.append(data)
-
-    # POSITION DATA
-    data = check_eod_positions(yesterday)
-    messages = messages.append(data)
-
     # SIZE CONTAINERS
     data = check_size_containers(yesterday)
     messages = messages.append(data)
 
+    # PULL TICKERS
+    data = map_live_tickers()
+    messages = messages.append(data)
+
+    # PULL SCALING DATA
+    data = check_qad_scaling()
+    messages = messages.append(data)
+
     # BLOOMBERG
     data = process_bloomberg_data(killed_seccodes)
+    messages = messages.append(data)
+
+    # POSITION DATA
+    data = check_eod_positions(yesterday)
     messages = messages.append(data)
 
     # Add date column
