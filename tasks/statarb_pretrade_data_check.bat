@@ -8,6 +8,4 @@ echo ------------------------------
 
 python %SCRIPTDIR%\prep_data.py
 
-START %DATA%\ram\implementation\StatArbStrategy\pretrade_data_check.csv
-
 pause
