@@ -264,22 +264,45 @@ def check_size_containers(yesterday,
     else:
         raise ValueError('Size container number of files')
 
-    # Copy target path
-    archive_file_path = os.path.join(data_dir,
-                                     'StatArbStrategy',
-                                     'archive',
-                                     'size_containers',
-                                     file_name)
+    # Kill list
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'killed_seccodes.json')
+    killed_seccodes = json.load(open(path, 'r'))
+    killed_seccodes = killed_seccodes.keys()
 
-    new_file_path = os.path.join(data_dir,
-                                 'StatArbStrategy',
-                                 'live',
-                                 'size_containers.json')
+    # SizeContainer
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'archive',
+                        'size_containers',
+                        file_name)
+    sizes = json.load(open(path, 'r'))
 
-    copyfile(archive_file_path, new_file_path)
+    # OPEN AND KILL
+    new_sizes = {}
+    for k, v in sizes.iteritems():
+        sc = SizeContainer(-1)
+        sc.from_json(v)
+        # KILL
+        for k in killed_seccodes:
+            sc.kill_seccode(k)
+        new_sizes[k] = sc.to_json()
+
+    # Write
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'live',
+                        'size_containers.json')
+
+    json.dump(new_sizes, open(path, 'w'))
 
     output.loc[0, 'Message'] = message
     return output
+
+
+
+
 
 
 def check_new_sizes(yesterday,
@@ -647,7 +670,7 @@ def main():
                          '{}_pretrade_data_check.csv'.format(prefix))
     messages.to_csv(dpath, index=None)
 
-    print(messages)
+    print(messages.reset_index(drop=True))
 
 
 if __name__ == '__main__':
