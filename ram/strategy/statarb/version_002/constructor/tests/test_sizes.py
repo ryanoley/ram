@@ -56,6 +56,22 @@ class TestSizeContainer(unittest.TestCase):
                              size_container2.to_json())
         self.assertEqual(size_container2.n_days, 2)
 
+    def test_check_seccode(self):
+        size_container = SizeContainer(n_days=2)
+        sizes = {'A': 100, 'B': 300, 'C': -1000}
+        t = dt.date(2010, 1, 1)
+        size_container.update_sizes(sizes, t)
+        sizes = {'A': 100, 'B': 100, 'D': -1000}
+        t = dt.date(2010, 1, 2)
+        size_container.update_sizes(sizes, t)
+        sizes = {'A': 100, 'B': 100, 'D': -1000}
+        t = dt.date(2010, 1, 3)
+        size_container.update_sizes(sizes, t)
+        result = size_container._check_seccode('D')
+        self.assertEqual(result, -2000)
+        result = size_container._check_seccode('C')
+        self.assertFalse(result)
+
     def tearDown(self):
         pass
 

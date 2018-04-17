@@ -47,3 +47,15 @@ class SizeContainer(object):
         for k, v in packet['sizes'].iteritems():
             new_k = dt.date(int(k[:4]), int(k[4:6]), int(k[6:]))
             self.sizes[new_k] = v
+
+    # Checking/debugging functionality
+    def _check_seccode(self, seccode):
+        seccode_size = 0
+        flag = False
+        for s in self.sizes.values():
+            if seccode in s:
+                flag = True
+                seccode_size += s[seccode]
+        if flag:
+            return seccode_size
+        return False
