@@ -48,6 +48,13 @@ class SizeContainer(object):
             new_k = dt.date(int(k[:4]), int(k[4:6]), int(k[6:]))
             self.sizes[new_k] = v
 
+    # Implementation-specific functionality
+    def kill_seccode(self, seccode):
+        for s in self.sizes.values():
+            if seccode in s:
+                del s[seccode]
+        return
+
     # Checking/debugging functionality
     def _check_seccode(self, seccode):
         seccode_size = 0
