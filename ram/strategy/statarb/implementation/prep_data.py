@@ -159,6 +159,14 @@ def map_live_tickers(today):
     odd_tickers = json.load(open(path, 'r'))
     data.Ticker = data.Ticker.replace(to_replace=odd_tickers)
 
+    # Kill list
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'killed_seccodes.json')
+    killed_seccodes = json.load(open(path, 'r'))
+    killed_seccodes = killed_seccodes.keys()
+    data = data[~data.SecCode.isin(killed_seccodes)]
+
     # Write file to live directory
     new_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
@@ -285,8 +293,8 @@ def check_size_containers(yesterday,
         sc = SizeContainer(-1)
         sc.from_json(v)
         # KILL
-        for k in killed_seccodes:
-            sc.kill_seccode(k)
+        for seccode in killed_seccodes:
+            sc.kill_seccode(seccode)
         new_sizes[k] = sc.to_json()
 
     # Write
@@ -299,10 +307,6 @@ def check_size_containers(yesterday,
 
     output.loc[0, 'Message'] = message
     return output
-
-
-
-
 
 
 def check_new_sizes(yesterday,
