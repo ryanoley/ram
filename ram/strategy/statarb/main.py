@@ -86,7 +86,7 @@ class StatArbStrategy(Strategy):
         # Changed to 2003 for longer simulation
         if self._write_flag and \
                 (int(self._prepped_data_files[time_index][:4]) < 2003):
-            return
+            return None, None, None
 
         column_index = 0
         for args1 in self._data_args:
