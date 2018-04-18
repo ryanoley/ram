@@ -110,7 +110,10 @@ class BasePortfolioConstructor(object):
 
             sizes = self.get_day_position_sizes(date, column_index)
 
-            portfolio.update_position_sizes(sizes,
+            # Scale
+            allocs = {k: v * BOOKSIZE for k, v in sizes.iteritems()}
+
+            portfolio.update_position_sizes(allocs,
                                             self._pricing['closes'][date])
 
             pl_long, pl_short = portfolio.get_portfolio_daily_pl()

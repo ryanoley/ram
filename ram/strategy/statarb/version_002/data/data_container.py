@@ -52,7 +52,6 @@ class DataContainer(BaseDataContainer):
         self._train_data_responses = train_data[
             'Response_{}_{}'.format(response_type, response_days)]
 
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_train_data(self):

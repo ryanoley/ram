@@ -94,7 +94,6 @@ class TestDataContainer(unittest.TestCase):
         market_data['Date'] = dates2
         market_data['AdjClose'] = np.random.randn(120)
         container = DataContainer()
-        import pdb; pdb.set_trace()
         container.prep_live_data(data, market_data)
         columns = ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose',
                    'AdjVolume', 'AdjVwap', 'RClose']

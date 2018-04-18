@@ -70,12 +70,14 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
         counts = self._per_side_count * 2
 
-        allocs = {}
+        sizes = {}
+
         for i in longs.index.values:
-            allocs[i] = 1 / float(counts) * BOOKSIZE / self._holding_period
+            sizes[i] = 1 / float(counts) / self._holding_period
 
         for i in shorts.index.values:
-            allocs[i] = -1 / float(counts) * BOOKSIZE / self._holding_period
-        size_container.update_sizes(allocs, date)
+            sizes[i] = -1 / float(counts) / self._holding_period
+
+        size_container.update_sizes(sizes, date)
 
         return size_container.get_sizes()

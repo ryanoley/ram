@@ -121,7 +121,6 @@ class StatArbStrategy(Strategy):
 
         return self.output_returns, self.output_all_output, {}
 
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def process_implementation_params(self, run_name, params):
@@ -163,7 +162,6 @@ class StatArbStrategy(Strategy):
         self.implementation_training_write_params_model(
             run_name, output, self.signals.get_model())
 
-
     def _process_implementation(self, params):
         # Extract params
         data_params = dict([(k, params[k]) for k
@@ -186,23 +184,19 @@ class StatArbStrategy(Strategy):
         self.signals.set_test_data(self.data.get_test_data())
         self.signals.fit_model()
         signals = self.signals.get_signals()
-        #
 
         self.constructor.set_test_dates(self.data.get_test_dates())
         self.constructor.set_pricing_data(0,
                                           self.data.get_pricing_data())
-        self.constructor.set_other_data(0,
-                                        self.data.get_other_data())
+        self.constructor.set_other_data(self.data.get_other_data())
 
-        self.constructor.set_signal_data(0, signals)
-
+        self.constructor.set_signal_data(signals)
 
         self.constructor.set_args(**constructor_params)
 
         # This just needs to hold size containers which should then be
         # written out
         self.constructor.get_period_daily_pl(0)
-
 
     # ~~~~~~ Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
