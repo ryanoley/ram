@@ -14,7 +14,7 @@ from ram.data.data_handler_sql import DataHandlerSQL
 
 from gearbox import convert_date_array
 
-from ramex.orders.orders import MOCOrder
+from ramex.orders.orders import MOCOrder, VWAPOrder
 from ramex.application.client import ExecutionClient
 from ramex.accounting.accounting import RamexAccounting
 from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
@@ -320,6 +320,9 @@ class StatArbImplementation(object):
             sizes['Strategy'] = name
             orders = orders.append(sizes)
 
+        # Clean out zero dollar allocations
+        orders = orders[orders.Dollars != 0]
+
         return orders
 
 
@@ -441,14 +444,29 @@ def make_orders(orders, positions):
     data = orders.merge(positions, how='outer').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
     output = []
+    # Start/End time
+    now = dt.datetime.now()
+    start_time = now + dt.timedelta(minutes=1)
+    start_time = dt.time(start_time.hour, start_time.minute)
+    end_time = now + dt.timedelta(minutes=4)
+    end_time = dt.time(end_time.hour, end_time.minute)
+
     for _, o in data.iterrows():
         if o.TradeShares == 0:
             continue
-        order = MOCOrder(basket='statArbBasket',
-                         strategy_id='StatArb1',
-                         symbol=o.Ticker,
-                         quantity=o.TradeShares)
+        # order = MOCOrder(basket='statArbBasket',
+        #                  strategy_id='StatArb1',
+        #                  symbol=o.Ticker,
+        #                  quantity=o.TradeShares)
+        order = VWAPOrder(basket='statArbBasket',
+                          strategy_id='StatArb1',
+                          symbol=o.Ticker,
+                          quantity=o.TradeShares,
+                          start_time=start_time,
+                          end_time=end_time,
+                          participation=20)
         output.append(order)
+
     return output
 
 
@@ -515,7 +533,6 @@ def main():
 
     _ = raw_input("Press Enter to continue...")
 
-    import pdb; pdb.set_trace()
     while True:
         try:
             # 8. Live pricing
