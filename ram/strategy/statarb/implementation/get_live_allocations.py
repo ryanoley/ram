@@ -15,7 +15,7 @@ from ram.data.data_handler_sql import DataHandlerSQL
 from gearbox import convert_date_array
 
 from ramex.orders.orders import MOCOrder
-from ramex.client.client import ExecutionClient
+from ramex.application.client import ExecutionClient
 from ramex.accounting.accounting import RamexAccounting
 from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
