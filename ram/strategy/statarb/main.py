@@ -83,9 +83,8 @@ class StatArbStrategy(Strategy):
 
     def run_index(self, time_index):
         # HACK: If training and writing, don't train until 2009, but stack data
-        # Changed to 2003 for longer simulation
         if self._write_flag and \
-                (int(self._prepped_data_files[time_index][:4]) < 2003):
+                (int(self._prepped_data_files[time_index][:4]) < 2009):
             return None, None, None
 
         column_index = 0

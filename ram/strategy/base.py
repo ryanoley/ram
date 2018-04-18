@@ -148,7 +148,7 @@ class Strategy(object):
                 time_index,
                 market_data.copy())
             returns, all_output, stats = self.run_index(time_index)
-            if returns:
+            if np.any(returns):
                 self.write_index_results(returns, time_index, 'returns')
                 self.write_index_results(all_output, time_index, 'all_output')
                 # self.write_index_stats(stats, time_index)
