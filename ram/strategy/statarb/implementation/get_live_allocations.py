@@ -420,15 +420,14 @@ def import_live_pricing(live_pricing_dir=LIVE_DIR,
 ###############################################################################
 
 def send_orders(out_df, positions):
-
     orders = make_orders(out_df, positions)
 
     client = ExecutionClient()
     for o in orders:
         client.send_order(o)
-        print(o)
     client.send_transmit('statArbBasket')
     client.close_zmq_sockets()
+    print('Order transmission complete')
 
 
 def make_orders(orders, positions):
@@ -440,6 +439,14 @@ def make_orders(orders, positions):
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
     orders = orders.groupby('Ticker')['NewShares'].sum().reset_index()
+    # Print some stats
+    print('\nOrderStats')
+    print('Long Orders: {}'.format((orders.NewShares > 0).sum()))
+    print('Long Shares: {}'.format(orders[orders.NewShares > 0].NewShares.sum()))
+    print('Short Orders: {}'.format((orders.NewShares < 0).sum()))
+    print('Short Shares: {}'.format(orders[orders.NewShares < 0].NewShares.sum()))
+    print('\n')
+
     # Then net out/close shares
     data = orders.merge(positions, how='outer').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
