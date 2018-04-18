@@ -30,14 +30,11 @@ IMP_DIR = config.IMPLEMENTATION_DATA_DIR
 
 def import_raw_data(data_dir=IMP_DIR):
     files = get_todays_file_names(data_dir)
-    # Get yesterday to confirm date
-    yesterday = get_previous_trading_date()
     output = {}
     print('Importing data...')
     for f in files:
         name = clean_data_file_name(f)
         data = import_format_raw_data(f, data_dir)
-        assert data.Date.max() == yesterday
         output[name] = data
     output['market_data'] = import_format_raw_data('market_index_data.csv')
     return output
@@ -141,9 +138,13 @@ def get_model_files(path):
 #  4. StatArb positions
 ###############################################################################
 
-def get_statarb_positions():
-    positions = RamexAccounting('StatArb1').positions.copy()
-    positions = positions[['SecCode', 'Ticker', 'Shares']]
+def get_statarb_positions(data_path=IMP_DIR):
+    path = os.path.join(data_path,
+                        'StatArbStrategy',
+                        'live',
+                        'eod_positions.csv')
+    positions = pd.read_csv(path)
+    positions = positions[positions.StrategyID == 'StatArb1']
     return positions
 
 
@@ -151,53 +152,17 @@ def get_statarb_positions():
 #  5. Get SizeContainers
 ###############################################################################
 
-def get_size_containers(data_dir=IMP_DIR,
-                        models_dir=statarb_config.trained_models_dir_name):
-
-    # Check to see if new SizeContainers need to be created
-    models_path = os.path.join(data_dir,
-                               'StatArbStrategy',
-                               'trained_models',
-                               models_dir)
-
-    # Check meta file to see if size containers need to be re-created
-    meta_path = os.path.join(models_path, 'meta.json')
-    meta = json.load(open(meta_path, 'r'))
-
+def get_size_containers(data_dir=IMP_DIR):
+    path = os.path.join(data_dir,
+                        'StatArbStrategy',
+                        'live',
+                        'size_containers.json')
+    sizes = json.load(open(path, 'r'))
     output = {}
-    if meta['execution_confirm']:
-        path = os.path.join(data_dir,
-                            'StatArbStrategy',
-                            'size_containers')
-        # TODO: Confirm this is correct file somewhere - pretrade_check?
-        files = os.listdir(path)
-        # Get files before today in case it is re-run
-        today = dt.date.today().strftime('%Y%m%d')
-        if max(files)[:8] == today:
-            print('[WARNING] - SizeContainers for today already available.')
-            print('            Using previous day\'s file.')
-        file_name = max([x for x in files if x[:8] < today])
-        containers_path = os.path.join(path, file_name)
-        sizes = json.load(open(containers_path, 'r'))
-
-        for k, v in sizes.iteritems():
-            sc = SizeContainer(-1)
-            sc.from_json(v)
-            output[k] = sc
-
-        return output
-
-    # Otherwise
-    _, param_files = get_model_files(models_path)
-    for f in param_files:
-        size_map = json.load(open(os.path.join(models_path, f), 'r'))
+    for k, v in sizes.iteritems():
         sc = SizeContainer(-1)
-        sc.from_json(size_map['sizes'])
-        output[f.replace('_params.json', '')] = sc
-    # Update meta file
-    meta['execution_confirm'] = True
-    json.dump(meta, open(meta_path, 'w'))
-    write_new_size_containers(output, data_dir)
+        sc.from_json(v)
+        output[k] = sc
     return output
 
 
@@ -217,7 +182,53 @@ def write_new_size_containers(size_containers,
 
 
 ###############################################################################
-#  6. StatArb Implementation Wrapper
+#  6. Scaling data
+###############################################################################
+
+def import_scaling_data():
+    # QAD SCALING
+    path = os.path.join(IMP_DIR,
+                        'StatArbStrategy',
+                        'live',
+                        'seccode_scaling.csv')
+    data1 = pd.read_csv(path)
+    data1.SecCode = data1.SecCode.astype(int).astype(str)
+    data1 = data1.rename(columns={
+        'DividendFactor': 'QADirectDividendFactor'
+    })
+    data1 = data1[['SecCode', 'QADirectDividendFactor']]
+    # Bloomberg
+    dpath = os.path.join(IMP_DIR,
+                         'StatArbStrategy',
+                         'live',
+                         'bloomberg_scaling.csv')
+    data2 = pd.read_csv(dpath)
+    data2.SecCode = data2.SecCode.astype(int).astype(str)
+    data2 = data2.rename(columns={
+        'DivMultiplier': 'BbrgDivMultiplier',
+        'SpinoffMultiplier': 'BbrgSpinoffMultiplier',
+        'SplitMultiplier': 'BbrgSplitMultiplier'
+    })
+    # Merge
+    data = data1.merge(data2, how='left').fillna(1)
+    data['PricingMultiplier'] = \
+        data.QADirectDividendFactor * \
+        data.BbrgDivMultiplier * \
+        data.BbrgSpinoffMultiplier * \
+        data.BbrgSplitMultiplier
+    data['VolumeMultiplier'] = data.BbrgSplitMultiplier
+    data = data[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
+    # Append index IDs with 1s as placeholders
+    data_t = pd.DataFrame()
+    data_t['SecCode'] = ['50311', '11113']
+    data_t['PricingMultiplier'] = 1
+    data_t['VolumeMultiplier'] = 1
+    data = data.append(data_t).reset_index(drop=True)
+    return data
+
+
+###############################################################################
+#  7. StatArb Implementation Wrapper
 ###############################################################################
 
 class StatArbImplementation(object):
@@ -320,18 +331,42 @@ def extract_params(all_params, selected_params):
 
 
 ###############################################################################
-#  6. Import sklearn models and model parameters
+#  8. Live pricing
 ###############################################################################
 
-def get_live_pricing_data():
-    # SCALING DATA
-    qad_scaling = import_qad_scaling_data()
-    bloomberg_scaling = import_bloomberg_scaling_data()
-    scaling = merge_scaling(qad_scaling, bloomberg_scaling)
+def get_live_pricing_data(scaling):
 
-    # IMPORT LIVE AND ADJUST
-    live_data = import_live_pricing()
-    data = live_data.merge(scaling)
+    # FILL IN NAN VALUES AND PRINT TO SCREEN
+    while True:
+        # IMPORT LIVE AND ADJUST
+        data = import_live_pricing()
+        if np.any(data.isnull()):
+            print('\n\nMISSING LIVE PRICES\n\n')
+            input_ = raw_input("Press `y` to handle, otherwise will retry\n")
+            if input_ == 'y':
+                cols = ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap']
+                data.AdjOpen = data.AdjOpen.fillna(data[cols].mean(axis=1))
+                data.AdjHigh = data.AdjHigh.fillna(data[cols].max(axis=1))
+                data.AdjLow = data.AdjLow.fillna(data[cols].min(axis=1))
+                data.AdjClose = data.AdjClose.fillna(data[cols].mean(axis=1))
+                data.AdjVwap = data.AdjVwap.fillna(data[cols].mean(axis=1))
+                break
+        else:
+            break
+
+    # Archive
+    timestamp = dt.datetime.utcnow().strftime('%Y%m%d')
+    file_name = '{}_live_pricing.csv'.format(timestamp)
+
+    path = os.path.join(IMP_DIR,
+                        'StatArbStrategy',
+                        'archive',
+                        'live_pricing',
+                        file_name)
+    data.to_csv(path, index=None)
+
+    # Merge scaling
+    data = data.merge(scaling)
     data['RClose'] = data.AdjClose
     data.AdjOpen = data.AdjOpen * data.PricingMultiplier
     data.AdjHigh = data.AdjHigh * data.PricingMultiplier
@@ -341,52 +376,6 @@ def get_live_pricing_data():
     data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
     data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
 
-    return data
-
-
-def import_qad_scaling_data():
-    path = os.path.join(IMP_DIR,
-                        'StatArbStrategy',
-                        'live_pricing',
-                        'seccode_scaling.csv')
-    data = pd.read_csv(path)
-    data.SecCode = data.SecCode.astype(str)
-    data = data.rename(columns={
-        'DividendFactor': 'QADirectDividendFactor'
-    })
-    return data[['SecCode', 'QADirectDividendFactor']]
-
-
-def import_bloomberg_scaling_data():
-    dpath = os.path.join(IMP_DIR,
-                         'StatArbStrategy',
-                         'live_pricing',
-                         'bloomberg_scaling.csv')
-    data = pd.read_csv(dpath)
-    data.SecCode = data.SecCode.astype(str)
-    data = data.rename(columns={
-        'DivMultiplier': 'BbrgDivMultiplier',
-        'SpinoffMultiplier': 'BbrgSpinoffMultiplier',
-        'SplitMultiplier': 'BbrgSplitMultiplier'
-    })
-    return data
-
-
-def merge_scaling(qad_scaling, bloomberg_scaling):
-    data = qad_scaling.merge(bloomberg_scaling, how='left').fillna(1)
-    data['PricingMultiplier'] = \
-        data.QADirectDividendFactor * \
-        data.BbrgDivMultiplier * \
-        data.BbrgSpinoffMultiplier * \
-        data.BbrgSplitMultiplier
-    data['VolumeMultiplier'] = data.BbrgSplitMultiplier
-    data = data[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
-    # Append index IDs with 1s as placeholders
-    data_t = pd.DataFrame()
-    data_t['SecCode'] = ['50311', '11113']
-    data_t['PricingMultiplier'] = 1
-    data_t['VolumeMultiplier'] = 1
-    data = data.append(data_t).reset_index(drop=True)
     return data
 
 
@@ -419,22 +408,12 @@ def import_live_pricing(live_pricing_dir=LIVE_DIR,
     })
     data = data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
                  'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
-    # Archive
-    timestamp = dt.datetime.utcnow().strftime('%Y%m%d')
-    file_name = '{}_live_pricing.csv'.format(timestamp)
 
-    path = os.path.join(data_dir,
-                        'StatArbStrategy',
-                        'archive',
-                        'live_pricing',
-                        file_name)
-
-    data.to_csv(path, index=None)
     return data
 
 
 ###############################################################################
-#  7. Cleanup - Sending and writing
+#  9. Cleanup - Sending and writing
 ###############################################################################
 
 def send_orders(out_df, positions):
@@ -504,6 +483,8 @@ def write_size_containers(strategy,
 
 def main():
 
+    # TODO: CHECK META FILE
+
     ###########################################################################
     # 1. Import raw data
     raw_data = import_raw_data()
@@ -520,7 +501,10 @@ def main():
     # 5. Get SizeContainers
     size_containers = get_size_containers()
 
-    # 6. Prep data
+    # 6. Scaling data for live data
+    scaling = import_scaling_data()
+
+    # 7. Prep data
     strategy = StatArbImplementation()
     strategy.add_daily_data(raw_data)
     strategy.add_run_map_models(run_map, models_params)
@@ -531,13 +515,17 @@ def main():
 
     _ = raw_input("Press Enter to continue...")
 
+    import pdb; pdb.set_trace()
     while True:
         try:
-            live_data = get_live_pricing_data()
+            # 8. Live pricing
+            live_data = get_live_pricing_data(scaling)
             orders = strategy.run_live(live_data)
             out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
                                   how='left')
             send_orders(out_df, positions)
+
+            # 9. Writing and cleanup
             write_output(out_df)
             write_size_containers(strategy)
 

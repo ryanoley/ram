@@ -309,7 +309,7 @@ class TestGetLiveAllocations(unittest.TestCase):
         # import pdb; pdb.set_trace()
         imp.prep()
         ddir = os.path.join(self.data_dir, 'live_prices')
-        live_data = import_live_pricing(ddir)
+        live_data = import_live_pricing(ddir, self.data_dir)
         # live_data['SecCode'] = [14141, 43242]
         # imp.run_live(live_data)
 
