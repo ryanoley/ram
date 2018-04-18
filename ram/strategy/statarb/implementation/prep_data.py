@@ -104,7 +104,7 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
     output = pd.DataFrame()
     for i, v in enumerate(version_files):
         # Check date
-        data = pd.read_csv(os.path.join(data_dir, v), nrows=3000)
+        data = pd.read_csv(os.path.join(data_dir, v))
         max_date = data.Date.max().split('-')
         max_date = dt.date(int(max_date[0]),
                            int(max_date[1]),
