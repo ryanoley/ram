@@ -33,7 +33,7 @@ def import_raw_data(data_dir=IMP_DIR):
     output = {}
     print('Importing data...')
     for f in files:
-        name = clean_data_file_name(f)
+        name = f.replace('.csv', '')
         data = import_format_raw_data(f, data_dir)
         output[name] = data
     output['market_data'] = import_format_raw_data('market_index_data.csv')
@@ -47,18 +47,6 @@ def get_todays_file_names(data_dir=IMP_DIR):
     files.sort()
     assert len(files) > 0
     return files
-
-
-def get_previous_trading_date():
-    """
-    Returns previous trading date, and current trading date
-    """
-    dh = DataHandlerSQL()
-    return dh.prior_trading_date(dt.date.today())
-
-
-def clean_data_file_name(file_name):
-    return file_name[file_name.rfind('version'):].replace('.csv', '')
 
 
 def import_format_raw_data(file_name,
@@ -164,21 +152,6 @@ def get_size_containers(data_dir=IMP_DIR):
         sc.from_json(v)
         output[k] = sc
     return output
-
-
-def write_new_size_containers(size_containers,
-                              data_dir=IMP_DIR):
-    # Write size_containers for yesterday's date (doesn't matter if it is
-    # a weekend as above code select max timestamp)
-    yesterday = (dt.date.today() - dt.timedelta(days=1)).strftime('%Y%m%d')
-    path = os.path.join(data_dir,
-                        'StatArbStrategy',
-                        'size_containers',
-                        '{}.json'.format(yesterday))
-    output = {}
-    for k, v in size_containers.iteritems():
-        output[k] = v.to_json()
-    json.dump(output, open(path, 'w'))
 
 
 ###############################################################################
