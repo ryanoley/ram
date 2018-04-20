@@ -254,7 +254,7 @@ def check_qad_scaling():
     if os.path.isfile(path):
         output['Message'] = '*'
     else:
-        output['Message'] = '[WARNING] - Incorrect Date in Archive'
+        output['Message'] = '[WARNING] - Missing eze_tickers file in live dir'
         return output
 
     # Get SecCodes
