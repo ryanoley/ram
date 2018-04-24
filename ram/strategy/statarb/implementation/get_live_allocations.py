@@ -23,6 +23,15 @@ from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 LIVE_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 IMP_DIR = config.IMPLEMENTATION_DATA_DIR
 
+###############################################################################
+#  0. Import raw data
+###############################################################################
+
+def get_position_size(data_dir=IMP_DIR):
+    return json.load(open(os.path.join(data_dir,
+                                       'StatArbStrategy',
+                                       'position_size.json')))
+
 
 ###############################################################################
 #  1. Import raw data
@@ -289,12 +298,15 @@ class StatArbImplementation(object):
                 dt.date.today(), 0)
 
             sizes = pd.Series(sizes).reset_index()
-            sizes.columns = ['SecCode', 'Dollars']
+            sizes.columns = ['SecCode', 'PercAlloc']
             sizes['Strategy'] = name
             orders = orders.append(sizes)
 
+        # Scale for number of models averaged together
+        orders.PercAlloc /= float(len(models_params))
+
         # Clean out zero dollar allocations
-        orders = orders[orders.Dollars != 0]
+        orders = orders[orders.PercAlloc != 0]
 
         return orders
 
@@ -409,11 +421,13 @@ def make_orders(orders, positions):
     we want--from Positions.Quantity to Orders.Quantity.
     """
     # Drop anything with
+    dollar_order = orders.Dollars.abs().sum()
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
     orders = orders.groupby('Ticker')['NewShares'].sum().reset_index()
     # Print some stats
-    print('\nOrderStats')
+    print('\nOrder Stats')
+    print('Order in Dollars: {}'.format(dollar_order))
     print('Long Orders: {}'.format((orders.NewShares > 0).sum()))
     print('Long Shares: {}'.format(orders[orders.NewShares > 0].NewShares.sum()))
     print('Short Orders: {}'.format((orders.NewShares < 0).sum()))
@@ -484,6 +498,9 @@ def main():
     # TODO: CHECK META FILE
 
     ###########################################################################
+    # 0. Checks meta and import position size
+    position_size = get_position_size()
+
     # 1. Import raw data
     raw_data = import_raw_data()
 
@@ -518,8 +535,12 @@ def main():
             # 8. Live pricing
             live_data = get_live_pricing_data(scaling)
             orders = strategy.run_live(live_data)
+
             out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
                                   how='left')
+            out_df['Dollars'] = \
+                out_df.PercAlloc * position_size['gross_position_size']
+
             send_orders(out_df, positions)
 
             # 9. Writing and cleanup
