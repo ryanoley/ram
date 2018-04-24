@@ -372,14 +372,24 @@ def check_size_containers(yesterday,
     sizes = json.load(open(path, 'r'))
 
     # OPEN AND KILL
+    bad_dates_flag = False
     new_sizes = {}
     for k, v in sizes.iteritems():
         sc = SizeContainer(-1)
         sc.from_json(v)
+
+        # Check dates
+        if max(sc.sizes.keys()) != yesterday:
+            bad_dates_flag = True
+
         # KILL
         for seccode in killed_seccodes:
             sc.kill_seccode(seccode)
         new_sizes[k] = sc.to_json()
+
+    if bad_dates_flag:
+        output.loc[0, 'Message'] = 'SizeContainer has wrong dates'
+        return output
 
     # Write
     path = os.path.join(data_dir,
