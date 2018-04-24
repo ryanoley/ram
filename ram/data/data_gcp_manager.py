@@ -82,6 +82,7 @@ def confirm(upload_files):
 
 def print_trained_model_dirs(strategy):
     gs_model_dirs = get_trained_model_dirs(strategy)
+    print('\n')
     headline = 'Available Trained Model Directories for {}'.format(strategy)
     _print_line_underscore(headline)
     for i, model in enumerate(gs_model_dirs):
@@ -214,7 +215,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.list_strategies:
-        print print_strategies()
+        print_strategies()
 
     elif args.list_data_versions:
         if args.strategy_name is None:
