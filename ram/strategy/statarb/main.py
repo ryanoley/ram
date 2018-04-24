@@ -139,13 +139,6 @@ class StatArbStrategy(Strategy):
 
         self._process_implementation(params)
 
-        # Get sizes and clean out containers
-        del self.constructor._portfolios[0]
-        sizes = self.constructor._size_containers.pop(0)
-
-        output = {'params': params}
-        output['sizes'] = sizes.to_json()
-
         # Retrain to get model
         self.data._processed_train_data = master_train_data
         self.data._processed_test_data = master_test_data
@@ -155,8 +148,12 @@ class StatArbStrategy(Strategy):
 
         self._process_implementation(params)
 
+        # Get sizes and clean out containers
         del self.constructor._portfolios[0]
-        del self.constructor._size_containers[0]
+        sizes = self.constructor._size_containers.pop(0)
+
+        output = {'params': params}
+        output['sizes'] = sizes.to_json()
 
         self.implementation_training_write_params_model(
             run_name, output, self.signals.get_model())
