@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import datetime as dt
-from shutil import copyfile
+from shutil import copyfile, rmtree
 
 from gearbox import convert_date_array
 
@@ -733,6 +733,30 @@ def process_messages(messages_):
 
 ###############################################################################
 
+def archive_live_directory():
+    live_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live')
+    all_files = os.listdir(live_path)
+    # Archive entire directory
+    dir_name = '{}_live'.format(dt.date.today().strftime('%Y%m%d'))
+    archive_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                                'StatArbStrategy',
+                                'archive',
+                                'live_directories',
+                                dir_name)
+    # Remove directory if already exists
+    if os.path.isdir(archive_path):
+        rmtree(archive_path)
+    os.mkdir(archive_path)
+    # Copy files
+    for f in all_files:
+        copyfile(os.path.join(live_path, f), os.path.join(archive_path, f))
+    return
+
+
+###############################################################################
+
 def main():
 
     # Object to gather messages
@@ -786,6 +810,8 @@ def main():
                          'pretrade_checks',
                          '{}_pretrade_data_check.csv'.format(prefix))
     messages.to_csv(dpath, index=None)
+
+    archive_live_directory()
 
     print(messages.reset_index(drop=True))
 
