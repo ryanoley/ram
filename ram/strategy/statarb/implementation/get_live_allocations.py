@@ -27,8 +27,8 @@ BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR,
 
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 
-# LIVE_DIR = os.path.join(BASE_DIR, 'live')
-LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180425_live')
+LIVE_DIR = os.path.join(BASE_DIR, 'live')
+# LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180425_live')
 
 
 ###############################################################################
