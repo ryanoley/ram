@@ -20,50 +20,50 @@ from ramex.accounting.accounting import RamexAccounting
 from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
 
-LIVE_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
-IMP_DIR = config.IMPLEMENTATION_DATA_DIR
+LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
+
+BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy')
+
+ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
+
+# LIVE_DIR = os.path.join(BASE_DIR, 'live')
+LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180425_live')
+
 
 ###############################################################################
 #  0. Import raw data
 ###############################################################################
 
-def get_position_size(data_dir=IMP_DIR):
-    return json.load(open(os.path.join(data_dir,
-                                       'StatArbStrategy',
-                                       'position_size.json')))
+def get_position_size():
+    return json.load(open(os.path.join(BASE_DIR, 'position_size.json')))
 
 
 ###############################################################################
 #  1. Import raw data
 ###############################################################################
 
-def import_raw_data(data_dir=IMP_DIR):
-    files = get_todays_file_names(data_dir)
+def import_raw_data():
     output = {}
     print('Importing data...')
-    for f in files:
+    for f in get_todays_version_file_names():
         name = f.replace('.csv', '')
-        data = import_format_raw_data(f, data_dir)
+        data = import_format_raw_data(f)
         output[name] = data
     output['market_data'] = import_format_raw_data('market_index_data.csv')
     return output
 
 
-def get_todays_file_names(data_dir=IMP_DIR):
-    path = os.path.join(data_dir, 'StatArbStrategy', 'live')
-    all_files = os.listdir(path)
+def get_todays_version_file_names():
+    all_files = os.listdir(LIVE_DIR)
     files = [x for x in all_files if x.find('version') > -1]
     files.sort()
     assert len(files) > 0
     return files
 
 
-def import_format_raw_data(file_name,
-                           data_dir=IMP_DIR):
-    path = os.path.join(data_dir,
-                        'StatArbStrategy',
-                        'live',
-                        file_name)
+def import_format_raw_data(file_name):
+    path = os.path.join(LIVE_DIR, file_name)
     data = pd.read_csv(path)
     data.Date = convert_date_array(data.Date)
     data.SecCode = data.SecCode.astype(int).astype(str)
@@ -74,12 +74,10 @@ def import_format_raw_data(file_name,
 #  2. Import run map
 ###############################################################################
 
-def import_run_map(data_path=IMP_DIR,
-                   models_dir=statarb_config.trained_models_dir_name):
-    path = os.path.join(data_path,
-                        'StatArbStrategy',
+def import_run_map():
+    path = os.path.join(BASE_DIR,
                         'trained_models',
-                        models_dir,
+                        statarb_config.trained_models_dir_name,
                         'run_map.json')
     return json.load(open(path, 'r'))
 
@@ -88,20 +86,18 @@ def import_run_map(data_path=IMP_DIR,
 #  3. Import sklearn models and model parameters
 ###############################################################################
 
-def import_models_params(data_path=IMP_DIR,
-                         models_dir=statarb_config.trained_models_dir_name):
+def import_models_params():
     """
     Returns
     -------
     output : dict
         Holds parameter and sklearn model for each trained model
     """
-    path = os.path.join(data_path,
-                        'StatArbStrategy',
-                        'trained_models',
-                        models_dir)
-    model_files, param_files = get_model_files(path)
+    model_files, param_files = get_model_files()
     output = {}
+    path = os.path.join(BASE_DIR,
+                        'trained_models',
+                        statarb_config.trained_models_dir_name)
     print('Importing models and parameters...')
     for m, p in zip(model_files, param_files):
         run_name = m.replace('_skl_model.pkl', '')
@@ -113,11 +109,14 @@ def import_models_params(data_path=IMP_DIR,
     return output
 
 
-def get_model_files(path):
+def get_model_files():
     """
     Return file names from production trained models directories, and
     makes sure the model name is aligned with the param file name
     """
+    path = os.path.join(BASE_DIR,
+                        'trained_models',
+                        statarb_config.trained_models_dir_name)
     all_files = os.listdir(path)
     all_files.remove('meta.json')
     all_files.remove('run_map.json')
@@ -135,11 +134,8 @@ def get_model_files(path):
 #  4. StatArb positions
 ###############################################################################
 
-def get_statarb_positions(data_path=IMP_DIR):
-    path = os.path.join(data_path,
-                        'StatArbStrategy',
-                        'live',
-                        'eod_positions.csv')
+def get_statarb_positions():
+    path = os.path.join(LIVE_DIR, 'eod_positions.csv')
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == 'StatArb1']
     return positions
@@ -149,11 +145,8 @@ def get_statarb_positions(data_path=IMP_DIR):
 #  5. Get SizeContainers
 ###############################################################################
 
-def get_size_containers(data_dir=IMP_DIR):
-    path = os.path.join(data_dir,
-                        'StatArbStrategy',
-                        'live',
-                        'size_containers.json')
+def get_size_containers():
+    path = os.path.join(LIVE_DIR, 'size_containers.json')
     sizes = json.load(open(path, 'r'))
     output = {}
     for k, v in sizes.iteritems():
@@ -169,10 +162,7 @@ def get_size_containers(data_dir=IMP_DIR):
 
 def import_scaling_data():
     # QAD SCALING
-    path = os.path.join(IMP_DIR,
-                        'StatArbStrategy',
-                        'live',
-                        'seccode_scaling.csv')
+    path = os.path.join(LIVE_DIR, 'seccode_scaling.csv')
     data1 = pd.read_csv(path)
     data1.SecCode = data1.SecCode.astype(int).astype(str)
     data1 = data1.rename(columns={
@@ -180,10 +170,7 @@ def import_scaling_data():
     })
     data1 = data1[['SecCode', 'QADirectDividendFactor']]
     # Bloomberg
-    dpath = os.path.join(IMP_DIR,
-                         'StatArbStrategy',
-                         'live',
-                         'bloomberg_scaling.csv')
+    dpath = os.path.join(LIVE_DIR, 'bloomberg_scaling.csv')
     data2 = pd.read_csv(dpath)
     data2.SecCode = data2.SecCode.astype(int).astype(str)
     data2 = data2.rename(columns={
@@ -343,15 +330,16 @@ def get_live_pricing_data(scaling):
             break
 
     # Archive
-    timestamp = dt.datetime.utcnow().strftime('%Y%m%d')
-    file_name = '{}_live_pricing.csv'.format(timestamp)
-
-    path = os.path.join(IMP_DIR,
-                        'StatArbStrategy',
-                        'archive',
-                        'live_pricing',
-                        file_name)
-    data.to_csv(path, index=None)
+    if WRITE_FLAG:
+        timestamp = dt.date.today().strftime('%Y%m%d')
+        file_name = '{}_live_pricing.csv'.format(timestamp)
+        path = os.path.join(ARCHIVE_DIR, 'live_pricing', file_name)
+        data.to_csv(path, index=None)
+        # Also in live directory
+        dir_name = '{}_live'.format(timestamp)
+        path = os.path.join(ARCHIVE_DIR, 'live_directories',
+                            dir_name, 'prices.csv')
+        data.to_csv(path, index=None)
 
     # Merge scaling
     data = data.merge(scaling)
@@ -367,8 +355,14 @@ def get_live_pricing_data(scaling):
     return data
 
 
-def import_live_pricing(live_pricing_dir=LIVE_DIR,
-                        data_dir=IMP_DIR):
+def import_live_pricing():
+    # If running from archive, pull this live pricing
+    if not WRITE_FLAG:
+        path = os.path.join(LIVE_DIR, 'prices.csv')
+        data = pd.read_csv(path)
+        data.SecCode = data.SecCode.astype(str)
+        return data
+
     # Manually set column types
     dtypes = {
         'SecCode': str,
@@ -382,7 +376,7 @@ def import_live_pricing(live_pricing_dir=LIVE_DIR,
         'VWAP': np.float64,
         'VOLUME': np.float64
     }
-    path = os.path.join(live_pricing_dir, 'prices.csv')
+    path = os.path.join(LIVE_PRICES_DIR, 'prices.csv')
     data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     data.SecCode = data.SecCode.astype(str)
     data = data.rename(columns={
@@ -406,7 +400,8 @@ def import_live_pricing(live_pricing_dir=LIVE_DIR,
 
 def send_orders(out_df, positions):
     orders = make_orders(out_df, positions)
-
+    # if not WRITE_FLAG:
+    #     return
     client = ExecutionClient()
     for o in orders:
         client.send_order(o)
@@ -448,6 +443,7 @@ def make_orders(orders, positions):
     for _, o in data.iterrows():
         if o.TradeShares == 0:
             continue
+
         # order = MOCOrder(basket='statArbBasket',
         #                  strategy_id='StatArb1',
         #                  symbol=o.Ticker,
@@ -465,23 +461,19 @@ def make_orders(orders, positions):
 
 
 def write_output(out_df):
+    if not WRITE_FLAG:
+        return
     timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
     file_name = '{}_sent_allocations.csv'.format(timestamp)
-    path = os.path.join(IMP_DIR,
-                        'StatArbStrategy',
-                        'archive',
-                        'allocations',
-                        file_name)
+    path = os.path.join(ARCHIVE_DIR, 'allocations', file_name)
     out_df.to_csv(path, index=None)
 
 
-def write_size_containers(strategy,
-                          data_dir=IMP_DIR):
+def write_size_containers(strategy):
+    if WRITE_FLAG:
+        return
     today = dt.date.today().strftime('%Y%m%d')
-    path = os.path.join(data_dir,
-                        'StatArbStrategy',
-                        'archive',
-                        'size_containers',
+    path = os.path.join(ARCHIVE_DIR, 'size_containers',
                         '{}_size_containers.json'.format(today))
     output = {}
     for k, v in strategy.size_containers.iteritems():
@@ -495,7 +487,9 @@ def write_size_containers(strategy,
 
 def main():
 
-    # TODO: CHECK META FILE
+    # Infer if reading from archive or live directory
+    global WRITE_FLAG
+    WRITE_FLAG = True if LIVE_DIR.find('archive') == -1 else False
 
     ###########################################################################
     # 0. Checks meta and import position size
