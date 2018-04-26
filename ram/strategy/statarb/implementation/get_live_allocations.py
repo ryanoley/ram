@@ -400,8 +400,8 @@ def import_live_pricing():
 
 def send_orders(out_df, positions):
     orders = make_orders(out_df, positions)
-    # if not WRITE_FLAG:
-    #     return
+    if not WRITE_FLAG:
+        return
     client = ExecutionClient()
     for o in orders:
         client.send_order(o)
@@ -470,7 +470,7 @@ def write_output(out_df):
 
 
 def write_size_containers(strategy):
-    if WRITE_FLAG:
+    if not WRITE_FLAG:
         return
     today = dt.date.today().strftime('%Y%m%d')
     path = os.path.join(ARCHIVE_DIR, 'size_containers',
