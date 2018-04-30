@@ -31,15 +31,12 @@ class TestPricingReconciliation(unittest.TestCase):
         file_path = os.path.join(self.test_dir, '20180101_live_pricing.csv')
         self.live_pricing.to_csv(file_path, index=False)
 
-
     def test_get_live_prices(self):
         self.assertRaises(IOError, get_live_prices, dt.date.today(),
                           self.test_dir)
 
         result = get_live_prices('1/1/2018', self.test_dir)
         assert_frame_equal(result, self.live_pricing)
-
-
 
     def tearDown(self):
         if os.path.isdir(self.test_dir):
