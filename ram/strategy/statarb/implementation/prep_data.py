@@ -15,9 +15,9 @@ from ram.utils.eze_funcs import etb_status
 from ram.data.data_handler_sql import DataHandlerSQL
 from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
-
 IMP_DIR = config.IMPLEMENTATION_DATA_DIR
 RAMEX_DIR = os.path.join(os.getenv('DATA'), 'ramex')
+STRATEGYID = 'StatArb1~papertrade'
 
 
 ###############################################################################
@@ -45,7 +45,8 @@ def get_killed_seccodes():
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'killed_seccodes.json')
-    return json.load(open(path, 'r')).keys()
+    # Be sure they are strings
+    return [str(x) for x in json.load(open(path, 'r')).keys()]
 
 
 ###############################################################################
@@ -126,7 +127,7 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
 
 ###############################################################################
 
-def map_live_tickers():
+def map_live_tickers(killed_seccodes):
     # Collect message
     output = pd.DataFrame()
     output['Desc'] = ['Ticker Mapping']
@@ -176,11 +177,6 @@ def map_live_tickers():
     data.Ticker = data.Ticker.replace(to_replace=odd_tickers)
 
     # Kill list
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
-                        'killed_seccodes.json')
-    killed_seccodes = json.load(open(path, 'r'))
-    killed_seccodes = killed_seccodes.keys()
     data = data[~data.SecCode.isin(killed_seccodes)]
 
     # Write file to live directory
@@ -310,7 +306,7 @@ def check_qad_scaling():
 
 ###############################################################################
 
-def check_eod_positions(yesterday):
+def check_eod_positions(yesterday, killed_seccodes):
     positions_path = os.path.join(RAMEX_DIR, 'eod_positions')
     live_path = os.path.join(IMP_DIR,
                              'StatArbStrategy',
@@ -321,7 +317,11 @@ def check_eod_positions(yesterday):
 
     if pos_file_name in os.listdir(positions_path):
         message = '*'
-        copyfile(os.path.join(positions_path, pos_file_name), live_path)
+        df = pd.read_csv(os.path.join(positions_path, pos_file_name))
+        df = df[df.StrategyID == STRATEGYID]
+        df.SecCode = df.SecCode.astype(int).astype(str)
+        df = df[~df.SecCode.isin(killed_seccodes)]
+        df.to_csv(live_path, index=None)
 
     else:
         message = '[WARNING] - Missing yesterday\'s file'
@@ -521,7 +521,7 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
             qad_map.loc[ind[0], 'BloombergId'] = v + ' US'
 
     if qad_map.BloombergId.isnull().sum() > 0:
-        message.append('Mapping missing data')
+        message.append('Missing Bloomberg ticker data')
         # Write problem file to live directory for debug
         dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                              'StatArbStrategy',
@@ -779,7 +779,7 @@ def main():
     messages = messages.append(data)
 
     # PULL TICKERS
-    data = map_live_tickers()
+    data = map_live_tickers(killed_seccodes)
     messages = messages.append(data)
 
     # PULL SCALING DATA
@@ -791,7 +791,7 @@ def main():
     messages = messages.append(data)
 
     # POSITION DATA
-    data = check_eod_positions(yesterday)
+    data = check_eod_positions(yesterday, killed_seccodes)
     messages = messages.append(data)
 
     # Add date column
