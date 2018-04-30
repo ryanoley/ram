@@ -69,15 +69,17 @@ class FeatureAggregator(object):
         """
         Will put back in missing values if there was nothing to handle
         """
-        features = self._data.label.unique().tolist()
-        features.sort()
         output = self._data.pivot_table(
             values='val', index=['SecCode', 'Date'],
             columns='label', aggfunc='mean').reset_index()
+        # Sorted output features
+        features = self._data.label.unique().tolist()
+        features.sort()
+        features = ['SecCode', 'Date'] + features
         # Add back in missing columns
-        output = output.loc[:, ['SecCode', 'Date']+features]
-        del output.index.name
-        del output.columns.name
+        missing_cols = set(features) - set(output.columns)
+        output = output.join(pd.DataFrame(columns=missing_cols))
+        output = output[features]
         return output
 
 
