@@ -30,6 +30,7 @@ ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 LIVE_DIR = os.path.join(BASE_DIR, 'live')
 # LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180425_live')
 
+STRATEGY_ID = 'StatArb1'
 
 ###############################################################################
 #  0. Import raw data
@@ -137,7 +138,7 @@ def get_model_files():
 def get_statarb_positions():
     path = os.path.join(LIVE_DIR, 'eod_positions.csv')
     positions = pd.read_csv(path)
-    positions = positions[positions.StrategyID == 'StatArb1']
+    positions = positions[positions.StrategyID == STRATEGY_ID]
     return positions
 
 
@@ -445,11 +446,11 @@ def make_orders(orders, positions):
             continue
 
         # order = MOCOrder(basket='statArbBasket',
-        #                  strategy_id='StatArb1',
+        #                  strategy_id=STRATEGY_ID,
         #                  symbol=o.Ticker,
         #                  quantity=o.TradeShares)
         order = VWAPOrder(basket='statArbBasket',
-                          strategy_id='StatArb1',
+                          strategy_id=STRATEGY_ID,
                           symbol=o.Ticker,
                           quantity=o.TradeShares,
                           start_time=start_time,
