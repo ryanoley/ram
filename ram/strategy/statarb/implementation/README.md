@@ -45,7 +45,7 @@ python ram/strategy/statarb/main.py -d_update {version/index number}
 #### To move files to GCP cloud instance from local clients
 
 ```python
-python ram/data/data_gcp_manager.py -ls                 # List all strategies
+python ram/data/data_gcp_manager.py -sl                 # List all strategies
 python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for strategy
 python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 ```
@@ -67,8 +67,8 @@ python ram/strategies/statarb/main.py -i -w
 ## 5. Download Trained Model Directory
 
 ```
-python ram/data/data_gcp_manager.py -ls                 # List all strategies
-python ram/data/data_gcp_manager.py -s 4 -lm            # List all trained model dirs
+python ram/data/data_gcp_manager.py -sl                 # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -ml            # List all trained model dirs
 python ram/data/data_gcp_manager.py -s 4 -m 17 --download
 ```
 

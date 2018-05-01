@@ -47,6 +47,9 @@ def check_implementation_folder_structure():
     path2 = os.path.join(path, 'archive', 'pretrade_checks')
     _check_create(path2)
 
+    path2 = os.path.join(path, 'archive', 'live_directories')
+    _check_create(path2)
+
     return
 
 

@@ -400,9 +400,11 @@ def print_strategies(prepped_data_dir=config.PREPPED_DATA_DIR,
         strategies = _get_strategies_cloud()
     else:
         strategies = _get_strategies(prepped_data_dir)
+    print('\n')
     _print_line_underscore('Available Strategies with prepped data')
     for i, name in enumerate(strategies):
         print(' [{}]\t{}'.format(i, name))
+    print('\n')
     return
 
 
@@ -451,6 +453,7 @@ def print_data_versions(strategy_name,
     else:
         stats = _get_strategy_version_stats(strategy_name, prepped_data_dir)
     # Presentation
+    print('\n')
     _print_line_underscore('Available Verions for {}'.format(strategy_name))
     print('  Key\tVersion\t\t'
           'nFiles\tMax Train Date\tDescription')
@@ -560,5 +563,5 @@ def _get_min_max_dates_counts_cloud(strategy_name, version):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _print_line_underscore(pstring):
-    print('\n ' + pstring)
+    print(' ' + pstring)
     print(' ' + '-' * len(pstring))

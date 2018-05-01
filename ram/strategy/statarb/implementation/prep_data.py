@@ -3,18 +3,21 @@ import json
 import numpy as np
 import pandas as pd
 import datetime as dt
-from shutil import copyfile
+from shutil import copyfile, rmtree
 
 from gearbox import convert_date_array
 
 from ram import config
 from ram.strategy.statarb import statarb_config
 
+from ram.utils.eze_funcs import etb_status
+
 from ram.data.data_handler_sql import DataHandlerSQL
 from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
 
 IMP_DIR = config.IMPLEMENTATION_DATA_DIR
 RAMEX_DIR = os.path.join(os.getenv('DATA'), 'ramex')
+STRATEGYID = 'StatArb1~papertrade'
 
 
 ###############################################################################
@@ -42,7 +45,8 @@ def get_killed_seccodes():
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'killed_seccodes.json')
-    return json.load(open(path, 'r')).keys()
+    # Be sure they are strings
+    return [str(x) for x in json.load(open(path, 'r')).keys()]
 
 
 ###############################################################################
@@ -123,7 +127,7 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
 
 ###############################################################################
 
-def map_live_tickers():
+def map_live_tickers(killed_seccodes):
     # Collect message
     output = pd.DataFrame()
     output['Desc'] = ['Ticker Mapping']
@@ -173,11 +177,6 @@ def map_live_tickers():
     data.Ticker = data.Ticker.replace(to_replace=odd_tickers)
 
     # Kill list
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
-                        'killed_seccodes.json')
-    killed_seccodes = json.load(open(path, 'r'))
-    killed_seccodes = killed_seccodes.keys()
     data = data[~data.SecCode.isin(killed_seccodes)]
 
     # Write file to live directory
@@ -187,6 +186,20 @@ def map_live_tickers():
                             'eze_tickers.csv')
     data = data[['SecCode', 'Ticker', 'Issuer']]
     data.to_csv(new_path, index=None)
+
+    # Check Hard To Borrow list
+    tickers = data.Ticker.copy()
+    tickers = tickers[~tickers.isin(['$SPX.X', '$VIX.X'])]
+    htb_list = etb_status(tickers)
+    htb_list = htb_list[htb_list.ETB_HTB == 'HTB']
+
+    if len(htb_list) > 0:
+        output['Message'] = '[INFO] - {} Hard To Borrow'.format(len(htb_list))
+        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                            'StatArbStrategy',
+                            'live',
+                            'hard_to_borrow_tickers.csv')
+        htb_list.to_csv(path, index=None)
 
     return output
 
@@ -293,7 +306,7 @@ def check_qad_scaling():
 
 ###############################################################################
 
-def check_eod_positions(yesterday):
+def check_eod_positions(yesterday, killed_seccodes):
     positions_path = os.path.join(RAMEX_DIR, 'eod_positions')
     live_path = os.path.join(IMP_DIR,
                              'StatArbStrategy',
@@ -304,7 +317,11 @@ def check_eod_positions(yesterday):
 
     if pos_file_name in os.listdir(positions_path):
         message = '*'
-        copyfile(os.path.join(positions_path, pos_file_name), live_path)
+        df = pd.read_csv(os.path.join(positions_path, pos_file_name))
+        df = df[df.StrategyID == STRATEGYID]
+        df.SecCode = df.SecCode.astype(int).astype(str)
+        df = df[~df.SecCode.isin(killed_seccodes)]
+        df.to_csv(live_path, index=None)
 
     else:
         message = '[WARNING] - Missing yesterday\'s file'
@@ -372,14 +389,24 @@ def check_size_containers(yesterday,
     sizes = json.load(open(path, 'r'))
 
     # OPEN AND KILL
+    bad_dates_flag = False
     new_sizes = {}
     for k, v in sizes.iteritems():
         sc = SizeContainer(-1)
         sc.from_json(v)
+
+        # Check dates
+        if max(sc.sizes.keys()) != yesterday:
+            bad_dates_flag = True
+
         # KILL
         for seccode in killed_seccodes:
             sc.kill_seccode(seccode)
         new_sizes[k] = sc.to_json()
+
+    if bad_dates_flag:
+        output.loc[0, 'Message'] = 'SizeContainer has wrong dates'
+        return output
 
     # Write
     path = os.path.join(data_dir,
@@ -494,7 +521,7 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
             qad_map.loc[ind[0], 'BloombergId'] = v + ' US'
 
     if qad_map.BloombergId.isnull().sum() > 0:
-        message.append('Mapping missing data')
+        message.append('Missing Bloomberg ticker data')
         # Write problem file to live directory for debug
         dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                              'StatArbStrategy',
@@ -706,6 +733,30 @@ def process_messages(messages_):
 
 ###############################################################################
 
+def archive_live_directory():
+    live_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live')
+    all_files = os.listdir(live_path)
+    # Archive entire directory
+    dir_name = '{}_live'.format(dt.date.today().strftime('%Y%m%d'))
+    archive_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                                'StatArbStrategy',
+                                'archive',
+                                'live_directories',
+                                dir_name)
+    # Remove directory if already exists
+    if os.path.isdir(archive_path):
+        rmtree(archive_path)
+    os.mkdir(archive_path)
+    # Copy files
+    for f in all_files:
+        copyfile(os.path.join(live_path, f), os.path.join(archive_path, f))
+    return
+
+
+###############################################################################
+
 def main():
 
     # Object to gather messages
@@ -728,7 +779,7 @@ def main():
     messages = messages.append(data)
 
     # PULL TICKERS
-    data = map_live_tickers()
+    data = map_live_tickers(killed_seccodes)
     messages = messages.append(data)
 
     # PULL SCALING DATA
@@ -740,7 +791,7 @@ def main():
     messages = messages.append(data)
 
     # POSITION DATA
-    data = check_eod_positions(yesterday)
+    data = check_eod_positions(yesterday, killed_seccodes)
     messages = messages.append(data)
 
     # Add date column
@@ -759,6 +810,8 @@ def main():
                          'pretrade_checks',
                          '{}_pretrade_data_check.csv'.format(prefix))
     messages.to_csv(dpath, index=None)
+
+    archive_live_directory()
 
     print(messages.reset_index(drop=True))
 
