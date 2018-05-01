@@ -33,8 +33,11 @@ def data_rank(pdata):
     return ranks
 
 
-def data_fill_median(data):
-    row_median = data.median(axis=1).fillna(method='backfill')
+def data_fill_median(data, backfill=False):
+    if backfill:
+        row_median = data.median(axis=1).fillna(method='backfill')
+    else:
+        row_median = data.median(axis=1)
     fill_df = pd.concat([row_median] * data.shape[1], axis=1)
     fill_df.columns = data.columns
     fill_df.index = data.index
@@ -49,7 +52,7 @@ class FeatureAggregator(object):
     def __init__(self, live_flag=False):
         self._data = pd.DataFrame()
 
-    def add_feature(self, data, label, fill_median=True):
+    def add_feature(self, data, label, fill_median=True, backfill=False):
         """
         Assumes input has SecCodes in the columns, dates in the row index,
         essentially from the Pivot table. If it is a Series, it is assumed
@@ -59,7 +62,7 @@ class FeatureAggregator(object):
             # It is assumed that these are the correct labels
             data = data.to_frame().T
         if fill_median:
-            data = data_fill_median(data)
+            data = data_fill_median(data, backfill)
         data = data.unstack().reset_index()
         data.columns = ['SecCode', 'Date', 'val']
         data['label'] = label

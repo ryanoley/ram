@@ -158,7 +158,7 @@ class TestFeatureCreator(unittest.TestCase):
         data['V1'] = [np.nan, 1, 2, 3, 4]
         data['V2'] = [np.nan, 3, 4, 5, 6]
         data['V3'] = [np.nan, np.nan, 10, 23, np.nan]
-        result = data_fill_median(data)
+        result = data_fill_median(data, True)
         benchmark = pd.DataFrame(index=range(3, 8))
         benchmark['V1'] = [2, 1, 2, 3, 4.]
         benchmark['V2'] = [2, 3, 4, 5, 6.]
