@@ -1,5 +1,6 @@
 
 import os
+import argparse
 import pandas as pd
 import datetime as dt
 from dateutil import parser
@@ -38,11 +39,10 @@ def ramex_merge_live(ramex_data, live_prices):
                      'exec_price']]
 
     prices = live_prices.rename(columns={
-        'AdjClose': 'rt_close',
-        'AdjVolume': 'rt_volume',
-        'AdjVwap': 'rt_vwap'
+        'AdjClose': 'signal_close',
+        'AdjVolume': 'signal_volume'
     })
-    prices = prices[['SecCode', 'Ticker', 'rt_close', 'rt_volume', 'rt_vwap']]
+    prices = prices[['SecCode', 'Ticker', 'signal_close', 'signal_volume']]
 
     merged_data = pd.merge(trades, prices, how='left')
 
@@ -53,12 +53,10 @@ def get_qad_data(data, inp_date):
 
     assert('SecCode' in data.columns)
     seccodes = data.SecCode.values
-
-    dh = DataHandlerSQL()
-
     features = ['RClose', 'RVolume', 'MarketCap', 'AdjClose']
 
-    qad_data = dh.get_seccode_data(seccodes, features, data_dt, data_dt)
+    dh = DataHandlerSQL()
+    qad_data = dh.get_seccode_data(seccodes, features, inp_date, inp_date)
 
     qad_data.rename(columns={
                     'RClose': 'qad_close',
@@ -80,8 +78,8 @@ def _write_output(data, recon_dt, output_dir=RECON_DIR):
 
     output_columns = ['Ticker', 'SecCode', 'Date', 'strategy_id',
                       'quantity', 'exec_shares', 'exec_price',
-                      'rt_close', 'rt_volume', 'rt_vwap', 'qad_close',
-                      'qad_adj_close', 'qad_volume', 'qad_market_cap']
+                      'signal_close', 'signal_volume','qad_close',
+                      'qad_volume', 'qad_market_cap', 'qad_adj_close']
     data = data[output_columns]
     data.to_csv(path, index=False)
     return
@@ -90,15 +88,13 @@ def _write_output(data, recon_dt, output_dir=RECON_DIR):
 def main():
 
     #####################################################################
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument(
         '-rd', '--recon_date', default='',
         help='Date to run reconciliation for')
-    args = parser.parse_args()
+    args = arg_parser.parse_args()
 
     #####################################################################
-
     # If no date is passed then get the last trading date
     dh = DataHandlerSQL()
 
