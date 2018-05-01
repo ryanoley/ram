@@ -8,3 +8,4 @@ from ram.strategy.statarb.version_002.data_blueprints import *
 blueprint_container = DataConstructorBlueprintContainer()
 
 blueprint_container.add_blueprint(sector20_0)
+blueprint_container.add_blueprint(sector20_1)

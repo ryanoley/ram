@@ -72,3 +72,9 @@ base.features = [
 sector20_0 = deepcopy(base)
 sector20_0.description = 'Sector 20, Monthly, Version 001'
 sector20_0.universe_filter_arguments['where'] += ' and GSECTOR = 20'
+
+
+sector20_1 = deepcopy(base)
+sector20_1.description = 'Sector 20, Monthly, Version 002, 12 month training'
+sector20_1.universe_filter_arguments['where'] += ' and GSECTOR = 20'
+sector20_1.universe_date_parameters['train_period_length'] = 12
