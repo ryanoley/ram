@@ -12,6 +12,9 @@ class CombinationSearch(ModelSelection):
     n_best_ports = 10
     strats_per_port = 5
 
+    def set_selection_criteria(self, criteria='mean')
+        self.criteria = criteria
+
     def get_implementation_name(self):
         return 'CombinationSearch'
 
@@ -23,12 +26,13 @@ class CombinationSearch(ModelSelection):
         combs = self._generate_random_combs(
             train_data.shape[1], time_index)
 
-        criteria = 'mean'
-        # Calculate sharpes
-        if criteria == 'sharpe':
+        if not hasattr(self, 'criteria'):
+            self.set_selection_criteria()
+
+        if self.criteria == 'sharpe':
             scores = self._get_sharpes(train_data, combs)
 
-        elif criteria == 'mean':
+        elif self.criteria == 'mean':
             scores = self._get_means(train_data, combs)
         else:
             raise 'Criteria needs to be selected from: [sharpe, mean]'
