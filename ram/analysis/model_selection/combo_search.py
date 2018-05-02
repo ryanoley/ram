@@ -12,7 +12,7 @@ class CombinationSearch(ModelSelection):
     n_best_ports = 10
     strats_per_port = 5
 
-    def set_selection_criteria(self, criteria='mean')
+    def set_selection_criteria(self, criteria='mean'):
         self.criteria = criteria
 
     def get_implementation_name(self):
