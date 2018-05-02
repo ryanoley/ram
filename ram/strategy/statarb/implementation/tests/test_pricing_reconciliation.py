@@ -17,7 +17,6 @@ class TestPricingReconciliation(unittest.TestCase):
             shutil.rmtree(self.test_dir)
         os.mkdir(self.test_dir)
 
-        # EOD Master Positions and Fund Manager
         self.live_pricing = pd.DataFrame(data={
                             'SecCode': [36799, 11027692, 36799, 30655],
                             'Ticker': ['IBM', 'FB', 'IBM', 'GS'],
