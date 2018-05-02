@@ -702,6 +702,27 @@ def process_bloomberg_data(killed_seccodes):
     if not np.all(messages.Message == '*'):
         return messages
 
+    # Get EOD position files to see if anything changed for our positions
+    # today
+    live_path = os.path.join(IMP_DIR,
+                             'StatArbStrategy',
+                             'live',
+                             'eod_positions.csv')
+
+    if os.path.isfile(live_path):
+        eod_positions = pd.read_csv(live_path)
+    else:
+        eod_positions = pd.DataFrame(columns=['SecCode'])
+
+    corp_actions = bloomberg.SecCode.isin(eod_positions.SecCode).sum()
+    if corp_actions > 0:
+        message = '[INFO] - {} Splits, Spins, Divs'.format(corp_actions)
+    else:
+        message = '*'
+
+    messages.loc[4, 'Desc'] = 'Position Sheet Corporate Actions'
+    messages.loc[4, 'Message'] = message
+
     # Write bloomberg data to file
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
@@ -786,12 +807,12 @@ def main():
     data = check_qad_scaling()
     messages = messages.append(data)
 
-    # BLOOMBERG
-    data = process_bloomberg_data(killed_seccodes)
-    messages = messages.append(data)
-
     # POSITION DATA
     data = check_eod_positions(yesterday, killed_seccodes)
+    messages = messages.append(data)
+
+    # BLOOMBERG
+    data = process_bloomberg_data(killed_seccodes)
     messages = messages.append(data)
 
     # Add date column
