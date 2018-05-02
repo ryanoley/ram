@@ -215,7 +215,7 @@ class DataContainer(BaseDataContainer):
                 temp.index = [0]
             else:
                 temp = clean_pivot_raw_data(data, feature, lag=1)
-            feat.add_feature(data_rank(temp), feature)
+            feat.add_feature(data_rank(temp), feature, backfill=True)
 
         for feature in starmine_features:
             if live_flag:
@@ -224,7 +224,7 @@ class DataContainer(BaseDataContainer):
                 temp.index = [0]
             else:
                 temp = clean_pivot_raw_data(data, feature, lag=1)
-            feat.add_feature(data_rank(temp), feature)
+            feat.add_feature(data_rank(temp), feature, backfill=True)
 
         pdata = data[['SecCode', 'Date']].copy()
         n_id_features = pdata.shape[1]  # For capturing added features
@@ -271,12 +271,12 @@ class DataContainer(BaseDataContainer):
                              'prma_{}'.format(i))
 
         vol = VOL(live_flag)
-        for i in [10, 20, 50]:
+        for i in [10, 20, 40]:
             feat.add_feature(data_rank(vol.fit(close, i)),
                              'vol_{}'.format(i))
 
         disc = DISCOUNT(live_flag)
-        for i in [30, 50]:
+        for i in [30, 40]:
             feat.add_feature(data_rank(disc.fit(close, i)),
                              'disc_{}'.format(i))
 
