@@ -125,7 +125,17 @@ def get_qad_live_prices(data, inp_date):
     dh = DataHandlerSQL()
     qad_data = dh.get_seccode_data(seccodes, features, inp_date, inp_date)
 
+    ix_features = ['AdjClose']
+    ix_seccodes = [50311, 11113]
+    ix_tickers = ['$SPX.X', '$VIX.X']
+
+    qad_ix_data = dh.get_index_data(ix_seccodes, ix_features, inp_date,
+                                    inp_date)
+
+    qad_data = qad_data.append(qad_ix_data).reset_index(drop=True)
+
     qad_data.rename(columns={'TICKER':'Ticker'}, inplace=True)
+    qad_data.SecCode = qad_data.SecCode.astype(str)
 
     return qad_data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh', 'AdjLow',
                      'AdjClose', 'AdjVolume', 'AdjVwap', 'RClose']]
@@ -164,15 +174,11 @@ def run_order_reconciliation(recon_dt):
     strategy.prep()
 
     # 8. Live pricing
-    live_data = gla.get_live_pricing_data(scaling)
-
     qad_live_data = get_qad_live_prices(scaling, dt.date(2018, 5, 1))
+    orders = strategy.run_live(qad_live_data)
 
-    import ipdb; ipdb.set_trace()
-
-    orders = strategy.run_live(live_data)
-
-
+    #live_data = gla.get_live_pricing_data(scaling)
+    #orders = strategy.run_live(live_data)
 
     out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
                           how='left')
@@ -180,8 +186,6 @@ def run_order_reconciliation(recon_dt):
         out_df.PercAlloc * position_size['gross_position_size']
 
     out_df['NewShares'] = (out_df.Dollars / out_df.RClose).astype(int)
-
-
 
 
 
