@@ -151,6 +151,25 @@ class BOLL(BaseTechnicalFeature):
             (4*std_price)
 
 
+class BOLL_SMOOTH(BaseTechnicalFeature):
+    """
+    (P - (AvgP - 2 * StdP)) / (4 * StdPrice)
+    """
+    def calculate_all_dates(self, data, smooth, window):
+        # Set to zero for ease of testing
+        std_price = data.rolling(window).std(ddof=0)
+        return (data.rolling(smooth).mean() -
+                (data.rolling(window).mean() - 2*std_price)) / \
+            (4*std_price)
+
+    def calculate_last_date(self, data, smooth, window):
+        # Set to zero for ease of testing
+        std_price = data.iloc[-window:].std(ddof=0)
+        return (data.rolling(smooth).mean().iloc[-1] -
+                (data.iloc[-window:].mean() - 2*std_price)) / \
+            (4*std_price)
+
+
 class MFI(BaseTechnicalFeature):
     """
     Typical Price = (High + Low + Close)/3
