@@ -33,9 +33,11 @@ def clear_live_directory():
         os.remove(os.path.join(path, f))
 
     today = dt.date.today().strftime('%Y%m%d')
-    meta = {'prepped_date': today}
+    meta = {
+        'prepped_date': today,
+        'trained_models_dir_name': statarb_config.trained_models_dir_name
+    }
     json.dump(meta, open(os.path.join(path, 'meta.json'), 'w'))
-
     return
 
 
