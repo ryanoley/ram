@@ -28,7 +28,7 @@ BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR,
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 
 LIVE_DIR = os.path.join(BASE_DIR, 'live')
-# LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180425_live')
+# LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180502_live')
 
 STRATEGY_ID = 'StatArb1'
 
@@ -94,12 +94,9 @@ def import_models_params():
     output : dict
         Holds parameter and sklearn model for each trained model
     """
-    model_files, param_files = get_model_files()
-    output = {}
-    path = os.path.join(BASE_DIR,
-                        'trained_models',
-                        statarb_config.trained_models_dir_name)
+    path, model_files, param_files = get_model_files()
     print('Importing models and parameters...')
+    output = {}
     for m, p in zip(model_files, param_files):
         run_name = m.replace('_skl_model.pkl', '')
         output[run_name] = {}
@@ -115,9 +112,15 @@ def get_model_files():
     Return file names from production trained models directories, and
     makes sure the model name is aligned with the param file name
     """
+    if LIVE_FLAG:
+        models_dir_name = statarb_config.trained_models_dir_name
+    else:
+        path = os.path.join(LIVE_DIR, 'meta.json')
+        meta = json.load(open(path, 'r'))
+        models_dir_name = meta['trained_models_dir_name']
     path = os.path.join(BASE_DIR,
                         'trained_models',
-                        statarb_config.trained_models_dir_name)
+                        models_dir_name)
     all_files = os.listdir(path)
     all_files.remove('meta.json')
     all_files.remove('run_map.json')
@@ -128,7 +131,7 @@ def get_model_files():
     # Assert that they are aligned
     for m, p in zip(model_files, param_files):
         assert m.replace('_skl_model.pkl', '') == p.replace('_params.json', '')
-    return model_files, param_files
+    return path, model_files, param_files
 
 
 ###############################################################################
@@ -331,7 +334,7 @@ def get_live_pricing_data(scaling):
             break
 
     # Archive
-    if WRITE_FLAG:
+    if LIVE_FLAG:
         timestamp = dt.date.today().strftime('%Y%m%d')
         file_name = '{}_live_pricing.csv'.format(timestamp)
         path = os.path.join(ARCHIVE_DIR, 'live_pricing', file_name)
@@ -359,7 +362,7 @@ def get_live_pricing_data(scaling):
 
 def import_live_pricing():
     # If running from archive, pull this live pricing
-    if not WRITE_FLAG:
+    if not LIVE_FLAG:
         path = os.path.join(LIVE_DIR, 'prices.csv')
         data = pd.read_csv(path)
         data.SecCode = data.SecCode.astype(str)
@@ -404,7 +407,7 @@ def import_live_pricing():
 
 def send_orders(out_df, positions):
     orders = make_orders(out_df, positions)
-    if not WRITE_FLAG:
+    if not LIVE_FLAG:
         return
     client = ExecutionClient()
     for o in orders:
@@ -465,7 +468,7 @@ def make_orders(orders, positions):
 
 
 def write_output(out_df):
-    if not WRITE_FLAG:
+    if not LIVE_FLAG:
         return
     timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
     file_name = '{}_sent_allocations.csv'.format(timestamp)
@@ -474,7 +477,7 @@ def write_output(out_df):
 
 
 def write_size_containers(strategy):
-    if not WRITE_FLAG:
+    if not LIVE_FLAG:
         return
     today = dt.date.today().strftime('%Y%m%d')
     path = os.path.join(ARCHIVE_DIR, 'size_containers',
@@ -492,16 +495,18 @@ def write_size_containers(strategy):
 def main():
 
     # Infer if reading from archive or live directory
-    global WRITE_FLAG
-    WRITE_FLAG = True if LIVE_DIR.find('archive') == -1 else False
+    global LIVE_FLAG
+    LIVE_FLAG = True if LIVE_DIR.find('archive') == -1 else False
 
     # Confirm prep data was run
-    if WRITE_FLAG:
+    if LIVE_FLAG:
         path = os.path.join(LIVE_DIR, 'meta.json')
         meta = json.load(open(path, 'r'))
         t = meta['prepped_date']
         t = dt.date(int(t[:4]), int(t[4:6]), int(t[6:]))
         assert t == dt.date.today(), 'Run prep_data.py!!'
+        assert statarb_config.trained_models_dir_name == \
+            meta['trained_models_dir_name']
 
     ###########################################################################
     # 0. Checks meta and import position size
