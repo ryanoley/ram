@@ -342,6 +342,7 @@ def get_live_pricing_data(scaling):
                             dir_name, 'prices.csv')
         data.to_csv(path, index=None)
 
+    data.drop('captured_time', axis=1, inplace=True)
     # Merge scaling
     data = data.merge(scaling)
     data['RClose'] = data.AdjClose
@@ -391,7 +392,9 @@ def import_live_pricing():
     })
     data = data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
                  'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
-
+    # Add file creation datetime
+    time_modified = dt.datetime.fromtimestamp(os.path.getmtime(path))
+    data['captured_time'] = time_modified
     return data
 
 
@@ -491,6 +494,14 @@ def main():
     # Infer if reading from archive or live directory
     global WRITE_FLAG
     WRITE_FLAG = True if LIVE_DIR.find('archive') == -1 else False
+
+    # Confirm prep data was run
+    if WRITE_FLAG:
+        path = os.path.join(LIVE_DIR, 'meta.json')
+        meta = json.load(open(path, 'r'))
+        t = meta['prepped_date']
+        t = dt.date(int(t[:4]), int(t[4:6]), int(t[6:]))
+        assert t == dt.date.today(), 'Run prep_data.py!!'
 
     ###########################################################################
     # 0. Checks meta and import position size
