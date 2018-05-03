@@ -198,7 +198,7 @@ def map_live_tickers(killed_seccodes):
         path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
                             'live',
-                            'hard_to_borrow_tickers.csv')
+                            'HARD_TO_BORROW_TICKERS.csv')
         htb_list.to_csv(path, index=None)
 
     return output
@@ -714,9 +714,19 @@ def process_bloomberg_data(killed_seccodes):
     else:
         eod_positions = pd.DataFrame(columns=['SecCode'])
 
-    corp_actions = bloomberg.SecCode.isin(eod_positions.SecCode).sum()
-    if corp_actions > 0:
+    corp_actions = bloomberg[bloomberg.SecCode.isin(eod_positions.SecCode)]
+    if len(corp_actions) > 0:
         message = '[INFO] - {} Splits, Spins, Divs'.format(corp_actions)
+        # Write to file
+        output = corp_actions.merge(eod_positions)
+        output = output[['SecCode', 'Ticker', 'Shares', 'RAMID',
+                         'DivMultiplier', 'SpinoffMultiplier',
+                         'SplitMultiplier']]
+        path = os.path.join(IMP_DIR,
+                            'StatArbStrategy',
+                            'live',
+                            'POSITION_SHEET_CORPORATE_ACTIONS.csv')
+        output.to_csv(path, index=None)
     else:
         message = '*'
 
