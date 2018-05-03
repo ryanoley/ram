@@ -16,14 +16,14 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
     def get_args(self):
         return {
-            'score_var': ['prma_20', 'prma_30',
-                          'prma_2_20', 'prma_2_40',
-                          'prma_3_20', 'prma_3_40',
-                          'prma_4_20', 'prma_4_40',
-                          'boll_40', 'boll2_40', 'boll3_40',
-                          'rsi_15',
-                          'day_ret'],
-
+            'score_var': ['boll_40', 'boll_80',
+                          'boll2_40', 'boll2_80',
+                          'boll5_80', 'boll5_160',
+                          'disc_100', 'disc_240',
+                          'mfi_30', 'mfi_100',
+                          'prma_2_40', 'prma_3_100', 'prma_4_180',
+                          'ret_180d', 'ret_40d', 'rsi_100', 'rsi_30'
+                          ],
             'per_side_count': [5, 10, 20],
             'holding_period': [3, 5, 7, 9]
 

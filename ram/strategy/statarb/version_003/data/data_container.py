@@ -312,7 +312,7 @@ class DataContainer(BaseDataContainer):
             (3, 40), (3, 100),
             (4, 80), (4, 180)
         ]
-        import pdb; pdb.set_trace()
+
         for p in smooth_params:
             ret = data_rank(prma.fit(close, p[1]) / prma.fit(close, p[0]))
             if live_flag:
@@ -321,7 +321,7 @@ class DataContainer(BaseDataContainer):
             feat.add_feature(ret, 'prma_{}_{}'.format(p[0], p[1]))
 
         # LONG returns
-        for i in [10, 20, 40]:
+        for i in [40, 80, 180]:
             ret = data_rank(close.pct_change(i))
             if live_flag:
                 ret = ret.iloc[-1]
