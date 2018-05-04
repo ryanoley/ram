@@ -163,6 +163,57 @@ def download_run_gcp(strategy, run_dir_name):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def print_all_model_selection_dirs():
+    gs_run_dirs = get_ms_dirs()
+    headline = 'Model Selection Directories'
+    _print_line_underscore(headline)
+    for i, model in enumerate(gs_run_dirs):
+        print(" [{}]\t{}".format(i, model))
+    print('\n')
+
+
+def get_ms_dirs():
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    # GCP Directories for implementation
+    gs_files = [x.name for x in bucket.list_blobs()]
+    gs_files = [x for x in gs_files if x.find('model_selection') > -1]
+    ms_dirs = list(set([x.split('/')[1] for x in gs_files]))
+    ms_dirs.sort()
+    return ms_dirs
+
+
+def get_ms_current_param_path(ms_dir_name):
+    client = storage.Client()
+    bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+    # GCP Directories for implementation
+    gs_files = [x.name for x in bucket.list_blobs()]
+    gs_files = [x for x in gs_files if x.find(ms_dir_name) > -1]
+    return [x for x in gs_files if x.find('current_params') > -1][0]
+
+
+def get_ms_name(name_num):
+    ms_dirs = get_ms_dirs()
+    if name_num in ms_dirs:
+        return name_num
+    else:
+        return ms_dirs[int(name_num)]
+
+
+def download_ms_gcp(ms_dir_name):
+    # BUILT FOR STATARB!!
+    print('\nDownloading params from: {}\n'.format(ms_dir_name))
+    file_path = get_ms_current_param_path(ms_dir_name)
+    path = "gs://ram_data/{}".format(file_path)
+    local_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'strategy',
+                              'StatArbStrategy', 'implementation', 'params')
+    copy_string = "gsutil -m cp -r {} {}".format(path, local_path)
+    os.system(copy_string)
+    print('\nPut filename in config: {}\n'.format(file_path.split('/')[-1]))
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 if __name__ == '__main__':
 
     import argparse
@@ -174,6 +225,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
+    # LOCAL STRATEGIES in data directory
     parser.add_argument(
         '-sl', '--list_strategies', action='store_true',
         help='List all available local strategies')
@@ -181,6 +233,7 @@ if __name__ == '__main__':
         '-s', '--strategy_name', type=str, metavar='',
         help='Strategy to manipulate')
 
+    # LOCAL PREPPED DATA versions for a given strategy
     parser.add_argument(
         '-dv', '--list_data_versions', action='store_true',
         help='List all versions of prepped data for a strategy')
@@ -188,6 +241,7 @@ if __name__ == '__main__':
         '-d', '--data_version', type=str, metavar='',
         help='Version to be uploaded')
 
+    # GCP RUNS for a given strategy
     parser.add_argument(
         '-rl', '--list_runs', action='store_true',
         help='List all directories on GCP platform in '
@@ -196,6 +250,16 @@ if __name__ == '__main__':
         '-r', '--run_name', type=str, metavar='',
         help='Name of run to be downloaded')
 
+    # GCP MODEL SELECTIONS list all directories
+    parser.add_argument(
+        '-msl', '--list_model_selection_runs', action='store_true',
+        help='List all directories on GCP platform in '
+        'model_selection')
+    parser.add_argument(
+        '-ms', '--model_selection_dir', type=str, metavar='',
+        help='Directory to find current_params')
+
+    # GCP TRAINED MODELS list all directories
     parser.add_argument(
         '-ml', '--list_trained_models', action='store_true',
         help='List all directories on GCP platform in '
@@ -204,6 +268,7 @@ if __name__ == '__main__':
         '-m', '--trained_models_dir', type=str, metavar='',
         help='Directory of models to be downloaded')
 
+    # UPLOAD AND DOWNLOAD of relevant parts from above
     parser.add_argument(
         '--upload', action='store_true',
         help='This flag must be included to upload data to GCP')
@@ -252,3 +317,10 @@ if __name__ == '__main__':
         strategy = get_strategy_name(args.strategy_name)
         run_dir = get_run_name(strategy, args.run_name)
         download_run_gcp(strategy, run_dir)
+
+    elif args.list_model_selection_runs:
+        print_all_model_selection_dirs()
+
+    elif args.model_selection_dir and args.download:
+        ms_dir = get_ms_name(args.model_selection_dir)
+        download_ms_gcp(ms_dir)
