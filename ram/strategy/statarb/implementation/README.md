@@ -17,10 +17,11 @@ GITHUB/ram/ram/strategy/statarb/implementation/params/
 #### Download config file from Google Cloud
 
 ```
-gsutil cp gs://ram_data/model_selection/{model_selection_dir}/current_params_{model_selection_run}.json .
+python data_gcp_manager.py -msl
+python data_gcp_manager.py -ms `x` --download
 ```
 
-TODO: Create `data_gcp_manager.py` routine for this.
+NOTE: Downloads directly to GITHUB directory for StatArb
 
 
 ## 2. Set Parameter File Name in StatArb Config
