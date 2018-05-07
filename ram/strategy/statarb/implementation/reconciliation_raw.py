@@ -166,14 +166,7 @@ def get_recon_orders(recon_dt):
     qad_orders['NewShares'] = (qad_orders.Dollars / qad_orders.RClose)
     qad_orders.NewShares = qad_orders.NewShares.astype(int)
 
-    qad_orders.rename(columns={
-                        'PercAlloc': 'qad_perc_alloc',
-                        'RClose': 'qad_close',
-                        'Dollars': 'qad_dollars',
-                        'NewShares': 'qad_shares'
-                        }, inplace=True)
-
-    return qad_orders
+    return _rollup_orders(qad_orders, 'qad')
 
 
 def get_qad_live_prices(data, inp_date):
@@ -211,30 +204,40 @@ def get_sent_orders(recon_dt):
 
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
     exec_orders.SecCode = exec_orders.SecCode.astype(str)
-    exec_orders.rename(columns={
-                        'PercAlloc': 'exec_perc_alloc',
-                        'RClose': 'exec_close',
-                        'Dollars': 'exec_dollars',
-                        'NewShares': 'exec_shares'
-                        }, inplace=True)
 
-    return exec_orders
+    return _rollup_orders(exec_orders, 'exec')
+
+def _rollup_orders(order_df, col_prfx=None):
+    assert(set(['SecCode', 'Ticker', 'PercAlloc', 'RClose', 'Dollars',
+               'NewShares']).issubset(set(order_df.columns)))
+
+    grp = order_df.groupby('SecCode')
+    rollup = pd.DataFrame(index=order_df.SecCode.unique())
+
+    col_prfx = col_prfx + '_' if col_prfx is not None else ''
+    rollup['{}ticker'.format(col_prfx)] = grp.Ticker.min()
+    rollup['{}perc_alloc'.format(col_prfx)] = grp.PercAlloc.mean()
+    rollup['{}dollars'.format(col_prfx)] = grp.Dollars.sum()
+    rollup['{}close'.format(col_prfx)] = grp.RClose.mean()
+    rollup['{}shares'.format(col_prfx)] = grp.NewShares.sum()
+
+    rollup.reset_index(inplace=True)
+    rollup.rename(columns={'index':'SecCode'}, inplace=True)
+    return rollup
 
 
 def _write_order_output(recon_orders, exec_orders, recon_dt,
                         output_dir=RECON_DIR):
-
     data = pd.merge(recon_orders, exec_orders, how='outer')
     data['Date'] = recon_dt
-
-    output_columns = ['Ticker', 'SecCode', 'Strategy', 'Date',
-                      'exec_perc_alloc', 'exec_dollars', 'exec_shares',
-                      'exec_close', 'qad_perc_alloc', 'qad_dollars',
+    output_columns = ['SecCode', 'Date', 'exec_ticker', 'exec_perc_alloc',
+                      'exec_dollars', 'exec_shares', 'exec_close',
+                      'qad_ticker', 'qad_perc_alloc', 'qad_dollars',
                       'qad_shares', 'qad_close']
 
     datestamp = recon_dt.strftime('%Y%m%d')
-    path = os.path.join(output_dir, '{}_order_recon.csv'.format(datestamp))
-
+    path = os.path.join(output_dir,
+                        '{}_order_recon.csv'.format(datestamp))
     data[output_columns].to_csv(path, index=False)
 
 
