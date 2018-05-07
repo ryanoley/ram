@@ -6,7 +6,7 @@ import datetime as dt
 from ram.data.feature_creator import *
 
 from ram.strategy.statarb.abstract.data_container import BaseDataContainer
-from ram.strategy.statarb.version_003.constructor.constructor import \
+from ram.strategy.statarb.version_004.constructor.constructor import \
     PortfolioConstructor
 
 LOW_PRICE_FILTER = 7
@@ -268,12 +268,12 @@ class DataContainer(BaseDataContainer):
 
         # PRMA vals
         prma = PRMA(live_flag)
-        for i in [10, 20, 40, 80]:
+        for i in [10, 15, 20, 40, 80]:
             feat.add_feature(data_rank(prma.fit(close, i)),
                              'prma_{}'.format(i))
 
         vol = VOL(live_flag)
-        for i in [10, 20, 40, 80]:
+        for i in [10, 20, 40]:
             feat.add_feature(data_rank(vol.fit(close, i)),
                              'vol_{}'.format(i))
 
@@ -288,28 +288,28 @@ class DataContainer(BaseDataContainer):
                              'boll_{}'.format(i))
 
         bol_smooth = BOLL_SMOOTH(live_flag)
-        for i in [40, 80, 160]:
+        for i in [40, 80]:
             feat.add_feature(data_rank(bol_smooth.fit(close, 2, i)),
                              'boll2_{}'.format(i))
 
         for i in [80, 160]:
-            feat.add_feature(data_rank(bol_smooth.fit(close, 5, i)),
-                             'boll5_{}'.format(i))
+            feat.add_feature(data_rank(bol_smooth.fit(close, 4, i)),
+                             'boll4_{}'.format(i))
 
         rsi = RSI(live_flag)
-        for i in [30, 60, 100]:
+        for i in [15, 30, 100]:
             feat.add_feature(data_rank(rsi.fit(close, i)),
                              'rsi_{}'.format(i))
 
         mfi = MFI(live_flag)
-        for i in [30, 60, 100]:
+        for i in [15, 30, 100]:
             feat.add_feature(data_rank(mfi.fit(high, low, close, volume, i)),
                              'mfi_{}'.format(i))
 
         # Smoothed prma
         smooth_params = [
-            (2, 40), (2, 80),
-            (3, 40), (3, 100),
+            (2, 20), (2, 40), (2, 80),
+            (3, 20), (3, 40), (3, 100),
             (4, 80), (4, 180)
         ]
 
@@ -321,7 +321,7 @@ class DataContainer(BaseDataContainer):
             feat.add_feature(ret, 'prma_{}_{}'.format(p[0], p[1]))
 
         # LONG returns
-        for i in [40, 80, 180]:
+        for i in [10, 20, 40, 180]:
             ret = data_rank(close.pct_change(i))
             if live_flag:
                 ret = ret.iloc[-1]

@@ -5,7 +5,7 @@ import datetime as dt
 from ram.strategy.statarb.abstract.portfolio_constructor import \
     BasePortfolioConstructor, BOOKSIZE
 
-from ram.strategy.statarb.version_003.constructor.sizes import SizeContainer
+from ram.strategy.statarb.version_004.constructor.sizes import SizeContainer
 
 
 class PortfolioConstructor(BasePortfolioConstructor):
@@ -16,15 +16,15 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
     def get_args(self):
         return {
-            'score_var': ['boll_80',
-                          'boll2_80',
-                          'boll5_80', 'boll5_160',
-                          'prma_2_40', 'prma_2_80',
-                          'prma_3_40', 'prma_3_100',
-                          'prma_4_80', 'prma_4_180',
-                          ],
+            'score_var': ['prma_20', 'prma_30',
+                          'prma_2_20', 'prma_2_40',
+                          'prma_3_20', 'prma_3_40',
+                          'prma_4_20', 'prma_4_40',
+                          'boll_40', 'boll2_40', 'boll3_40',
+                          'rsi_15'],
+
             'per_side_count': [5, 10, 20],
-            'holding_period': [3, 5, 7, 9]
+            'holding_period': [3, 5, 7]
 
         }
 

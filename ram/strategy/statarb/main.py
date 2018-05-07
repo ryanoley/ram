@@ -22,7 +22,8 @@ from ram.strategy.statarb.data_blueprints import blueprint_container
 strategy_versions = StrategyVersionContainer()
 
 strategy_versions.add_version('version_002', 'Smart Factor')
-strategy_versions.add_version('version_003', 'Smart Factor - Long Tech Features')
+strategy_versions.add_version('version_003', 'Smart Factor - Very Long Tech Features')
+strategy_versions.add_version('version_004', 'Smart Factor - Long-ish Tech Features')
 
 
 class StatArbStrategy(Strategy):
@@ -37,6 +38,12 @@ class StatArbStrategy(Strategy):
 
         elif self.strategy_code_version == 'version_003':
             from ram.strategy.statarb.version_003 import main
+            self.data = main.data()
+            self.signals = main.signals()
+            self.constructor = main.constructor()
+
+        elif self.strategy_code_version == 'version_004':
+            from ram.strategy.statarb.version_004 import main
             self.data = main.data()
             self.signals = main.signals()
             self.constructor = main.constructor()
