@@ -167,10 +167,10 @@ def get_recon_orders(recon_dt):
     qad_orders.NewShares = qad_orders.NewShares.astype(int)
 
     qad_orders.rename(columns={
-                        'PercAlloc':'qad_perc_alloc',
-                        'RClose':'qad_close',
-                        'Dollars':'qad_dollars',
-                        'NewShares':'qad_shares'
+                        'PercAlloc': 'qad_perc_alloc',
+                        'RClose': 'qad_close',
+                        'Dollars': 'qad_dollars',
+                        'NewShares': 'qad_shares'
                         }, inplace=True)
 
     return qad_orders
@@ -206,16 +206,16 @@ def get_sent_orders(recon_dt):
     Return DataFrame with the sent allocations for a particular date
     '''
     alloc_dir = os.path.join(ARCHIVE_DIR, 'allocations')
-    alloc_files =  os.listdir(alloc_dir)
+    alloc_files = os.listdir(alloc_dir)
     file_name = df.get_filename_from_date(recon_dt, alloc_files)
 
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
     exec_orders.SecCode = exec_orders.SecCode.astype(str)
     exec_orders.rename(columns={
-                        'PercAlloc':'exec_perc_alloc',
-                        'RClose':'exec_close',
-                        'Dollars':'exec_dollars',
-                        'NewShares':'exec_shares'
+                        'PercAlloc': 'exec_perc_alloc',
+                        'RClose': 'exec_close',
+                        'Dollars': 'exec_dollars',
+                        'NewShares': 'exec_shares'
                         }, inplace=True)
 
     return exec_orders
@@ -261,12 +261,10 @@ def main():
     else:
         recon_dt = parser.parse(args.recon_date).date()
 
-    import ipdb; ipdb.set_trace()
     if args.pricing:
         run_pricing_reconciliation(recon_dt)
     elif args.orders:
         run_order_reconciliation(recon_dt, strategy_id='StatArb1~papertrade')
-
 
 
 if __name__ == '__main__':
