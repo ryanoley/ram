@@ -701,7 +701,7 @@ def process_bloomberg_data(killed_seccodes):
                            'SpinoffMultiplier', 'SplitMultiplier']]
 
     # Don't write if not complete
-    if not np.all(messages.Message == '*'):
+    if np.any(messages.Message.apply(lambda x: x.find('WARN') > -1)):
         return messages
 
     # Get EOD position files to see if anything changed for our positions
@@ -718,7 +718,7 @@ def process_bloomberg_data(killed_seccodes):
 
     corp_actions = bloomberg[bloomberg.SecCode.isin(eod_positions.SecCode)]
     if len(corp_actions) > 0:
-        message = '[INFO] - {} Splits, Spins, Divs'.format(corp_actions)
+        message = '[INFO] - {} Corporate Action(s)'.format(len(corp_actions))
         # Write to file
         output = corp_actions.merge(eod_positions)
         output = output[['SecCode', 'Ticker', 'Shares', 'RAMID',
@@ -756,6 +756,9 @@ def process_bloomberg_data(killed_seccodes):
 
 
 def process_messages(messages_):
+    if len(messages_) == 1:
+        if messages_[0].find('Spotcheck') > -1:
+            return '[INFO] - ' + messages_[0]
     message = '; '.join(messages_)
     if len(message) == 0:
         message = '*'
