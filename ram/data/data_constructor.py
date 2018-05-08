@@ -565,7 +565,7 @@ def _get_max_test_dates_counts_cloud(strategy_name, version):
         data = pd.read_csv(StringIO(blob.download_as_string()))
         max_test_date = data.Date.max()
         max_file = path.split('/')[-1].split('_')[0]
-        return max_file, max_test_date, len(files)
+        return max_file, max_test_date, len(all_files)
 
     else:
         return 'No Files', 'No Files', 0
