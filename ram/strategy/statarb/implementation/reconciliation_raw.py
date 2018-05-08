@@ -99,7 +99,13 @@ def get_qad_close_data(data, inp_date):
 
 def _write_pricing_output(data, recon_dt, output_dir=RECON_DIR):
     datestamp = recon_dt.strftime('%Y%m%d')
-    path = os.path.join(output_dir, '{}_pricing_recon.csv'.format(datestamp))
+    path = os.path.join(output_dir,
+                        '{}_pricing_recon.csv'.format(datestamp))
+    if(os.path.isfile(path)):
+        timestamp = dt.datetime.utcnow().strftime('%H%M%S')
+        path = os.path.join(output_dir,
+                            '{}_pricing_recon_{}.csv'.format(datestamp,
+                                                             timestamp))
 
     output_columns = ['Ticker', 'SecCode', 'Date', 'signal_time',
                       'strategy_id', 'quantity', 'exec_shares', 'exec_price',
@@ -185,8 +191,8 @@ def get_qad_live_prices(data, inp_date):
     ix_seccodes = [50311, 11113]
     qad_ix_data = dh.get_index_data(ix_seccodes, ix_features, inp_date,
                                     inp_date)
-    qad_ix_data.loc[qad_ix_data.SecCode==50311, 'TICKER'] = '$SPX.X'
-    qad_ix_data.loc[qad_ix_data.SecCode==11113, 'TICKER'] = '$VIX.X'
+    qad_ix_data.loc[qad_ix_data.SecCode == 50311, 'TICKER'] = '$SPX.X'
+    qad_ix_data.loc[qad_ix_data.SecCode == 11113, 'TICKER'] = '$VIX.X'
 
     # Append and format
     qad_data = qad_data.append(qad_ix_data).reset_index(drop=True)
@@ -231,16 +237,21 @@ def rollup_orders(order_df, col_prfx=None):
 
 def _write_order_output(recon_orders, exec_orders, recon_dt,
                         output_dir=RECON_DIR):
-    data = pd.merge(recon_orders, exec_orders, how='outer')
-    data['Date'] = recon_dt
+    datestamp = recon_dt.strftime('%Y%m%d')
+    path = os.path.join(output_dir,
+                        '{}_order_recon.csv'.format(datestamp))
+    if(os.path.isfile(path)):
+        timestamp = dt.datetime.utcnow().strftime('%H%M%S')
+        path = os.path.join(output_dir,
+                            '{}_order_recon_{}.csv'.format(datestamp,
+                                                           timestamp))
+
     output_columns = ['SecCode', 'Date', 'exec_ticker', 'exec_perc_alloc',
                       'exec_dollars', 'exec_shares', 'exec_close',
                       'qad_ticker', 'qad_perc_alloc', 'qad_dollars',
                       'qad_shares', 'qad_close']
-
-    datestamp = recon_dt.strftime('%Y%m%d')
-    path = os.path.join(output_dir,
-                        '{}_order_recon.csv'.format(datestamp))
+    data = pd.merge(recon_orders, exec_orders, how='outer')
+    data['Date'] = recon_dt
     data[output_columns].to_csv(path, index=False)
 
 
