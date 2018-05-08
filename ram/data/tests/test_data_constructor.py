@@ -9,7 +9,7 @@ from ram import config
 from ram.data.data_constructor import *
 from ram.data.data_constructor import _get_versions
 from ram.data.data_constructor import _get_meta_data
-from ram.data.data_constructor import _get_min_max_dates_counts
+from ram.data.data_constructor import _get_max_test_dates_counts
 from ram.data.data_constructor import _get_strategy_version_stats
 
 
@@ -163,7 +163,9 @@ class TestDataConstructor(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             get_data_version_name('GeneralOutput', 'version_0010',
                                   prepped_data_dir=self.prepped_data_dir)
-        df = pd.DataFrame({'V1': range(4)})
+        df = pd.DataFrame({'V1': range(4),
+                           'Date': ['2010-01-01', '2010-01-02',
+                                    '2010-01-03', '2010-01-04']}, index=None)
         df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
                                'version_0001', '20101010_data.csv'))
         df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
@@ -171,15 +173,15 @@ class TestDataConstructor(unittest.TestCase):
         result = _get_meta_data(self.prepped_data_dir,
                                 'GeneralOutput',
                                 'version_0001')
-        result = _get_min_max_dates_counts(self.prepped_data_dir,
-                                           'GeneralOutput',
-                                           'version_0001')
-        self.assertEqual(result[0], '20101010')
-        self.assertEqual(result[1], '20111010')
+        result = _get_max_test_dates_counts(self.prepped_data_dir,
+                                            'GeneralOutput',
+                                            'version_0001')
+        self.assertEqual(result[0], '20111010')
+        self.assertEqual(result[1], '2010-01-04')
         self.assertEqual(result[2], 2)
-        result = _get_min_max_dates_counts(self.prepped_data_dir,
-                                           'GeneralOutput',
-                                           'version_0002')
+        result = _get_max_test_dates_counts(self.prepped_data_dir,
+                                            'GeneralOutput',
+                                            'version_0002')
         self.assertEqual(result[0], 'No Files')
         self.assertEqual(result[1], 'No Files')
         self.assertEqual(result[2], 0)
