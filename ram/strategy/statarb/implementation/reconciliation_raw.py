@@ -53,12 +53,13 @@ def get_live_prices(px_dt, price_dir=os.path.join(ARCHIVE_DIR,
         raise IOError("No live_pricing file for: " + str(px_dt))
 
     live_prices = pd.read_csv(file_path)
+    live_prices['captured_time'] = [parser.parse(x).time() for x
+                                    in live_prices.captured_time]
 
     return live_prices
 
 
 def ramex_merge_live(ramex_data, live_prices):
-
     trades = ramex_data.rename(columns={
                                'symbol': 'Ticker',
                                'avg_px': 'exec_price'})
@@ -68,13 +69,13 @@ def ramex_merge_live(ramex_data, live_prices):
 
     prices = live_prices.rename(columns={
         'AdjClose': 'signal_close',
-        'AdjVolume': 'signal_volume'
+        'AdjVolume': 'signal_volume',
+        'captured_time': 'signal_time'
     })
-    prices = prices[['SecCode', 'Ticker', 'signal_close', 'signal_volume']]
+    prices = prices[['SecCode', 'Ticker', 'signal_close', 'signal_volume',
+                     'signal_time']]
 
-    merged_data = pd.merge(trades, prices, how='left')
-
-    return merged_data
+    return pd.merge(trades, prices, how='left')
 
 
 def get_qad_close_data(data, inp_date):
@@ -100,8 +101,8 @@ def _write_pricing_output(data, recon_dt, output_dir=RECON_DIR):
     datestamp = recon_dt.strftime('%Y%m%d')
     path = os.path.join(output_dir, '{}_pricing_recon.csv'.format(datestamp))
 
-    output_columns = ['Ticker', 'SecCode', 'Date', 'strategy_id',
-                      'quantity', 'exec_shares', 'exec_price',
+    output_columns = ['Ticker', 'SecCode', 'Date', 'signal_time',
+                      'strategy_id', 'quantity', 'exec_shares', 'exec_price',
                       'signal_close', 'signal_volume', 'qad_close',
                       'qad_volume', 'qad_market_cap', 'qad_adj_close']
 

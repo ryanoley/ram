@@ -27,9 +27,9 @@ BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 
 LIVE_DIR = os.path.join(BASE_DIR, 'live')
-# LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180502_live')
+#LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180507_live')
 
-STRATEGY_ID = 'StatArb1~papertrades'
+STRATEGY_ID = 'StatArb1'
 
 ###############################################################################
 #  0. Import raw data
@@ -443,7 +443,7 @@ def make_orders(orders, positions):
     now = dt.datetime.now()
     start_time = now + dt.timedelta(minutes=1)
     start_time = dt.time(start_time.hour, start_time.minute)
-    end_time = now + dt.timedelta(minutes=15)
+    end_time = now + dt.timedelta(minutes=4)
     end_time = dt.time(end_time.hour, end_time.minute)
 
     for _, o in data.iterrows():
