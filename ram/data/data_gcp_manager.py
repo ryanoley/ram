@@ -235,7 +235,7 @@ if __name__ == '__main__':
 
     # LOCAL PREPPED DATA versions for a given strategy
     parser.add_argument(
-        '-dv', '--list_data_versions', action='store_true',
+        '-dl', '--list_data_versions', action='store_true',
         help='List all versions of prepped data for a strategy')
     parser.add_argument(
         '-d', '--data_version', type=str, metavar='',
