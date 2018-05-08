@@ -62,10 +62,10 @@ def get_live_prices(px_dt, price_dir=os.path.join(ARCHIVE_DIR,
 def ramex_merge_live(ramex_data, live_prices):
     trades = ramex_data.rename(columns={
                                'symbol': 'Ticker',
-                               'avg_px': 'exec_price'})
-
-    trades = trades[['Ticker', 'strategy_id', 'quantity',
-                     'exec_shares', 'exec_price']]
+                               'avg_px': 'exec_price'
+                               })
+    trades = trades[['Ticker', 'strategy_id', 'quantity', 'exec_shares',
+                     'exec_price']]
 
     prices = live_prices.rename(columns={
         'AdjClose': 'signal_close',
@@ -167,7 +167,7 @@ def get_recon_orders(recon_dt):
     qad_orders['NewShares'] = (qad_orders.Dollars / qad_orders.RClose)
     qad_orders.NewShares = qad_orders.NewShares.astype(int)
 
-    return _rollup_orders(qad_orders, 'qad')
+    return rollup_orders(qad_orders, 'qad')
 
 
 def get_qad_live_prices(data, inp_date):
@@ -183,9 +183,10 @@ def get_qad_live_prices(data, inp_date):
     # Get qad index data
     ix_features = ['AdjClose']
     ix_seccodes = [50311, 11113]
-    ix_tickers = ['$SPX.X', '$VIX.X']
     qad_ix_data = dh.get_index_data(ix_seccodes, ix_features, inp_date,
                                     inp_date)
+    qad_ix_data.loc[qad_ix_data.SecCode==50311, 'TICKER'] = '$SPX.X'
+    qad_ix_data.loc[qad_ix_data.SecCode==11113, 'TICKER'] = '$VIX.X'
 
     # Append and format
     qad_data = qad_data.append(qad_ix_data).reset_index(drop=True)
@@ -206,9 +207,10 @@ def get_sent_orders(recon_dt):
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
     exec_orders.SecCode = exec_orders.SecCode.astype(str)
 
-    return _rollup_orders(exec_orders, 'exec')
+    return rollup_orders(exec_orders, 'exec')
 
-def _rollup_orders(order_df, col_prfx=None):
+
+def rollup_orders(order_df, col_prfx=None):
     assert(set(['SecCode', 'Ticker', 'PercAlloc', 'RClose', 'Dollars',
                'NewShares']).issubset(set(order_df.columns)))
 
@@ -223,7 +225,7 @@ def _rollup_orders(order_df, col_prfx=None):
     rollup['{}shares'.format(col_prfx)] = grp.NewShares.sum()
 
     rollup.reset_index(inplace=True)
-    rollup.rename(columns={'index':'SecCode'}, inplace=True)
+    rollup.rename(columns={'index': 'SecCode'}, inplace=True)
     return rollup
 
 
