@@ -40,8 +40,8 @@ def run_pricing_reconciliation(recon_dt):
     _write_pricing_output(recon, recon_dt, RECON_DIR)
 
 
-def get_live_prices(px_dt, price_dir=os.path.join(ARCHIVE_DIR,
-                                                  'live_pricing')):
+def get_live_prices(px_dt,
+                    price_dir=os.path.join(ARCHIVE_DIR, 'live_pricing')):
 
     if not isinstance(px_dt, dt.date):
         px_dt = parser.parse(str(px_dt)).date()
