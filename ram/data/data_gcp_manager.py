@@ -206,7 +206,7 @@ def download_ms_gcp(ms_dir_name):
     file_path = get_ms_current_param_path(ms_dir_name)
     path = "gs://ram_data/{}".format(file_path)
     local_path = os.path.join(os.getenv('GITHUB'), 'ram', 'ram', 'strategy',
-                              'StatArbStrategy', 'implementation', 'params')
+                              'statarb', 'implementation', 'params') + '/'
     copy_string = "gsutil -m cp -r {} {}".format(path, local_path)
     os.system(copy_string)
     print('\nPut filename in config: {}\n'.format(file_path.split('/')[-1]))
