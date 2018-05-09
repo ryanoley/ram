@@ -393,7 +393,7 @@ def create_training_test_indexes(dates,
 
     # Final entry is all dates and empty test. This is for generating the
     # current top parameters.
-    output.append((dates, []))
+    # output.append((dates, []))
 
     return output
 
