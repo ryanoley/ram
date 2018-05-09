@@ -85,3 +85,47 @@ sector45_1 = deepcopy(base)
 sector45_1.description = 'Sector 45, Monthly, 12 month training'
 sector45_1.universe_filter_arguments['where'] += ' and GSECTOR = 45'
 sector45_1.universe_date_parameters['train_period_length'] = 12
+
+
+####
+# SECTOR 10
+sector10_1 = deepcopy(base)
+sector10_1.description = 'Sector 10, Monthly, 12 month training'
+sector10_1.universe_filter_arguments['where'] += ' and GSECTOR = 10'
+sector10_1.universe_date_parameters['train_period_length'] = 12
+
+# SECTOR 15
+sector15_1 = deepcopy(base)
+sector15_1.description = 'Sector 15, Monthly, 12 month training'
+sector15_1.universe_filter_arguments['where'] += ' and GSECTOR = 15'
+sector15_1.universe_date_parameters['train_period_length'] = 12
+
+# SECTOR 30
+sector30_1 = deepcopy(base)
+sector30_1.description = 'Sector 30, Monthly, 12 month training'
+sector30_1.universe_filter_arguments['where'] += ' and GSECTOR = 30'
+sector30_1.universe_date_parameters['train_period_length'] = 12
+
+# SECTOR 35
+sector35_1 = deepcopy(base)
+sector35_1.description = 'Sector 35, Monthly, 12 month training'
+sector35_1.universe_filter_arguments['where'] += ' and GSECTOR = 35'
+sector35_1.universe_date_parameters['train_period_length'] = 12
+
+# SECTOR 40
+sector40_1 = deepcopy(base)
+sector40_1.description = 'Sector 40, Monthly, 12 month training'
+sector40_1.universe_filter_arguments['where'] += ' and GSECTOR = 40'
+sector40_1.universe_date_parameters['train_period_length'] = 12
+
+# SECTOR 50
+sector50_1 = deepcopy(base)
+sector50_1.description = 'Sector 50, Monthly, 12 month training'
+sector50_1.universe_filter_arguments['where'] += ' and GSECTOR = 50'
+sector50_1.universe_date_parameters['train_period_length'] = 12
+
+# SECTOR 55
+sector55_1 = deepcopy(base)
+sector55_1.description = 'Sector 55, Monthly, 12 month training'
+sector55_1.universe_filter_arguments['where'] += ' and GSECTOR = 55'
+sector55_1.universe_date_parameters['train_period_length'] = 12
