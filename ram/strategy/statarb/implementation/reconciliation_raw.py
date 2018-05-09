@@ -124,7 +124,6 @@ def run_order_reconciliation(recon_dt, strategy_id):
     datestamp = recon_dt.strftime('%Y%m%d')
     gla.LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories',
                                 '{}_live'.format(datestamp))
-    gla.STRATEGY_ID = strategy_id
     gla.LIVE_FLAG = False
 
     # Get orders with close data
@@ -132,6 +131,7 @@ def run_order_reconciliation(recon_dt, strategy_id):
 
     # Read sent orders from signal data
     exec_orders = get_sent_orders(recon_dt)
+    exec_orders['strategy_id'] = strategy_id
 
     # Merge and write
     _write_order_output(recon_orders, exec_orders, recon_dt)
@@ -246,10 +246,11 @@ def _write_order_output(recon_orders, exec_orders, recon_dt,
                             '{}_order_recon_{}.csv'.format(datestamp,
                                                            timestamp))
 
-    output_columns = ['SecCode', 'Date', 'exec_ticker', 'exec_perc_alloc',
-                      'exec_dollars', 'exec_shares', 'exec_close',
-                      'qad_ticker', 'qad_perc_alloc', 'qad_dollars',
-                      'qad_shares', 'qad_close']
+    output_columns = ['SecCode', 'Date', 'strategy_id', 'exec_ticker',
+                      'exec_perc_alloc', 'exec_dollars', 'exec_shares',
+                      'exec_close', 'qad_ticker', 'qad_perc_alloc',
+                      'qad_dollars', 'qad_shares', 'qad_close']
+
     data = pd.merge(recon_orders, exec_orders, how='outer')
     data['Date'] = recon_dt
     data[output_columns].to_csv(path, index=False)
