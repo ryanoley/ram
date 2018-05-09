@@ -535,9 +535,9 @@ def _get_max_test_dates_counts(prepped_data_dir, strategy_name, version):
     path = os.path.join(prepped_data_dir, strategy_name, version)
     files = os.listdir(path)
     files = [f for f in files if f.find('_data.csv') > 1]
+    if 'market_index_data.csv' in files:
+        files.remove('market_index_data.csv')
     if len(files):
-        if 'market_index_data.csv' in files:
-            files.remove('market_index_data.csv')
         max_file = max(files)
         data = pd.read_csv(os.path.join(path, max_file))
         max_test_date = data.Date.max()
@@ -555,18 +555,17 @@ def _get_max_test_dates_counts_cloud(strategy_name, version):
     all_files = [x for x in all_files if x.find(version) >= 0]
     all_files = [x for x in all_files if x.find(strategy_name) >= 0]
     all_files = [x for x in all_files if x.find('_data.csv') >= 0]
-
+    # Remove market file if present
+    for f in all_files:
+        if f.find('market_index_data.csv') > -1:
+            all_files.remove(f)
     if len(all_files):
-        for f in all_files:
-            if f.find('market_index_data.csv') > -1:
-                all_files.remove(f)
         path = max(all_files)
         blob = bucket.get_blob(path)
         data = pd.read_csv(StringIO(blob.download_as_string()))
         max_test_date = data.Date.max()
         max_file = path.split('/')[-1].split('_')[0]
         return max_file, max_test_date, len(all_files)
-
     else:
         return 'No Files', 'No Files', 0
 
