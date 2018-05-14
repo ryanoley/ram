@@ -79,6 +79,13 @@ python ram/data/data_gcp_manager.py -s 4 -m 17 --download
 The config file is at: `ram/strategy/statarb/statarb_config.py`
 
 
+## 7. Re-Run daily workflow
+
+* `get_version_data.py`
+* `prep_data.py`
+
+
+
 # Daily Execution
 
 ## Morning pre-processing
