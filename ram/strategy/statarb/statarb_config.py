@@ -1,5 +1,9 @@
-# PRODUCTION SETTINGS
+# ~~~~~~~~~~~~~~~~~~~~~~#
+#  Production Settings  #
+# ~~~~~~~~~~~~~~~~~~~~~~#
 
-trained_models_dir_name = 'models_0008'
+# From Model Selection
+parameter_json = 'current_params_CombinationSearch_20180508194357.json'
 
-preprocessed_data_dir = 'preprocess_0003'
+# From Implementation Training
+trained_models_dir_name = 'models_0027'

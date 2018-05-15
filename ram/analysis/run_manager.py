@@ -5,7 +5,6 @@ import pandas as pd
 import datetime as dt
 from StringIO import StringIO
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from google.cloud import storage
 
@@ -24,68 +23,209 @@ class RunManager(object):
                  start_year=1950,
                  test_periods=6,
                  drop_params=None,
+                 keep_params=None,
+                 gcp_cloud_implementation=config.GCP_CLOUD_IMPLEMENTATION,
                  simulation_data_path=config.SIMULATIONS_DATA_DIR):
+        """
+        Parameters
+        ----------
+        strategy_class : str
+        run_name : str
+        start_year : int
+        test_periods : int
+        drop_params/keep_params : list
+            Example: [(param1, 25), (param2, 10)]
+        gcp_cloud_implementation : bool
+        simulation_data_path : str
+        """
         self.strategy_class = strategy_class
         self.run_name = run_name
         self.start_year = start_year
         self.test_periods = test_periods
         self.drop_params = drop_params
-        self.simulation_data_path = simulation_data_path
+        self.keep_params = keep_params
+        #
+        self._cloud_flag = gcp_cloud_implementation
+        if gcp_cloud_implementation:
+            self._gcp_client = storage.Client()
+            self._gcp_bucket = self._gcp_client.get_bucket(
+                config.GCP_STORAGE_BUCKET_NAME)
+        else:
+            self._simulation_data_path = simulation_data_path
 
     # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @staticmethod
-    def get_strategies(path=config.SIMULATIONS_DATA_DIR):
-        return [x for x in os.listdir(path) if
-                os.path.isdir(os.path.join(path, x))]
+    def get_strategies():
+        """
+        Returns all available StrategyClass names in whatever environment
+        """
+        if config.GCP_CLOUD_IMPLEMENTATION:
+            gcp_client = storage.Client()
+            bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+            cursor = bucket.list_blobs(prefix='simulations/', delimiter='/')
+            for blob in cursor:
+                pass
+            strategies = [prefix for prefix in cursor.prefixes]
+            return strategies
+        else:
+            path = config.SIMULATIONS_DATA_DIR
+            return [x for x in os.listdir(path) if
+                    os.path.isdir(os.path.join(path, x))]
+
+    @classmethod
+    def get_run_names(cls, strategy_class):
+        run_names = cls._get_run_names(strategy_class)
+        output = pd.DataFrame()
+        for i, (run_name, path) in enumerate(zip(*run_names)):
+            if config.GCP_CLOUD_IMPLEMENTATION:
+                gcp_client = storage.Client()
+                bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+                meta = read_json_cloud(path, bucket)
+            else:
+                meta = read_json(path)
+            output.loc[i, 'RunName'] = run_name
+            output.loc[i, 'RunDate'] = meta['start_time'][:10] if \
+                'start_time' in meta else None
+            output.loc[i, 'Completed'] = meta['completed'] if \
+                'completed' in meta else None
+            output.loc[i, 'Description'] = meta['description']
+        return output
 
     @staticmethod
-    def get_run_names(strategy_class, path=config.SIMULATIONS_DATA_DIR):
-        ddir = os.path.join(path, strategy_class)
-        dirs = [x for x in os.listdir(ddir) if x.find('run') >= 0]
-        output = pd.DataFrame({'Run': dirs, 'Description': np.nan,
-                               'Starred': ''})
-        for i, d in enumerate(dirs):
-            desc = json.load(open(os.path.join(ddir, d, 'meta.json'), 'r'))
-            output.loc[i, 'Description'] = desc['description']
-            if 'completed' in desc:
-                output.loc[i, 'Completed'] = desc['completed']
-            else:
-                output.loc[i, 'Completed'] = None
-            if 'end_time' in desc:
-                output.loc[i, 'RunDate'] = desc['end_time'][:10]
-            elif 'start_time' in desc:
-                output.loc[i, 'RunDate'] = desc['start_time'][:10]
-            else:
-                output.loc[i, 'RunDate'] = None
-            if os.path.isfile(os.path.join(ddir, d, 'starred.json')):
-                output.loc[i, 'Starred'] = '*'
-        return output[['Run', 'RunDate', 'Completed',
-                       'Description', 'Starred']]
+    def _get_run_names(strategy_class):
+        """
+        Gets a list of all run names, and the path to the meta file
+        """
+        if config.GCP_CLOUD_IMPLEMENTATION:
+            gcp_client = storage.Client()
+            bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
+            cursor = bucket.list_blobs(
+                prefix='simulations/{}/'.format(strategy_class))
+            all_files = [x.name for x in cursor]
+            run_names = list(set([x.split('/')[2] for x in all_files]))
+            run_names.sort()
+            # Make path names
+            paths = [
+                'simulations/{}/{}/meta.json'.format(strategy_class, run) for
+                run in run_names]
+            return run_names, paths
+        else:
+            ddir = os.path.join(config.SIMULATIONS_DATA_DIR,
+                                strategy_class)
+            run_names = [x for x in os.listdir(ddir) if x.find('run') >= 0]
+            # Make path names
+            paths = ['{}/{}/meta.json'.format(ddir, run) for run in run_names]
+            return run_names, paths
 
     # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def import_return_frame(self):
-        path = self.simulation_data_path
-        ddir = os.path.join(path, self.strategy_class, self.run_name,
-                            'index_outputs')
-        files = [x for x in os.listdir(ddir) if x.find('returns') > 0]
-        files.sort()
+        file_paths = self._get_run_file_paths(filter_text='returns.csv')
         # Trim files for test periods
         if self.test_periods > 0:
-            files = files[:-self.test_periods]
+            file_paths = file_paths[:-self.test_periods]
         returns = pd.DataFrame()
-        for i, f in enumerate(files):
-            if int(f[:4]) < self.start_year:
+        for path in file_paths:
+            file_year = int(path.split('/')[-1][:4])
+            if file_year < self.start_year:
                 continue
-            returns = returns.add(
-                pd.read_csv(os.path.join(ddir, f), index_col=0),
-                fill_value=0)
+            if self._cloud_flag:
+                temp = read_csv_cloud(path, self._gcp_bucket)
+            else:
+                temp = pd.read_csv(path, index_col=0)
+            returns = returns.add(temp, fill_value=0)
         returns.index = convert_date_array(returns.index)
         # Format columns as strings
         returns.columns = returns.columns.astype(str)
         returns = self._check_import_drop_params(returns)
         self.returns = returns
+
+    def import_stats(self):
+        file_paths = self._get_run_file_paths('stats.json')
+        self.stats = {}
+        if not file_paths:
+            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
+                                             in self.column_params}
+
+        for path in file_paths:
+            if self._cloud_flag:
+                stats = read_json_cloud(path, self._gcp_bucket)
+            else:
+                stats = read_json(path)
+            name = path.split('/')[-1]
+            self.stats[name] = stats
+
+    def import_column_params(self):
+        file_path = self._get_run_file_paths('column_params.json')[0]
+        if self._cloud_flag:
+            params = read_json_cloud(file_path, self._gcp_bucket)
+        else:
+            params = read_json(file_path)
+        # Convert keys to strings
+        column_params = {}
+        for k, v in params.iteritems():
+            column_params[str(k)] = v
+        self.column_params = column_params
+
+    def import_meta(self):
+        file_path = self._get_run_file_paths('/meta.json')[0]
+        if self._cloud_flag:
+            self.meta = read_json_cloud(file_path, self._gcp_bucket)
+        else:
+            self.meta = read_json(file_path)
+        # Get data blueprint and add to meta
+        file_path = self._get_run_file_paths('/data_meta.json')
+        if len(file_path) == 0:
+            self.meta['blueprint'] = {'value': 'no blueprint data'}
+            return
+        if self._cloud_flag:
+            blueprint = read_json_cloud(file_path[0], self._gcp_bucket)
+            self.meta['blueprint'] = blueprint['blueprint']
+        else:
+            blueprint = read_json(file_path[0])
+            self.meta['blueprint'] = blueprint['blueprint']
+
+    def import_all_output(self):
+        file_paths = self._get_run_file_paths('all_output.csv')
+        # Trim files for test periods
+        if self.test_periods > 0:
+            file_paths = file_paths[:-self.test_periods]
+        output = pd.DataFrame()
+        for path in file_paths:
+            file_year = path.split('/')[-1]
+            if int(file_year[:4]) < self.start_year:
+                continue
+            if self._cloud_flag:
+                temp = read_csv_cloud(path, self._gcp_bucket)
+            else:
+                temp = pd.read_csv(path, index_col=0)
+            output = output.add(temp, fill_value=0)
+        output.index = convert_date_array(output.index)
+        self.all_output = output
+
+    def _get_run_file_paths(self, filter_text):
+        if self._cloud_flag:
+            prefix = 'simulations/{}/{}/'.format(self.strategy_class,
+                                                 self.run_name)
+            cursor = self._gcp_bucket.list_blobs(prefix=prefix)
+            all_blobs = [x.name for x in cursor]
+            filtered_blobs = [x for x in all_blobs if x.find(filter_text) >= 0]
+            filtered_blobs.sort()
+            return filtered_blobs
+
+        else:
+            path = self._simulation_data_path
+            ddir = os.path.join(path, self.strategy_class, self.run_name)
+            all_files = []
+            for dir_vals in os.walk(ddir):
+                root = dir_vals[0].replace(ddir+'/', '')
+                dir_files = [os.path.join(root, x) for x in dir_vals[2]]
+                all_files += dir_files
+            filtered_files = [x for x in all_files if x.find(filter_text) >= 0]
+            filtered_files.sort()
+            paths = [os.path.join(ddir, x) for x in filtered_files]
+            return paths
 
     def _check_import_drop_params(self, returns):
         # Do we need to drop parameters as per init?
@@ -100,97 +240,17 @@ class RunManager(object):
             returns = returns[cols]
             self.column_params = post_drop_params_filter(
                 cols, self.column_params)
+        if self.keep_params:
+            if not hasattr(self, 'column_params'):
+                self.import_column_params()
+            cparams = classify_params(self.column_params)
+            cparams = filter_classified_params_keep(cparams, self.keep_params)
+            # Get unique column names
+            cols = get_columns(cparams)
+            returns = returns[cols]
+            self.column_params = post_drop_params_filter(
+                cols, self.column_params)
         return returns
-
-    def import_stats(self):
-        path = self.simulation_data_path
-        ddir = os.path.join(path, self.strategy_class, self.run_name,
-                            'index_outputs')
-        files = [x for x in os.listdir(ddir) if x.find('stats.json') > 0]
-        self.stats = {}
-        if files:
-            for f in files:
-                self.stats[f] = json.load(open(os.path.join(ddir, f), 'r'))
-        else:
-            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
-                                             in self.column_params}
-
-    def import_column_params(self):
-        path = self.simulation_data_path
-        ppath = os.path.join(path, self.strategy_class,
-                             self.run_name, 'column_params.json')
-        column_params = json.load(open(ppath, 'r'))
-        # Convert keys to strings
-        new_column_params = {}
-        for k, v in column_params.iteritems():
-            new_column_params[str(k)] = v
-        self.column_params = new_column_params
-
-    def import_meta(self):
-        path = self.simulation_data_path
-        ppath = os.path.join(path, self.strategy_class, self.run_name,
-                             'meta.json')
-        self.meta = json.load(open(ppath, 'r'))
-
-    # TEMP??
-    def import_long_short_returns(self):
-        path = self.simulation_data_path
-        ddir = os.path.join(path, self.strategy_class, self.run_name,
-                            'index_outputs')
-        files = [x for x in os.listdir(ddir) if x.find('all_output') > 0]
-        if len(files) == 0:
-            print('No `all_output` files available to analyze')
-            self.returns = None
-        # Trim files for test periods
-        if self.test_periods > 0:
-            files = files[:-self.test_periods]
-        returns = pd.DataFrame()
-        for i, f in enumerate(files):
-            if int(f[:4]) < self.start_year:
-                continue
-            temp = pd.read_csv(os.path.join(ddir, f), index_col=0)
-            # Adjustment for zero exposures on final day if present
-            exposure_columns = [x for x in temp.columns
-                                if x.find('Exposure') > -1]
-            temp.loc[temp.index.max(), exposure_columns] = np.nan
-            temp.fillna(method='pad', inplace=True)
-            # Keep just long and shorts and combine
-            unique_columns = set([int(x.split('_')[1]) for x in temp.columns])
-            for cn in unique_columns:
-                temp['LongRet_{}'.format(cn)] = \
-                    temp['LongPL_{}'.format(cn)] / \
-                    temp['Exposure_{}'.format(cn)]
-                temp['ShortRet_{}'.format(cn)] = \
-                    temp['ShortPL_{}'.format(cn)] / \
-                    temp['Exposure_{}'.format(cn)]
-            ret_columns = [x for x in temp.columns if x.find('Ret') > 0]
-            temp = temp.loc[:, ret_columns]
-            # Add to returns
-            returns = returns.add(temp, fill_value=0)
-        returns.index = convert_date_array(returns.index)
-        self.long_short_returns = returns
-
-    def import_all_output(self):
-        path = self.simulation_data_path
-        ddir = os.path.join(path, self.strategy_class, self.run_name,
-                            'index_outputs')
-        files = [x for x in os.listdir(ddir) if x.find('all_output') > 0]
-        if len(files) == 0:
-            print('No `all_output` files available to analyze')
-            self.all_output = None
-        # Trim files for test periods
-        if self.test_periods > 0:
-            files = files[:-self.test_periods]
-        all_output = pd.DataFrame()
-        for f in files:
-            if int(f[:4]) < self.start_year:
-                continue
-            temp = pd.read_csv(os.path.join(ddir, f), index_col=0)
-            # Add to returns
-            all_output = all_output.add(temp, fill_value=0)
-
-        all_output.index = convert_date_array(all_output.index)
-        self.all_output = all_output
 
     # ~~~~~~ Analysis Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -259,269 +319,8 @@ class RunManager(object):
         plt.plot(rets2.cumsum(), 'g')
         plt.show()
 
-    def parameter_correlations(self, param, drop_params=None, plot=False):
-        if not hasattr(self, 'returns'):
-            self.import_return_frame()
-        if not hasattr(self, 'column_params'):
-            self.import_column_params()
-        cparams = classify_params(self.column_params)
-        if drop_params:
-            cparams = filter_classified_params(cparams, drop_params)
-        params = cparams[param]
-        data = pd.DataFrame()
-        keys = params.keys()
-        # Sort to make it easy to read
-        keys.sort()
-        for key in keys:
-            cols = params[key]
-            temp = self.returns[cols].mean(axis=1).to_frame()
-            temp.columns = [key]
-            data = data.join(temp, how='outer')
-        if plot:
-            make_correlation_heatmap(data, title=param)
-        else:
-            return data.corr()
 
-    # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def add_note(self, note):
-        path = self.simulation_data_path
-        note_path = os.path.join(path, self.strategy_class,
-                                 self.run_name, 'notes.json')
-        if os.path.isfile(note_path):
-            notes = json.load(open(note_path, 'r'))
-        else:
-            notes = {}
-        now = dt.datetime.utcnow()
-        notes[now.strftime('%Y-%m-%dT%H:%M:%S')] = note
-        with open(note_path, 'w') as outfile:
-            json.dump(notes, outfile)
-
-    def get_notes(self):
-        path = self.simulation_data_path
-        note_path = os.path.join(path, self.strategy_class,
-                                 self.run_name, 'notes.json')
-        if not os.path.isfile(note_path):
-            return 'No notes files'
-        notes = json.load(open(note_path, 'r'))
-        out = pd.Series(notes).to_frame().reset_index()
-        out.columns = ['DateTime', 'Note']
-        out = out.sort_values('DateTime')
-        out = out.reset_index(drop=True)
-        return out
-
-    def add_star(self):
-        path = self.simulation_data_path
-        star_path = os.path.join(path, self.strategy_class,
-                                 self.run_name, 'starred.json')
-        now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
-        star = {'date_starred': now}
-        with open(star_path, 'w') as outfile:
-            json.dump(star, outfile)
-
-
-###############################################################################
-
-class RunManagerGCP(RunManager):
-
-    def __init__(self,
-                 strategy_class,
-                 run_name,
-                 start_year=1950,
-                 test_periods=6,
-                 drop_params=None):
-        super(RunManagerGCP, self).__init__(
-            strategy_class, run_name, start_year, test_periods)
-        # Delete simulation_data_path as is unneeded in GCP env
-        del self.simulation_data_path
-        self.drop_params = drop_params
-        # GCP Functionality
-        self._gcp_client = storage.Client()
-        self._bucket = self._gcp_client.get_bucket(
-            config.GCP_STORAGE_BUCKET_NAME)
-
-    # ~~~~~~ Viewing Available Data ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    @staticmethod
-    def get_strategies():
-        gcp_client = storage.Client()
-        bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
-        all_files = list(bucket.list_blobs())
-        all_simulation_files = [x for x in all_files if x.name[:5] == 'simul']
-        all_simulations = set([x.name.split('/')[1]
-                               for x in all_simulation_files])
-        return [x for x in all_simulations if len(x) > 0]
-
-    @staticmethod
-    def get_run_names(strategy_class):
-        gcp_client = storage.Client()
-        bucket = gcp_client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
-        all_files = list(bucket.list_blobs())
-        # Get unique runs from StrategyClass blobs
-        all_simulation_files = [x.name for x in all_files if x.name.find(
-            'simulations/{}'.format(strategy_class)) >= 0]
-        all_files_2 = [x.name for x in all_files]
-        all_runs = list(set([x.split('/')[2] for x in all_simulation_files]))
-        all_runs.sort()
-        output = pd.DataFrame({'Run': all_runs, 'Description': np.nan,
-                               'Starred': ''})
-        for i, run in enumerate(all_runs):
-            path = 'simulations/{}/{}/meta.json'.format(strategy_class, run)
-            blob = bucket.get_blob(path)
-            desc = json.loads(blob.download_as_string())
-            output.loc[i, 'Description'] = desc['description']
-            if 'completed' in desc:
-                output.loc[i, 'Completed'] = desc['completed']
-            else:
-                output.loc[i, 'Completed'] = None
-            if 'end_time' in desc:
-                output.loc[i, 'RunDate'] = desc['end_time'][:10]
-            elif 'start_time' in desc:
-                output.loc[i, 'RunDate'] = desc['start_time'][:10]
-            else:
-                output.loc[i, 'RunDate'] = None
-            # See if starred
-            star_path = star_path = os.path.join(
-                'simulations', strategy_class, run, 'starred.json')
-            if star_path in all_files_2:
-                output.loc[i, 'Starred'] = '*'
-        return output[['Run', 'RunDate', 'Completed',
-                       'Description', 'Starred']]
-
-    # ~~~~~~ Import Functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def _get_storage_run_files(self, filter_text):
-        base_path = os.path.join('simulations',
-                                 self.strategy_class,
-                                 self.run_name)
-        all_files = [x.name for x in list(self._bucket.list_blobs())]
-        all_files = [x for x in all_files if x.find(base_path) >= 0]
-        all_files = [x for x in all_files if x.find(filter_text) >= 0]
-        all_files.sort()
-        return all_files
-
-    def import_return_frame(self):
-        all_files = self._get_storage_run_files('returns.csv')
-        # Trim files for test periods
-        if self.test_periods > 0:
-            all_files = all_files[:-self.test_periods]
-        returns = pd.DataFrame()
-        for i, f in enumerate(all_files):
-            if int(f.split('/')[-1][:4]) < self.start_year:
-                continue
-            blob = self._bucket.get_blob(f)
-            data = pd.read_csv(StringIO(blob.download_as_string()),
-                               index_col=0)
-            returns = returns.add(data, fill_value=0)
-        returns.index = convert_date_array(returns.index)
-        returns.columns = returns.columns.astype(str)
-        returns = self._check_import_drop_params(returns)
-        self.returns = returns
-
-    def import_stats(self):
-        files = self._get_storage_run_files('stats.json')
-        self.stats = {}
-        if files:
-            for f in files:
-                blob = self._bucket.get_blob(f)
-                f_name = f.split('/')[-1]
-                self.stats[f_name] = json.loads(blob.download_as_string())
-        else:
-            self.stats['20100101NOSTATS'] = {x: {'no_stat': -999} for x
-                                             in self.column_params}
-
-    def import_column_params(self):
-        file_path = self._get_storage_run_files('column_params.json')[0]
-        blob = self._bucket.get_blob(file_path)
-        column_params = json.loads(blob.download_as_string())
-        new_column_params = {}
-        for k, v in column_params.iteritems():
-            new_column_params[str(k)] = v
-        self.column_params = new_column_params
-
-    def import_meta(self):
-        file_path = self._get_storage_run_files('meta.json')[0]
-        blob = self._bucket.get_blob(file_path)
-        self.meta = json.loads(blob.download_as_string())
-
-    def import_long_short_returns(self):
-        files = self._get_storage_run_files('all_output.csv')
-        if len(files) == 0:
-            print('No `all_output` files available to analyze')
-            self.returns = None
-        # Trim files for test periods
-        if self.test_periods > 0:
-            files = files[:-self.test_periods]
-        returns = pd.DataFrame()
-        for i, f in enumerate(files):
-            if int(f.split('/')[-1][:4]) < self.start_year:
-                continue
-            blob = self._bucket.get_blob(f)
-            temp = pd.read_csv(StringIO(blob.download_as_string()),
-                               index_col=0)
-            # Adjustment for zero exposures on final day if present
-            exposure_columns = [x for x in temp.columns
-                                if x.find('Exposure') > -1]
-            temp.loc[temp.index.max(), exposure_columns] = np.nan
-            temp.fillna(method='pad', inplace=True)
-            # Keep just long and shorts and combine
-            unique_columns = set([int(x.split('_')[1]) for x in temp.columns])
-            for cn in unique_columns:
-                temp['LongRet_{}'.format(cn)] = \
-                    temp['LongPL_{}'.format(cn)] / \
-                    temp['Exposure_{}'.format(cn)]
-                temp['ShortRet_{}'.format(cn)] = \
-                    temp['ShortPL_{}'.format(cn)] / \
-                    temp['Exposure_{}'.format(cn)]
-            ret_columns = [x for x in temp.columns if x.find('Ret') > 0]
-            temp = temp.loc[:, ret_columns]
-            # Add to returns
-            returns = returns.add(temp, fill_value=0)
-        returns.index = convert_date_array(returns.index)
-        self.long_short_returns = returns
-
-    # ~~~~~~ Notes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def _import_notes(self):
-        path = os.path.join('simulations', self.strategy_class,
-                            self.run_name, 'notes.json')
-        blob = self._bucket.get_blob(path)
-        if blob:
-            return json.loads(blob.download_as_string())
-        else:
-            return None
-
-    def add_note(self, note):
-        notes = self._import_notes()
-        notes = notes if notes else {}
-        #
-        now = dt.datetime.utcnow()
-        notes[now.strftime('%Y-%m-%dT%H:%M:%S')] = note
-        path = os.path.join('simulations', self.strategy_class,
-                            self.run_name, 'notes.json')
-        blob = self._bucket.blob(path)
-        blob.upload_from_string(json.dumps(notes))
-
-    def get_notes(self):
-        notes = self._import_notes()
-        if not notes:
-            return 'No notes files'
-        out = pd.Series(notes).to_frame().reset_index()
-        out.columns = ['DateTime', 'Note']
-        out = out.sort_values('DateTime')
-        out = out.reset_index(drop=True)
-        return out
-
-    def add_star(self):
-        star_path = os.path.join('simulations', self.strategy_class,
-                                 self.run_name, 'starred.json')
-        now = dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
-        star = {'date_starred': now}
-        blob = self._bucket.blob(star_path)
-        blob.upload_from_string(json.dumps(star))
-
-
-###############################################################################
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def filter_classified_params(cparams, drop_params=None):
     if drop_params:
@@ -546,6 +345,34 @@ def filter_classified_params(cparams, drop_params=None):
     return cparams
 
 
+def filter_classified_params_keep(cparams, keep_params=None):
+    if keep_params:
+        assert isinstance(keep_params, list)
+        assert isinstance(keep_params[0], tuple)
+        # Collect all columns to drop, and pop the parameter
+        # should be dropped so it isn't reported
+        keep_columns = []
+        for dp in keep_params:
+            if dp[0] in cparams:
+                if str(dp[1]) in cparams[dp[0]]:
+                    keep_columns.append(cparams[dp[0]][str(dp[1])])
+
+        # Get intersection of all the keep params
+        keep_columns2 = set(keep_columns[0])
+        for kc in keep_columns[1:]:
+            keep_columns2 = keep_columns2.intersection(set(kc))
+
+        output = {}
+        for param, pmap in cparams.items():
+            output[param] = {}
+            for val, col_list in pmap.items():
+                updated_cols = set(col_list).intersection(keep_columns2)
+                if updated_cols:
+                    output[param][val] = list(updated_cols)
+        return output
+    return cparams
+
+
 def get_quarterly_rets(data, column_name):
     data = data.copy()
     data['year'] = [d.year for d in data.index]
@@ -554,70 +381,21 @@ def get_quarterly_rets(data, column_name):
     return data2.pivot(index='year', columns='qtr', values=column_name)
 
 
-###############################################################################
-
-def _format_columns(columns):
-    if not isinstance(columns, list):
-        columns = [columns]
-    if not isinstance(columns[0], str):
-        columns = [str(x) for x in columns]
-    return columns
-
-
-def _get_date_indexes(date_index, start_year):
-    years = np.array([x.year for x in date_index])
-    return date_index[years >= start_year]
+def get_columns(param_dict):
+    cols = []
+    for vals1 in param_dict.values():
+        for vals2 in vals1.values():
+            cols.append(vals2)
+    cols = list(set(sum(cols, [])))
+    cols = np.array(cols)[np.argsort(np.array(cols, dtype=np.int))]
+    return cols.tolist()
 
 
-###############################################################################
-
-def aggregate_statistics(stats, start_year):
-    """
-    When stats are written across multiple files, they must be combined
-    into one data point. This function takes in a dictionary that
-    has in the first layer the file name, and then the next layer a dictionary
-    that has all the stats for each column.
-
-    For example:
-    {
-        '20100101_stats.json': {
-            '0': {'stat1': 10, 'stat2': 20},
-            '1': {'stat1': 20, 'stat2': 30}
-        },
-        '20110101_stats.json': {
-            '0': {'stat1': 20, 'stat2': 40},
-            '1': {'stat1': 30, 'stat2': 50}
-        },
-    }
-
-    The routine will take the mean and standard deviation over all the stats
-    and return a dictionary that has the column in the keys and a dictionary
-    of the stat: means
-
-    For example:
-    {
-        '0': {'stat1': 15, 'stat2': 30},
-        '1': {'stat1': 25, 'stat2': 40}
-    }
-    """
-    agg_stats = {k: {k: [] for k in stats.values()[0].values()[0].keys()}
-                 for k in stats.values()[0].keys()}
-
-    for t_index in stats.keys():
-        if int(t_index[:4]) < start_year:
-            continue
-        for col, col_stats in stats[t_index].iteritems():
-            for key, val in col_stats.iteritems():
-                agg_stats[col][key].append(val)
-
-    # Aggregate column stats overtime
-    out_stats = {}
-    for col, col_stats in agg_stats.iteritems():
-        out_stats[col] = {}
-        for key, vals in col_stats.iteritems():
-            out_stats[col][key] = (np.mean(vals), np.std(vals))
-
-    return out_stats
+def post_drop_params_filter(keep_cols, column_params):
+    new_column_params = {}
+    for c in keep_cols:
+        new_column_params[c] = column_params[c]
+    return new_column_params
 
 
 def classify_params(params):
@@ -687,55 +465,83 @@ def format_param_results(data, cparams, astats, start_year):
     return out
 
 
-def get_run_data(strategy_name, cloud_flag):
-    if cloud_flag:
-        return RunManagerGCP.get_run_names(strategy_name)
-    else:
-        return RunManager.get_run_names(strategy_name)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def _format_columns(columns):
+    if not isinstance(columns, list):
+        columns = [columns]
+    if not isinstance(columns[0], str):
+        columns = [str(x) for x in columns]
+    return columns
 
 
-def get_run_name(strategy_name, run_name, cloud_flag=False):
-    if cloud_flag:
-        runs = RunManagerGCP.get_run_names(strategy_name)
-    else:
-        runs = RunManager.get_run_names(strategy_name)
-    # Try to find
-    try:
-        return runs.loc[int(run_name)].Run
-    except:
-        if run_name in runs.Run.values:
-            return run_name
-        else:
-            raise Exception('Run not found')
+def _get_date_indexes(date_index, start_year):
+    years = np.array([x.year for x in date_index])
+    return date_index[years >= start_year]
 
 
-def get_columns(param_dict):
-    cols = []
-    for vals1 in param_dict.values():
-        for vals2 in vals1.values():
-            cols.append(vals2)
-    cols = list(set(sum(cols, [])))
-    cols = np.array(cols)[np.argsort(np.array(cols, dtype=np.int))]
-    return cols.tolist()
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def aggregate_statistics(stats, start_year):
+    """
+    When stats are written across multiple files, they must be combined
+    into one data point. This function takes in a dictionary that
+    has in the first layer the file name, and then the next layer a dictionary
+    that has all the stats for each column.
+
+    For example:
+    {
+        '20100101_stats.json': {
+            '0': {'stat1': 10, 'stat2': 20},
+            '1': {'stat1': 20, 'stat2': 30}
+        },
+        '20110101_stats.json': {
+            '0': {'stat1': 20, 'stat2': 40},
+            '1': {'stat1': 30, 'stat2': 50}
+        },
+    }
+
+    The routine will take the mean and standard deviation over all the stats
+    and return a dictionary that has the column in the keys and a dictionary
+    of the stat: means
+
+    For example:
+    {
+        '0': {'stat1': 15, 'stat2': 30},
+        '1': {'stat1': 25, 'stat2': 40}
+    }
+    """
+    agg_stats = {k: {k: [] for k in stats.values()[0].values()[0].keys()}
+                 for k in stats.values()[0].keys()}
+
+    for t_index in stats.keys():
+        if int(t_index[:4]) < start_year:
+            continue
+        for col, col_stats in stats[t_index].iteritems():
+            for key, val in col_stats.iteritems():
+                agg_stats[col][key].append(val)
+
+    # Aggregate column stats overtime
+    out_stats = {}
+    for col, col_stats in agg_stats.iteritems():
+        out_stats[col] = {}
+        for key, vals in col_stats.iteritems():
+            out_stats[col][key] = (np.mean(vals), np.std(vals))
+
+    return out_stats
 
 
-def make_correlation_heatmap(data, title=None):
-    corr = data.corr()
-    # Generate a mask for the upper triangle
-    mask = np.zeros_like(corr, dtype=np.bool)
-    mask[np.triu_indices_from(mask)] = True
-    plt.figure(figsize=(7, 6))
-    cmap = sns.diverging_palette(11, 210, as_cmap=True)
-    sns.heatmap(corr, mask=mask, cmap=cmap, vmin=-1.0, vmax=1.0, center=0,
-                square=True, linewidths=1.5,
-                cbar_kws={'shrink': 0.8, 'aspect': 50})
-    if title:
-        plt.title(title)
-    plt.show()
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def read_json(path):
+    return json.load(open(path, 'r'))
 
 
-def post_drop_params_filter(keep_cols, column_params):
-    new_column_params = {}
-    for c in keep_cols:
-        new_column_params[c] = column_params[c]
-    return new_column_params
+def read_json_cloud(path, bucket):
+    blob = bucket.get_blob(path)
+    return json.loads(blob.download_as_string())
+
+
+def read_csv_cloud(path, bucket):
+    blob = bucket.get_blob(path)
+    return pd.read_csv(StringIO(blob.download_as_string()), index_col=0)

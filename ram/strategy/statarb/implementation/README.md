@@ -1,60 +1,99 @@
-## Model Selection via ComboSearch
+# Model Selection
 
-The `ram` platform is designed to serve user-defined trading logics, read `Strategies`, with training and testing data, and provide an organizational framework to standardize analysis and increase productivity. As such one of the key outputs is the simulated, out-of-sample daily returns for a Strategy, and oftentimes many versions of that logic with different hyperparameters. This structure is organized as a matrix of returns with dates in the rows, and versions of the logic in the columns.
+Model Selection implements some logic for selecting hyper-parameters out-of-sample. The ModelSelection base class handles all the organizational components, from reading data and creating train/test indexes, to handling the output of equity curves and selected hyperparameters.
 
-After this matrix has been generated, `ComboSearch` is used to select the hyperparameters that maximize a performance metric, typically the Sharpe ratio. It is worth noting that `ComboSearch` cares little about the actual hyperparameters (or even Strategy for that matter), but searches over the columns for an optimal time-series. As the name suggests, the algorithm combines multiple time-series columns together to aid generalization and diversify idiosyncratic model-risk. By generating random combinations of `n` time series, it iteratively searches to improve the performance metric. Though it is a brute force mechanism and global optimality is out of reach (for example, combinations of five columns from a set of 250 has approximately 7.8 billion different combinations), the algorithm produces results that improve through time the longer it searches.
-
-As `ComboSearch` grinds away, it will checkpoint the best current results into a file called `current_top_params.json`, which holds the parameters that should be used in production.
+Model selection requires access to the output return files from the simulation, therefore, will happen where those files exist. The StatArb Notebook `ImplementationModelSelection.ipynb` can be used to generate the optimized parameters in `RAM_DATA/model_selection/`.
 
 
-## Model Selection output
+# Implementation Training
 
-1. From the Cloud run, download the `current_top_params.json` file to `statarb/implementation` folder
+## 1. Move Model Selection Top Parameters File
 
-2. On the local client, run `statarb/implementation/preprocess_new_models.py` to create blueprints for the daily run.
-
-3. Update preprocess_version in `statarb_config`
-
-
-## (Re-) Training models
-
-1. On local client, update the prepped data versions for the aforementioned runs. This can be done by simply running the version through the main command. The `d_update` with a given version will drop the final period's data, and recreate with most up-to-date data:
-
+The Model Selection parameter file should be in:
 ```
-python ram/strategy/statarb/main.py -dv          	  # List all version for strategy
-python ram/strategy/statarb/main.py -d_update 10      # Update version
+GITHUB/ram/ram/strategy/statarb/implementation/params/
 ```
 
-2. Upload new files to GCP Storage:
+#### Download config file from Google Cloud
 
 ```
-python ram/data/data_gcp_manager.py -ls                 # List all strategies
+python data_gcp_manager.py -msl
+python data_gcp_manager.py -ms `x` --download
+```
+
+NOTE: Downloads directly to GITHUB directory for StatArb
+
+
+## 2. Set Parameter File Name in StatArb Config
+
+The config file is at: `ram/strategy/statarb/statarb_config.py`
+
+
+## 3. Make sure prepped_data directories are up to date:
+
+```python
+python ram/strategy/statarb/main.py -dv
+```
+
+The Max Data Date column should be beyond the final date of the training period.
+
+#### To update versions of prepped data
+
+```python
+python ram/strategy/statarb/main.py -d_update {version/index number}
+```
+
+#### To move files to GCP cloud instance from local clients
+
+```python
+python ram/data/data_gcp_manager.py -sl                 # List all strategies
 python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for strategy
 python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
 ```
 
-3. Check that `statarb_configs.py` is updated
+TODO: Re-design command line arguments.
 
-4. Train models by simply invoking:
+
+## 4. Train models
+
+Training can happen locally or on GCP.
+
+**This step requires the correct config to be set from step 2.**
+
+```python
+python ram/strategies/statarb/main.py -i -w
+```
+
+
+## 5. Download Trained Model Directory
 
 ```
-python ram/strategy/statarb/main.py -i -w
-```
-
-5. Download cached models to `implementation/StatArbStrategy/trained_models`
-
-```
-python ram/data/data_gcp_manager.py -ls                 # List all strategies
-python ram/data/data_gcp_manager.py -s 4 -lm            # List all trained model dirs
+python ram/data/data_gcp_manager.py -sl                 # List all strategies
+python ram/data/data_gcp_manager.py -s 4 -ml            # List all trained model dirs
 python ram/data/data_gcp_manager.py -s 4 -m 17 --download
 ```
 
-6. Update `statarb_config/trained_models_dir_name` to downloaded dir
 
+## 6. Set Trained Models Name in StatArb Config
+
+The config file is at: `ram/strategy/statarb/statarb_config.py`
+
+
+## 7. Re-Run daily workflow
+
+* `get_version_data.py`
+* `prep_data.py`
+
+
+
+# Daily Execution
 
 ## Morning pre-processing
 
-1. Run data pull
+
+
+
+## 1. Get Raw Data (10 am)
 
 ```
 python ram/strategy/statarb/implementation/get_daily_raw_data.py
@@ -63,6 +102,16 @@ python ram/strategy/statarb/implementation/get_daily_raw_data.py
 
 
 
+# Other Details
 
+## Odd Ticker Hash
+
+`DATA/ram/implementation/StatArbStrategy/live_pricing/odd_ticker_hash.json`
+
+Used to map `{ QADirectTicker: EzeTicker , ...}`
+
+As far as I can tell, the "odd" tickers should be identified upon importing the current tickers, and checking them in the `live_prices/LIVE_PRICING.xls`
+
+There should be some process for verifying that Bloomberg Tickers/CUSIPs are properly merging with QADirect IDs as well.
 
 

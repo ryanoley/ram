@@ -9,7 +9,7 @@ from ram import config
 from ram.data.data_constructor import *
 from ram.data.data_constructor import _get_versions
 from ram.data.data_constructor import _get_meta_data
-from ram.data.data_constructor import _get_min_max_dates_counts
+from ram.data.data_constructor import _get_max_test_dates_counts
 from ram.data.data_constructor import _get_strategy_version_stats
 
 
@@ -54,7 +54,7 @@ class TestDataConstructor(unittest.TestCase):
                             'version_0001', 'meta.json')
         self.assertTrue(os.path.isfile(path))
 
-    def test_write_archive_meta_data(self):
+    def test_write_archive_meta_data2(self):
         blueprint = DataConstructorBlueprint('universe', 'Test description')
         dc = DataConstructor(self.prepped_data_dir)
         self.assertTrue(dc._check_parameters(blueprint))
@@ -163,7 +163,9 @@ class TestDataConstructor(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             get_data_version_name('GeneralOutput', 'version_0010',
                                   prepped_data_dir=self.prepped_data_dir)
-        df = pd.DataFrame({'V1': range(4)})
+        df = pd.DataFrame({'V1': range(4),
+                           'Date': ['2010-01-01', '2010-01-02',
+                                    '2010-01-03', '2010-01-04']}, index=None)
         df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
                                'version_0001', '20101010_data.csv'))
         df.to_csv(os.path.join(self.prepped_data_dir, 'GeneralOutput',
@@ -171,15 +173,15 @@ class TestDataConstructor(unittest.TestCase):
         result = _get_meta_data(self.prepped_data_dir,
                                 'GeneralOutput',
                                 'version_0001')
-        result = _get_min_max_dates_counts(self.prepped_data_dir,
-                                           'GeneralOutput',
-                                           'version_0001')
-        self.assertEqual(result[0], '20101010')
-        self.assertEqual(result[1], '20111010')
+        result = _get_max_test_dates_counts(self.prepped_data_dir,
+                                            'GeneralOutput',
+                                            'version_0001')
+        self.assertEqual(result[0], '20111010')
+        self.assertEqual(result[1], '2010-01-04')
         self.assertEqual(result[2], 2)
-        result = _get_min_max_dates_counts(self.prepped_data_dir,
-                                           'GeneralOutput',
-                                           'version_0002')
+        result = _get_max_test_dates_counts(self.prepped_data_dir,
+                                            'GeneralOutput',
+                                            'version_0002')
         self.assertEqual(result[0], 'No Files')
         self.assertEqual(result[1], 'No Files')
         self.assertEqual(result[2], 0)
@@ -189,14 +191,26 @@ class TestDataConstructor(unittest.TestCase):
                             prepped_data_dir=self.prepped_data_dir)
 
     def test_run_live(self):
-        blueprint = DataConstructorBlueprint('seccodes', 'Test description')
-        blueprint.seccodes_filter_arguments['output_file_name'] = 'asdf'
-        dc = DataConstructor(
-            ram_implementation_dir=self.implementation_data_dir)
-        dc.run_live(blueprint, 'TestStrategy')
-        path = os.path.join(self.implementation_data_dir, 'TestStrategy',
-                            'daily_raw_data', 'asdf.csv')
-        self.assertTrue(os.path.isfile(path))
+        path = self.implementation_data_dir
+        blueprint = DataConstructorBlueprint('universe', 'Test')
+        blueprint.universe_date_parameters['frequency'] = 'M'
+        blueprint.constructor_type = 'universe_live'
+        blueprint.output_file_name = 'asdf'
+        blueprint.output_file_dir = path
+        dc = DataConstructor()
+        dc.run_live(blueprint)
+        self.assertTrue(os.path.isfile(os.path.join(path, 'asdf.csv')))
+
+    def test_make_implementation_dates(self):
+        dc = DataConstructor(self.prepped_data_dir)
+        blueprint = DataConstructorBlueprint('universe', 'Test description')
+        blueprint.constructor_type = 'universe_live'
+        blueprint.universe_date_parameters['frequency'] = 'M'
+        blueprint.universe_date_parameters['test_period_length'] = 2
+        result = dc._make_implementation_dates(blueprint)
+        today = dt.date.today()
+        benchmark = dt.date(today.year, today.month, 1)
+        self.assertEqual(result[1], benchmark)
 
     def tearDown(self):
         if os.path.isdir(self.prepped_data_dir):

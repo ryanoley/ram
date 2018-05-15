@@ -64,6 +64,7 @@ class TestFeatureCreator(unittest.TestCase):
         data.loc[dt.date(2010, 1, 1)] = [1, 2, 3]
         data.loc[dt.date(2010, 1, 2)] = [1, 2, 3]
         data.loc[dt.date(2010, 1, 3)] = [1, 2, 3]
+        data = data.astype(float)
         data.columns.name = 'SecCode'
         data.index.name = 'Date'
         feat = FeatureAggregator()
@@ -74,8 +75,8 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['SecCode'] = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C']
         benchmark['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2),
                              dt.date(2010, 1, 3)] * 3
-        benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3]
-        benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27]
+        benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3.]
+        benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27.]
         assert_frame_equal(result, benchmark)
 
     def test_prma(self):
@@ -157,7 +158,7 @@ class TestFeatureCreator(unittest.TestCase):
         data['V1'] = [np.nan, 1, 2, 3, 4]
         data['V2'] = [np.nan, 3, 4, 5, 6]
         data['V3'] = [np.nan, np.nan, 10, 23, np.nan]
-        result = data_fill_median(data)
+        result = data_fill_median(data, True)
         benchmark = pd.DataFrame(index=range(3, 8))
         benchmark['V1'] = [2, 1, 2, 3, 4.]
         benchmark['V2'] = [2, 3, 4, 5, 6.]

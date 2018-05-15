@@ -6,32 +6,34 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-from ram import config
-from ram.strategy.statarb import statarb_config
-
-from ram.strategy.base import Strategy
-
-from ram.strategy.statarb.abstract.portfolio_constructor import \
-    BasePortfolioConstructor
-from ram.strategy.statarb.abstract.data_container import BaseDataContainer
-from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
-
 from sklearn.linear_model import LinearRegression
 
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
+from ram import config
+from ram.strategy.statarb import statarb_config
+
+# Strategy
+from ram.strategy.base import Strategy
+
+from ram.strategy.statarb.abstract.portfolio_constructor import *
+from ram.strategy.statarb.abstract.data_container import *
+from ram.strategy.statarb.abstract.signal_generator import *
+
+from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
+
+from ram.strategy.statarb.implementation.tests.make_test_data import *
 from ram.strategy.statarb.implementation.get_live_allocations import *
-from ram.strategy.statarb.implementation.get_live_allocations import \
-    _get_max_date_files, _get_all_raw_data_file_names, \
-    _import_format_raw_data, _format_raw_data_name, _get_model_files, \
-    _extract_params, _add_sizes, _import_live_pricing, _import_scaling_data, \
-    _import_bloomberg_data
+
+from ramex.orders.orders import MOCOrder
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
+# Basic Strategy Class
+###############################################################################
 
-class Signals(BaseSignalGenerator):
+class SignalsTest(BaseSignalGenerator):
 
     def get_args(self):
         return {'V1': [1, 2]}
@@ -68,6 +70,9 @@ class Signals(BaseSignalGenerator):
 
 class PortfolioConstructorTest(BasePortfolioConstructor):
 
+    def __init__(self):
+        self._size_containers = {}
+
     def get_args(self):
         return {'V2': [8, 9]}
 
@@ -79,6 +84,12 @@ class PortfolioConstructorTest(BasePortfolioConstructor):
 
     def get_day_position_sizes(self, date, signals):
         return signals
+
+    def set_other_data(self):
+        pass
+
+    def set_signal_data(self):
+        pass
 
 
 class DataContainerTest(BaseDataContainer):
@@ -129,12 +140,21 @@ class DataContainerTest(BaseDataContainer):
         self.test_data = ldata
         self._features = features
 
+    def get_other_data(self):
+        pass
+
+    def get_pricing_data(self):
+        pass
+
+    def get_test_dates(self):
+        pass
+
 
 class StatArbStrategyTest(Strategy):
 
     def strategy_init(self):
         self.data = DataContainerTest()
-        self.signals = Signals()
+        self.signals = SignalsTest()
         self.constructor = PortfolioConstructorTest()
 
     def get_data_blueprint_container(self):
@@ -155,173 +175,67 @@ class StatArbStrategyTest(Strategy):
     def implementation_training(self):
         pass
 
+    def get_implementation_param_path(self):
+        """
+        Location of JSON file that is outputted by model selection
+        """
+        pass
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    def process_implementation_params(self):
+        pass
+
+
+###############################################################################
+# Tests
+###############################################################################
 
 class TestGetLiveAllocations(unittest.TestCase):
 
     def setUp(self):
-        # Directory setup
-        self.imp_dir = os.path.join(os.getenv('GITHUB'), 'ram',
-                                    'ram', 'test_data')
-        # DELETE LEFTOVER DIRECTORIES
-        if os.path.exists(self.imp_dir):
-            shutil.rmtree(self.imp_dir)
-        os.mkdir(self.imp_dir)
-        path = os.path.join(self.imp_dir, 'StatArbStrategy')
-        os.mkdir(path)
-        # Create directories for get_live_allocations
-        path1 = os.path.join(path, 'trained_models')
-        os.mkdir(path1)
-        path1m = os.path.join(path1, 'models_0005')
-        os.mkdir(path1m)
-        path2 = os.path.join(path, 'daily_raw_data')
-        os.mkdir(path2)
-        path3 = os.path.join(path, 'live_pricing')
-        os.mkdir(path3)
-        # Raw Data
-        data = pd.DataFrame()
-        data['Date'] = ['2010-01-01', '2010-01-02', '2010-01-03'] * 2
-        data['SecCode'] = [14141.0] * 3 + ['43242'] * 3
-        data['AdjClose'] = range(6)
-        data.to_csv(os.path.join(
-            path2, '20100101_current_blueprint_version_0010.csv'), index=False)
-        data.to_csv(os.path.join(
-            path2, '20100102_current_blueprint_version_0010.csv'), index=False)
-        data.to_csv(os.path.join(
-            path2, '20100101_current_blueprint_version_0018.csv'), index=False)
-        data.to_csv(os.path.join(
-            path2, '20100102_current_blueprint_version_0018.csv'), index=False)
-        data.to_csv(os.path.join(path2, 'market_index_data.csv'), index=False)
-        # Run map
-        data = pd.DataFrame()
-        data['param_name'] = ['run_0003_1000', 'run_009_12']
-        data['run_name'] = ['run_0003', 'run_009']
-        data['strategy_version'] = ['version_0001'] * 2
-        data['data_version'] = ['version_0010', 'version_0018']
-        data['column_name'] = [1000, 12]
-        data['stack_index'] = ['version_0001~version_0010',
-                               'version_0001~version_0018']
-        data.to_csv(os.path.join(path1m, 'run_map.csv'), index=False)
-        # Create sklearn model and params
-        model = LinearRegression()
-        X = np.random.randn(100, 3)
-        y = np.random.randn(100)
-        model.fit(X=X, y=y)
-        path = os.path.join(path1m, 'run_0003_1000_skl_model.pkl')
-        with open(path, 'w') as outfile:
-            outfile.write(pickle.dumps(model))
-        path = os.path.join(path1m, 'run_009_12_skl_model.pkl')
-        with open(path, 'w') as outfile:
-            outfile.write(pickle.dumps(model))
-        params = {'V1': 3, 'V2': 10, 'V3': 3}
-        path = os.path.join(path1m, 'run_0003_1000_params.json')
-        with open(path, 'w') as outfile:
-            outfile.write(json.dumps(params))
-        path = os.path.join(path1m, 'run_009_12_params.json')
-        with open(path, 'w') as outfile:
-            outfile.write(json.dumps(params))
-        # Live pricing
-        data = pd.DataFrame()
-        data['SecCode'] = [1234, 4242, 3535]
-        data['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
-        data['Issuer'] = ['TRUESOMETHING', 'IBM Corp', 'Alphabet']
-        data['CLOSE'] = [1, 2, 3]
-        data['LAST'] = [1, 2, 'na']
-        data['OPEN'] = [1, 2, 3]
-        data['HIGH'] = [1, 2, 3]
-        data['LOW'] = [1, 2, 'na']
-        data['VWAP'] = [1, np.nan, 3]
-        data['VOLUME'] = [None, 2, 3]
-        data.to_csv(os.path.join(path3, 'prices.csv'), index=None)
-        # Scaling data
-        data = pd.DataFrame()
-        data['SecCode'] = [1234, 4242, 3535]
-        data['Date'] = '2010-01-01'
-        data['DividendFactor'] = [1, 1.1, 1.2]
-        data.to_csv(os.path.join(path3, 'seccode_scaling.csv'), index=None)
-        # Bloomberg data
-        data = pd.DataFrame()
-        data['Ticker'] = ['AAPL', 'IBM']
-        data['DivMultiplier'] = [1.5, 1.0]
-        data['SpinoffMultiplier'] = [10, 20.]
-        data['SplitMultiplier'] = [2.0, 3.0]
-        data.to_csv(os.path.join(path3, 'bloomberg_scaling.csv'), index=None)
-        # Ticker mapping
-        data = pd.DataFrame()
-        data['SecCode'] = ['4242', '5050']
-        data['Ticker'] = ['IBM', 'AAPL']
-        data.to_csv(os.path.join(path3, 'ticker_mapping.csv'), index=None)
-        # Position sheet positions
-        positions = pd.DataFrame()
-        positions['position'] = ['5050_StatArb_A0123', '1010_StatArb_A0123',
-                                 'GE Special Sit', 'CUDA Earnings']
-        positions['symbol'] = ['AAPL', 'IBM', 'GE', 'CUDA']
-        positions['share_count'] = [1000, -1000, 100, 3333]
-        positions['market_price'] = [10, 30, 10, 20]
-        positions['position_value'] = [10000, -30000, 330303, -1292]
-        positions['daily_pl'] = [20303, -2032, 3, 1]
-        positions['position_value_perc_aum'] = [0.003, 0.001, 0.1, 10.]
-        positions.to_csv(os.path.join(self.imp_dir, '20101112_positions.csv'),
-                         index=0)
+        data = ImplementationDataTestSuite()
+        data.make_data()
+        self.data_dir = data.data_dir
+        sizes = SizeContainer(2)
+        sizes.update_sizes({'A': 100, 'B': 200}, dt.date.today())
+        self.size_containers = {'run_0003_1000': sizes}
 
     def test_import_raw_data(self):
-        result = import_raw_data(self.imp_dir)
+        result = import_raw_data(self.data_dir)
         result = result.keys()
         result.sort()
         benchmark = ['market_data', 'version_0010', 'version_0018']
         self.assertListEqual(result, benchmark)
 
-    def test_get_all_raw_data_file_names(self):
-        path = os.path.join(self.imp_dir, 'StatArbStrategy', 'daily_raw_data')
-        result = _get_all_raw_data_file_names(path)
-        benchmark = [
-            '20100101_current_blueprint_version_0010.csv',
-            '20100101_current_blueprint_version_0018.csv',
-            '20100102_current_blueprint_version_0010.csv',
-            '20100102_current_blueprint_version_0018.csv'
-        ]
-        self.assertListEqual(result, benchmark)
-
-    def test_get_max_date_files(self):
-        all_files = [
-            '20100101_current_blueprint_version_0010.csv',
-            '20110101_current_blueprint_version_0010.csv',
-            '20100101_current_blueprint_version_0013.csv',
-            '20110101_current_blueprint_version_0013.csv',
-            '20100101_current_blueprint_version_0018.csv',
-            '20110101_current_blueprint_version_0018.csv'
-        ]
-        result = _get_max_date_files(all_files)
-        benchmark = [
-            '20110101_current_blueprint_version_0010.csv',
-            '20110101_current_blueprint_version_0013.csv',
-            '20110101_current_blueprint_version_0018.csv'
-        ]
+    def test_get_todays_file_names(self):
+        result = get_todays_file_names(self.data_dir)
+        today = dt.datetime.utcnow().strftime('%Y%m%d')
+        benchmark = ['version_0010.csv', 'version_0018.csv']
         self.assertListEqual(result, benchmark)
 
     def test_import_format_raw_data(self):
-        path = os.path.join(self.imp_dir, 'StatArbStrategy', 'daily_raw_data',
-                            '20100101_current_blueprint_version_0010.csv')
-        result = _import_format_raw_data(path)
+        statarb_path = os.path.join(self.data_dir)
+        todays_files = get_todays_file_names(statarb_path)
+        result = import_format_raw_data(todays_files[0], statarb_path)
         benchmark = pd.DataFrame()
-        benchmark['Date'] = [dt.date(2010, 1, 1), dt.date(2010, 1, 2),
-                             dt.date(2010, 1, 3)] * 2
+        yesteday = get_previous_trading_date()
+        benchmark['Date'] = [yesteday - dt.timedelta(days=2),
+                             yesteday - dt.timedelta(days=1),
+                             yesteday] * 2
         benchmark['SecCode'] = ['14141'] * 3 + ['43242'] * 3
         benchmark['AdjClose'] = range(6)
         assert_frame_equal(result, benchmark)
 
-    def test_format_raw_data_name(self):
-        file_name = '20110101_current_blueprint_version_0018.csv'
-        result = _format_raw_data_name(file_name)
+    def test_clean_data_file_name(self):
+        file_name = '20110101_version_0018.csv'
+        result = clean_data_file_name(file_name)
         benchmark = 'version_0018'
         self.assertEqual(result, benchmark)
 
     def test_import_run_map(self):
-        result = import_run_map(self.imp_dir, 'models_0005')
+        result = import_run_map()
 
     def test_import_model_params(self):
-        output = import_models_params(self.imp_dir, 'models_0005')
+        output = import_models_params(self.data_dir, 'models_0005')
         result = output.keys()
         result.sort()
         benchmark = ['run_0003_1000', 'run_009_12']
@@ -336,9 +250,9 @@ class TestGetLiveAllocations(unittest.TestCase):
         self.assertIsInstance(result, dict)
 
     def test_get_model_files(self):
-        path = os.path.join(self.imp_dir, 'StatArbStrategy',
+        path = os.path.join(self.data_dir, 'StatArbStrategy',
                             'trained_models', 'models_0005')
-        models, params = _get_model_files(path)
+        models, params = get_model_files(path)
         benchmark = ['run_0003_1000_skl_model.pkl', 'run_009_12_skl_model.pkl']
         self.assertListEqual(models, benchmark)
         benchmark = ['run_0003_1000_params.json', 'run_009_12_params.json']
@@ -354,7 +268,7 @@ class TestGetLiveAllocations(unittest.TestCase):
         # Check raw data
         path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
-                            'daily_raw_data')
+                            'live')
         all_files = os.listdir(path)
         self.assertTrue('market_index_data.csv' in all_files)
         all_files.remove('market_index_data.csv')
@@ -365,44 +279,43 @@ class TestGetLiveAllocations(unittest.TestCase):
                             'trained_models',
                             statarb_config.trained_models_dir_name)
         all_files = os.listdir(path)
-        self.assertTrue('run_map.csv' in all_files)
-        all_files.remove('run_map.csv')
+        self.assertTrue('run_map.json' in all_files)
+        all_files.remove('run_map.json')
         all_files = [x for x in all_files if x.find('skl_model') == 1]
         all_files = [x for x in all_files if x.find('params') == 1]
         self.assertEqual(len(all_files), 0)
 
-    def test_StatArbImplementation_add_raw_data(self):
-        raw_data = import_raw_data(self.imp_dir)
+    def test_StatArbImplementation_add_daily_data(self):
+        raw_data = import_raw_data(self.data_dir)
         imp = StatArbImplementation(StatArbStrategyTest)
-        imp.add_raw_data(raw_data)
+        imp.add_daily_data(raw_data)
 
-    def test_StatArbImplementation_add_run_map(self):
-        run_map = import_run_map(self.imp_dir, 'models_0005')
+    def test_StatArbImplementation_add_run_map_models(self):
+        run_map = import_run_map(self.data_dir, 'models_0005')
+        models_params = import_models_params(self.data_dir, 'models_0005')
         imp = StatArbImplementation(StatArbStrategyTest)
-        imp.add_run_map(run_map)
-
-    def test_StatArbImplementation_add_models_params(self):
-        models_params = import_models_params(self.imp_dir, 'models_0005')
-        imp = StatArbImplementation(StatArbStrategyTest)
-        imp.add_models_params(models_params)
+        imp.add_run_map_models(run_map, models_params)
 
     def test_StatArbImplementation_prep_start(self):
-        run_map = import_run_map(self.imp_dir, 'models_0005')
-        raw_data = import_raw_data(self.imp_dir)
-        models_params = import_models_params(self.imp_dir, 'models_0005')
-        positions = import_portfolio_manager_positions(self.imp_dir)
+        raw_data = import_raw_data(self.data_dir)
+        run_map = import_run_map(self.data_dir, 'models_0005')
+        models_params = import_models_params(self.data_dir, 'models_0005')
+        # TODO: RamexAccounting needs to be implemented here
+        positions = {}
         imp = StatArbImplementation(StatArbStrategyTest)
-        imp.add_run_map(run_map)
-        imp.add_raw_data(raw_data)
-        imp.add_models_params(models_params)
-        imp.add_positions(positions)
+        imp.add_daily_data(raw_data)
+        imp.add_run_map_models(run_map, models_params)
+        imp.add_size_containers(self.size_containers)
+        # import pdb; pdb.set_trace()
         imp.prep()
-        live_data = import_live_pricing(self.imp_dir)
+        ddir = os.path.join(self.data_dir, 'live_prices')
+        live_data = import_live_pricing(ddir, self.data_dir)
         # live_data['SecCode'] = [14141, 43242]
         # imp.run_live(live_data)
 
     def test_import_live_pricing(self):
-        result = _import_live_pricing(self.imp_dir)
+        ddir = os.path.join(self.data_dir, 'live_prices')
+        result = import_live_pricing(ddir, self.data_dir)
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['1234', '4242', '3535']
         benchmark['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
@@ -413,62 +326,63 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark['AdjVolume'] = [np.nan, 2, 3]
         benchmark['AdjVwap'] = [1, np.nan, 3]
         assert_frame_equal(result, benchmark)
-
-    def test_import_scaling_data(self):
-        result = _import_scaling_data(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['SecCode'] = ['1234', '4242', '3535']
-        benchmark['QADirectDividendFactor'] = [1, 1.1, 1.2]
-        assert_frame_equal(result, benchmark)
-
-    def test_import_bloomberg_data(self):
-        result = _import_bloomberg_data(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['SecCode'] = ['5050', '4242']
-        benchmark['BbrgDivMultiplier'] = [1.5, 1.0]
-        benchmark['BbrgSpinoffMultiplier'] = [10, 20.]
-        benchmark['BbrgSplitMultiplier'] = [2.0, 3.0]
-        assert_frame_equal(result, benchmark)
+        # Check if written to archive
+        path = os.path.join(self.data_dir, 'StatArbStrategy',
+                            'archive', 'live_pricing')
+        result = os.listdir(path)
+        prefix = dt.date.today().strftime('%Y%m%d')
+        benchmark = ['{}_live_pricing.csv'.format(prefix)]
+        self.assertListEqual(result, benchmark)
 
     def test_extract_params(self):
         all_params = {'V1': 10, 'V2': 20, 'V3': 3}
         imp = StatArbStrategyTest()
         imp.strategy_init()
         p1 = imp.data.get_args()
-        result = _extract_params(all_params, p1)
+        result = extract_params(all_params, p1)
         benchmark = {'V3': 3}
         self.assertDictEqual(result, benchmark)
         p1 = imp.signals.get_args()
-        result = _extract_params(all_params, p1)
+        result = extract_params(all_params, p1)
         benchmark = {'V1': 10}
         self.assertDictEqual(result, benchmark)
         p1 = imp.constructor.get_args()
-        result = _extract_params(all_params, p1)
+        result = extract_params(all_params, p1)
         benchmark = {'V2': 20}
         self.assertDictEqual(result, benchmark)
 
-    def test_add_sizes(self):
-        all_sizes = {}
-        model_sizes = {'a': 100, 'b': -100}
-        all_sizes = _add_sizes(all_sizes, model_sizes)
-        model_sizes = {'a': 100, 'b': -100}
-        all_sizes = _add_sizes(all_sizes, model_sizes)
-        model_sizes = {'a': -250, 'b': -50, 'c': 300}
-        all_sizes = _add_sizes(all_sizes, model_sizes)
-        benchmark = {'a': -50, 'b': -250, 'c': 300}
-        self.assertDictEqual(all_sizes, benchmark)
+    def test_make_orders(self):
+        orders = pd.DataFrame()
+        orders['SecCode'] = ['A', 'A', 'B', 'B']
+        orders['Dollars'] = [100, 100, 200, -140]
+        orders['Strategy'] = ['Strat1', 'Strat2'] * 2
+        orders['Ticker'] = ['A', 'A', 'B', 'B']
+        orders['RClose'] = [10, 10, 20, 20]
+        positions = pd.DataFrame()
+        positions['SecCode'] = ['A', 'B', 'C']
+        positions['Ticker'] = ['A', 'B', 'C']
+        positions['Shares'] = [10, 20, -50]
+        result = make_orders(orders, positions)
+        self.assertIsInstance(result[0], MOCOrder)
+        self.assertEqual(result[0].quantity, 10)
+        self.assertEqual(result[1].quantity, -17)
+        self.assertEqual(result[2].quantity, 50)
 
-    def test_import_portfolio_manager_positions(self):
-        result = import_portfolio_manager_positions(self.imp_dir)
-        benchmark = pd.DataFrame()
-        benchmark['position'] = ['5050_StatArb_A0123', '1010_StatArb_A0123']
-        benchmark['symbol'] = ['AAPL', 'IBM']
-        benchmark['share_count'] = [1000, -1000]
-        assert_frame_equal(result, benchmark)
+    def test_write_size_containers(self):
+        imp = StatArbImplementation(StatArbStrategyTest)
+        imp.add_size_containers(self.size_containers)
+        write_size_containers(imp, self.data_dir)
+        #
+        file_name = '{}_size_containers.json'.format(
+            dt.date.today().strftime('%Y%m%d'))
+        path = os.path.join(self.data_dir,
+                            'StatArbStrategy',
+                            'archive',
+                            'size_containers')
+        self.assertEqual(os.listdir(path)[0], file_name)
 
     def tearDown(self):
-        if os.path.exists(self.imp_dir):
-            shutil.rmtree(self.imp_dir)
+        ImplementationDataTestSuite().delete_data()
 
 
 if __name__ == '__main__':

@@ -4,8 +4,6 @@ import datetime as dt
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
-from ram import config
-
 
 class Constructor(object):
 

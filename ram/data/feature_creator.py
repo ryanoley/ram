@@ -33,8 +33,11 @@ def data_rank(pdata):
     return ranks
 
 
-def data_fill_median(data):
-    row_median = data.median(axis=1).fillna(method='backfill')
+def data_fill_median(data, backfill=False):
+    if backfill:
+        row_median = data.median(axis=1).fillna(method='backfill')
+    else:
+        row_median = data.median(axis=1)
     fill_df = pd.concat([row_median] * data.shape[1], axis=1)
     fill_df.columns = data.columns
     fill_df.index = data.index
@@ -49,7 +52,7 @@ class FeatureAggregator(object):
     def __init__(self, live_flag=False):
         self._data = pd.DataFrame()
 
-    def add_feature(self, data, label, fill_median=True):
+    def add_feature(self, data, label, fill_median=True, backfill=False):
         """
         Assumes input has SecCodes in the columns, dates in the row index,
         essentially from the Pivot table. If it is a Series, it is assumed
@@ -59,7 +62,7 @@ class FeatureAggregator(object):
             # It is assumed that these are the correct labels
             data = data.to_frame().T
         if fill_median:
-            data = data_fill_median(data)
+            data = data_fill_median(data, backfill)
         data = data.unstack().reset_index()
         data.columns = ['SecCode', 'Date', 'val']
         data['label'] = label
@@ -69,15 +72,17 @@ class FeatureAggregator(object):
         """
         Will put back in missing values if there was nothing to handle
         """
-        features = self._data.label.unique().tolist()
-        features.sort()
         output = self._data.pivot_table(
             values='val', index=['SecCode', 'Date'],
-            columns='label', aggfunc='sum').reset_index()
+            columns='label', aggfunc='mean').reset_index()
+        # Sorted output features
+        features = self._data.label.unique().tolist()
+        features.sort()
+        features = ['SecCode', 'Date'] + features
         # Add back in missing columns
-        output = output.loc[:, ['SecCode', 'Date']+features]
-        del output.index.name
-        del output.columns.name
+        missing_cols = set(features) - set(output.columns)
+        output = output.join(pd.DataFrame(columns=missing_cols))
+        output = output[features]
         return output
 
 
@@ -146,6 +151,25 @@ class BOLL(BaseTechnicalFeature):
             (4*std_price)
 
 
+class BOLL_SMOOTH(BaseTechnicalFeature):
+    """
+    (P - (AvgP - 2 * StdP)) / (4 * StdPrice)
+    """
+    def calculate_all_dates(self, data, smooth, window):
+        # Set to zero for ease of testing
+        std_price = data.rolling(window).std(ddof=0)
+        return (data.rolling(smooth).mean() -
+                (data.rolling(window).mean() - 2*std_price)) / \
+            (4*std_price)
+
+    def calculate_last_date(self, data, smooth, window):
+        # Set to zero for ease of testing
+        std_price = data.iloc[-window:].std(ddof=0)
+        return (data.rolling(smooth).mean().iloc[-1] -
+                (data.iloc[-window:].mean() - 2*std_price)) / \
+            (4*std_price)
+
+
 class MFI(BaseTechnicalFeature):
     """
     Typical Price = (High + Low + Close)/3
@@ -199,7 +223,7 @@ class RSI(BaseTechnicalFeature):
     RSI = 100 - 100 / (1 + RS)
     """
     def calculate_all_dates(self, data, window):
-        changes = data.pct_change()
+        changes = data.diff()
         gain = pd.DataFrame(np.where(changes > 0, changes, 0))
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.rolling(window).mean()
@@ -211,7 +235,7 @@ class RSI(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, window):
         window = window + 1
-        changes = data.iloc[-window:].pct_change()
+        changes = data.iloc[-window:].diff()
         gain = pd.DataFrame(np.where(changes > 0, changes, 0))
         loss = pd.DataFrame(np.where(changes < 0, -changes, 0))
         avg_gain = gain.mean()

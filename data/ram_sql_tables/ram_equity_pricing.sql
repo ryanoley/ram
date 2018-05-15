@@ -119,7 +119,7 @@ select				D.Code,
 					coalesce(P1.Low, P2.Low, P3.Vwap) as Low,
 					coalesce(P1.Close_, P2.Close_, P3.Vwap) as Close_,
 					P3.Vwap,
--					coalesce(P2.Volume, P1.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades, 0) as Volume,
+					coalesce(P1.Volume, P2.Volume, P3.Vwap * P3.AvgTrade * P3.NumTrades, 0) as Volume,
 					S.Shares as tempShares,
 					A.Factor as SplitFactor,
 					Isnull(DV.CashDividend, 0) as CashDividend
