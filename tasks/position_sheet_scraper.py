@@ -1,17 +1,18 @@
 import os
 import json
+import shutil
 import numpy as np
 import pandas as pd
 import datetime as dt
 
+DATA = os.getenv('DATA')
+RAMSHARE = os.getenv('RAMSHARE')
+FM_EXPORT_PATH = RAMSHARE + '/Roundabout/Operations/Roundabout Accounting/'
+FM_EXPORT_PATH += 'Roundabout Daily P&L 2016.xlsx'
+
 
 def get_fund_manager_stat_arb_positions():
-
-    base_path = os.getenv('DATA2')
-    file_path = '/Common Folders/Roundabout/Operations/Roundabout Accounting/'
-    file_path += 'Roundabout Daily P&L 2016.xlsx'
-    path = base_path + file_path
-    data = pd.read_excel(path)
+    data = pd.read_excel(FM_EXPORT_PATH)
 
     # Reset index on import doesn't work on server, so adding extra step
     indexes = pd.DataFrame(data.index.values.tolist())
@@ -52,12 +53,26 @@ def get_fund_manager_stat_arb_positions():
 
     # Write data to file
     today = dt.datetime.now().strftime('%Y%m%d')
-    output_dir = os.path.join(os.getenv('DATA'), 'ram', 'position_sheet')
+    output_dir = os.path.join(DATA, 'ram', 'position_sheet')
     data2.to_csv(os.path.join(output_dir, today+'_positions.csv'), index=None)
 
     with open(os.path.join(output_dir, today+'_portfolio.json'), 'w') as f:
         json.dump({'daily_pl': position_sheet_total_pl}, f)
 
 
+def archive_fund_manager_export():
+    # Add file creation datetime
+    dt_mod = dt.datetime.fromtimestamp(os.path.getmtime(FM_EXPORT_PATH))
+
+    # Write data to file
+    datestamp = dt_mod.strftime('%Y%m%d')
+    output_dir = os.path.join(DATA, 'ram', 'position_sheet', 'archive')
+    output_path = os.path.join(output_dir,
+                               '{}_fm_export.csv'.format(datestamp))
+
+    shutil.copy2(FM_EXPORT_PATH, output_path)
+
+
 if __name__ == '__main__':
     get_fund_manager_stat_arb_positions()
+    archive_fund_manager_export()
