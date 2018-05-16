@@ -9,6 +9,21 @@ GVKey in (6268, 10787)    JCI/TYCO
 
 */
 
+-- ######  Final Mapping Table  ######################################################
+
+
+if object_id('ram.dbo.ram_idccode_to_gvkey_map_NEW', 'U') is not null 
+	drop table ram.dbo.ram_idccode_to_gvkey_map_NEW
+
+create table ram.dbo.ram_idccode_to_gvkey_map_NEW
+(
+	IdcCode int,
+	GVKey int,
+	StartDate smalldatetime,
+	EndDate smalldatetime
+	PRIMARY KEY (IdcCode, GVKey, StartDate)
+)
+
 
 -- ######  CLEAN DATA TEMP TABLES  ######################################################
 
@@ -48,18 +63,6 @@ create table #clean_data_3
 )
 
 
-if object_id('tempdb..#clean_data_4', 'U') is not null 
-	drop table #clean_data_4
-
-create table #clean_data_4
-(
-	IdcCode int,
-	GVKey int,
-	StartDate smalldatetime,
-	EndDate smalldatetime
-)
-
-
 -- ######  OTHER TEMP TABLES  #############################################################
 
 if object_id('tempdb..#stacked_data', 'U') is not null 
@@ -77,7 +80,7 @@ create table #stacked_data
 
 
 
--- ######  Create Stacked Table  ##########################################################
+-- ######  Create Stacked Table from Multiple Sources  ####################################
 
 ; with stacked_data as (
 select GVKey, Changedate, substring(Cusip, 0, 9) as Cusip, SecIntCode, 0 as Source_ from ram.dbo.ram_compustat_pit_map_us
@@ -139,7 +142,7 @@ left join		stacked_data2 B
 
 
 -- Filter out IdcCodes that have no GVKey mapped to it
-, stacked_Data_idc_data2 as (
+, stacked_data_idc_data2 as (
 select			*
 from			stacked_data_idc_data
 where			IdcCode in (select distinct IdcCode from stacked_data_idc_data where GVKey is not null)
@@ -179,6 +182,7 @@ select		A.IdcCode,
 			'2079-01-01' as EndDate
 from		#stacked_data A
 where		IdcCodeGVKeyMapCount = 1
+	and		GVKey is not null
 
 go
 
@@ -196,6 +200,7 @@ select		A.*,
 				order by A.StartDate) as LagGVKey
 from		#stacked_data A
 where		IdcCodeGVKeyMapCount = 2
+	and		GVKey is not null
 )
 
 
@@ -233,89 +238,14 @@ go
 
 
 -------------------------------------------------------------------------------------
--- Get Forward Fill and Back Fill, and assure no conflicts
-
-; with stacked_data as (
-select			*
-from			#stacked_data
-where			IdcCodeGVKeyMapCount = 2
-	and			IdcCode not in (select distinct IdcCode from #clean_data_2)
-)
-
-
--- Forward Fill
-, filled_data as (
-select			A.IdcCode,
-				A.Cusip,
-				A.StartDate,
-				A.EndDate,
-				Lag(A.StartDate, 1) over (
-					partition by A.IdcCode
-					order by A.StartDate) as LagStartDate,
-
-				-- Forward filled and backfilled GVKeys
-				coalesce(A.GVKey, B.GVKey, C.GVKey) as GVKey,
-
-				Lag(coalesce(A.GVKey, B.GVKey, C.GVKey), 1) over (
-					partition by A.IdcCode
-					order by A.StartDate) as LagGVKey
-
-from			stacked_data A
-
--- Forward fill
-left join		stacked_data B
-	on			A.IdcCode = B.IdcCode
-	and			B.StartDate = (select max(StartDate) from stacked_data
-							   where IdcCode = A.IdcCode and StartDate <= A.StartDate
-							   and GVKey is not null)
--- Backward fill
-left join		stacked_data C
-	on			A.IdcCode = C.IdcCode
-	and			C.StartDate = (select min(StartDate) from stacked_data
-							   where IdcCode = A.IdcCode and StartDate >= A.StartDate
-							   and GVKey is not null)
-
-)
-
-
-, proportion_overlap_idc_codes as (
-select		IdcCode,
-			avg(case 
-				when LagStartDate is null then 1.0
-				when LagStartDate < StartDate then 1.0
-				else 0.0
-			end) as PropVal,
-			sum(case 
-				when LagGVKey is null then 1.0
-				when LagGVKey != GVKey then 1.0
-				else 0.0
-			end) as GVKeyChangeCount
-
-from		filled_data
-group by	IdcCode
-)
-
-
-insert into #clean_data_3
-select		A.IdcCode,
-			A.GVKey,
-			A.StartDate,
-			coalesce(dateadd(day, -1, Lead(A.StartDate, 1) over (
-				partition by IdcCode
-				order by StartDate)), '2079-01-01') as EndDate
-from		filled_data A
-where		IdcCode in (select IdcCode from proportion_overlap_idc_codes where PropVal = 1 and GVKeyChangeCount = 2)
-
-
-
--------------------------------------------------------------------------------------
--- Get entries that have GVKeys that dont have overlapping ReportDates. Start/End dates are split
+-- Get entries that have GVKeys that dont have overlapping ReportDates. 
+-- Start/End dates are split
 
 ; with idc_gvkey as (
 select distinct IdcCode, GVKey
 from			#stacked_data
 where			IdcCodeGVKeyMapCount >= 2
-	and			IdcCode not in (select distinct IdcCode from #clean_data_2 union select distinct IdcCode from #clean_data_3)
+	and			IdcCode not in (select distinct IdcCode from #clean_data_2)
 	and			GVKey is not null
 )
 
@@ -383,8 +313,7 @@ where		IdcCode in (select IdcCode from proportion_overlap_idc_codes where PropVa
 )
 
 
-
-insert into #clean_data_4
+insert into #clean_data_3
 select		A.IdcCode,
 			A.GVKey,
 			A.StartDate,
@@ -393,10 +322,11 @@ select		A.IdcCode,
 				order by StartDate)), '2079-01-01') as EndDate
 from		idc_gvkey3 A
 
-
 -------------------------------------------------------------------------------------
 
 
+/*
+-- TODO: UNSOLVED!!
 
 ; with idc_gvkey as (
 select			*
@@ -405,18 +335,22 @@ where			IdcCode not in (select distinct IdcCode from #clean_data_1
 								union
 								select distinct IdcCode from #clean_data_2 
 								union 
-								select distinct IdcCode from #clean_data_3
-								union
-								select distinct IdcCode from #clean_data_4)
+								select distinct IdcCode from #clean_data_3)
 	and			GVKey is not null
 )
 
-
 select distinct IdcCode from idc_gvkey
 
+*/
 
 
 
 
 
-
+insert into ram.dbo.ram_idccode_to_gvkey_map_NEW
+select * from #clean_data_1
+union
+select * from #clean_data_2 
+union 
+select * from #clean_data_3
+order by IdcCode, StartDate
