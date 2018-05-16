@@ -15,7 +15,7 @@ Creates the following tables:
 
 2. `ram_compustat_csvsecurity_map_raw` - A raw copy of the entire CSVSecurity table on date of creation
 
-3. `ram.dbo.ram_compustat_pit_map_us` - A merge of PIT GVKeys/Cusips with current SecIntCodes from CSVSecurity. Merged on Cusips
+3. `ram.dbo.ram_compustat_pit_map_us` - A merge of PIT GVKeys/Cusips with current SecIntCodes from CSVSecurity.
 
 4. `ram_compustat_csvsecurity_map_diffs` - An empty table that will collect the daily diffs of CSVSecurity table.
 
