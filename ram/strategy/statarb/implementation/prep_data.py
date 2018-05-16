@@ -161,6 +161,17 @@ def map_live_tickers(killed_seccodes):
     unique_seccodes = list(set(seccodes1 + seccodes2))
     data = get_seccode_ticker_mapping(unique_seccodes)
 
+    if np.any(data.Ticker.isnull()):
+        output['Message'] = '[WARNING] - SecCode missing Ticker in QADirect'
+        return output
+
+    # Ticker mapping for Bloomberg
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'live',
+                        'tickers_for_bloomberg.csv')
+    data.to_csv(path, index=None)
+
     # Archive
     file_name = '{}_ticker_mapping.csv'.format(
         dt.date.today().strftime('%Y%m%d'))
@@ -498,12 +509,14 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
     data['Ticker'] = data.BloombergId.apply(lambda x: x.replace(' US', ''))
 
     # Import QAD Ticker Mapping
-    data_dir = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy',
-                            'archive',
-                            'ticker_mapping')
-    file_name = max(os.listdir(data_dir))
-    qad_map = pd.read_csv(os.path.join(data_dir, file_name))
+    data_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live',
+                             'tickers_for_bloomberg.csv')
+    if not os.path.isfile(data_path):
+        return pd.DataFrame([]), ['No QAD Ticker Mapping csv']
+
+    qad_map = pd.read_csv(data_path)
     qad_map = qad_map[~qad_map.Ticker.isin(['$SPX.X', '$VIX.X'])]
     qad_map = qad_map[~qad_map.SecCode.isin(killed_seccodes)]
 
@@ -690,6 +703,10 @@ def process_bloomberg_data(killed_seccodes):
     messages.loc[3, 'Desc'] = 'Bloomberg Splits'
     messages.loc[3, 'Message'] = process_messages(messages_)
 
+    # Don't write if not complete
+    if np.any(messages.Message.apply(lambda x: x.find('WARN') > -1)):
+        return messages
+
     # MERGE
     bloomberg = divs.merge(spins, how='outer') \
         .merge(splits, how='outer').fillna(1)
@@ -699,10 +716,6 @@ def process_bloomberg_data(killed_seccodes):
 
     bloomberg = bloomberg[['SecCode', 'DivMultiplier',
                            'SpinoffMultiplier', 'SplitMultiplier']]
-
-    # Don't write if not complete
-    if np.any(messages.Message.apply(lambda x: x.find('WARN') > -1)):
-        return messages
 
     # Get EOD position files to see if anything changed for our positions
     # today
