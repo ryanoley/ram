@@ -19,14 +19,13 @@ Creates the following tables:
 
 4. `ram_compustat_csvsecurity_map_diffs` - An empty table that will collect the daily diffs of CSVSecurity table.
 
-### `process_raw_tables.sql`
-
-
-
 ## Daily Pull
 
-### `daily_map_diff.bat` -> `daily_id_diff.sql`
+Run via: `daily_map_diff.bat`
 
+### `daily_id_diff.sql`
+
+### `process_raw_tables.sql`
 
 ## Notes
 
