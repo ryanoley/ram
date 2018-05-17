@@ -1,4 +1,3 @@
-
 /*
 NOTES: 
 
@@ -11,6 +10,7 @@ GVKey in (6268, 10787)    JCI/TYCO
 
 -- ######  Final Mapping Table  ######################################################
 
+-- TODO: remove _NEW
 
 if object_id('ram.dbo.ram_idccode_to_gvkey_map_NEW', 'U') is not null 
 	drop table ram.dbo.ram_idccode_to_gvkey_map_NEW
@@ -84,6 +84,7 @@ create table #stacked_data
 
 ; with stacked_data as (
 select GVKey, Changedate, substring(Cusip, 0, 9) as Cusip, SecIntCode, 0 as Source_ from ram.dbo.ram_compustat_pit_map_us
+where substring(Cusip, 9, 10) != 'X'
 union
 select GVKey, AsOfDate as Changedate, Cusip, SecIntCode, 1 as Source_ from ram.dbo.ram_compustat_csvsecurity_map_raw
 where EXCNTRY = 'USA'
@@ -324,11 +325,16 @@ from		idc_gvkey3 A
 
 -------------------------------------------------------------------------------------
 
+insert into ram.dbo.ram_idccode_to_gvkey_map_NEW
+select * from #clean_data_1
+union
+select * from #clean_data_2 
+union 
+select * from #clean_data_3
 
-/*
--- TODO: UNSOLVED!!
 
-; with idc_gvkey as (
+
+-- These are the problem mappings
 select			*
 from			#stacked_data
 where			IdcCode not in (select distinct IdcCode from #clean_data_1
@@ -337,20 +343,3 @@ where			IdcCode not in (select distinct IdcCode from #clean_data_1
 								union 
 								select distinct IdcCode from #clean_data_3)
 	and			GVKey is not null
-)
-
-select distinct IdcCode from idc_gvkey
-
-*/
-
-
-
-
-
-insert into ram.dbo.ram_idccode_to_gvkey_map_NEW
-select * from #clean_data_1
-union
-select * from #clean_data_2 
-union 
-select * from #clean_data_3
-order by IdcCode, StartDate

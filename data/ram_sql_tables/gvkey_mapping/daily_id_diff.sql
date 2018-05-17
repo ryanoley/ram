@@ -21,6 +21,7 @@ select * From ram.dbo.ram_compustat_csvsecurity_map_diffs
 )
 
 
+-- Get last entry for a given SecIntCode from database tables
 , max_secintcode_entry as (
 select		A.*
 from		all_entries A
@@ -33,8 +34,8 @@ and			A.AsOfDate = B.AsOfDate
 )
 
 
-, diff_table_1 as (
 -- See if GVKey/Cusips changes for SecIntCode
+, diff_table_1 as (
 select		B.GVKey,
 			B.SecIntCode,
 			B.Cusip,
@@ -49,8 +50,8 @@ where		(A.GVKey != B.GVKey) or (A.Cusip != B.Cusip)
 )
 
 
-, diff_table_2 as (
 -- See if any new SecIntCodes
+, diff_table_2 as (
 select		B.GVKey,
 			B.SecIntCode,
 			B.Cusip,
@@ -63,6 +64,7 @@ on			A.SecIntCode = B.SecIntCode
 where		A.SecIntCode is null
 	and		B.SecIntCode is not null
 )
+
 
 -- Insert into temp table so we can put it into the diffs table and write to file
 insert into #all_data

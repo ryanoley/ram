@@ -18,6 +18,7 @@ echo ------------------------------
 echo %date%_!time! - Start
 
 %SQLCMD% -i %SCRIPTS%\daily_id_diff.sql > %OUTPUT%\%dateprefix%_csvsecurity_diffs.txt
+%SQLCMD% -i %SCRIPTS%\process_raw_tables.sql > %OUTPUT%\%dateprefix%_problem_mappings.txt
 
 echo %date%_!time! - End
 echo ------------------------------
