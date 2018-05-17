@@ -1,8 +1,8 @@
 /*
-NOTES: 
+NOTES:
 
 1. Original PIT table did not map to multiple Securities/Cusips, just one; CSVSecurity maps to multiple
-2. 
+2.
 
 GVKey in (6268, 10787)    JCI/TYCO
 
@@ -11,8 +11,9 @@ GVKey in (6268, 10787)    JCI/TYCO
 -- ######  Final Mapping Table  ######################################################
 
 -- TODO: remove _NEW
+SET NOCOUNT ON
 
-if object_id('ram.dbo.ram_idccode_to_gvkey_map_NEW', 'U') is not null 
+if object_id('ram.dbo.ram_idccode_to_gvkey_map_NEW', 'U') is not null
 	drop table ram.dbo.ram_idccode_to_gvkey_map_NEW
 
 create table ram.dbo.ram_idccode_to_gvkey_map_NEW
@@ -27,7 +28,7 @@ create table ram.dbo.ram_idccode_to_gvkey_map_NEW
 
 -- ######  CLEAN DATA TEMP TABLES  ######################################################
 
-if object_id('tempdb..#clean_data_1', 'U') is not null 
+if object_id('tempdb..#clean_data_1', 'U') is not null
 	drop table #clean_data_1
 
 create table #clean_data_1
@@ -39,7 +40,7 @@ create table #clean_data_1
 )
 
 
-if object_id('tempdb..#clean_data_2', 'U') is not null 
+if object_id('tempdb..#clean_data_2', 'U') is not null
 	drop table #clean_data_2
 
 create table #clean_data_2
@@ -51,7 +52,7 @@ create table #clean_data_2
 )
 
 
-if object_id('tempdb..#clean_data_3', 'U') is not null 
+if object_id('tempdb..#clean_data_3', 'U') is not null
 	drop table #clean_data_3
 
 create table #clean_data_3
@@ -65,7 +66,7 @@ create table #clean_data_3
 
 -- ######  OTHER TEMP TABLES  #############################################################
 
-if object_id('tempdb..#stacked_data', 'U') is not null 
+if object_id('tempdb..#stacked_data', 'U') is not null
 	drop table #stacked_data
 
 create table #stacked_data
@@ -126,7 +127,7 @@ select			Code as IdcCode,
 				Cusip,
 				StartDate,
 				EndDate
-from			prc.PrcScChg
+from			qai.prc.PrcScChg
 where			(Cusip is not null and Cusip != '')
 	and			Code in (select distinct IdcCode from ram.dbo.ram_master_ids)
 )
@@ -152,11 +153,11 @@ where			IdcCode in (select distinct IdcCode from stacked_data_idc_data where GVK
 
 -- Count the distinct GVKey mappings to IDC Codes
 , idccode_counts as (
-select			IdcCode, 
-				Count(*) as Count_ 
-from			(  select distinct IdcCode, GVKey 
+select			IdcCode,
+				Count(*) as Count_
+from			(  select distinct IdcCode, GVKey
 				   from stacked_data_idc_data2
-				   where GVKey is not null 
+				   where GVKey is not null
 				   and IdcCode is not null  ) a
 group by		IdcCode
 )
@@ -209,12 +210,12 @@ where		IdcCodeGVKeyMapCount = 2
 -- Make sure there are only two transitions of GVKeys
 , proportion_overlap_idc_codes as (
 select		IdcCode,
-			avg(case 
+			avg(case
 				when LagEndDate is null then 1.0
 				when LagEndDate < StartDate then 1.0
 				else 0.0
 			end) as PropVal,
-			sum(case 
+			sum(case
 				when LagGVKey is null then 1.0
 				when LagGVKey != GVKey then 1.0
 				else 0.0
@@ -239,7 +240,7 @@ go
 
 
 -------------------------------------------------------------------------------------
--- Get entries that have GVKeys that dont have overlapping ReportDates. 
+-- Get entries that have GVKeys that dont have overlapping ReportDates.
 -- Start/End dates are split
 
 ; with idc_gvkey as (
@@ -292,7 +293,7 @@ left join		report_dates_1 B
 -- Make sure all GVKeys don't overlap
 , proportion_overlap_idc_codes as (
 select		IdcCode,
-			avg(case 
+			avg(case
 				when LagMaxReportDate is null then 1.0
 				when LagMaxReportDate < MinReportDate then 1.0
 				else 0.0
@@ -328,8 +329,8 @@ from		idc_gvkey3 A
 insert into ram.dbo.ram_idccode_to_gvkey_map_NEW
 select * from #clean_data_1
 union
-select * from #clean_data_2 
-union 
+select * from #clean_data_2
+union
 select * from #clean_data_3
 
 
@@ -339,7 +340,7 @@ select			*
 from			#stacked_data
 where			IdcCode not in (select distinct IdcCode from #clean_data_1
 								union
-								select distinct IdcCode from #clean_data_2 
-								union 
+								select distinct IdcCode from #clean_data_2
+								union
 								select distinct IdcCode from #clean_data_3)
 	and			GVKey is not null
