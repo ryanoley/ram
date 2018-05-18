@@ -21,7 +21,7 @@ Creates the following tables:
 
 ## Daily Pull
 
-Run via: `daily_map_diff.bat`
+Run via: `daily_maping.bat`
 
 ### `daily_id_diff.sql`
 
