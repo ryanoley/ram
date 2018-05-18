@@ -242,29 +242,29 @@ class DataHandlerSQL(object):
 
     def get_live_seccode_ticker_map(self):
         query_string = \
-        """
-        select A.SecCode, Ticker, Cusip, Issuer
-        from ram.dbo.ram_master_ids A
-        join (select SecCode, max(StartDate) as StartDate
-              from ram.dbo.ram_master_ids group by SecCode) B
-        on A.SecCode = B.SecCode
-        and A.StartDate = B.StartDate
-        where A.Ticker is not null
-        and A.EndDate > getdate() -- Active
-        and A.ExchangeFlag = 1 -- U.S Exchanges
-        and A.Ticker != ''
-        union
-        select A.SecCode, Ticker, Cusip, Issuer
-        from ram.dbo.ram_master_ids_etf A
-        join (select SecCode, max(StartDate) as StartDate
-              from ram.dbo.ram_master_ids_etf group by SecCode) B
-        on A.SecCode = B.SecCode
-        and A.StartDate = B.StartDate
-        where A.Ticker is not null
-        and A.EndDate > getdate() -- Active
-        and A.ExchangeFlag = 1 -- U.S Exchanges
-        and A.Ticker != ''
-        """
+            """
+            select A.SecCode, Ticker, Cusip, Issuer
+            from ram.dbo.ram_master_ids A
+            join (select SecCode, max(StartDate) as StartDate
+                  from ram.dbo.ram_master_ids group by SecCode) B
+            on A.SecCode = B.SecCode
+            and A.StartDate = B.StartDate
+            where A.Ticker is not null
+            and A.EndDate > getdate() -- Active
+            and A.ExchangeFlag = 1 -- U.S Exchanges
+            and A.Ticker != ''
+            union
+            select A.SecCode, Ticker, Cusip, Issuer
+            from ram.dbo.ram_master_ids_etf A
+            join (select SecCode, max(StartDate) as StartDate
+                  from ram.dbo.ram_master_ids_etf group by SecCode) B
+            on A.SecCode = B.SecCode
+            and A.StartDate = B.StartDate
+            where A.Ticker is not null
+            and A.EndDate > getdate() -- Active
+            and A.ExchangeFlag = 1 -- U.S Exchanges
+            and A.Ticker != ''
+            """
         mapping = self.sql_execute(query_string)
         mapping = pd.DataFrame(mapping)
         mapping.columns = ['SecCode', 'Ticker', 'Cusip', 'Issuer']
@@ -358,6 +358,23 @@ class DataHandlerSQL(object):
                 return_data = self._cursor.fetchall()
                 self._disconnect()
                 return return_data
+            except Exception as e:
+                self._disconnect()
+                print(e)
+                time.sleep(2)
+
+    def sql_execute_no_return(self, sqlcmd):
+        """
+        For database commands that don't return anything
+        """
+        self._test_time_constraint()
+        for i in range(5):
+            try:
+                self._connect()
+                self._cursor.execute(sqlcmd)
+                self._connection.commit()
+                self._disconnect()
+                break
             except Exception as e:
                 self._disconnect()
                 print(e)

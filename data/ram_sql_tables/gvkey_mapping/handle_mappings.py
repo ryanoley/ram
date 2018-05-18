@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import datetime as dt
 
+from ram.utils.send_email import send_email
 from gearbox import read_sql, convert_date_array
 
 from ram.data.data_handler_sql import DataHandlerSQL
@@ -12,11 +13,13 @@ def get_current_mapping():
     command = \
         """
         select IdcCode, GVKey, StartDate, EndDate
-        from ram.dbo.ram_idccode_to_gvkey_map_NEW;
+        from ram.dbo.ram_idccode_to_gvkey_map_TEMP;
         """
     result = dh.sql_execute(command)
     data = pd.DataFrame(result,
                         columns=['IdcCode', 'GVKey', 'StartDate', 'EndDate'])
+    data.StartDate = data.StartDate.apply(lambda x: str(x)[:10])
+    data.EndDate = data.EndDate.apply(lambda x: str(x)[:10])
     return data
 
 
@@ -39,7 +42,6 @@ def import_manually_handled_mappings():
     return df
 
 
-
 def filter_problems(problems, handled):
     # Merge
     p = problems[['IdcCode', 'GVKey']].drop_duplicates()
@@ -60,20 +62,84 @@ def filter_problems(problems, handled):
         problem_idc_codes)].reset_index(drop=True)
 
 
+def handle_problems(problems):
+    if len(problems):
+        idc_codes = problems.IdcCode.unique().tolist()
+        msg = """
+        Check the following IdcCodes: {}
 
-# Get current mapping
-mapping = get_current_mapping()
+        File is located at: DATA/ram/data/gvkey_mapping2/PROBLEM_MAPPINGS.csv
+        """.format(idc_codes)
+        send_email(msg, '** GVKey mapping issues **')
 
-problems = import_problem_mappings()
-
-handled = import_manually_handled_mappings()
-
-# See if problems have been handled, if not, write to file
-problems = filter_problems(problems, handled)
-
-
-
-
-
+        path = os.path.join(os.getenv('DATA'), 'ram', 'data',
+                            'gvkey_mapping2/PROBLEM_MAPPINGS.csv')
+        problems.to_csv(path, index=None)
 
 
+def get_current_mapping():
+    dh = DataHandlerSQL()
+    command = \
+        """
+        select IdcCode, GVKey, StartDate, EndDate
+        from ram.dbo.ram_idccode_to_gvkey_map_TEMP;
+        """
+    result = dh.sql_execute(command)
+    data = pd.DataFrame(result,
+                        columns=['IdcCode', 'GVKey', 'StartDate', 'EndDate'])
+    data.StartDate = data.StartDate.apply(lambda x: str(x)[:10])
+    data.EndDate = data.EndDate.apply(lambda x: str(x)[:10])
+    return data
+
+
+def insert_mapping_into_db(mapping):
+    dh = DataHandlerSQL()
+    # Can only insert 1000 values at a time
+    command = "delete from ram.dbo.ram_idccode_to_gvkey_map_NEW;"
+    dh.sql_execute_no_return(command)
+    sql = "insert into ram.dbo.ram_idccode_to_gvkey_map_NEW values "
+    formatted_rows = _format_rows(mapping)
+    i = 0
+    while True:
+        vals = formatted_rows[(i*1000):((i+1)*1000)]
+        vals = ','.join(vals)
+        if len(vals):
+            final_sql = sql + vals + ';'
+            dh.sql_execute_no_return(final_sql)
+            i += 1
+        else:
+            break
+
+
+def _format_rows(mapping):
+    output = []
+    for _, x in mapping.iterrows():
+        output.append("({}, {}, '{}', '{}')".format(
+            x['IdcCode'], x['GVKey'], x['StartDate'], x['EndDate']))
+    return output
+
+
+def main():
+    # Get current mapping
+    mapping = get_current_mapping()
+
+    problems = import_problem_mappings()
+
+    handled = import_manually_handled_mappings()
+
+    # See if problems have been handled, if not, write to file
+    problems = filter_problems(problems, handled)
+
+    handle_problems(problems)
+
+    # Format handled and write to database table
+    handled = handled[~handled.discarded]
+    handled = handled.drop('discarded', axis=1)
+
+    final = mapping.append(handled)
+
+    insert_mapping_into_db(final)
+
+
+if __name__ == '__main__':
+    main()
