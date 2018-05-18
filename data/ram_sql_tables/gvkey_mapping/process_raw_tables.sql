@@ -10,13 +10,12 @@ GVKey in (6268, 10787)    JCI/TYCO
 
 -- ######  Final Mapping Table  ######################################################
 
--- TODO: remove _NEW
 SET NOCOUNT ON
 
-if object_id('ram.dbo.ram_idccode_to_gvkey_map_NEW', 'U') is not null
-	drop table ram.dbo.ram_idccode_to_gvkey_map_NEW
+if object_id('ram.dbo.ram_idccode_to_gvkey_map', 'U') is not null
+	drop table ram.dbo.ram_idccode_to_gvkey_map
 
-create table ram.dbo.ram_idccode_to_gvkey_map_NEW
+create table ram.dbo.ram_idccode_to_gvkey_map
 (
 	IdcCode int,
 	GVKey int,
