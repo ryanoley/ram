@@ -7,10 +7,6 @@ from gearbox import read_sql, convert_date_array
 from ram.data.data_handler_sql import DataHandlerSQL
 
 
-
-
-
-
 def get_current_mapping():
     dh = DataHandlerSQL()
     command = \
@@ -44,12 +40,40 @@ def import_manually_handled_mappings():
 
 
 
+def filter_problems(problems, handled):
+    # Merge
+    p = problems[['IdcCode', 'GVKey']].drop_duplicates()
+    h = handled.copy()
+    h['handled'] = 1
+    p['problems'] = 1
+    ph = h.merge(p, how='outer')
+
+    # If null, then new GVKey added to IdcCodes
+    pcodes1 = ph.IdcCode[ph.handled.isnull()].unique().tolist()
+
+    # If null, then potentially something resolved itself
+    pcodes2 = ph.IdcCode[ph.problems.isnull()].unique().tolist()
+
+    problem_idc_codes = pcodes1 + pcodes2
+
+    return problems[problems.IdcCode.isin(
+        problem_idc_codes)].reset_index(drop=True)
+
+
 
 # Get current mapping
 mapping = get_current_mapping()
 
 problems = import_problem_mappings()
+
 handled = import_manually_handled_mappings()
 
-# Remove handled from problems
+# See if problems have been handled, if not, write to file
+problems = filter_problems(problems, handled)
+
+
+
+
+
+
 

@@ -25,6 +25,18 @@ create table ram.dbo.ram_idccode_to_gvkey_map_NEW
 	PRIMARY KEY (IdcCode, GVKey, StartDate)
 )
 
+if object_id('ram.dbo.ram_idccode_to_gvkey_map_TEMP', 'U') is not null
+	drop table ram.dbo.ram_idccode_to_gvkey_map_TEMP
+
+create table ram.dbo.ram_idccode_to_gvkey_map_TEMP
+(
+	IdcCode int,
+	GVKey int,
+	StartDate smalldatetime,
+	EndDate smalldatetime
+	PRIMARY KEY (IdcCode, GVKey, StartDate)
+)
+
 
 -- ######  CLEAN DATA TEMP TABLES  ######################################################
 
@@ -326,7 +338,7 @@ from		idc_gvkey3 A
 
 -------------------------------------------------------------------------------------
 
-insert into ram.dbo.ram_idccode_to_gvkey_map_NEW
+insert into ram.dbo.ram_idccode_to_gvkey_map_TEMP
 select * from #clean_data_1
 union
 select * from #clean_data_2
