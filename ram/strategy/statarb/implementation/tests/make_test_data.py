@@ -9,7 +9,7 @@ import datetime as dt
 from sklearn.linear_model import LinearRegression
 
 from ram.data.data_handler_sql import DataHandlerSQL
-from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
+from ram.strategy.statarb.sizes import SizeContainer
 
 
 class ImplementationDataTestSuite(object):
