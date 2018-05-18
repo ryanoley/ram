@@ -4,6 +4,24 @@ import datetime as dt
 
 from gearbox import read_sql, convert_date_array
 
+from ram.data.data_handler_sql import DataHandlerSQL
+
+
+
+
+
+
+def get_current_mapping():
+    dh = DataHandlerSQL()
+    command = \
+        """
+        select IdcCode, GVKey, StartDate, EndDate
+        from ram.dbo.ram_idccode_to_gvkey_map_NEW;
+        """
+    result = dh.sql_execute(command)
+    data = pd.DataFrame(result,
+                        columns=['IdcCode', 'GVKey', 'StartDate', 'EndDate'])
+    return data
 
 
 def import_problem_mappings():
@@ -27,6 +45,11 @@ def import_manually_handled_mappings():
 
 
 
+# Get current mapping
+mapping = get_current_mapping()
 
 problems = import_problem_mappings()
 handled = import_manually_handled_mappings()
+
+# Remove handled from problems
+
