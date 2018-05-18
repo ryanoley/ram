@@ -95,9 +95,9 @@ def get_current_mapping():
 def insert_mapping_into_db(mapping):
     dh = DataHandlerSQL()
     # Can only insert 1000 values at a time
-    command = "delete from ram.dbo.ram_idccode_to_gvkey_map_NEW;"
+    command = "delete from ram.dbo.ram_idccode_to_gvkey_map;"
     dh.sql_execute_no_return(command)
-    sql = "insert into ram.dbo.ram_idccode_to_gvkey_map_NEW values "
+    sql = "insert into ram.dbo.ram_idccode_to_gvkey_map values "
     formatted_rows = _format_rows(mapping)
     i = 0
     while True:
