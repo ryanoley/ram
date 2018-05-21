@@ -27,7 +27,7 @@ def import_problem_mappings():
     file_name = '{}_problem_mappings.txt'.format(
         dt.date.today().strftime('%Y%m%d'))
     df = read_sql(os.path.join(os.getenv('DATA'), 'ram', 'data',
-                               'gvkey_mapping2', file_name))
+                               'gvkey_mapping', file_name))
     # Fix problem columns
     df.Cusip = df.Cusip.apply(lambda x: x.strip())
     df.StartDate = convert_date_array(df.StartDate)
@@ -68,12 +68,12 @@ def handle_problems(problems):
         msg = """
         Check the following IdcCodes: {}
 
-        File is located at: DATA/ram/data/gvkey_mapping2/PROBLEM_MAPPINGS.csv
+        File is located at: DATA/ram/data/gvkey_mapping/PROBLEM_MAPPINGS.csv
         """.format(idc_codes)
         send_email(msg, '** GVKey mapping issues **')
 
         path = os.path.join(os.getenv('DATA'), 'ram', 'data',
-                            'gvkey_mapping2/PROBLEM_MAPPINGS.csv')
+                            'gvkey_mapping/PROBLEM_MAPPINGS.csv')
         problems.to_csv(path, index=None)
 
 
