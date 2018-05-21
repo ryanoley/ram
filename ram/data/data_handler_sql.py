@@ -1,3 +1,4 @@
+import time
 import pypyodbc
 import numpy as np
 import pandas as pd
@@ -12,7 +13,7 @@ pypyodbc.connection_timeout = 8
 
 class DataHandlerSQL(object):
 
-    def __init__(self, table='ram.dbo.ram_equity_pricing_research'):
+    def __init__(self, table='ram.dbo.ram_equity_pricing'):
         self._table = table
 
     def _connect(self):
@@ -239,20 +240,34 @@ class DataHandlerSQL(object):
             )).flatten()
         return self._dates
 
-    def get_ticker_seccode_map(self):
+    def get_live_seccode_ticker_map(self):
         query_string = \
             """
-            select A.SecCode, Ticker, Issuer from ram.dbo.ram_master_ids A
+            select A.SecCode, Ticker, Cusip, Issuer
+            from ram.dbo.ram_master_ids A
             join (select SecCode, max(StartDate) as StartDate
                   from ram.dbo.ram_master_ids group by SecCode) B
             on A.SecCode = B.SecCode
             and A.StartDate = B.StartDate
             where A.Ticker is not null
+            and A.EndDate > getdate() -- Active
+            and A.ExchangeFlag = 1 -- U.S Exchanges
+            and A.Ticker != ''
+            union
+            select A.SecCode, Ticker, Cusip, Issuer
+            from ram.dbo.ram_master_ids_etf A
+            join (select SecCode, max(StartDate) as StartDate
+                  from ram.dbo.ram_master_ids_etf group by SecCode) B
+            on A.SecCode = B.SecCode
+            and A.StartDate = B.StartDate
+            where A.Ticker is not null
+            and A.EndDate > getdate() -- Active
+            and A.ExchangeFlag = 1 -- U.S Exchanges
             and A.Ticker != ''
             """
         mapping = self.sql_execute(query_string)
         mapping = pd.DataFrame(mapping)
-        mapping.columns = ['SecCode', 'Ticker', 'Issuer']
+        mapping.columns = ['SecCode', 'Ticker', 'Cusip', 'Issuer']
         mapping.SecCode = mapping.SecCode.astype(str)
         return mapping
 
@@ -336,15 +351,34 @@ class DataHandlerSQL(object):
 
     def sql_execute(self, sqlcmd):
         self._test_time_constraint()
-        try:
-            self._connect()
-            self._cursor.execute(sqlcmd)
-            return_data = self._cursor.fetchall()
-            self._disconnect()
-            return return_data
-        except Exception as e:
-            self._disconnect()
-            raise Exception(e)
+        for i in range(5):
+            try:
+                self._connect()
+                self._cursor.execute(sqlcmd)
+                return_data = self._cursor.fetchall()
+                self._disconnect()
+                return return_data
+            except Exception as e:
+                self._disconnect()
+                print(e)
+                time.sleep(2)
+
+    def sql_execute_no_return(self, sqlcmd):
+        """
+        For database commands that don't return anything
+        """
+        self._test_time_constraint()
+        for i in range(5):
+            try:
+                self._connect()
+                self._cursor.execute(sqlcmd)
+                self._connection.commit()
+                self._disconnect()
+                break
+            except Exception as e:
+                self._disconnect()
+                print(e)
+                time.sleep(2)
 
     def close_connections(self):
         self._disconnect()
