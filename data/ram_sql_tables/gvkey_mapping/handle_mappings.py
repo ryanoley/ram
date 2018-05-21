@@ -129,7 +129,6 @@ def _format_rows(mapping):
 
 
 def main():
-    import ipdb; ipdb.set_trace()
     # Get current mapping
     mapping = get_current_mapping()
 
