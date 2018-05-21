@@ -111,6 +111,15 @@ def insert_mapping_into_db(mapping):
             break
 
 
+def drop_temp_table():
+    dh = DataHandlerSQL()
+    command = \
+        """
+        drop table ram.dbo.ram_idccode_to_gvkey_map_TEMP;
+        """
+    result = dh.sql_execute(command)
+
+
 def _format_rows(mapping):
     output = []
     for _, x in mapping.iterrows():
@@ -139,6 +148,8 @@ def main():
     final = mapping.append(handled)
 
     insert_mapping_into_db(final)
+
+    drop_temp_table()
 
 
 if __name__ == '__main__':
