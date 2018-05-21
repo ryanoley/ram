@@ -10,23 +10,25 @@
 
 This script is called in the morning.
 
-#### `intraday_data_update.bat`:
+Position sheet scraper archives the Fund Manager file.
 
 
-#### `weekend_tasks.bat`
+## Earnings/PEAD
 
-Calls `table_coverage_analysis.py` on the weekends.
+#### `daily_scaling_log.py`
+
+This saves the proportions used between trades and the AUM number for reconcilliation. Is called with earnings/post earnings scripts.
 
 
-## Trading-Related
+## StatArb
 
-#### Bloomberg
+#### Bloomberg Data
 
 There is some live data that needs to be pulled from Bloomberg for end-of-day execution of trades, including Splits, Dividends and Spin-Offs. This code should live on the Bloomberg machine, and require a local scheduled job to run at some point mid-day.
 
-`production_bloomberg_data_pull.py`
+`production_bloomberg_data_pull.bat`
 
-#### StatArb
+#### Trade Data
 
 Data needs to be pulled daily for the StatArb trade, and a job must be created to call the following batch file:
 

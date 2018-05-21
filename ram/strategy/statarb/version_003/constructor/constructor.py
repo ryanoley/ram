@@ -5,7 +5,7 @@ import datetime as dt
 from ram.strategy.statarb.abstract.portfolio_constructor import \
     BasePortfolioConstructor, BOOKSIZE
 
-from ram.strategy.statarb.version_003.constructor.sizes import SizeContainer
+from ram.strategy.statarb.sizes import SizeContainer
 
 
 class PortfolioConstructor(BasePortfolioConstructor):

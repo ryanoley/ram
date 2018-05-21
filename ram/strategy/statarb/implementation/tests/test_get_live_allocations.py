@@ -21,7 +21,7 @@ from ram.strategy.statarb.abstract.portfolio_constructor import *
 from ram.strategy.statarb.abstract.data_container import *
 from ram.strategy.statarb.abstract.signal_generator import *
 
-from ram.strategy.statarb.version_002.constructor.sizes import SizeContainer
+from ram.strategy.statarb.sizes import SizeContainer
 
 from ram.strategy.statarb.implementation.tests.make_test_data import *
 from ram.strategy.statarb.implementation.get_live_allocations import *

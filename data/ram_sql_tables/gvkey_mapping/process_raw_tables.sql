@@ -1,18 +1,45 @@
-
 /*
-NOTES: 
+NOTES:
 
 1. Original PIT table did not map to multiple Securities/Cusips, just one; CSVSecurity maps to multiple
-2. 
+2.
 
 GVKey in (6268, 10787)    JCI/TYCO
 
 */
 
+-- ######  Final Mapping Table  ######################################################
+
+SET NOCOUNT ON
+
+if object_id('ram.dbo.ram_idccode_to_gvkey_map', 'U') is not null
+	drop table ram.dbo.ram_idccode_to_gvkey_map
+
+create table ram.dbo.ram_idccode_to_gvkey_map
+(
+	IdcCode int,
+	GVKey int,
+	StartDate smalldatetime,
+	EndDate smalldatetime
+	PRIMARY KEY (IdcCode, GVKey, StartDate)
+)
+
+if object_id('ram.dbo.ram_idccode_to_gvkey_map_TEMP', 'U') is not null
+	drop table ram.dbo.ram_idccode_to_gvkey_map_TEMP
+
+create table ram.dbo.ram_idccode_to_gvkey_map_TEMP
+(
+	IdcCode int,
+	GVKey int,
+	StartDate smalldatetime,
+	EndDate smalldatetime
+	PRIMARY KEY (IdcCode, GVKey, StartDate)
+)
+
 
 -- ######  CLEAN DATA TEMP TABLES  ######################################################
 
-if object_id('tempdb..#clean_data_1', 'U') is not null 
+if object_id('tempdb..#clean_data_1', 'U') is not null
 	drop table #clean_data_1
 
 create table #clean_data_1
@@ -24,7 +51,7 @@ create table #clean_data_1
 )
 
 
-if object_id('tempdb..#clean_data_2', 'U') is not null 
+if object_id('tempdb..#clean_data_2', 'U') is not null
 	drop table #clean_data_2
 
 create table #clean_data_2
@@ -36,7 +63,7 @@ create table #clean_data_2
 )
 
 
-if object_id('tempdb..#clean_data_3', 'U') is not null 
+if object_id('tempdb..#clean_data_3', 'U') is not null
 	drop table #clean_data_3
 
 create table #clean_data_3
@@ -48,21 +75,9 @@ create table #clean_data_3
 )
 
 
-if object_id('tempdb..#clean_data_4', 'U') is not null 
-	drop table #clean_data_4
-
-create table #clean_data_4
-(
-	IdcCode int,
-	GVKey int,
-	StartDate smalldatetime,
-	EndDate smalldatetime
-)
-
-
 -- ######  OTHER TEMP TABLES  #############################################################
 
-if object_id('tempdb..#stacked_data', 'U') is not null 
+if object_id('tempdb..#stacked_data', 'U') is not null
 	drop table #stacked_data
 
 create table #stacked_data
@@ -77,10 +92,11 @@ create table #stacked_data
 
 
 
--- ######  Create Stacked Table  ##########################################################
+-- ######  Create Stacked Table from Multiple Sources  ####################################
 
 ; with stacked_data as (
 select GVKey, Changedate, substring(Cusip, 0, 9) as Cusip, SecIntCode, 0 as Source_ from ram.dbo.ram_compustat_pit_map_us
+where substring(Cusip, 9, 10) != 'X'
 union
 select GVKey, AsOfDate as Changedate, Cusip, SecIntCode, 1 as Source_ from ram.dbo.ram_compustat_csvsecurity_map_raw
 where EXCNTRY = 'USA'
@@ -122,7 +138,7 @@ select			Code as IdcCode,
 				Cusip,
 				StartDate,
 				EndDate
-from			prc.PrcScChg
+from			qai.prc.PrcScChg
 where			(Cusip is not null and Cusip != '')
 	and			Code in (select distinct IdcCode from ram.dbo.ram_master_ids)
 )
@@ -139,7 +155,7 @@ left join		stacked_data2 B
 
 
 -- Filter out IdcCodes that have no GVKey mapped to it
-, stacked_Data_idc_data2 as (
+, stacked_data_idc_data2 as (
 select			*
 from			stacked_data_idc_data
 where			IdcCode in (select distinct IdcCode from stacked_data_idc_data where GVKey is not null)
@@ -148,11 +164,11 @@ where			IdcCode in (select distinct IdcCode from stacked_data_idc_data where GVK
 
 -- Count the distinct GVKey mappings to IDC Codes
 , idccode_counts as (
-select			IdcCode, 
-				Count(*) as Count_ 
-from			(  select distinct IdcCode, GVKey 
+select			IdcCode,
+				Count(*) as Count_
+from			(  select distinct IdcCode, GVKey
 				   from stacked_data_idc_data2
-				   where GVKey is not null 
+				   where GVKey is not null
 				   and IdcCode is not null  ) a
 group by		IdcCode
 )
@@ -179,6 +195,7 @@ select		A.IdcCode,
 			'2079-01-01' as EndDate
 from		#stacked_data A
 where		IdcCodeGVKeyMapCount = 1
+	and		GVKey is not null
 
 go
 
@@ -196,6 +213,7 @@ select		A.*,
 				order by A.StartDate) as LagGVKey
 from		#stacked_data A
 where		IdcCodeGVKeyMapCount = 2
+	and		GVKey is not null
 )
 
 
@@ -203,12 +221,12 @@ where		IdcCodeGVKeyMapCount = 2
 -- Make sure there are only two transitions of GVKeys
 , proportion_overlap_idc_codes as (
 select		IdcCode,
-			avg(case 
+			avg(case
 				when LagEndDate is null then 1.0
 				when LagEndDate < StartDate then 1.0
 				else 0.0
 			end) as PropVal,
-			sum(case 
+			sum(case
 				when LagGVKey is null then 1.0
 				when LagGVKey != GVKey then 1.0
 				else 0.0
@@ -233,89 +251,14 @@ go
 
 
 -------------------------------------------------------------------------------------
--- Get Forward Fill and Back Fill, and assure no conflicts
-
-; with stacked_data as (
-select			*
-from			#stacked_data
-where			IdcCodeGVKeyMapCount = 2
-	and			IdcCode not in (select distinct IdcCode from #clean_data_2)
-)
-
-
--- Forward Fill
-, filled_data as (
-select			A.IdcCode,
-				A.Cusip,
-				A.StartDate,
-				A.EndDate,
-				Lag(A.StartDate, 1) over (
-					partition by A.IdcCode
-					order by A.StartDate) as LagStartDate,
-
-				-- Forward filled and backfilled GVKeys
-				coalesce(A.GVKey, B.GVKey, C.GVKey) as GVKey,
-
-				Lag(coalesce(A.GVKey, B.GVKey, C.GVKey), 1) over (
-					partition by A.IdcCode
-					order by A.StartDate) as LagGVKey
-
-from			stacked_data A
-
--- Forward fill
-left join		stacked_data B
-	on			A.IdcCode = B.IdcCode
-	and			B.StartDate = (select max(StartDate) from stacked_data
-							   where IdcCode = A.IdcCode and StartDate <= A.StartDate
-							   and GVKey is not null)
--- Backward fill
-left join		stacked_data C
-	on			A.IdcCode = C.IdcCode
-	and			C.StartDate = (select min(StartDate) from stacked_data
-							   where IdcCode = A.IdcCode and StartDate >= A.StartDate
-							   and GVKey is not null)
-
-)
-
-
-, proportion_overlap_idc_codes as (
-select		IdcCode,
-			avg(case 
-				when LagStartDate is null then 1.0
-				when LagStartDate < StartDate then 1.0
-				else 0.0
-			end) as PropVal,
-			sum(case 
-				when LagGVKey is null then 1.0
-				when LagGVKey != GVKey then 1.0
-				else 0.0
-			end) as GVKeyChangeCount
-
-from		filled_data
-group by	IdcCode
-)
-
-
-insert into #clean_data_3
-select		A.IdcCode,
-			A.GVKey,
-			A.StartDate,
-			coalesce(dateadd(day, -1, Lead(A.StartDate, 1) over (
-				partition by IdcCode
-				order by StartDate)), '2079-01-01') as EndDate
-from		filled_data A
-where		IdcCode in (select IdcCode from proportion_overlap_idc_codes where PropVal = 1 and GVKeyChangeCount = 2)
-
-
-
--------------------------------------------------------------------------------------
--- Get entries that have GVKeys that dont have overlapping ReportDates. Start/End dates are split
+-- Get entries that have GVKeys that dont have overlapping ReportDates.
+-- Start/End dates are split
 
 ; with idc_gvkey as (
 select distinct IdcCode, GVKey
 from			#stacked_data
 where			IdcCodeGVKeyMapCount >= 2
-	and			IdcCode not in (select distinct IdcCode from #clean_data_2 union select distinct IdcCode from #clean_data_3)
+	and			IdcCode not in (select distinct IdcCode from #clean_data_2)
 	and			GVKey is not null
 )
 
@@ -361,7 +304,7 @@ left join		report_dates_1 B
 -- Make sure all GVKeys don't overlap
 , proportion_overlap_idc_codes as (
 select		IdcCode,
-			avg(case 
+			avg(case
 				when LagMaxReportDate is null then 1.0
 				when LagMaxReportDate < MinReportDate then 1.0
 				else 0.0
@@ -383,8 +326,7 @@ where		IdcCode in (select IdcCode from proportion_overlap_idc_codes where PropVa
 )
 
 
-
-insert into #clean_data_4
+insert into #clean_data_3
 select		A.IdcCode,
 			A.GVKey,
 			A.StartDate,
@@ -393,30 +335,23 @@ select		A.IdcCode,
 				order by StartDate)), '2079-01-01') as EndDate
 from		idc_gvkey3 A
 
-
 -------------------------------------------------------------------------------------
 
+insert into ram.dbo.ram_idccode_to_gvkey_map_TEMP
+select * from #clean_data_1
+union
+select * from #clean_data_2
+union
+select * from #clean_data_3
 
 
-; with idc_gvkey as (
+
+-- These are the problem mappings
 select			*
 from			#stacked_data
 where			IdcCode not in (select distinct IdcCode from #clean_data_1
 								union
-								select distinct IdcCode from #clean_data_2 
-								union 
-								select distinct IdcCode from #clean_data_3
+								select distinct IdcCode from #clean_data_2
 								union
-								select distinct IdcCode from #clean_data_4)
+								select distinct IdcCode from #clean_data_3)
 	and			GVKey is not null
-)
-
-
-select distinct IdcCode from idc_gvkey
-
-
-
-
-
-
-
