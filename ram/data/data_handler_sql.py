@@ -17,7 +17,6 @@ class DataHandlerSQL(object):
         self._table = table
 
     def _connect(self):
-        self._test_time_constraint()
         try:
             try:
                 connection = pypyodbc.connect('Driver={SQL Server};'
@@ -349,8 +348,9 @@ class DataHandlerSQL(object):
             return prior_date[0]
         return np.array(prior_date)[input_order]
 
-    def sql_execute(self, sqlcmd):
-        self._test_time_constraint()
+    def sql_execute(self, sqlcmd, time_constrained=True):
+        if time_constrained:
+            self._test_time_constraint()
         for i in range(5):
             try:
                 self._connect()
@@ -363,11 +363,12 @@ class DataHandlerSQL(object):
                 print(e)
                 time.sleep(2)
 
-    def sql_execute_no_return(self, sqlcmd):
+    def sql_execute_no_return(self, sqlcmd, time_constrained=True):
         """
         For database commands that don't return anything
         """
-        self._test_time_constraint()
+        if time_constrained:
+            self._test_time_constraint()
         for i in range(5):
             try:
                 self._connect()
