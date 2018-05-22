@@ -184,7 +184,6 @@ def map_live_tickers(killed_seccodes):
 
     # Get hash table for odd tickers
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                        'StatArbStrategy',
                         'qad_to_eze_ticker_map.json')
     odd_tickers = json.load(open(path, 'r'))
     data.Ticker = data.Ticker.replace(to_replace=odd_tickers)
@@ -525,7 +524,6 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
 
     # Import Odd Ticker HashMap
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                         'StatArbStrategy',
                          'qad_to_bbrg_ticker_map.json')
     ticker_map = json.load(open(dpath, 'r'))
 
