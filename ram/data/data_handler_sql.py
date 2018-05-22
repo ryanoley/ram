@@ -17,7 +17,6 @@ class DataHandlerSQL(object):
         self._table = table
 
     def _connect(self):
-        self._test_time_constraint()
         try:
             try:
                 connection = pypyodbc.connect('Driver={SQL Server};'
