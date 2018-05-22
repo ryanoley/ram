@@ -70,9 +70,19 @@ create table	ram.dbo.ram_compustat_accounting_derived (
 
 -- ######  DATES  ##############################################################
 
-; with unique_gvkeys_dates as (
+; with gvkeys_dates as (
 select distinct		GVKey, QuarterEndDate, ReportDate, FiscalQuarter 
 from				ram.dbo.ram_compustat_accounting
+)
+
+
+, unique_gvkeys_dates as (
+select		A.*	 
+from		gvkeys_dates A
+join		(select GVKey, ReportDate, max(QuarterEndDate) as QuarterEndDate from gvkeys_dates
+			 group by GVKey, ReportDate) B
+	on		A.GVKey = B.GVKey
+	and		A.QuarterEndDate = B.QuarterEndDate
 )
 
 
