@@ -15,14 +15,16 @@ BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 RECON_DIR = os.path.join(ARCHIVE_DIR, 'reconciliation')
 
+STRATEGY_ID = 'StatArb1~papertrade'
 
 ############################################################################
 # Pricing reconciliation
 ############################################################################
 
-def run_pricing_reconciliation(recon_dt):
+def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Get Executed prices
     ramex_data = df.get_ramex_processed_data(recon_dt)[0]
+    ramex_data = ramex_data[ramex_data.strategy_id == STRATEGY_ID]
 
     # Get live prices
     live_prices = get_live_prices(recon_dt)
@@ -119,7 +121,7 @@ def _write_pricing_output(data, recon_dt, output_dir=RECON_DIR):
 # Order level reconciliation
 ############################################################################
 
-def run_order_reconciliation(recon_dt, strategy_id):
+def run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Set get live alloc attributes
     datestamp = recon_dt.strftime('%Y%m%d')
     gla.LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories',
@@ -280,9 +282,9 @@ def main():
         recon_dt = parser.parse(args.recon_date).date()
 
     if args.pricing:
-        run_pricing_reconciliation(recon_dt)
+        run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
     elif args.orders:
-        run_order_reconciliation(recon_dt, strategy_id='StatArb1~papertrade')
+        run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
 
 
 if __name__ == '__main__':
