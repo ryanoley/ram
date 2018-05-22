@@ -55,7 +55,7 @@ use ram;
 
 -- ######  Final Accounting Table table  #######################################
 
-if object_id('ram.dbo.ram_compustat_accounting_derived', 'U') is not null 
+if object_id('ram.dbo.ram_compustat_accounting_derived', 'U') is not null
 	drop table ram.dbo.ram_compustat_accounting_derived
 
 
@@ -70,9 +70,19 @@ create table	ram.dbo.ram_compustat_accounting_derived (
 
 -- ######  DATES  ##############################################################
 
-; with unique_gvkeys_dates as (
-select distinct		GVKey, QuarterEndDate, ReportDate, FiscalQuarter 
+; with gvkeys_dates as (
+select distinct		GVKey, QuarterEndDate, ReportDate, FiscalQuarter
 from				ram.dbo.ram_compustat_accounting
+)
+
+
+, unique_gvkeys_dates as (
+select		A.*
+from		gvkeys_dates A
+join		(select GVKey, ReportDate, max(QuarterEndDate) as QuarterEndDate from gvkeys_dates
+			 group by GVKey, ReportDate) B
+	on		A.GVKey = B.GVKey
+	and		A.QuarterEndDate = B.QuarterEndDate
 )
 
 
@@ -198,7 +208,7 @@ from				unique_gvkeys_dates T
 select				T.*,
 					coalesce(D1.Value_, D2.Value_ / 4) as ValueQ,
 					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row) as ValueTTM
 
@@ -222,7 +232,7 @@ from				unique_gvkeys_dates T
 select				T.*,
 					coalesce(D1.Value_, D2.Value_ / 4) as ValueQ,
 					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row) as ValueTTM
 
@@ -246,7 +256,7 @@ from				unique_gvkeys_dates T
 select				T.*,
 					coalesce(D1.Value_, D2.Value_ / 4) as ValueQ,
 					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row) as ValueTTM
 
@@ -270,7 +280,7 @@ from				unique_gvkeys_dates T
 select				T.*,
 					coalesce(D1.Value_, D2.Value_ / 4) as ValueQ,
 					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row) as ValueTTM
 
@@ -295,7 +305,7 @@ from				unique_gvkeys_dates T
 select				T.*,
 					coalesce(D1.Value_, D2.Value_ / 4) as ValueQ,
 					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row) as ValueTTM
 
@@ -320,7 +330,7 @@ from				unique_gvkeys_dates T
 select				T.*,
 					coalesce(D1.Value_, D2.Value_) / isnull(E.EpsDivisor, 1) as ValueQ,
 					coalesce(sum(coalesce(D1.Value_, D2.Value_) / isnull(E.EpsDivisor, 1)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row), D3.Value_, D4.Value_) as ValueTTM
 
@@ -335,7 +345,7 @@ from				unique_gvkeys_dates T
 		and			T.QuarterEndDate = D1.QuarterEndDate
 		and			D1.Group_ = 218
 		and			D1.Item = 101		-- EPSFXQ / Quarterly Table
-				
+
 	left join		ram.dbo.ram_compustat_accounting D2
 		on			T.GVKey = D2.GVKey
 		and			T.QuarterEndDate = D2.QuarterEndDate
@@ -348,7 +358,7 @@ from				unique_gvkeys_dates T
 		and			T.QuarterEndDate = D3.QuarterEndDate
 		and			D3.Group_ = 204
 		and			D3.Item = 241		-- EPSFX / Annual Table
-				
+
 	left join		ram.dbo.ram_compustat_accounting D4
 		on			T.GVKey = D4.GVKey
 		and			T.QuarterEndDate = D4.QuarterEndDate
@@ -533,7 +543,7 @@ from				ebit_data_0
 select				T.*,
 					coalesce(D1.Value_, D2.Value_ / 4) as net_income,
 					sum(coalesce(D1.Value_, D2.Value_ / 4)) over (
-						partition by T.GVKey 
+						partition by T.GVKey
 						order by T.QuarterEndDate
 						rows between 3 preceding and current row) as net_income_ttm
 
@@ -692,7 +702,7 @@ select				D1.GVKey,
 					D1.ReportDate as AsOfDate,
 					'BOOKVALUE' as ItemName,
 					D1.Value_ - D2.Value_ - D3.Value_ as Value_
-					
+
 from				assets_data_0 D1
 
 	join			liabilities_data_0 D2
