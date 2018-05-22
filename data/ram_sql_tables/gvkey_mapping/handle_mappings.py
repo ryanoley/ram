@@ -15,7 +15,7 @@ def get_current_mapping():
         select IdcCode, GVKey, StartDate, EndDate
         from ram.dbo.ram_idccode_to_gvkey_map_TEMP;
         """
-    result = dh.sql_execute(command)
+    result = dh.sql_execute(command, time_constrained=False)
     data = pd.DataFrame(result,
                         columns=['IdcCode', 'GVKey', 'StartDate', 'EndDate'])
     data.StartDate = data.StartDate.apply(lambda x: str(x)[:10])
@@ -84,7 +84,7 @@ def get_current_mapping():
         select IdcCode, GVKey, StartDate, EndDate
         from ram.dbo.ram_idccode_to_gvkey_map_TEMP;
         """
-    result = dh.sql_execute(command)
+    result = dh.sql_execute(command, time_constrained=False)
     data = pd.DataFrame(result,
                         columns=['IdcCode', 'GVKey', 'StartDate', 'EndDate'])
     data.StartDate = data.StartDate.apply(lambda x: str(x)[:10])
@@ -96,7 +96,7 @@ def insert_mapping_into_db(mapping):
     dh = DataHandlerSQL()
     # Can only insert 1000 values at a time
     command = "delete from ram.dbo.ram_idccode_to_gvkey_map;"
-    dh.sql_execute_no_return(command)
+    dh.sql_execute_no_return(command, time_constrained=False)
     sql = "insert into ram.dbo.ram_idccode_to_gvkey_map values "
     formatted_rows = _format_rows(mapping)
     i = 0
@@ -105,7 +105,7 @@ def insert_mapping_into_db(mapping):
         vals = ','.join(vals)
         if len(vals):
             final_sql = sql + vals + ';'
-            dh.sql_execute_no_return(final_sql)
+            dh.sql_execute_no_return(final_sql, time_constrained=False)
             i += 1
         else:
             break
