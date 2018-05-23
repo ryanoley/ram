@@ -1,4 +1,3 @@
-
 import os
 import argparse
 import pandas as pd
@@ -7,9 +6,9 @@ from dateutil import parser
 
 from ram import config
 from ram.data.data_handler_sql import DataHandlerSQL
-
-import ramex.accounting.daily_files as df
 import ram.strategy.statarb.implementation.get_live_allocations as gla
+
+import ramex.accounting.daily_files as dly_fls
 
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
@@ -23,7 +22,7 @@ STRATEGY_ID = 'StatArb1'
 
 def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Get Executed prices
-    ramex_data = df.get_ramex_processed_data(recon_dt)[0]
+    ramex_data = dly_fls.get_ramex_processed_data(recon_dt)[0]
     ramex_data = ramex_data[ramex_data.strategy_id == STRATEGY_ID]
 
     # Get live prices
@@ -81,7 +80,7 @@ def ramex_merge_live(ramex_data, live_prices):
 
 
 def get_qad_close_data(data, inp_date):
-
+    # Use SecCode to get QAD Pricing
     assert('SecCode' in data.columns)
     seccodes = data.SecCode.values
     features = ['RClose', 'RVolume', 'MarketCap', 'AdjClose']
@@ -210,7 +209,7 @@ def get_sent_orders(recon_dt):
     '''
     alloc_dir = os.path.join(ARCHIVE_DIR, 'allocations')
     alloc_files = os.listdir(alloc_dir)
-    file_name = df.get_filename_from_date(recon_dt, alloc_files)
+    file_name = dly_fls.get_filename_from_date(recon_dt, alloc_files)
 
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
     exec_orders.SecCode = exec_orders.SecCode.astype(str)
@@ -283,7 +282,7 @@ def main():
 
     if args.pricing:
         run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
-    elif args.orders:
+    if args.orders:
         run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
 
 
