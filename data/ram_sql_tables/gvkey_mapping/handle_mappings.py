@@ -117,7 +117,7 @@ def drop_temp_table():
         """
         drop table ram.dbo.ram_idccode_to_gvkey_map_TEMP;
         """
-    result = dh.sql_execute_no_return(command)
+    result = dh.sql_execute_no_return(command, time_constrained=False)
 
 
 def _format_rows(mapping):
