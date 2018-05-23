@@ -6,14 +6,20 @@ import pandas as pd
 import datetime as dt
 
 DATA = os.getenv('DATA')
-RAMSHARE = os.getenv('RAMSHARE')
-FM_EXPORT_PATH = os.path.join(RAMSHARE, 'Roundabout', 'Operations',
-                              'Roundabout Accounting', 'Fund Manager 2016',
+RAM_ACCNT = os.path.join(os.getenv('RAMSHARE'),
+                         'Roundabout',
+                         'Operations',
+                         'Roundabout Accounting')
+
+FM_EXCEL_PATH = os.path.join(RAM_ACCNT,
+                             'Roundabout Daily P&L 2016.xlsx')
+FM_EXPORT_PATH = os.path.join(RAM_ACCNT,
+                              'Fund Manager 2016',
                               'Fund Manager Export 2016.csv')
 
 
 def get_fund_manager_stat_arb_positions():
-    data = pd.read_excel(FM_EXPORT_PATH)
+    data = pd.read_excel(FM_EXCEL_PATH)
 
     # Reset index on import doesn't work on server, so adding extra step
     indexes = pd.DataFrame(data.index.values.tolist())
