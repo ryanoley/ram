@@ -1,4 +1,3 @@
-
 import os
 import argparse
 import pandas as pd
@@ -7,22 +6,24 @@ from dateutil import parser
 
 from ram import config
 from ram.data.data_handler_sql import DataHandlerSQL
-
-import ramex.accounting.daily_files as df
 import ram.strategy.statarb.implementation.get_live_allocations as gla
+
+import ramex.accounting.daily_files as dly_fls
 
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 RECON_DIR = os.path.join(ARCHIVE_DIR, 'reconciliation')
 
+STRATEGY_ID = 'StatArb1'
 
 ############################################################################
 # Pricing reconciliation
 ############################################################################
 
-def run_pricing_reconciliation(recon_dt):
+def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Get Executed prices
-    ramex_data = df.get_ramex_processed_data(recon_dt)[0]
+    ramex_data = dly_fls.get_ramex_processed_data(recon_dt)[0]
+    ramex_data = ramex_data[ramex_data.strategy_id == STRATEGY_ID]
 
     # Get live prices
     live_prices = get_live_prices(recon_dt)
@@ -79,7 +80,7 @@ def ramex_merge_live(ramex_data, live_prices):
 
 
 def get_qad_close_data(data, inp_date):
-
+    # Use SecCode to get QAD Pricing
     assert('SecCode' in data.columns)
     seccodes = data.SecCode.values
     features = ['RClose', 'RVolume', 'MarketCap', 'AdjClose']
@@ -119,7 +120,7 @@ def _write_pricing_output(data, recon_dt, output_dir=RECON_DIR):
 # Order level reconciliation
 ############################################################################
 
-def run_order_reconciliation(recon_dt, strategy_id):
+def run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Set get live alloc attributes
     datestamp = recon_dt.strftime('%Y%m%d')
     gla.LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories',
@@ -208,7 +209,7 @@ def get_sent_orders(recon_dt):
     '''
     alloc_dir = os.path.join(ARCHIVE_DIR, 'allocations')
     alloc_files = os.listdir(alloc_dir)
-    file_name = df.get_filename_from_date(recon_dt, alloc_files)
+    file_name = dly_fls.get_filename_from_date(recon_dt, alloc_files)
 
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
     exec_orders.SecCode = exec_orders.SecCode.astype(str)
@@ -280,9 +281,9 @@ def main():
         recon_dt = parser.parse(args.recon_date).date()
 
     if args.pricing:
-        run_pricing_reconciliation(recon_dt)
-    elif args.orders:
-        run_order_reconciliation(recon_dt, strategy_id='StatArb1~papertrade')
+        run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
+    if args.orders:
+        run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
 
 
 if __name__ == '__main__':

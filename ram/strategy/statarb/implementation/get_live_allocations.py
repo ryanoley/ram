@@ -16,7 +16,6 @@ from gearbox import convert_date_array
 
 from ramex.orders.orders import MOCOrder, VWAPOrder
 from ramex.application.client import ExecutionClient
-from ramex.accounting.accounting import RamexAccounting
 
 from ram.strategy.statarb.sizes import SizeContainer
 
