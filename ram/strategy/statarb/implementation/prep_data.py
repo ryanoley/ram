@@ -117,6 +117,12 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
                            int(max_date[2]))
         if max_date != yesterday:
             message = '[WARNING] - max(Date) is not previous trading date'
+
+        # Check for missing data
+        elif np.any(data.isnull().mean() > 0.2):
+            count = sum(data.isnull().mean() > 0.2)
+            message = '[WARNING] - {} variables with many '.format(count) + \
+                'missing values'
         else:
             message = '*'
 
@@ -818,6 +824,7 @@ def main():
 
     # PREPPED DATA
     copy_version_data(today, killed_seccodes)
+
     data = get_qadirect_data_info(yesterday)
     messages = messages.append(data)
 
