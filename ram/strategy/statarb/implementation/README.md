@@ -116,7 +116,7 @@ Put filename in config: current_params_CombinationSearch_20180319212906.json
 
 12. Commit these changes to GitHub.
 
-
+---
 ### 4. Implementation Training
 
 1. Restart the simulation GCP Instance from above.
