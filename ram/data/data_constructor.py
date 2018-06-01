@@ -101,8 +101,6 @@ class DataConstructor(object):
                     filter_date=adj_filter_date,
                     filter_args=blueprint.universe_filter_arguments)
                 data['TestFlag'] = data.Date > adj_filter_date
-                if len(data[data.TestFlag]) == 0:
-                    continue
                 self._clean_and_write_output(data, file_name)
             # Update meta params
             max_train_date = data.Date[~data.TestFlag].max()
