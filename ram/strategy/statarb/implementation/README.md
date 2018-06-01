@@ -91,100 +91,60 @@ Max date: 2018-05-07
 
 The relevant piece is: **CombinationSearch_20180523173207**
 
+7. Save the Notebook under File. Close the browser windows.
 
-
-
-
-#### 4. Implementation Training
-
-## 1. Move Model Selection Top Parameters File
-
-The Model Selection parameter file should be in:
+8. Stop Notebook server from SSH session browser window, navigate to `ram`, and commit the new Notebook
 ```
-GITHUB/ram/ram/strategy/statarb/implementation/params/
+cd ~/projects/ram/
+git add ram/strategy/statarb/implementation/ImplementationModelSelection.ipynb
+git commit -m 'MOD: StatArb updated implementation notebook'
+git push
 ```
 
-#### Download config file from Google Cloud
+9. Stop the GCP instance. ABSOLUTELY DO NOT DELETE!
 
+10. From a local machine, locate and download the above ModelSelection directory (looks like CombinationSearch_20180523173207) from GCP:
 ```
-python data_gcp_manager.py -msl
-python data_gcp_manager.py -ms `x` --download
-```
-
-NOTE: Downloads directly to GITHUB directory for StatArb
-
-
-## 2. Set Parameter File Name in StatArb Config
-
-The config file is at: `ram/strategy/statarb/statarb_config.py`
-
-
-## 3. Make sure prepped_data directories are up to date:
-
-```python
-python ram/strategy/statarb/main.py -dv
+python ram/data/data_gcp_manager.py -msl
+python ram/data/data_gcp_manager.py -ms {4} --download
 ```
 
-The Max Data Date column should be beyond the final date of the training period.
-
-#### To update versions of prepped data
-
-```python
-python ram/strategy/statarb/main.py -d_update {version/index number}
+11. The script should output some text that looks like this below. Copy the `current_params_xxxx.json` file name and place it into `ram/strategy/statarb/starb_config.py`. In this config file, there should be a variable called `parameter_json`.
+```
+Put filename in config: current_params_CombinationSearch_20180319212906.json
 ```
 
-#### To move files to GCP cloud instance from local clients
+12. Commit these changes to GitHub.
 
-```python
-python ram/data/data_gcp_manager.py -sl                 # List all strategies
-python ram/data/data_gcp_manager.py -s 4 -ld            # List data versions for strategy
-python ram/data/data_gcp_manager.py -s 4 -d 17 --upload
+
+### 4. Implementation Training
+
+1. Restart the simulation GCP Instance from above.
+
+2. Do a Git pull on the `ram` repo to get the new configuration files.
+
+3. Run the implementation training. NOTE the name/timestamp of the implementation training run from command line (looks like *models_xxxx*):
 ```
-
-TODO: Re-design command line arguments.
-
-
-## 4. Train models
-
-Training can happen locally or on GCP.
-
-**This step requires the correct config to be set from step 2.**
-
-```python
 python ram/strategies/statarb/main.py -i -w
 ```
 
+4. Once complete, stop and delete instance.
 
-## 5. Download Trained Model Directory
-
+5. From the local machine, locate and download the newly trained models:
 ```
-python ram/data/data_gcp_manager.py -sl                 # List all strategies
-python ram/data/data_gcp_manager.py -s 4 -ml            # List all trained model dirs
-python ram/data/data_gcp_manager.py -s 4 -m 17 --download
+python ram/data/data_gcp_manager.py -sl            
+python ram/data/data_gcp_manager.py -s {4} -ml
+python ram/data/data_gcp_manager.py -s {4} -m {17} --download
 ```
 
-
-## 6. Set Trained Models Name in StatArb Config
-
-The config file is at: `ram/strategy/statarb/statarb_config.py`
-
-
-## 7. Re-Run daily workflow
-
-* `get_version_data.py`
-* `prep_data.py`
-
+6. Set the config file (`ram/strategy/statarb/statarb_config.py`) with the name of the new directory.
 
 
 # Daily Execution
 
 ## Morning pre-processing
 
-
-
-
 ## 1. Get Raw Data (10 am)
-
 ```
 python ram/strategy/statarb/implementation/get_daily_raw_data.py
 ```
