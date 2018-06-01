@@ -90,6 +90,10 @@ class SignalModel(BaseSignalGenerator):
     def get_signals(self):
         features = self._get_features()
         output = self._test_data[['SecCode', 'Date', 'keep_inds']].copy()
+        # When re-training, it is possible test_data is empty. Don't predict
+        if len(self._test_data) == 0:
+            output.columns = ['SecCode', 'Date', 'Signal']
+            return output
         # Here the features that are coming through have nan values
         # Where were they handled before where they weren't showing up?
         if hasattr(self.skl_model, 'predict_proba'):
