@@ -67,7 +67,7 @@ class TestDataContainer(unittest.TestCase):
         self.assertTrue('prepped_features' in container._live_prepped_data)
         self.assertTrue(hasattr(container, '_constructor_data'))
 
-    def Xtest_process_live_data(self):
+    def test_process_live_data(self):
         # Training data file
         dates = [dt.date(2010, 1, 1) + dt.timedelta(days=i) for i in range(60)]
         dates2 = dates * 3
@@ -102,10 +102,11 @@ class TestDataContainer(unittest.TestCase):
         live_pricing['Ticker'] = ['AAPL', 'TSLA', 'GOOG', 'SPY', 'VXX']
         live_pricing[columns] = 10
         container.process_live_data(live_pricing)
-        result = container._test_data
+        result = container._processed_test_data
         self.assertEqual(len(result), 3)
         self.assertEqual(result.Date.iloc[0], 0)
-        self.assertEqual(len(container._features), 46)
+        import pdb; pdb.set_trace()
+        x = 10
 
     def test_calculate_avgdolvol(self):
         data = pd.DataFrame()
@@ -128,16 +129,24 @@ class TestDataContainer(unittest.TestCase):
         data = pd.DataFrame(columns=['SecCode', 'Date'] + features)
         data['SecCode'] = ['AAPL', 'TSLA', 'BAC']
         data['Date'] = '2010-01-01'
-        data[features] = 10
+        data.loc[0, features] = 10
+        data.loc[1, features] = 30
+        data.loc[2, features] = 20
         data2 = data.copy()
         data2['Date'] = '2010-01-02'
-        data2[features] = 20
         data = data.append(data2).reset_index(drop=True)
         container = DataContainer()
         result = container._make_features(data, live_flag=True)
         self.assertEqual(result[0].Date.unique()[0], dt.date.today())
         features.sort()
         self.assertListEqual(features, result[1])
+        means = pd.DataFrame()
+        means['SecCode'] = result[0]['SecCode']
+        means['Result'] = result[0][features].mean(axis=1)
+        benchmark = pd.DataFrame()
+        benchmark['SecCode'] = ['AAPL', 'TSLA', 'BAC']
+        benchmark['Result'] = [1/3., 3/3., 2/3.]
+        assert_frame_equal(means, benchmark)
 
     def test_make_technical_features_live(self):
         # 60 days of dates
@@ -147,12 +156,12 @@ class TestDataContainer(unittest.TestCase):
         data = pd.DataFrame()
         data['SecCode'] = ['AAPL', 'TSLA', 'BAC'] * 60
         data['Date'] = dates
-        data['AdjOpen'] = range(180)
-        data['AdjHigh'] = range(180)
-        data['AdjLow'] = range(180)
-        data['AdjClose'] = range(180)
-        data['AdjVolume'] = range(180)
-        data['AvgDolVol'] = range(180)
+        data['AdjOpen'] = range(1, 181)
+        data['AdjHigh'] = range(1, 181)
+        data['AdjLow'] = range(1, 181)
+        data['AdjClose'] = range(1, 181)
+        data['AdjVolume'] = range(1, 181)
+        data['AvgDolVol'] = range(1, 181)
         data['keep_inds'] = True
         container = DataContainer()
         result = container._make_technical_features(data, live_flag=True)

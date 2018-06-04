@@ -98,8 +98,10 @@ class DataContainer(BaseDataContainer):
         self._constructor_data = {}
 
     def process_live_data(self, live_pricing_data):
+        # Used to construct technical variables with live data
         data = self._live_prepped_data['raw_data'].copy()
         market_data = self._live_prepped_data['market_data'].copy()
+        # All variables that don't need the live pricing data
         prepped_data = self._live_prepped_data['prepped_data'].copy()
         prepped_features = list(self._live_prepped_data['prepped_features'])
 

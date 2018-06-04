@@ -497,6 +497,8 @@ def main():
     global LIVE_FLAG
     LIVE_FLAG = True if LIVE_DIR.find('archive') == -1 else False
 
+    import pdb; pdb.set_trace()
+
     # Confirm prep data was run
     if LIVE_FLAG:
         path = os.path.join(LIVE_DIR, 'meta.json')
