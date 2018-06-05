@@ -127,7 +127,7 @@ class RunManager(object):
             file_paths = file_paths[:-self.test_periods]
         returns = pd.DataFrame()
         for path in file_paths:
-            file_year = int(path.split('/')[-1][:4])
+            file_year = int(os.path.split(path)[-1][:4])
             if file_year < self.start_year:
                 continue
             if self._cloud_flag:
@@ -153,7 +153,7 @@ class RunManager(object):
                 stats = read_json_cloud(path, self._gcp_bucket)
             else:
                 stats = read_json(path)
-            name = path.split('/')[-1]
+            name = os.path.split(path)[-1]
             self.stats[name] = stats
 
     def import_column_params(self):
@@ -169,13 +169,15 @@ class RunManager(object):
         self.column_params = column_params
 
     def import_meta(self):
-        file_path = self._get_run_file_paths('/meta.json')[0]
+        file_path = self._get_run_file_paths('meta.json')
+        file_path = [x for x in file_path if
+                     os.path.split(x)[-1] == 'meta.json'][0]
         if self._cloud_flag:
             self.meta = read_json_cloud(file_path, self._gcp_bucket)
         else:
             self.meta = read_json(file_path)
         # Get data blueprint and add to meta
-        file_path = self._get_run_file_paths('/data_meta.json')
+        file_path = self._get_run_file_paths('data_meta.json')
         if len(file_path) == 0:
             self.meta['blueprint'] = {'value': 'no blueprint data'}
             return
