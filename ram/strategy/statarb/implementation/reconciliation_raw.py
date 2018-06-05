@@ -20,6 +20,7 @@ STRATEGY_ID = 'StatArb1'
 # Pricing reconciliation
 ############################################################################
 
+
 def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Get Executed prices
     ramex_data = dly_fls.get_ramex_processed_data(recon_dt)[0]
@@ -34,8 +35,12 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # QAD data for trade date
     qad_data = get_qad_close_data(trade_data, recon_dt)
 
-    # Combine trade data and qad data
+    # Combine trade data and qad data and append null SecCodes
+    # This can occur when stocks leave the universe at the end of the month
+    no_seccodes = trade_data[trade_data.SecCode.isnull()].copy()
+    trade_data = trade_data[trade_data.SecCode.notnull()].copy()
     recon = trade_data.merge(qad_data, how='left')
+    trade_data = trade_data.append(no_seccodes)
 
     # Write to file
     _write_pricing_output(recon, recon_dt, RECON_DIR)
@@ -75,14 +80,17 @@ def ramex_merge_live(ramex_data, live_prices):
     })
     prices = prices[['SecCode', 'Ticker', 'signal_close', 'signal_volume',
                      'signal_time']]
+    prices.SecCode = prices.SecCode.astype(int).astype(str)
 
-    return pd.merge(trades, prices, how='left')
+    data = pd.merge(trades, prices, how='left')
+
+    return data
 
 
 def get_qad_close_data(data, inp_date):
     # Use SecCode to get QAD Pricing
     assert('SecCode' in data.columns)
-    seccodes = data.SecCode.values
+    seccodes = data.SecCode.dropna().values
     features = ['RClose', 'RVolume', 'MarketCap', 'AdjClose']
 
     dh = DataHandlerSQL()
@@ -94,6 +102,7 @@ def get_qad_close_data(data, inp_date):
                     'AdjClose': 'qad_adj_close',
                     'MarketCap': 'qad_market_cap'}, inplace=True)
 
+    qad_data.SecCode = qad_data.SecCode.astype(int).astype(str)
     return qad_data[['SecCode', 'Date', 'qad_close', 'qad_adj_close',
                      'qad_volume', 'qad_market_cap']]
 
