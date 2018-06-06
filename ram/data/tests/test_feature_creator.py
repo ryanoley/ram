@@ -70,6 +70,8 @@ class TestFeatureCreator(unittest.TestCase):
         feat = FeatureAggregator()
         feat.add_feature(data, 'VAR1')
         feat.add_feature(data * -9, 'VAR2')
+        data[:] = np.nan
+        feat.add_feature(data, 'VAR3')
         result = feat.make_dataframe()
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C']
@@ -77,6 +79,8 @@ class TestFeatureCreator(unittest.TestCase):
                              dt.date(2010, 1, 3)] * 3
         benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3.]
         benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27.]
+        benchmark['VAR3'] = np.nan
+        benchmark.VAR3 = benchmark.VAR3.astype(object)  # To make test work
         assert_frame_equal(result, benchmark)
 
     def test_prma(self):

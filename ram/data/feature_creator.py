@@ -8,6 +8,8 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 
 def clean_pivot_raw_data(data, value_column, lag=0):
     """
+    NOTE: This function will fill/'pad' a maximum of 5 days worth of missing
+    data going forward.
     """
     assert lag >= 0
     data = data.pivot(index='Date', columns='SecCode',
@@ -75,6 +77,7 @@ class FeatureAggregator(object):
         output = self._data.pivot_table(
             values='val', index=['SecCode', 'Date'],
             columns='label', aggfunc='mean').reset_index()
+        del output.columns.name
         # Sorted output features
         features = self._data.label.unique().tolist()
         features.sort()
