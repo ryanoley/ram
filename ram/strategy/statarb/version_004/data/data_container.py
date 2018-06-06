@@ -148,10 +148,6 @@ class DataContainer(BaseDataContainer):
         # Process some data
         self._other_data = pdata[['SecCode', 'Date', 'keep_inds'] +
                                  self._score_vars]
-        # self._pricing_data = data[data.TestFlag][['SecCode', 'Date',
-        #                                           'MarketCap', 'AvgDolVol',
-        #                                           'RClose', 'RCashDividend',
-        #                                           'SplitMultiplier']]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
