@@ -21,12 +21,10 @@ from ram.strategy.statarb.abstract.portfolio_constructor import *
 from ram.strategy.statarb.abstract.data_container import *
 from ram.strategy.statarb.abstract.signal_generator import *
 
-from ram.strategy.statarb.sizes import SizeContainer
-
 from ram.strategy.statarb.implementation.tests.make_test_data import *
 from ram.strategy.statarb.implementation.get_live_allocations import *
 
-from ramex.orders.orders import MOCOrder
+from ramex.orders.orders import MOCOrder, VWAPOrder
 
 
 ###############################################################################
@@ -194,10 +192,12 @@ class TestGetLiveAllocations(unittest.TestCase):
     def setUp(self):
         data = ImplementationDataTestSuite()
         data.make_data()
-        self.data_dir = data.data_dir
-        sizes = SizeContainer(2)
-        sizes.update_sizes({'A': 100, 'B': 200}, dt.date.today())
-        self.size_containers = {'run_0003_1000': sizes}
+        self.data_dir = os.path.join(data.data_dir, 'StatArbStrategy')
+        self.live_dir = os.path.join(data.data_dir, 'live_prices')
+        self.yesterday = data.yesterday
+
+    def test_get_position_size(self):
+        pass
 
     def test_import_raw_data(self):
         result = import_raw_data(self.data_dir)
@@ -206,116 +206,94 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark = ['market_data', 'version_0010', 'version_0018']
         self.assertListEqual(result, benchmark)
 
-    def test_get_todays_file_names(self):
-        result = get_todays_file_names(self.data_dir)
+    def test_get_todays_version_file_names(self):
+        result = get_todays_version_file_names(self.data_dir)
         today = dt.datetime.utcnow().strftime('%Y%m%d')
         benchmark = ['version_0010.csv', 'version_0018.csv']
         self.assertListEqual(result, benchmark)
 
     def test_import_format_raw_data(self):
-        statarb_path = os.path.join(self.data_dir)
-        todays_files = get_todays_file_names(statarb_path)
-        result = import_format_raw_data(todays_files[0], statarb_path)
+        todays_files = get_todays_version_file_names(self.data_dir)
+        result = import_format_raw_data(todays_files[0], self.data_dir)
         benchmark = pd.DataFrame()
-        yesteday = get_previous_trading_date()
-        benchmark['Date'] = [yesteday - dt.timedelta(days=2),
-                             yesteday - dt.timedelta(days=1),
-                             yesteday] * 2
+        benchmark['Date'] = [self.yesterday - dt.timedelta(days=2),
+                             self.yesterday - dt.timedelta(days=1),
+                             self.yesterday] * 2
         benchmark['SecCode'] = ['14141'] * 3 + ['43242'] * 3
         benchmark['AdjClose'] = range(6)
         assert_frame_equal(result, benchmark)
 
-    def test_clean_data_file_name(self):
-        file_name = '20110101_version_0018.csv'
-        result = clean_data_file_name(file_name)
-        benchmark = 'version_0018'
-        self.assertEqual(result, benchmark)
-
     def test_import_run_map(self):
-        result = import_run_map()
+        result = import_run_map('models_0005', self.data_dir)
+        self.assertEqual(len(result), 2)
 
     def test_import_model_params(self):
-        output = import_models_params(self.data_dir, 'models_0005')
+        output = import_models_params('models_0005', self.data_dir)
         result = output.keys()
         result.sort()
-        benchmark = ['run_0003_1000', 'run_009_12']
+        benchmark = ['StatArbStrategy_run_0003_1000',
+                     'StatArbStrategy_run_009_12']
         self.assertListEqual(result, benchmark)
-        result = output['run_0003_1000'].keys()
+        result = output['StatArbStrategy_run_0003_1000'].keys()
         result.sort()
         benchmark = ['model', 'params']
         self.assertListEqual(result, benchmark)
-        result = output['run_0003_1000']['model']
+        result = output['StatArbStrategy_run_0003_1000']['model']
         self.assertIsInstance(result, LinearRegression)
-        result = output['run_0003_1000']['params']
+        result = output['StatArbStrategy_run_0003_1000']['params']
         self.assertIsInstance(result, dict)
 
     def test_get_model_files(self):
-        path = os.path.join(self.data_dir, 'StatArbStrategy',
-                            'trained_models', 'models_0005')
-        models, params = get_model_files(path)
-        benchmark = ['run_0003_1000_skl_model.pkl', 'run_009_12_skl_model.pkl']
+        path, models, params = get_model_files('models_0005', self.data_dir)
+        benchmark = ['StatArbStrategy_run_0003_1000_skl_model.pkl',
+                     'StatArbStrategy_run_009_12_skl_model.pkl']
         self.assertListEqual(models, benchmark)
-        benchmark = ['run_0003_1000_params.json', 'run_009_12_params.json']
+        benchmark = ['StatArbStrategy_run_0003_1000_params.json',
+                     'StatArbStrategy_run_009_12_params.json']
         self.assertListEqual(params, benchmark)
 
-    def test_check_production_implementation_directories(self):
-        # Don't test if on cloud instance
-        if config.GCP_CLOUD_IMPLEMENTATION:
-            return
-        # Check if connected to server
-        if not os.path.isdir(config.IMPLEMENTATION_DATA_DIR):
-            return
-        # Check raw data
-        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy',
-                            'live')
-        all_files = os.listdir(path)
-        self.assertTrue('market_index_data.csv' in all_files)
-        all_files.remove('market_index_data.csv')
-        all_files = [x for x in all_files if x.find('blueprint') == 1]
-        self.assertEqual(len(all_files), 0)
-        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy',
-                            'trained_models',
-                            statarb_config.trained_models_dir_name)
-        all_files = os.listdir(path)
-        self.assertTrue('run_map.json' in all_files)
-        all_files.remove('run_map.json')
-        all_files = [x for x in all_files if x.find('skl_model') == 1]
-        all_files = [x for x in all_files if x.find('params') == 1]
-        self.assertEqual(len(all_files), 0)
+    def test_get_statarb_positions(self):
+        pass
+
+    def test_get_size_containers(self):
+        result = get_size_containers(self.data_dir)
+        self.assertTrue('StatArbStrategy_run_009_12' in result)
+        self.assertTrue('StatArbStrategy_run_0003_1000' in result)
+
+    def test_import_scaling_data(self):
+        pass
 
     def test_StatArbImplementation_add_daily_data(self):
         raw_data = import_raw_data(self.data_dir)
         imp = StatArbImplementation(StatArbStrategyTest)
         imp.add_daily_data(raw_data)
+        self.assertTrue(hasattr(imp, 'daily_data'))
 
     def test_StatArbImplementation_add_run_map_models(self):
-        run_map = import_run_map(self.data_dir, 'models_0005')
-        models_params = import_models_params(self.data_dir, 'models_0005')
+        run_map = import_run_map('models_0005', self.data_dir)
+        models_params = import_models_params('models_0005', self.data_dir)
         imp = StatArbImplementation(StatArbStrategyTest)
         imp.add_run_map_models(run_map, models_params)
+        self.assertTrue(hasattr(imp, 'run_map'))
+        self.assertTrue(hasattr(imp, 'models'))
 
     def test_StatArbImplementation_prep_start(self):
         raw_data = import_raw_data(self.data_dir)
-        run_map = import_run_map(self.data_dir, 'models_0005')
-        models_params = import_models_params(self.data_dir, 'models_0005')
+        run_map = import_run_map('models_0005', self.data_dir)
+        models_params = import_models_params('models_0005', self.data_dir)
+
+        size_containers = get_size_containers(self.data_dir)
         # TODO: RamexAccounting needs to be implemented here
         positions = {}
         imp = StatArbImplementation(StatArbStrategyTest)
         imp.add_daily_data(raw_data)
         imp.add_run_map_models(run_map, models_params)
-        imp.add_size_containers(self.size_containers)
-        # import pdb; pdb.set_trace()
+        imp.add_size_containers(size_containers)
         imp.prep()
-        ddir = os.path.join(self.data_dir, 'live_prices')
-        live_data = import_live_pricing(ddir, self.data_dir)
-        # live_data['SecCode'] = [14141, 43242]
-        # imp.run_live(live_data)
+        self.assertEqual(len(imp.models_params_strategy), 2)
 
     def test_import_live_pricing(self):
-        ddir = os.path.join(self.data_dir, 'live_prices')
-        result = import_live_pricing(ddir, self.data_dir)
+        result = import_live_pricing(self.live_dir)
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['1234', '4242', '3535']
         benchmark['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
@@ -325,14 +303,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark['AdjClose'] = [1, 2, np.nan]
         benchmark['AdjVolume'] = [np.nan, 2, 3]
         benchmark['AdjVwap'] = [1, np.nan, 3]
+        result = result.drop('captured_time', axis=1)
         assert_frame_equal(result, benchmark)
-        # Check if written to archive
-        path = os.path.join(self.data_dir, 'StatArbStrategy',
-                            'archive', 'live_pricing')
-        result = os.listdir(path)
-        prefix = dt.date.today().strftime('%Y%m%d')
-        benchmark = ['{}_live_pricing.csv'.format(prefix)]
-        self.assertListEqual(result, benchmark)
 
     def test_extract_params(self):
         all_params = {'V1': 10, 'V2': 20, 'V3': 3}
@@ -370,16 +342,18 @@ class TestGetLiveAllocations(unittest.TestCase):
 
     def test_write_size_containers(self):
         imp = StatArbImplementation(StatArbStrategyTest)
-        imp.add_size_containers(self.size_containers)
+        containers = get_size_containers(self.data_dir)
+        imp.add_size_containers(containers)
         write_size_containers(imp, self.data_dir)
         #
         file_name = '{}_size_containers.json'.format(
             dt.date.today().strftime('%Y%m%d'))
         path = os.path.join(self.data_dir,
-                            'StatArbStrategy',
                             'archive',
                             'size_containers')
-        self.assertEqual(os.listdir(path)[0], file_name)
+        result = os.listdir(path)
+        result.sort()
+        self.assertEqual(result[1], file_name)
 
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()

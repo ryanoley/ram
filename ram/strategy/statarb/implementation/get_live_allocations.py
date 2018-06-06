@@ -24,46 +24,42 @@ LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 
-ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
-
-LIVE_DIR = os.path.join(BASE_DIR, 'live')
-#LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories', '20180507_live')
-
 STRATEGY_ID = 'StatArb1'
 
 ###############################################################################
 #  0. Import raw data
 ###############################################################################
 
-def get_position_size():
-    return json.load(open(os.path.join(BASE_DIR, 'position_size.json')))
+def get_position_size(data_dir=BASE_DIR):
+    return json.load(open(os.path.join(data_dir, 'position_size.json')))
 
 
 ###############################################################################
 #  1. Import raw data
 ###############################################################################
 
-def import_raw_data():
+def import_raw_data(data_dir=BASE_DIR):
     output = {}
     print('Importing data...')
-    for f in get_todays_version_file_names():
+    for f in get_todays_version_file_names(data_dir):
         name = f.replace('.csv', '')
-        data = import_format_raw_data(f)
+        data = import_format_raw_data(f, data_dir)
         output[name] = data
-    output['market_data'] = import_format_raw_data('market_index_data.csv')
+    output['market_data'] = import_format_raw_data('market_index_data.csv',
+                                                   data_dir)
     return output
 
 
-def get_todays_version_file_names():
-    all_files = os.listdir(LIVE_DIR)
+def get_todays_version_file_names(data_dir=BASE_DIR):
+    all_files = os.listdir(os.path.join(data_dir, 'live'))
     files = [x for x in all_files if x.find('version') > -1]
     files.sort()
     assert len(files) > 0
     return files
 
 
-def import_format_raw_data(file_name):
-    path = os.path.join(LIVE_DIR, file_name)
+def import_format_raw_data(file_name, data_dir=BASE_DIR):
+    path = os.path.join(data_dir, 'live', file_name)
     data = pd.read_csv(path)
     data.Date = convert_date_array(data.Date)
     data.SecCode = data.SecCode.astype(int).astype(str)
@@ -74,10 +70,11 @@ def import_format_raw_data(file_name):
 #  2. Import run map
 ###############################################################################
 
-def import_run_map():
-    path = os.path.join(BASE_DIR,
+def import_run_map(model_dir_name=statarb_config.trained_models_dir_name,
+                   data_dir=BASE_DIR):
+    path = os.path.join(data_dir,
                         'trained_models',
-                        statarb_config.trained_models_dir_name,
+                        model_dir_name,
                         'run_map.json')
     return json.load(open(path, 'r'))
 
@@ -86,14 +83,15 @@ def import_run_map():
 #  3. Import sklearn models and model parameters
 ###############################################################################
 
-def import_models_params():
+def import_models_params(models_dir_name=statarb_config.trained_models_dir_name,
+                         data_dir=BASE_DIR):
     """
     Returns
     -------
     output : dict
         Holds parameter and sklearn model for each trained model
     """
-    path, model_files, param_files = get_model_files()
+    path, model_files, param_files = get_model_files(models_dir_name, data_dir)
     print('Importing models and parameters...')
     output = {}
     for m, p in zip(model_files, param_files):
@@ -106,20 +104,12 @@ def import_models_params():
     return output
 
 
-def get_model_files():
+def get_model_files(models_dir_name, data_dir):
     """
     Return file names from production trained models directories, and
     makes sure the model name is aligned with the param file name
     """
-    if LIVE_FLAG:
-        models_dir_name = statarb_config.trained_models_dir_name
-    else:
-        path = os.path.join(LIVE_DIR, 'meta.json')
-        meta = json.load(open(path, 'r'))
-        models_dir_name = meta['trained_models_dir_name']
-    path = os.path.join(BASE_DIR,
-                        'trained_models',
-                        models_dir_name)
+    path = os.path.join(data_dir, 'trained_models', models_dir_name)
     all_files = os.listdir(path)
     all_files.remove('meta.json')
     all_files.remove('run_map.json')
@@ -137,8 +127,8 @@ def get_model_files():
 #  4. StatArb positions
 ###############################################################################
 
-def get_statarb_positions():
-    path = os.path.join(LIVE_DIR, 'eod_positions.csv')
+def get_statarb_positions(data_dir=BASE_DIR):
+    path = os.path.join(data_dir, 'live', 'eod_positions.csv')
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == STRATEGY_ID]
     return positions
@@ -148,8 +138,8 @@ def get_statarb_positions():
 #  5. Get SizeContainers
 ###############################################################################
 
-def get_size_containers():
-    path = os.path.join(LIVE_DIR, 'size_containers.json')
+def get_size_containers(data_dir=BASE_DIR):
+    path = os.path.join(data_dir, 'live', 'size_containers.json')
     sizes = json.load(open(path, 'r'))
     output = {}
     for k, v in sizes.iteritems():
@@ -163,9 +153,9 @@ def get_size_containers():
 #  6. Scaling data
 ###############################################################################
 
-def import_scaling_data():
+def import_scaling_data(data_dir=BASE_DIR):
     # QAD SCALING
-    path = os.path.join(LIVE_DIR, 'seccode_scaling.csv')
+    path = os.path.join(data_dir, 'live', 'seccode_scaling.csv')
     data1 = pd.read_csv(path)
     data1.SecCode = data1.SecCode.astype(int).astype(str)
     data1 = data1.rename(columns={
@@ -173,8 +163,8 @@ def import_scaling_data():
     })
     data1 = data1[['SecCode', 'QADirectDividendFactor']]
     # Bloomberg
-    dpath = os.path.join(LIVE_DIR, 'bloomberg_scaling.csv')
-    data2 = pd.read_csv(dpath)
+    path = os.path.join(data_dir, 'live', 'bloomberg_scaling.csv')
+    data2 = pd.read_csv(path)
     data2.SecCode = data2.SecCode.astype(int).astype(str)
     data2 = data2.rename(columns={
         'DivMultiplier': 'BbrgDivMultiplier',
@@ -312,61 +302,20 @@ def extract_params(all_params, selected_params):
 #  8. Live pricing
 ###############################################################################
 
-def get_live_pricing_data(scaling):
-
-    # FILL IN NAN VALUES AND PRINT TO SCREEN
-    while True:
-        # IMPORT LIVE AND ADJUST
-        data = import_live_pricing()
-        if np.any(data.isnull()):
-            print('\n\nMISSING LIVE PRICES\n\n')
-            input_ = raw_input("Press `y` to handle, otherwise will retry\n")
-            if input_ == 'y':
-                cols = ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap']
-                data.AdjOpen = data.AdjOpen.fillna(data[cols].mean(axis=1))
-                data.AdjHigh = data.AdjHigh.fillna(data[cols].max(axis=1))
-                data.AdjLow = data.AdjLow.fillna(data[cols].min(axis=1))
-                data.AdjClose = data.AdjClose.fillna(data[cols].mean(axis=1))
-                data.AdjVwap = data.AdjVwap.fillna(data[cols].mean(axis=1))
-                break
-        else:
-            break
-
-    # Archive
-    if LIVE_FLAG:
-        timestamp = dt.date.today().strftime('%Y%m%d')
-        file_name = '{}_live_pricing.csv'.format(timestamp)
-        path = os.path.join(ARCHIVE_DIR, 'live_pricing', file_name)
-        data.to_csv(path, index=None)
-        # Also in live directory
-        dir_name = '{}_live'.format(timestamp)
-        path = os.path.join(ARCHIVE_DIR, 'live_directories',
-                            dir_name, 'prices.csv')
-        data.to_csv(path, index=None)
-
-    data.drop('captured_time', axis=1, inplace=True)
-    # Merge scaling
-    data = data.merge(scaling)
-    data['RClose'] = data.AdjClose
-    data.AdjOpen = data.AdjOpen * data.PricingMultiplier
-    data.AdjHigh = data.AdjHigh * data.PricingMultiplier
-    data.AdjLow = data.AdjLow * data.PricingMultiplier
-    data.AdjClose = data.AdjClose * data.PricingMultiplier
-    data.AdjVwap = data.AdjVwap * data.PricingMultiplier
-    data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
-    data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
-
-    return data
+def archive_live_pricing(data, data_dir):
+    timestamp = dt.date.today().strftime('%Y%m%d')
+    file_name = '{}_live_pricing.csv'.format(timestamp)
+    path = os.path.join(data_dir, 'archive', 'live_pricing', file_name)
+    data.to_csv(path, index=None)
+    # Also in live directory
+    dir_name = '{}_live'.format(timestamp)
+    path = os.path.join(data_dir, 'archive', 'live_directories',
+                        dir_name, 'prices.csv')
+    data.to_csv(path, index=None)
+    return
 
 
-def import_live_pricing():
-    # If running from archive, pull this live pricing
-    if not LIVE_FLAG:
-        path = os.path.join(LIVE_DIR, 'prices.csv')
-        data = pd.read_csv(path)
-        data.SecCode = data.SecCode.astype(str)
-        return data
-
+def import_live_pricing(live_prices_dir=LIVE_PRICES_DIR):
     # Manually set column types
     dtypes = {
         'SecCode': str,
@@ -380,7 +329,8 @@ def import_live_pricing():
         'VWAP': np.float64,
         'VOLUME': np.float64
     }
-    path = os.path.join(LIVE_PRICES_DIR, 'prices.csv')
+
+    path = os.path.join(live_prices_dir, 'prices.csv')
     data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     data.SecCode = data.SecCode.astype(str)
     data = data.rename(columns={
@@ -400,14 +350,49 @@ def import_live_pricing():
     return data
 
 
+def get_live_pricing_data(scaling, data_dir=BASE_DIR):
+
+    # FILL IN NAN VALUES AND PRINT TO SCREEN
+    while True:
+        # IMPORT LIVE AND ADJUST
+        data = import_live_pricing(data_dir)
+        if np.any(data.isnull()):
+            print('\n\nMISSING LIVE PRICES\n\n')
+            input_ = raw_input("Press `y` to handle, otherwise will retry\n")
+            if input_ == 'y':
+                cols = ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap']
+                data.AdjOpen = data.AdjOpen.fillna(data[cols].mean(axis=1))
+                data.AdjHigh = data.AdjHigh.fillna(data[cols].max(axis=1))
+                data.AdjLow = data.AdjLow.fillna(data[cols].min(axis=1))
+                data.AdjClose = data.AdjClose.fillna(data[cols].mean(axis=1))
+                data.AdjVwap = data.AdjVwap.fillna(data[cols].mean(axis=1))
+                break
+        else:
+            break
+
+    archive_live_pricing(data, data_dir)
+
+    data.drop('captured_time', axis=1, inplace=True)
+    # Merge scaling
+    data = data.merge(scaling)
+    data['RClose'] = data.AdjClose
+    data.AdjOpen = data.AdjOpen * data.PricingMultiplier
+    data.AdjHigh = data.AdjHigh * data.PricingMultiplier
+    data.AdjLow = data.AdjLow * data.PricingMultiplier
+    data.AdjClose = data.AdjClose * data.PricingMultiplier
+    data.AdjVwap = data.AdjVwap * data.PricingMultiplier
+    data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
+    data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
+
+    return data
+
+
 ###############################################################################
 #  9. Cleanup - Sending and writing
 ###############################################################################
 
 def send_orders(out_df, positions):
     orders = make_orders(out_df, positions)
-    if not LIVE_FLAG:
-        return
     client = ExecutionClient()
     for o in orders:
         client.send_order(o)
@@ -450,36 +435,33 @@ def make_orders(orders, positions):
         if o.TradeShares == 0:
             continue
 
-        # order = MOCOrder(basket='statArbBasket',
-        #                  strategy_id=STRATEGY_ID,
-        #                  symbol=o.Ticker,
-        #                  quantity=o.TradeShares)
-        order = VWAPOrder(basket='statArbBasket',
-                          strategy_id=STRATEGY_ID,
-                          symbol=o.Ticker,
-                          quantity=o.TradeShares,
-                          start_time=start_time,
-                          end_time=end_time,
-                          participation=20)
+        order = MOCOrder(basket='statArbBasket',
+                         strategy_id=STRATEGY_ID,
+                         symbol=o.Ticker,
+                         quantity=o.TradeShares)
+
+        # order = VWAPOrder(basket='statArbBasket',
+        #                   strategy_id=STRATEGY_ID,
+        #                   symbol=o.Ticker,
+        #                   quantity=o.TradeShares,
+        #                   start_time=start_time,
+        #                   end_time=end_time,
+        #                   participation=20)
         output.append(order)
 
     return output
 
 
-def write_output(out_df):
-    if not LIVE_FLAG:
-        return
+def write_output(out_df, data_dir=BASE_DIR):
     timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
     file_name = '{}_sent_allocations.csv'.format(timestamp)
-    path = os.path.join(ARCHIVE_DIR, 'allocations', file_name)
+    path = os.path.join(data_dir, 'archive', 'allocations', file_name)
     out_df.to_csv(path, index=None)
 
 
-def write_size_containers(strategy):
-    if not LIVE_FLAG:
-        return
+def write_size_containers(strategy, data_dir=BASE_DIR):
     today = dt.date.today().strftime('%Y%m%d')
-    path = os.path.join(ARCHIVE_DIR, 'size_containers',
+    path = os.path.join(data_dir, 'archive', 'size_containers',
                         '{}_size_containers.json'.format(today))
     output = {}
     for k, v in strategy.size_containers.iteritems():
@@ -491,23 +473,21 @@ def write_size_containers(strategy):
 #  MAIN
 ###############################################################################
 
-def main():
+def confirm_prep_data():
+    meta = json.load(open(os.path.join(BASE_DIR, 'live', 'meta.json'), 'r'))
+    t = meta['prepped_date']
+    # Confirm prep data was run today
+    t = dt.date(int(t[:4]), int(t[4:6]), int(t[6:]))
+    assert t == dt.date.today(), 'Run prep_data.py!!'
+    assert statarb_config.trained_models_dir_name == \
+        meta['trained_models_dir_name']
 
-    # Infer if reading from archive or live directory
-    global LIVE_FLAG
-    LIVE_FLAG = True if LIVE_DIR.find('archive') == -1 else False
+
+def main():
 
     import pdb; pdb.set_trace()
 
-    # Confirm prep data was run
-    if LIVE_FLAG:
-        path = os.path.join(LIVE_DIR, 'meta.json')
-        meta = json.load(open(path, 'r'))
-        t = meta['prepped_date']
-        t = dt.date(int(t[:4]), int(t[4:6]), int(t[6:]))
-        assert t == dt.date.today(), 'Run prep_data.py!!'
-        assert statarb_config.trained_models_dir_name == \
-            meta['trained_models_dir_name']
+    confirm_prep_data()
 
     ###########################################################################
     # 0. Checks meta and import position size
