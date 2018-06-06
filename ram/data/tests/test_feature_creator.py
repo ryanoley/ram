@@ -95,7 +95,7 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['V2'] = [np.nan, 1.5, 0.5, 1.2]
         assert_frame_equal(result1, benchmark)
         result2 = PRMA().calculate_last_date(data, 2)
-        benchmark = pd.Series([1.6, 1.2], index=['V1', 'V2'])
+        benchmark = pd.Series([1.6, 1.2], index=['V1', 'V2'], name=dates[-1])
         assert_series_equal(result2, benchmark)
 
     def test_discount(self):
@@ -110,19 +110,41 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['V2'] = [np.nan, 1.0, 0.25, 1.0, np.nan]
         assert_frame_equal(result1, benchmark)
         result2 = DISCOUNT().calculate_last_date(data, 2)
-        benchmark = pd.Series([0.75, np.nan], index=['V1', 'V2'])
+        benchmark = pd.Series([0.75, np.nan], index=['V1', 'V2'],
+                              name=dates[-1])
         assert_series_equal(result2, benchmark)
 
     def test_boll(self):
-        # TODO: create asserts
         dates = [dt.date(2010, 1, 1) + dt.timedelta(days=x) for x in range(4)]
         data = pd.DataFrame()
         data['V1'] = [2, 4, 8, 10]
         data['V2'] = [2, 8, 2, 10]
         data.index = dates
         result1 = BOLL().calculate_all_dates(data, 2)
+        benchmark = data.copy()
+        benchmark.V1 = [np.nan, 0.75, 0.75, 0.75]
+        benchmark.V2 = [np.nan, 0.75, 0.25, 0.75]
+        assert_frame_equal(result1, benchmark)
         result2 = BOLL().calculate_last_date(data, 2)
-        assert_array_equal(result1.iloc[-1].values, result2.values)
+        benchmark = pd.Series([0.75, 0.75], index=['V1', 'V2'],
+                              name=dates[-1])
+        assert_series_equal(result2, benchmark)
+
+    def test_boll_smooth(self):
+        dates = [dt.date(2010, 1, 1) + dt.timedelta(days=x) for x in range(4)]
+        data = pd.DataFrame()
+        data['V1'] = [2, 4, 8, 10]
+        data['V2'] = [2, 8, 2, 10]
+        data.index = dates
+        result1 = BOLL_SMOOTH().calculate_all_dates(data, 2, 3).round(2)
+        benchmark = data.copy()
+        benchmark.V1 = [np.nan, np.nan, 0.63, 0.67]
+        benchmark.V2 = [np.nan, np.nan, 0.59, 0.45]
+        assert_frame_equal(result1, benchmark)
+        result2 = BOLL_SMOOTH().calculate_last_date(data, 2, 3).round(2)
+        benchmark = pd.Series([0.67, 0.45], index=['V1', 'V2'],
+                              name=dates[-1])
+        assert_series_equal(result2, benchmark)
 
     def test_mfi(self):
         dates = [dt.date(2010, 1, 1) + dt.timedelta(days=x) for x in range(6)]
@@ -134,8 +156,13 @@ class TestFeatureCreator(unittest.TestCase):
         volume = data.copy()
         volume[:] = 1
         result1 = MFI().calculate_all_dates(data, data, data, volume, 3)
+        benchmark = data.copy()
+        benchmark.V1 = [np.nan, np.nan, 100, 70, 100-100/1.8, 100-100/2.4]
+        benchmark.V2 = [np.nan, np.nan, 100, 100, 100, 100.]
+        benchmark.V3 = [np.nan, np.nan, 0, 0, 0, 0.0]
+        assert_frame_equal(result1, benchmark)
         result2 = MFI().calculate_last_date(data, data, data, volume, 3)
-        assert_array_equal(result1.iloc[-1].values, result2.values)
+        assert_array_equal(result1.iloc[-1], result2)
 
     def test_vol(self):
         dates = [dt.date(2010, 1, 1) + dt.timedelta(days=x) for x in range(6)]
@@ -144,8 +171,9 @@ class TestFeatureCreator(unittest.TestCase):
         data['V2'] = [2, 3, 4, 5, 6, 7]
         data.index = dates
         result1 = VOL().calculate_all_dates(data, 3)
+        benchmark = data.pct_change().rolling(3).std()
         result2 = VOL().calculate_last_date(data, 3)
-        assert_array_almost_equal(result1.iloc[-1].values, result2.values)
+        assert_array_almost_equal(result1.iloc[-1], result2)
 
     def test_rsi(self):
         dates = [dt.date(2010, 1, 1) + dt.timedelta(days=x) for x in range(6)]
@@ -154,8 +182,13 @@ class TestFeatureCreator(unittest.TestCase):
         data['V2'] = [2, 3, 4, 5, 6, 7]
         data.index = dates
         result1 = RSI().calculate_all_dates(data, 3)
+        result1 = result1.round(2)
+        benchmark = data.copy()
+        benchmark.V1 = [np.nan, np.nan, 100, 66.67, 33.33, 71.43]
+        benchmark.V2 = [np.nan, np.nan, 100, 100, 100, 100.0]
+        assert_frame_equal(result1, benchmark)
         result2 = RSI().calculate_last_date(data, 3)
-        assert_array_almost_equal(result1.iloc[-1].values, result2.values)
+        assert_array_almost_equal(result1.iloc[-1], result2.round(2))
 
     def test_data_fill_median(self):
         data = pd.DataFrame(index=range(3, 8))

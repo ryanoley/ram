@@ -118,7 +118,7 @@ class PRMA(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, window):
         assert len(data) >= window
-        return data.iloc[-1] / data.iloc[-window:].mean()
+        return data.iloc[-1] / data.iloc[-window:].mean().values
 
 
 class VOL(BaseTechnicalFeature):
@@ -129,7 +129,9 @@ class VOL(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, window):
         assert len(data) >= window
-        return data.iloc[-(window+1):].pct_change().std()
+        out = data.iloc[-(window+1):].pct_change().std()
+        out.name = data.index[-1]
+        return out
 
 
 class DISCOUNT(BaseTechnicalFeature):
@@ -140,7 +142,7 @@ class DISCOUNT(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, window):
         assert len(data) >= window
-        return data.iloc[-1] / data.iloc[-window:].max()
+        return data.iloc[-1] / data.iloc[-window:].max().values
 
 
 class BOLL(BaseTechnicalFeature):
@@ -149,17 +151,15 @@ class BOLL(BaseTechnicalFeature):
     """
     def calculate_all_dates(self, data, window):
         assert len(data) >= window
-        # Set to zero for ease of testing
         std_price = data.rolling(window).std(ddof=0)
         return (data - (data.rolling(window).mean() - 2*std_price)) / \
             (4*std_price)
 
     def calculate_last_date(self, data, window):
         assert len(data) >= window
-        # Set to zero for ease of testing
-        std_price = data.iloc[-window:].std(ddof=0)
-        return (data.iloc[-1] - (data.iloc[-window:].mean() - 2*std_price)) / \
-            (4*std_price)
+        std_price = data.iloc[-window:].std(ddof=0).values
+        mean_price = data.iloc[-window:].mean().values
+        return (data.iloc[-1] - (mean_price - 2*std_price)) / (4*std_price)
 
 
 class BOLL_SMOOTH(BaseTechnicalFeature):
@@ -168,6 +168,7 @@ class BOLL_SMOOTH(BaseTechnicalFeature):
     """
     def calculate_all_dates(self, data, smooth, window):
         assert len(data) >= window
+        assert smooth < window
         # Set to zero for ease of testing
         std_price = data.rolling(window).std(ddof=0)
         return (data.rolling(smooth).mean() -
@@ -176,11 +177,14 @@ class BOLL_SMOOTH(BaseTechnicalFeature):
 
     def calculate_last_date(self, data, smooth, window):
         assert len(data) >= window
+        assert smooth < window
         # Set to zero for ease of testing
         std_price = data.iloc[-window:].std(ddof=0)
-        return (data.rolling(smooth).mean().iloc[-1] -
-                (data.iloc[-window:].mean() - 2*std_price)) / \
+        out = (data.rolling(smooth).mean().iloc[-1] -
+               (data.iloc[-window:].mean() - 2*std_price)) / \
             (4*std_price)
+        out.name = data.index[-1]
+        return out
 
 
 class MFI(BaseTechnicalFeature):
@@ -228,7 +232,8 @@ class MFI(BaseTechnicalFeature):
         # Numpy printing warning
         with np.errstate(divide='ignore'):
             mfi = pd.Series(100 - 100 / (1 + (mf_pos / mf_neg)),
-                            index=high.columns)
+                            index=high.columns,
+                            name=high.index[-1])
         return mfi
 
 
@@ -259,4 +264,5 @@ class RSI(BaseTechnicalFeature):
         avg_loss = loss.mean()
         rsi = 100 - 100 / (1 + (avg_gain / avg_loss))
         rsi.index = changes.columns
+        rsi.name = data.index[-1]
         return rsi
