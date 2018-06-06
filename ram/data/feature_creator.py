@@ -75,6 +75,7 @@ class FeatureAggregator(object):
         output = self._data.pivot_table(
             values='val', index=['SecCode', 'Date'],
             columns='label', aggfunc='mean').reset_index()
+        del output.columns.name
         # Sorted output features
         features = self._data.label.unique().tolist()
         features.sort()
