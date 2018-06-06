@@ -67,6 +67,40 @@ def import_format_raw_data(file_name, data_dir=BASE_DIR):
     return data
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def import_raw_data_archive(recon_date, data_dir=BASE_DIR):
+    output = {}
+    print('Importing data...')
+    dir_name = '{}_live'.format(recon_date.strftime('%Y%m%d'))
+    dir_path = os.path.join(data_dir, 'archive',
+                            'live_directories', dir_name)
+
+    for f in get_archive_version_file_names(dir_path):
+        name = f.replace('.csv', '')
+        data = import_format_raw_data_archive(f, dir_path)
+        output[name] = data
+    output['market_data'] = import_format_raw_data_archive(
+        'market_index_data.csv', dir_path)
+    return output
+
+
+def get_archive_version_file_names(dir_path):
+    all_files = os.listdir(dir_path)
+    files = [x for x in all_files if x.find('version') > -1]
+    files.sort()
+    assert len(files) > 0
+    return files
+
+
+def import_format_raw_data_archive(file_name, dir_path):
+    path = os.path.join(dir_path, file_name)
+    data = pd.read_csv(path)
+    data.Date = convert_date_array(data.Date)
+    data.SecCode = data.SecCode.astype(int).astype(str)
+    return data
+
+
 ###############################################################################
 #  2. Import run map
 ###############################################################################
@@ -151,22 +185,47 @@ def get_size_containers(data_dir=BASE_DIR):
     return output
 
 
+def get_size_containers_archive(recon_date, data_dir=BASE_DIR):
+    dir_name = '{}_live'.format(recon_date.strftime('%Y%m%d'))
+    path = os.path.join(data_dir, 'archive', 'live_directories',
+                        dir_name, 'size_containers.json')
+    sizes = json.load(open(path, 'r'))
+    output = {}
+    for k, v in sizes.iteritems():
+        sc = SizeContainer(-1)
+        sc.from_json(v)
+        output[k] = sc
+    return output
+
+
 ###############################################################################
 #  6. Scaling data
 ###############################################################################
 
 def import_scaling_data(data_dir=BASE_DIR):
     # QAD SCALING
-    path = os.path.join(data_dir, 'live', 'seccode_scaling.csv')
-    data1 = pd.read_csv(path)
+    path1 = os.path.join(data_dir, 'live', 'seccode_scaling.csv')
+    # Bloomberg
+    path2 = os.path.join(data_dir, 'live', 'bloomberg_scaling.csv')
+    return _format_scaling_data(path1, path2)
+
+
+def import_scaling_data_archive(recon_date, data_dir=BASE_DIR):
+    dir_name = '{}_live'.format(recon_date.strftime('%Y%m%d'))
+    path = os.path.join(data_dir, 'archive', 'live_directories', dir_name)
+    path1 = os.path.join(path, 'seccode_scaling.csv')
+    path2 = os.path.join(path, 'bloomberg_scaling.csv')
+    return _format_scaling_data(path1, path2)
+
+
+def _format_scaling_data(path1, path2):
+    data1 = pd.read_csv(path1)
     data1.SecCode = data1.SecCode.astype(int).astype(str)
     data1 = data1.rename(columns={
         'DividendFactor': 'QADirectDividendFactor'
     })
     data1 = data1[['SecCode', 'QADirectDividendFactor']]
-    # Bloomberg
-    path = os.path.join(data_dir, 'live', 'bloomberg_scaling.csv')
-    data2 = pd.read_csv(path)
+    data2 = pd.read_csv(path2)
     data2.SecCode = data2.SecCode.astype(int).astype(str)
     data2 = data2.rename(columns={
         'DivMultiplier': 'BbrgDivMultiplier',
