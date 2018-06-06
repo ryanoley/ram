@@ -23,6 +23,7 @@ class ImplementationDataTestSuite(object):
 
     def make_data(self):
         self._init_dirs()
+        self._make_killed_seccodes()
         self._make_trained_models_data()
         self._make_version_data_files()
         self._make_live_data_files()
@@ -82,6 +83,14 @@ class ImplementationDataTestSuite(object):
         path1 = os.path.join(path, 'eod_positions')
         os.mkdir(path1)
 
+    def _make_killed_seccodes(self):
+        killed = {'123': '2010-01-01'}
+        path = os.path.join(self.data_dir,
+                            'StatArbStrategy',
+                            'killed_seccodes.json')
+        with open(path, 'w') as outfile:
+            outfile.write(json.dumps(killed))
+
     def _make_trained_models_data(self):
         path = os.path.join(self.data_dir, 'StatArbStrategy')
         path1 = os.path.join(path, 'trained_models', 'models_0005')
@@ -92,7 +101,8 @@ class ImplementationDataTestSuite(object):
         y = np.random.randn(100)
         model.fit(X=X, y=y)
 
-        pathm = os.path.join(path1, 'StatArbStrategy_run_0003_1000_skl_model.pkl')
+        pathm = os.path.join(path1,
+                             'StatArbStrategy_run_0003_1000_skl_model.pkl')
         with open(pathm, 'w') as outfile:
             outfile.write(pickle.dumps(model))
 
@@ -115,7 +125,8 @@ class ImplementationDataTestSuite(object):
                 }
             }
         }
-        pathm = os.path.join(path1, 'StatArbStrategy_run_0003_1000_params.json')
+        pathm = os.path.join(path1,
+                             'StatArbStrategy_run_0003_1000_params.json')
         with open(pathm, 'w') as outfile:
             outfile.write(json.dumps(params))
 

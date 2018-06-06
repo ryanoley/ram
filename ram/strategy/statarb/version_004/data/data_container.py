@@ -323,7 +323,6 @@ class DataContainer(BaseDataContainer):
             ret = data_rank(prma.fit(close, p[1]) / prma.fit(close, p[0]))
             if live_flag:
                 ret = ret.iloc[-1]
-                ret.name = 0
             feat.add_feature(ret, 'prma_{}_{}'.format(p[0], p[1]))
 
         # LONG returns
@@ -331,7 +330,6 @@ class DataContainer(BaseDataContainer):
             ret = data_rank(close.pct_change(i))
             if live_flag:
                 ret = ret.iloc[-1]
-                ret.name = 0
             feat.add_feature(ret, 'ret_{}d'.format(i))
 
         return feat

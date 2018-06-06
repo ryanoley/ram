@@ -24,7 +24,8 @@ LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 
-STRATEGY_ID = 'StatArb1'
+STRATEGY_ID = 'StatArb_0001'
+
 
 ###############################################################################
 #  0. Import raw data
@@ -83,8 +84,9 @@ def import_run_map(model_dir_name=statarb_config.trained_models_dir_name,
 #  3. Import sklearn models and model parameters
 ###############################################################################
 
-def import_models_params(models_dir_name=statarb_config.trained_models_dir_name,
-                         data_dir=BASE_DIR):
+def import_models_params(
+        models_dir_name=statarb_config.trained_models_dir_name,
+        data_dir=BASE_DIR):
     """
     Returns
     -------
@@ -355,7 +357,7 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
     # FILL IN NAN VALUES AND PRINT TO SCREEN
     while True:
         # IMPORT LIVE AND ADJUST
-        data = import_live_pricing(data_dir)
+        data = import_live_pricing()
         if np.any(data.isnull()):
             print('\n\nMISSING LIVE PRICES\n\n')
             input_ = raw_input("Press `y` to handle, otherwise will retry\n")
@@ -484,8 +486,6 @@ def confirm_prep_data():
 
 
 def main():
-
-    import pdb; pdb.set_trace()
 
     confirm_prep_data()
 
