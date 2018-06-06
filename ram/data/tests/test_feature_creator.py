@@ -77,6 +77,7 @@ class TestFeatureCreator(unittest.TestCase):
                              dt.date(2010, 1, 3)] * 3
         benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3.]
         benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27.]
+        benchmark.columns.name = 'label'
         assert_frame_equal(result, benchmark)
 
     def test_prma(self):
