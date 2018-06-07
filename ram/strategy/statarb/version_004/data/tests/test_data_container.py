@@ -228,10 +228,13 @@ class TestDataContainer(unittest.TestCase):
         benchmark = data.copy()
         benchmark['Response_Simple_2'] = [1, 0, 0, 1] + [0] * 5
         benchmark = benchmark.drop('AdjClose', axis=1)
+        benchmark.Response_Simple_2 = benchmark.Response_Simple_2.astype(int)
         assert_frame_equal(result, benchmark)
         result = smoothed_responses(data)
         benchmark = data.copy()
         benchmark['Response_Smoothed_2'] = [1, 0, 0, 1] + [0] * 5
+        benchmark.Response_Smoothed_2 = \
+            benchmark.Response_Smoothed_2.astype(int)
         benchmark = benchmark.drop('AdjClose', axis=1)
         assert_frame_equal(result, benchmark)
 
