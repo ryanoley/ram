@@ -1,4 +1,5 @@
 import os
+import json
 import argparse
 import pandas as pd
 import datetime as dt
@@ -130,12 +131,6 @@ def _write_pricing_output(data, recon_dt, output_dir=RECON_DIR):
 ############################################################################
 
 def run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
-    # Set get live alloc attributes
-    datestamp = recon_dt.strftime('%Y%m%d')
-    gla.LIVE_DIR = os.path.join(ARCHIVE_DIR, 'live_directories',
-                                '{}_live'.format(datestamp))
-    gla.LIVE_FLAG = False
-
     # Get orders with close data
     recon_orders = get_recon_orders(recon_dt)
 
@@ -152,19 +147,26 @@ def get_recon_orders(recon_dt):
     position_size = gla.get_position_size()['gross_position_size']
 
     # 1. Import raw data
-    raw_data = gla.import_raw_data()
+    raw_data = gla.import_raw_data_archive(recon_dt)
 
-    # 2. Import run map
-    run_map = gla.import_run_map()
+    # 2. Get model dir name
+    dir_name = '{}_live'.format(recon_dt.strftime('%Y%m%d'))
+    meta = json.load(open(os.path.join(
+        BASE_DIR, 'archive', 'live_directories', dir_name,
+        'meta.json'), 'r'))
+    model_dir_name = meta['trained_models_dir_name']
 
-    # 3. Import sklearn models and model parameters
-    models_params = gla.import_models_params()
+    # 3. Import run map
+    run_map = gla.import_run_map(model_dir_name)
+
+    # 4. Import sklearn models and model parameters
+    models_params = gla.import_models_params(model_dir_name)
 
     # 5. Get SizeContainers
-    size_containers = gla.get_size_containers()
+    size_containers = gla.get_size_containers_archive(recon_dt)
 
     # 6. Scaling data for live data
-    scaling = gla.import_scaling_data()
+    scaling = gla.import_scaling_data_archive(recon_dt)
 
     # 7. Prep data
     strategy = gla.StatArbImplementation()
@@ -267,6 +269,7 @@ def _write_order_output(recon_orders, exec_orders, recon_dt,
 
 
 def main():
+
     #####################################################################
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument(

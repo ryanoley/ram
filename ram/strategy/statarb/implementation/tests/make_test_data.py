@@ -23,6 +23,7 @@ class ImplementationDataTestSuite(object):
 
     def make_data(self):
         self._init_dirs()
+        self._make_killed_seccodes()
         self._make_trained_models_data()
         self._make_version_data_files()
         self._make_live_data_files()
@@ -82,6 +83,14 @@ class ImplementationDataTestSuite(object):
         path1 = os.path.join(path, 'eod_positions')
         os.mkdir(path1)
 
+    def _make_killed_seccodes(self):
+        killed = {'123': '2010-01-01'}
+        path = os.path.join(self.data_dir,
+                            'StatArbStrategy',
+                            'killed_seccodes.json')
+        with open(path, 'w') as outfile:
+            outfile.write(json.dumps(killed))
+
     def _make_trained_models_data(self):
         path = os.path.join(self.data_dir, 'StatArbStrategy')
         path1 = os.path.join(path, 'trained_models', 'models_0005')
@@ -92,15 +101,15 @@ class ImplementationDataTestSuite(object):
         y = np.random.randn(100)
         model.fit(X=X, y=y)
 
-        pathm = os.path.join(path1, 'run_0003_1000_skl_model.pkl')
+        pathm = os.path.join(path1,
+                             'StatArbStrategy_run_0003_1000_skl_model.pkl')
         with open(pathm, 'w') as outfile:
             outfile.write(pickle.dumps(model))
 
-        pathm = os.path.join(path1, 'run_009_12_skl_model.pkl')
+        pathm = os.path.join(path1, 'StatArbStrategy_run_009_12_skl_model.pkl')
         with open(pathm, 'w') as outfile:
             outfile.write(pickle.dumps(model))
 
-        # Run Params with SizeContainers
         # Get last two days
         today = dt.date.today()
         t1 = (today - dt.timedelta(days=2)).strftime('%Y%m%d')
@@ -116,7 +125,8 @@ class ImplementationDataTestSuite(object):
                 }
             }
         }
-        pathm = os.path.join(path1, 'run_0003_1000_params.json')
+        pathm = os.path.join(path1,
+                             'StatArbStrategy_run_0003_1000_params.json')
         with open(pathm, 'w') as outfile:
             outfile.write(json.dumps(params))
 
@@ -131,7 +141,7 @@ class ImplementationDataTestSuite(object):
                 }
             }
         }
-        pathm = os.path.join(path1, 'run_009_12_params.json')
+        pathm = os.path.join(path1, 'StatArbStrategy_run_009_12_params.json')
         with open(pathm, 'w') as outfile:
             outfile.write(json.dumps(params))
 
@@ -161,10 +171,14 @@ class ImplementationDataTestSuite(object):
                 'model': {'max_features': 0.8, 'type': 'tree',
                           'min_samples_leaf': 500}, 'score_var': 'prma_15'},
             'stack_index': 'version_002~version_0010',
-            'run_name': 'run_0003_1000',
+            'run_name': 'StatArbStrategy_run_0003_1000',
             'strategy_code_version': 'version_002'
         }
-        run_map = [params, params]
+        params2 = params.copy()
+        params2['prepped_data_version'] = 'version_0018'
+        params2['run_name'] = 'StatArbStrategy_run_009_12'
+        params2['stack_index'] = 'version_002~version_0018',
+        run_map = [params, params2]
 
         # Write
         with open(os.path.join(path1, 'run_map.json'), 'w') as outfile:
@@ -188,6 +202,13 @@ class ImplementationDataTestSuite(object):
         today = dt.date.today().strftime('%Y%m%d')
         data.to_csv(os.path.join(path1, 'version_0010.csv'), index=False)
         data.to_csv(os.path.join(path1, 'version_0018.csv'), index=False)
+        data['SecCode'] = ['1'] * 3 + ['2'] * 3
+        data.to_csv(os.path.join(path1, 'market_index_data.csv'), index=False)
+        # Make live directory meta file
+        meta = {'trained_models_dir_name': 'models_0005',
+                'prepped_date': dt.date.today().strftime('%Y%m%d')}
+        with open(os.path.join(path1, 'meta.json'), 'w') as outfile:
+            outfile.write(json.dumps(meta))
 
     def _make_live_data_files(self):
         path = os.path.join(self.data_dir, 'live_prices')
@@ -214,7 +235,6 @@ class ImplementationDataTestSuite(object):
         data['Date'] = '2010-01-01'
         data['DividendFactor'] = [1, 1.1, 1.2]
         data.to_csv(os.path.join(path1, 'seccode_scaling.csv'), index=None)
-
         # Bloomberg data
         data = pd.DataFrame()
         data['SecCode'] = [5151, 72727]
@@ -268,6 +288,18 @@ class ImplementationDataTestSuite(object):
             }
         }}
         json.dump(sizes, open(os.path.join(dpath, file_name), 'w'))
+        # In live directory
+        path = os.path.join(self.data_dir,
+                            'StatArbStrategy',
+                            'live', 'size_containers.json')
+        sizes = SizeContainer(2)
+        t = dt.date.today() - dt.timedelta(days=2)
+        sizes.update_sizes({'A': 100, 'B': 200}, t)
+        t = dt.date.today() - dt.timedelta(days=1)
+        sizes.update_sizes({'A': 100, 'B': 200}, t)
+        sizes = {'StatArbStrategy_run_0003_1000': sizes.to_json(),
+                 'StatArbStrategy_run_009_12': sizes.to_json()}
+        json.dump(sizes, open(path, 'w'))
 
 
 ###############################################################################

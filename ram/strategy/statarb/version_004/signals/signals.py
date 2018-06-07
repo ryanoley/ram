@@ -8,7 +8,7 @@ from sklearn.linear_model import LogisticRegression
 
 
 from ram.strategy.statarb.abstract.signal_generator import BaseSignalGenerator
-from ram.strategy.statarb.version_004.data.data_container import accounting_features, starmine_features
+from ram.strategy.statarb.version_004.data.data_container import ACCOUNTING_FEATURES, STARMINE_FEATURES
 
 
 class SignalModel(BaseSignalGenerator):
@@ -45,7 +45,7 @@ class SignalModel(BaseSignalGenerator):
         self._features = np.sort(features)
 
     def _get_features(self):
-        non_tech = accounting_features + starmine_features
+        non_tech = ACCOUNTING_FEATURES + STARMINE_FEATURES
         if self._technical_feature_set == 1:
             features = [x for x in self._features if x not in non_tech]
         elif self._technical_feature_set == 2:
