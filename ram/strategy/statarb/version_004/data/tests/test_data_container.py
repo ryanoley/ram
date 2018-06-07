@@ -212,7 +212,7 @@ class TestDataContainer(unittest.TestCase):
         self.assertTrue(hasattr(container, '_pricing_data'))
         self.assertTrue(hasattr(container, '_other_data'))
         result = container._test_dates
-        benchmark = [dt.date(2018, 6, 4), dt.date(2018, 6, 5)]
+        benchmark = dates[-2:]
         self.assertEqual(result, benchmark)
 
     def test_make_responses(self):
