@@ -79,10 +79,10 @@ class TestModelSelection(unittest.TestCase):
         self.assertEqual(result[1][1][0], pd.Timestamp('1/12/2015'))
         self.assertEqual(result[1][1][-1], pd.Timestamp('1/18/2015'))
         result = create_training_test_indexes(dates, 'w', 1)
-        self.assertEqual(result[1][0][0], pd.Timestamp(2015, 1, 5))
-        self.assertEqual(result[1][0][-1], pd.Timestamp(2015, 1, 11))
-        self.assertEqual(result[1][1][0], pd.Timestamp(2015, 1, 12))
-        self.assertEqual(result[1][1][-1], pd.Timestamp(2015, 1, 18))
+        self.assertEqual(result[1][0][0], pd.Timestamp('1/5/2015'))
+        self.assertEqual(result[1][0][-1], pd.Timestamp('1/11/2015'))
+        self.assertEqual(result[1][1][0], pd.Timestamp('1/12/2015'))
+        self.assertEqual(result[1][1][-1], pd.Timestamp('1/18/2015'))
 
         # HACK THIS IS COMMENTED OUT IN MODEL_SELECTION.PY - GIT ISSUE
         # assert_array_equal(result[2][0], dates)
