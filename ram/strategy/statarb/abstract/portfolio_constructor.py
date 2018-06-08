@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ram import config
 from ram.strategy.statarb.utils import make_variable_dict
-from ram.strategy.statarb.abstract.portfolio import Portfolio
+from ram.strategy.statarb.objects.portfolio import Portfolio
 
 LOW_PRICE_FILTER = 7
 LOW_LIQUIDITY_FILTER = 3
