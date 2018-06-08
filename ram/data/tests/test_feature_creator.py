@@ -80,7 +80,8 @@ class TestFeatureCreator(unittest.TestCase):
         benchmark['VAR1'] = [1, 1, 1, 2, 2, 2, 3, 3, 3.]
         benchmark['VAR2'] = [-9, -9, -9, -18, -18, -18, -27, -27, -27.]
         benchmark['VAR3'] = np.nan
-        benchmark.VAR3 = benchmark.VAR3.astype(object)  # To make test work
+        # This type cast crashes this test on Windows
+        #benchmark.VAR3 = benchmark.VAR3.astype(object)
         assert_frame_equal(result, benchmark)
 
     def test_prma(self):
