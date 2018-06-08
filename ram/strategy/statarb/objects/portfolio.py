@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from ram.strategy.statarb.abstract.position import Position
+from ram.strategy.statarb.objects.position import Position
 
 
 class Portfolio(object):

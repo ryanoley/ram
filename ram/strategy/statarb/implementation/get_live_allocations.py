@@ -17,7 +17,7 @@ from gearbox import convert_date_array
 from ramex.orders.orders import MOCOrder, VWAPOrder
 from ramex.application.client import ExecutionClient
 
-from ram.strategy.statarb.sizes import SizeContainer
+from ram.strategy.statarb.objects.sizes import SizeContainer
 
 
 LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
