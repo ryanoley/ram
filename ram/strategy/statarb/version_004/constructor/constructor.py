@@ -47,7 +47,8 @@ class PortfolioConstructor(BasePortfolioConstructor):
     def set_other_data(self, data):
         self._scores = data
 
-    def get_day_position_sizes(self, date, column_index):
+    def get_day_position_sizes(self, date, column_index,
+                               drop_short_seccodes=None):
         """
         For signals, Longs are high. (Signal is from sklearn model)
         For scores, Longs are low. (Score is technical var)
@@ -63,8 +64,16 @@ class PortfolioConstructor(BasePortfolioConstructor):
 
         counts = scores.shape[0] / 2
 
-        longs = scores.iloc[counts:]
         shorts = scores.iloc[:counts]
+        longs = scores.iloc[counts:]
+
+        if drop_short_seccodes:
+            shorts = shorts[~shorts.index.isin(drop_short_seccodes)].copy()
+            if len(shorts) < self._per_side_count:
+                scores = shorts.append(longs)
+                counts = scores.shape[0] / 2
+                longs = scores.iloc[counts:]
+                shorts = scores.iloc[:counts]
 
         longs = longs.sort_values(self._score_var)
         shorts = shorts.sort_values(self._score_var, ascending=False)
