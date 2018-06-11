@@ -242,7 +242,7 @@ class DataContainer(BaseDataContainer):
         volume = clean_pivot_raw_data(data, 'AdjVolume')
         avgdolvol = clean_pivot_raw_data(data, 'AvgDolVol')
         # All technical features should be created within this function
-        feat = self._make_technical_features_imp(
+        feat = self._calculate_technical_features(
             open_, high, low, close, volume, avgdolvol, live_flag)
         pdata = data[['SecCode', 'Date', 'keep_inds']].copy()
         # Adjust date for faster live imp
@@ -255,7 +255,7 @@ class DataContainer(BaseDataContainer):
             pdata.Date = dt.date.today()
         return pdata, features
 
-    def _make_technical_features_imp(self, open_, high, low, close,
+    def _calculate_technical_features(self, open_, high, low, close,
                                      volume, avgdolvol, live_flag):
         """
         This function is where feature innovation should happen.

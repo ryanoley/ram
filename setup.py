@@ -25,6 +25,7 @@ PACKAGES = [
     # ~~~ STATARB ~~~
     'ram/strategy/statarb',
     'ram/strategy/statarb/abstract',
+    'ram/strategy/statarb/objects',
     'ram/strategy/statarb/implementation',
     'ram/strategy/statarb/implementation/tests',
     'ram/strategy/statarb/version_004',

@@ -9,8 +9,12 @@ import datetime as dt
 from sklearn.linear_model import LinearRegression
 
 from ram.data.data_handler_sql import DataHandlerSQL
+<<<<<<< HEAD
 from ram.strategy.statarb.sizes import SizeContainer
 from ram.strategy.statarb.implementation.prep_data import get_trading_dates
+=======
+from ram.strategy.statarb.objects.sizes import SizeContainer
+>>>>>>> 47345f7a0b14041a713d936eb2e6fef1080155cd
 
 
 class ImplementationDataTestSuite(object):
