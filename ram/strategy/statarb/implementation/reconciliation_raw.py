@@ -15,7 +15,7 @@ BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
 RECON_DIR = os.path.join(ARCHIVE_DIR, 'reconciliation')
 
-STRATEGY_ID = 'StatArb1'
+STRATEGY_ID = 'StatArb_0001'
 
 ############################################################################
 # Pricing reconciliation
