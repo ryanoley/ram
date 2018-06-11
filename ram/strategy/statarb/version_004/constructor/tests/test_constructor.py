@@ -60,6 +60,30 @@ class TestPortfolioConstructor(unittest.TestCase):
         benchmark = [dt.date(2010, 1, 1), dt.date(2010, 1, 2)]
         self.assertListEqual(result, benchmark)
 
+    def test_set_args_get_day_position_sizes2(self):
+        cons = PortfolioConstructor()
+        # These two methods happen before setting args
+        cons.set_other_data(self.other_data)
+        cons.set_signal_data(self.signal_data)
+        # Set args
+        cons.set_args(score_var='V2',
+                      per_side_count=1,
+                      holding_period=2)
+        # Run method for test
+        result = cons.get_day_position_sizes(dt.date(2010, 1, 1), 0,
+                                             ['A', 'D'])
+        benchmark = {'B': 0.25, 'C': -0.25}
+        self.assertDictEqual(result, benchmark)
+
+        result = cons.get_day_position_sizes(dt.date(2010, 1, 2), 0)
+        benchmark = {'A': -0.25, 'C': 0.0, 'B': 0.25}
+        self.assertDictEqual(result, benchmark)
+        # Test size container
+        result = cons._size_containers[0].sizes.keys()
+        result.sort()
+        benchmark = [dt.date(2010, 1, 1), dt.date(2010, 1, 2)]
+        self.assertListEqual(result, benchmark)
+
     def tearDown(self):
         pass
 

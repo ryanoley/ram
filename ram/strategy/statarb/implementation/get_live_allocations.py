@@ -269,6 +269,9 @@ class StatArbImplementation(object):
     def add_size_containers(self, size_containers):
         self.size_containers = size_containers
 
+    def add_drop_short_seccodes(self, drop_short_seccodes):
+        self.drop_short_seccodes = drop_short_seccodes
+
     def prep(self):
         assert hasattr(self, 'run_map')
         assert hasattr(self, 'daily_data')
@@ -336,7 +339,7 @@ class StatArbImplementation(object):
 
             # Check size container is pulled
             sizes = strategy.constructor.get_day_position_sizes(
-                dt.date.today(), 0)
+                dt.date.today(), 0, self.drop_short_seccodes)
 
             sizes = pd.Series(sizes).reset_index()
             sizes.columns = ['SecCode', 'PercAlloc']
@@ -544,6 +547,10 @@ def confirm_prep_data():
         meta['trained_models_dir_name']
 
 
+def get_drop_seccodes():
+    return ['10967710', '86633', '21726']
+
+
 def main():
 
     confirm_prep_data()
@@ -570,11 +577,15 @@ def main():
     # 6. Scaling data for live data
     scaling = import_scaling_data()
 
-    # 7. Prep data
+    # 7. Drop SecCodes
+    drop_short_seccodes = get_drop_seccodes()
+
+    # 8. Prep data
     strategy = StatArbImplementation()
     strategy.add_daily_data(raw_data)
     strategy.add_run_map_models(run_map, models_params)
     strategy.add_size_containers(size_containers)
+    strategy.add_drop_short_seccodes(drop_short_seccodes)
     strategy.prep()
 
     ###########################################################################
