@@ -24,7 +24,7 @@ LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 
-STRATEGY_ID = 'StatArb_0001'
+STRATEGY_ID = 'StatArb0001'
 
 
 ###############################################################################
@@ -489,28 +489,26 @@ def make_orders(orders, positions):
     data['TradeShares'] = data.NewShares - data.Shares
     output = []
     # Start/End time
-    now = dt.datetime.now()
-    start_time = now + dt.timedelta(minutes=1)
-    start_time = dt.time(start_time.hour, start_time.minute)
-    end_time = now + dt.timedelta(minutes=4)
-    end_time = dt.time(end_time.hour, end_time.minute)
+    start_time = dt.time(15, 45)
+    end_time = dt.time(16, 00)
 
     for _, o in data.iterrows():
         if o.TradeShares == 0:
             continue
 
-        order = MOCOrder(basket='statArbBasket',
-                         strategy_id=STRATEGY_ID,
-                         symbol=o.Ticker,
-                         quantity=o.TradeShares)
+        # order = MOCOrder(basket='statArbBasket',
+        #                  strategy_id=STRATEGY_ID,
+        #                  symbol=o.Ticker,
+        #                  quantity=o.TradeShares)
 
-        # order = VWAPOrder(basket='statArbBasket',
-        #                   strategy_id=STRATEGY_ID,
-        #                   symbol=o.Ticker,
-        #                   quantity=o.TradeShares,
-        #                   start_time=start_time,
-        #                   end_time=end_time,
-        #                   participation=20)
+        order = VWAPOrder(basket='statArbBasket',
+                          strategy_id=STRATEGY_ID,
+                          symbol=o.Ticker,
+                          quantity=o.TradeShares,
+                          start_time=start_time,
+                          end_time=end_time,
+                          participation=20)
+
         output.append(order)
 
     return output
@@ -548,7 +546,7 @@ def confirm_prep_data():
 
 
 def get_drop_seccodes():
-    return ['10967710', '86633', '21726']
+    return ['10967710', '86633', '21726', '84484', '53357', '11132438']
 
 
 def main():
@@ -589,7 +587,6 @@ def main():
     strategy.prep()
 
     ###########################################################################
-
     _ = raw_input("Press Enter to continue...")
 
     while True:
