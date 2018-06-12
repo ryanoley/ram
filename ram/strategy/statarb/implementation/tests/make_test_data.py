@@ -33,6 +33,7 @@ class ImplementationDataTestSuite(object):
         self._make_ticker_mapping()
         self._make_position_sheet_files()
         self._make_size_containers()
+        self._make_short_locate_data()
 
     def delete_data(self):
         if os.path.exists(self.data_dir):
@@ -73,6 +74,8 @@ class ImplementationDataTestSuite(object):
         path1 = os.path.join(path, 'archive', 'ticker_mapping')
         os.mkdir(path1)
         path1 = os.path.join(path, 'archive', 'version_data')
+        os.mkdir(path1)
+        path1 = os.path.join(path, 'archive', 'locates')
         os.mkdir(path1)
 
         # Live pricing - OUTSIDE RAM
@@ -301,3 +304,20 @@ class ImplementationDataTestSuite(object):
         sizes = {'StatArbStrategy_run_0003_1000': sizes.to_json(),
                  'StatArbStrategy_run_009_12': sizes.to_json()}
         json.dump(sizes, open(path, 'w'))
+
+    def _make_short_locate_data(self):
+        data = pd.DataFrame()
+        data['Security'] = ['A', 'B', 'C', 'D']
+        data['Rate %'] = [-7.5, .95, -3.0, -20.5]
+        data['Rqst Qty'] = [1000, 1000, 1000, 1000]
+        data['Approv Qty'] = [0, 1000, 1000, 0]
+        data['Confirmation'] = ['conftxt'] * 4
+        data['Status'] = ['Rejected', 'Approved', 'Approved', 'Rejected']
+
+        # StatArb Archive
+        dt_str = '{d.month}.{d.day}.{d:%y}'.format(d=self.today)
+        file_name = 'Roundabout {}.xlsx'.format(dt_str)
+        path = os.path.join(self.data_dir, 'StatArbStrategy', 'archive',
+                            'locates')
+        data.to_excel(os.path.join(path, file_name), index=None)
+

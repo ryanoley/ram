@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import datetime as dt
+from openpyxl import load_workbook
 from shutil import copyfile, rmtree
 
 from gearbox import convert_date_array
@@ -786,6 +787,82 @@ def process_messages(messages_):
 
 ###############################################################################
 
+def get_short_sell_killed_seccodes(today, rate_min=-4., data_dir=IMP_DIR):
+    # Search for todays file
+    dt_str = '{d.month}.{d.day}.{d:%y}'.format(d=today)
+
+    locates_dir = os.path.join(data_dir,
+                               'StatArbStrategy',
+                               'archive',
+                               'locates')
+    all_locate_files = os.listdir(locates_dir)
+    fl = [x for x in all_locate_files if x.find(dt_str) > -1]
+
+    output = pd.DataFrame()
+    output.loc[0, 'Desc'] = 'Short Locates: '
+    if len(fl) == 0:
+        output.loc[0, 'Message'] = ('[WARNING] no locate file for {} ' +
+                                    'found'.format(dt_str))
+        return output
+    elif len(fl) > 1:
+        output.loc[0, 'Message'] = ('[WARNING] multipleocate files for {} ' +
+                                    'found'.format(dt_str))
+        return output
+
+    # Read in file and process
+    htb = pd.read_excel(os.path.join(locates_dir, fl[0]))
+    htb.drop('Confirmation', axis=1, inplace=True)
+    htb.rename(columns={
+               'Rate %':'rate',
+               'Rqst Qty':'req_qty',
+               'Approv Qty':'apr_qty',
+               'Status':'status'},
+                inplace=True)
+    htb['Security'] = [x[:8] if len(x) > 8 else x for x in htb.Security]
+    fltr_rate = np.array(htb.rate < rate_min)
+    fltr_appr = np.array(htb.status != 'Approved')
+    htb = htb[fltr_rate | fltr_appr].reset_index(drop=True)
+
+    # Merge with live mapping file to get SecCodes
+    map_path = os.path.join(data_dir,
+                            'StatArbStrategy',
+                            'live',
+                            'tickers_for_bloomberg.csv')
+    map_data = pd.read_csv(map_path)
+    map_data.SecCode = map_data.SecCode.astype(int).astype(str)
+
+    tkr_map = map_data[['SecCode', 'Ticker']].copy()
+    tkr_map.rename(columns={'SecCode':'tkr_SecCode'}, inplace=True)
+
+    csp_map = map_data[['SecCode', 'Cusip']].copy()
+    csp_map.rename(columns={'SecCode':'csp_SecCode'}, inplace=True)
+
+    htb = pd.merge(htb, tkr_map, how='left', left_on='Security',
+                   right_on='Ticker')
+    htb = pd.merge(htb, csp_map, how='left', left_on='Security',
+                   right_on='Cusip')
+
+    htb['SecCode'] = [x if pd.notnull(x) else y for x, y in
+                      zip(htb.tkr_SecCode, htb.csp_SecCode)]
+    htb = htb[['Security', 'rate', 'req_qty', 'apr_qty', 'status', 'SecCode']]
+    unmapped = htb.SecCode.isnull().sum()
+
+    # Write to File
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'short_sell_kill_list.csv')
+    htb.to_csv(path, index=None)
+
+    # Add to output
+    if unmapped > 0:
+        message = '[INFO] {} securities no map to SecCodes'.format(unmapped)
+    else:
+        message = '*'
+    output.loc[0, 'Message'] = message
+
+    return output
+
+###############################################################################
+
 def archive_live_directory():
     live_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                              'StatArbStrategy',
@@ -846,6 +923,10 @@ def main():
 
     # BLOOMBERG
     data = process_bloomberg_data(killed_seccodes)
+    messages = messages.append(data)
+
+    # SHORT LOCATES
+    data = get_short_sell_killed_seccodes(today, rate_min=-5.)
     messages = messages.append(data)
 
     # Add date column

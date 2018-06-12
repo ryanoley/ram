@@ -70,6 +70,13 @@ class TestPrepData(unittest.TestCase):
         all_files = os.listdir(path)
         self.assertTrue('size_containers.json' in all_files)
 
+    def test_get_short_sell_killed_seccodes(self):
+        import ipdb; ipdb.set_trace()
+        result = get_short_sell_killed_seccodes(dt.date.today(),
+                                                data_dir=self.data_dir)
+
+        return
+
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()
 
