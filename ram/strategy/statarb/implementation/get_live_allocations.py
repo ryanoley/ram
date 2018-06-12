@@ -627,8 +627,8 @@ def main():
             send_orders(out_df, positions, drop_short_seccodes)
 
             # 9. Writing and cleanup
-            # write_output(out_df)
-            # write_size_containers(strategy)
+            write_output(out_df)
+            write_size_containers(strategy)
 
             break
 
