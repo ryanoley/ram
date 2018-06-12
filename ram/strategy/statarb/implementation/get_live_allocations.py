@@ -549,6 +549,21 @@ def get_drop_seccodes():
     return ['10967710', '86633', '21726', '84484', '53357', '11132438']
 
 
+def check_dropped_seccodes(out_df, drop_short_seccodes):
+    drop_seccodes = out_df.SecCode.isin(drop_short_seccodes)
+    if np.any(drop_seccodes):
+        drops = out_df[drop_seccodes]
+        print('\n')
+        print('#########################')
+        print('Dropping SecCodes: ')
+        print(drops.SecCode.unique().tolist())
+        print('Net Position: {}'.format(round(drops.Dollars.sum())))
+        print('Gross Position: {}'.format(round(drops.Dollars.abs().sum())))
+        print('#########################')
+        print('\n')
+    return out_df[~drop_seccodes].reset_index(drop=True)
+
+
 def main():
 
     confirm_prep_data()
@@ -599,6 +614,9 @@ def main():
                                   how='left')
             out_df['Dollars'] = \
                 out_df.PercAlloc * position_size['gross_position_size']
+
+            # One more drop for dropped seccodes
+            out_df = check_dropped_seccodes(out_df, drop_short_seccodes)
 
             send_orders(out_df, positions)
 

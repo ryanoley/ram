@@ -355,6 +355,25 @@ class TestGetLiveAllocations(unittest.TestCase):
         result.sort()
         self.assertEqual(result[1], file_name)
 
+    def test_check_dropped_seccodes(self):
+        drop_short_seccodes = ['A', 'C']
+        data = pd.DataFrame()
+        data['SecCode'] = ['A', 'B', 'C', 'A', 'B', 'C', 'D']
+        data['PercAlloc'] = [10, 20, 30, 40, 50, 60, 70]
+        data['Strategy'] = 'StatArb'
+        data['Ticker'] = ['A', 'B', 'C', 'A', 'B', 'C', 'D']
+        data['RClose'] = 10
+        data['Dollars'] = [-10, -20, -30, 40, 50, 60, 70]
+        result = check_dropped_seccodes(data, drop_short_seccodes)
+        benchmark = pd.DataFrame()
+        benchmark['SecCode'] = ['B', 'B', 'D']
+        benchmark['PercAlloc'] = [20, 50, 70]
+        benchmark['Strategy'] = 'StatArb'
+        benchmark['Ticker'] = ['B', 'B', 'D']
+        benchmark['RClose'] = 10
+        benchmark['Dollars'] = [-20, 50, 70]
+        assert_frame_equal(result, benchmark)
+
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()
 
