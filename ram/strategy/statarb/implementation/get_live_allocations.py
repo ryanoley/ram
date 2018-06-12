@@ -555,7 +555,7 @@ def check_dropped_seccodes(out_df, drop_short_seccodes):
         drops = out_df[drop_seccodes]
         print('\n')
         print('#########################')
-        print('Dropping SecCodes: ')
+        print('Dropping Impossible-to-Borrow and Expensive SecCodes: ')
         print(drops.SecCode.unique().tolist())
         print('Net Dollars Dropped (Positive Number requires Long Hedge): {}'.format(round(drops.Dollars.sum())))
         print('Total Gross Dollars Dropped: {}'.format(round(drops.Dollars.abs().sum())))
