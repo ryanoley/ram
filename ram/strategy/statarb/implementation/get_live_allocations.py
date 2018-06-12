@@ -167,7 +167,7 @@ def get_statarb_positions(data_dir=BASE_DIR):
     path = os.path.join(data_dir, 'live', 'eod_positions.csv')
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == STRATEGY_ID]
-    positions.SecCode = positions.SecCode.astype(str)
+    positions.SecCode = positions.SecCode.astype(int).astype(str)
     positions = positions[['SecCode', 'Ticker', 'Shares']].copy()
     return positions
 
