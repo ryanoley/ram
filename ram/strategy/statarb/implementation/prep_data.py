@@ -17,7 +17,7 @@ from ram.strategy.statarb.objects.sizes import SizeContainer
 
 IMP_DIR = config.IMPLEMENTATION_DATA_DIR
 RAMEX_DIR = os.path.join(os.getenv('DATA'), 'ramex')
-STRATEGYID = 'StatArb1~papertrade'
+STRATEGYID = 'StatArb0001'
 
 
 ###############################################################################
