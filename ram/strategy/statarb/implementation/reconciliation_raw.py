@@ -173,6 +173,7 @@ def get_recon_orders(recon_dt):
     strategy.add_daily_data(raw_data)
     strategy.add_run_map_models(run_map, models_params)
     strategy.add_size_containers(size_containers)
+    strategy.add_drop_short_seccodes([])
     strategy.prep()
 
     # 8. Orders using QAD closing px
