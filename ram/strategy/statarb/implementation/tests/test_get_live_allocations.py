@@ -325,20 +325,25 @@ class TestGetLiveAllocations(unittest.TestCase):
 
     def test_make_orders(self):
         orders = pd.DataFrame()
-        orders['SecCode'] = ['A', 'A', 'B', 'B']
-        orders['Dollars'] = [100, 100, 200, -140]
-        orders['Strategy'] = ['Strat1', 'Strat2'] * 2
-        orders['Ticker'] = ['A', 'A', 'B', 'B']
-        orders['RClose'] = [10, 10, 20, 20]
+        orders['SecCode'] = ['A', 'A', 'B', 'B', 'D', 'D']
+        orders['Dollars'] = [100, 100, 200, -140, 100, 100]
+        orders['Strategy'] = ['Strat1', 'Strat2'] * 3
+        orders['Ticker'] = ['A', 'A', 'B', 'B', 'D', 'D']
+        orders['RClose'] = [10, 10, 20, 20, 10, 10]
         positions = pd.DataFrame()
         positions['SecCode'] = ['A', 'B', 'C']
         positions['Ticker'] = ['A', 'B', 'C']
         positions['Shares'] = [10, 20, -50]
-        result = make_orders(orders, positions)
-        self.assertIsInstance(result[0], MOCOrder)
+        result = make_orders(orders, positions, [])
+        self.assertIsInstance(result[0], VWAPOrder)
         self.assertEqual(result[0].quantity, 10)
+        self.assertEqual(result[0].symbol, 'A')
         self.assertEqual(result[1].quantity, -17)
-        self.assertEqual(result[2].quantity, 50)
+        self.assertEqual(result[1].symbol, 'B')
+        self.assertEqual(result[2].quantity, 20)
+        self.assertEqual(result[2].symbol, 'D')
+        self.assertEqual(result[3].quantity, 50)
+        self.assertEqual(result[3].symbol, 'C')
 
     def test_write_size_containers(self):
         imp = StatArbImplementation(StatArbStrategyTest)
@@ -357,21 +362,17 @@ class TestGetLiveAllocations(unittest.TestCase):
 
     def test_check_dropped_seccodes(self):
         drop_short_seccodes = ['A', 'C']
-        data = pd.DataFrame()
-        data['SecCode'] = ['A', 'B', 'C', 'A', 'B', 'C', 'D']
-        data['PercAlloc'] = [10, 20, 30, 40, 50, 60, 70]
-        data['Strategy'] = 'StatArb'
-        data['Ticker'] = ['A', 'B', 'C', 'A', 'B', 'C', 'D']
-        data['RClose'] = 10
-        data['Dollars'] = [-10, -20, -30, 40, 50, 60, 70]
-        result = check_dropped_seccodes(data, drop_short_seccodes)
+        orders = pd.DataFrame()
+        orders['Ticker'] = ['A', 'B', 'C']
+        orders['SecCode'] = ['A', 'B', 'C']
+        orders['NewShares'] = [10, -10, -20]
+        orders['Dollars'] = [100, -100, -200]
+        result = check_dropped_seccodes(orders, drop_short_seccodes)
         benchmark = pd.DataFrame()
-        benchmark['SecCode'] = ['B', 'B', 'D']
-        benchmark['PercAlloc'] = [20, 50, 70]
-        benchmark['Strategy'] = 'StatArb'
-        benchmark['Ticker'] = ['B', 'B', 'D']
-        benchmark['RClose'] = 10
-        benchmark['Dollars'] = [-20, 50, 70]
+        benchmark['Ticker'] = ['A', 'B']
+        benchmark['SecCode'] = ['A', 'B']
+        benchmark['NewShares'] = [10, -10]
+        benchmark['Dollars'] = [100, -100]
         assert_frame_equal(result, benchmark)
 
     def tearDown(self):

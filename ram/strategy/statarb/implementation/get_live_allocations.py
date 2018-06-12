@@ -167,6 +167,8 @@ def get_statarb_positions(data_dir=BASE_DIR):
     path = os.path.join(data_dir, 'live', 'eod_positions.csv')
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == STRATEGY_ID]
+    positions.SecCode = positions.SecCode.astype(str)
+    positions = positions[['SecCode', 'Ticker', 'Shares']].copy()
     return positions
 
 
@@ -455,8 +457,8 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
 #  9. Cleanup - Sending and writing
 ###############################################################################
 
-def send_orders(out_df, positions):
-    orders = make_orders(out_df, positions)
+def send_orders(out_df, positions, drop_short_seccodes):
+    orders = make_orders(out_df, positions, drop_short_seccodes)
     client = ExecutionClient()
     for o in orders:
         client.send_order(o)
@@ -465,52 +467,55 @@ def send_orders(out_df, positions):
     print('Order transmission complete')
 
 
-def make_orders(orders, positions):
+def make_orders(orders, positions, drop_short_seccodes):
     """
     LOGIC: Positions holds the shares we have. Orders holds the shares
     we want--from Positions.Quantity to Orders.Quantity.
     """
-    # Drop anything with
-    dollar_order = orders.Dollars.abs().sum()
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
-    orders = orders.groupby('Ticker')['NewShares'].sum().reset_index()
-    # Print some stats
-    print('\nOrder Stats')
-    print('Order in Dollars: {}'.format(dollar_order))
-    print('Long Orders: {}'.format((orders.NewShares > 0).sum()))
-    print('Long Shares: {}'.format(orders[orders.NewShares > 0].NewShares.sum()))
-    print('Short Orders: {}'.format((orders.NewShares < 0).sum()))
-    print('Short Shares: {}'.format(orders[orders.NewShares < 0].NewShares.sum()))
-    print('\n')
+    orders = orders.groupby(['Ticker', 'SecCode'])['NewShares', 'Dollars'].sum().reset_index()
+
+    # Drop shorts
+    orders = check_dropped_seccodes(orders, drop_short_seccodes)
 
     # Then net out/close shares
     data = orders.merge(positions, how='outer').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
-    output = []
-    # Start/End time
-    now = dt.datetime.now()
-    start_time = now + dt.timedelta(minutes=1)
-    start_time = dt.time(start_time.hour, start_time.minute)
-    end_time = now + dt.timedelta(minutes=4)
-    end_time = dt.time(end_time.hour, end_time.minute)
 
+    print('#########################')
+    print(' POSITION STATS')
+    print(' Open Longs: {}'.format((data.NewShares > 0).sum()))
+    print(' Open Shorts: {}'.format((data.NewShares < 0).sum()))
+    print('\n')
+
+    # Print some stats
+    print('#########################')
+    print(' ORDER STATS')
+    print(' Long Orders: {}'.format((data.TradeShares > 0).sum()))
+    print(' Long Shares: {}'.format(data[data.TradeShares > 0].TradeShares.sum()))
+    print(' Short Orders: {}'.format((data.TradeShares < 0).sum()))
+    print(' Short Shares: {}'.format(data[data.TradeShares < 0].TradeShares.sum()))
+    print('\n')
+
+    output = []
     for _, o in data.iterrows():
         if o.TradeShares == 0:
             continue
 
-        order = MOCOrder(basket='statArbBasket',
-                         strategy_id=STRATEGY_ID,
-                         symbol=o.Ticker,
-                         quantity=o.TradeShares)
+        # order = MOCOrder(basket='statArbBasket',
+        #                  strategy_id=STRATEGY_ID,
+        #                  symbol=o.Ticker,
+        #                  quantity=o.TradeShares)
 
-        # order = VWAPOrder(basket='statArbBasket',
-        #                   strategy_id=STRATEGY_ID,
-        #                   symbol=o.Ticker,
-        #                   quantity=o.TradeShares,
-        #                   start_time=start_time,
-        #                   end_time=end_time,
-        #                   participation=20)
+        order = VWAPOrder(basket='statArbBasket',
+                          strategy_id=STRATEGY_ID,
+                          symbol=o.Ticker,
+                          quantity=o.TradeShares,
+                          start_time=dt.time(15, 45),
+                          end_time=dt.time(16, 00),
+                          participation=20)
+
         output.append(order)
 
     return output
@@ -533,6 +538,23 @@ def write_size_containers(strategy, data_dir=BASE_DIR):
     json.dump(output, open(path, 'w'))
 
 
+def check_dropped_seccodes(orders, drop_short_seccodes):
+    # Drop those SecCodes in the list and those that are short
+    drop_seccodes = orders.SecCode.isin(drop_short_seccodes) & \
+        (orders.NewShares < 0)
+    if np.any(drop_seccodes):
+        drops = orders[drop_seccodes]
+        print('\n')
+        print('#########################')
+        print(' Dropping Impossible-to-Borrow and Expensive SecCodes: ')
+        print(drops.SecCode.unique().tolist())
+        print(' Net Dollars Dropped (Positive Number requires Long Hedge): {}'.format(round(drops.Dollars.sum())))
+        print(' Total Gross Dollars Dropped: {}'.format(round(drops.Dollars.abs().sum())))
+        print('\n')
+
+    return orders[~drop_seccodes].reset_index(drop=True)
+
+
 ###############################################################################
 #  MAIN
 ###############################################################################
@@ -551,6 +573,7 @@ def get_drop_seccodes():
     return ['10967710', '86633', '21726']
 
 
+<<<<<<< Updated upstream
 def check_dropped_seccodes(out_df, drop_short_seccodes):
     drop_seccodes = out_df.SecCode.isin(drop_short_seccodes)
     if np.any(drop_seccodes):
@@ -564,6 +587,8 @@ def check_dropped_seccodes(out_df, drop_short_seccodes):
         print('#########################')
         print('\n')
     return out_df[~drop_seccodes].reset_index(drop=True)
+=======
+>>>>>>> Stashed changes
 
 
 def main():
@@ -618,14 +643,11 @@ def main():
             out_df['Dollars'] = \
                 out_df.PercAlloc * position_size['gross_position_size']
 
-            # One more drop for dropped seccodes
-            out_df = check_dropped_seccodes(out_df, drop_short_seccodes)
-
-            send_orders(out_df, positions)
+            send_orders(out_df, positions, drop_short_seccodes)
 
             # 9. Writing and cleanup
-            write_output(out_df)
-            write_size_containers(strategy)
+            # write_output(out_df)
+            # write_size_containers(strategy)
 
             break
 
