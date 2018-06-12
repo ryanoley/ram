@@ -24,7 +24,7 @@ LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 
-STRATEGY_ID = 'StatArb_0001'
+STRATEGY_ID = 'StatArb0001'
 
 
 ###############################################################################
@@ -570,25 +570,7 @@ def confirm_prep_data():
 
 
 def get_drop_seccodes():
-    return ['10967710', '86633', '21726']
-
-
-<<<<<<< Updated upstream
-def check_dropped_seccodes(out_df, drop_short_seccodes):
-    drop_seccodes = out_df.SecCode.isin(drop_short_seccodes)
-    if np.any(drop_seccodes):
-        drops = out_df[drop_seccodes]
-        print('\n')
-        print('#########################')
-        print('Dropping SecCodes: ')
-        print(drops.SecCode.unique().tolist())
-        print('Net Position: {}'.format(round(drops.Dollars.sum())))
-        print('Gross Position: {}'.format(round(drops.Dollars.abs().sum())))
-        print('#########################')
-        print('\n')
-    return out_df[~drop_seccodes].reset_index(drop=True)
-=======
->>>>>>> Stashed changes
+    return ['10967710', '86633', '21726', '84484', '53357', '11132438']
 
 
 def main():
@@ -629,7 +611,6 @@ def main():
     strategy.prep()
 
     ###########################################################################
-
     _ = raw_input("Press Enter to continue...")
 
     while True:
