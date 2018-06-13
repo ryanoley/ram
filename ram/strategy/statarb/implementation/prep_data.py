@@ -175,16 +175,16 @@ def map_live_tickers(killed_seccodes):
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'live',
-                        'tickers_for_bloomberg.csv')
+                        'qad_seccode_data.csv')
     data.to_csv(path, index=None)
 
     # Archive
-    file_name = '{}_ticker_mapping.csv'.format(
+    file_name = '{}_qad_seccode_data.csv'.format(
         dt.date.today().strftime('%Y%m%d'))
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'archive',
-                        'ticker_mapping',
+                        'qad_seccode_data',
                         file_name)
     data.to_csv(path, index=None)
 
@@ -201,7 +201,7 @@ def map_live_tickers(killed_seccodes):
     new_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                             'StatArbStrategy',
                             'live',
-                            'eze_tickers.csv')
+                            'tickers_for_live_pricing.csv')
     data = data[['SecCode', 'Ticker', 'Issuer']]
     data.to_csv(new_path, index=None)
 
@@ -280,12 +280,12 @@ def check_qad_scaling():
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'live',
-                        'eze_tickers.csv')
+                        'qad_seccode_data.csv')
 
     if os.path.isfile(path):
         output['Message'] = '*'
     else:
-        output['Message'] = '[WARNING] - Missing eze_tickers file in live dir'
+        output['Message'] = '[WARNING] - Missing qad_seccode file in live dir'
         return output
 
     # Get SecCodes
@@ -517,7 +517,7 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
     data_path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                              'StatArbStrategy',
                              'live',
-                             'tickers_for_bloomberg.csv')
+                             'qad_seccode_data.csv')
     if not os.path.isfile(data_path):
         return pd.DataFrame([]), ['No QAD Ticker Mapping csv']
 
@@ -827,7 +827,7 @@ def get_short_sell_killed_seccodes(today, rate_min=-5., data_dir=IMP_DIR):
     map_path = os.path.join(data_dir,
                             'StatArbStrategy',
                             'live',
-                            'tickers_for_bloomberg.csv')
+                            'qad_seccode_data.csv')
     map_data = pd.read_csv(map_path)
     map_data.SecCode = map_data.SecCode.astype(int).astype(str)
 
