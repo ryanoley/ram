@@ -787,7 +787,7 @@ def process_messages(messages_):
 
 ###############################################################################
 
-def get_short_sell_killed_seccodes(today, rate_min=-4., data_dir=IMP_DIR):
+def get_short_sell_killed_seccodes(today, rate_min=-5., data_dir=IMP_DIR):
     # Search for todays file
     dt_str = '{d.month}.{d.day}.{d:%y}'.format(d=today)
 
@@ -799,14 +799,15 @@ def get_short_sell_killed_seccodes(today, rate_min=-4., data_dir=IMP_DIR):
     fl = [x for x in all_locate_files if x.find(dt_str) > -1]
 
     output = pd.DataFrame()
-    output.loc[0, 'Desc'] = 'Short Locates: '
+    output.loc[0, 'Desc'] = 'Short Locates'
+
     if len(fl) == 0:
-        output.loc[0, 'Message'] = ('[WARNING] no locate file for {} ' +
-                                    'found'.format(dt_str))
+        message = '[WARNING] no locate file for {} found'.format(dt_str)
+        output.loc[0, 'Message'] = message
         return output
     elif len(fl) > 1:
-        output.loc[0, 'Message'] = ('[WARNING] multipleocate files for {} ' +
-                                    'found'.format(dt_str))
+        message = '[WARNING] multiple locate files for {} found'.format(dt_str)
+        output.loc[0, 'Message'] = message
         return output
 
     # Read in file and process
@@ -848,7 +849,7 @@ def get_short_sell_killed_seccodes(today, rate_min=-4., data_dir=IMP_DIR):
     unmapped = htb.SecCode.isnull().sum()
 
     # Write to File
-    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+    path = os.path.join(data_dir,
                         'short_sell_kill_list.csv')
     htb.to_csv(path, index=None)
 
