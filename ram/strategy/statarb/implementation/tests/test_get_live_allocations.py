@@ -192,6 +192,7 @@ class TestGetLiveAllocations(unittest.TestCase):
     def setUp(self):
         data = ImplementationDataTestSuite()
         data.make_data()
+        self.imp_dir = os.path.join(data.data_dir)
         self.data_dir = os.path.join(data.data_dir, 'StatArbStrategy')
         self.live_dir = os.path.join(data.data_dir, 'live_prices')
         self.yesterday = data.yesterday
@@ -374,6 +375,11 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark['NewShares'] = [10, -10]
         benchmark['Dollars'] = [100, -100]
         assert_frame_equal(result, benchmark)
+
+    def test_get_short_sell_kill_seccodes(self):
+        result = get_short_sell_kill_seccodes(self.imp_dir)
+        benchmark = ['101']
+        self.assertListEqual(result, benchmark)
 
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()

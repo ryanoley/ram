@@ -540,6 +540,15 @@ def write_size_containers(strategy, data_dir=BASE_DIR):
     json.dump(output, open(path, 'w'))
 
 
+def get_short_sell_kill_seccodes(data_dir=IMP_DIR):
+    # Read in short sell seccode csv and return list of seccodes
+    path = os.path.join(data_dir, 'short_sell_kill_list.csv')
+    data = pd.read_csv(path)
+    data = data[data.SecCode.notnull()]
+    data.SecCode = data.SecCode.astype(int).astype(str)
+    return data.SecCode.values.tolist()
+
+
 def check_dropped_seccodes(orders, drop_short_seccodes):
     # Drop those SecCodes in the list and those that are short
     drop_seccodes = orders.SecCode.isin(drop_short_seccodes) & \
@@ -556,10 +565,10 @@ def check_dropped_seccodes(orders, drop_short_seccodes):
 
     return orders[~drop_seccodes].reset_index(drop=True)
 
-
 ###############################################################################
 #  MAIN
 ###############################################################################
+
 
 def confirm_prep_data():
     meta = json.load(open(os.path.join(BASE_DIR, 'live', 'meta.json'), 'r'))
@@ -570,16 +579,6 @@ def confirm_prep_data():
     assert statarb_config.trained_models_dir_name == \
         meta['trained_models_dir_name']
 
-
-def get_drop_seccodes(data_dir=IMP_DIR):
-    # Read in short sell seccode csv and return list of seccodes
-    path = os.path.join(data_dir, 'short_sell_kill_list.csv')
-    data = pd.read_csv(path)
-
-
-
-
-    return _format_scaling_data(path1, path2)
 
 def main():
 
@@ -608,7 +607,7 @@ def main():
     scaling = import_scaling_data()
 
     # 7. Drop SecCodes
-    drop_short_seccodes = get_drop_seccodes()
+    drop_short_seccodes = get_short_sell_kill_seccodes()
 
     # 8. Prep data
     strategy = StatArbImplementation()
