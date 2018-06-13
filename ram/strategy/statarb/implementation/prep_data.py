@@ -3,7 +3,6 @@ import json
 import numpy as np
 import pandas as pd
 import datetime as dt
-from openpyxl import load_workbook
 from shutil import copyfile, rmtree
 
 from gearbox import convert_date_array
