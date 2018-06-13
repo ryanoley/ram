@@ -9,7 +9,9 @@ import datetime as dt
 from sklearn.linear_model import LinearRegression
 
 from ram.data.data_handler_sql import DataHandlerSQL
-from ram.strategy.statarb.sizes import SizeContainer
+
+from ram.strategy.statarb.objects.sizes import SizeContainer
+from ram.strategy.statarb.implementation.prep_data import get_trading_dates
 
 
 class ImplementationDataTestSuite(object):
@@ -19,7 +21,7 @@ class ImplementationDataTestSuite(object):
             os.getenv('GITHUB'), 'ram', 'ram', 'test_implementation_data')
         dates = get_trading_dates()
         self.yesterday = dates[0]
-        self.today = dates[0]
+        self.today = dates[1]
 
     def make_data(self):
         self._init_dirs()
@@ -111,9 +113,8 @@ class ImplementationDataTestSuite(object):
             outfile.write(pickle.dumps(model))
 
         # Get last two days
-        today = dt.date.today()
-        t1 = (today - dt.timedelta(days=2)).strftime('%Y%m%d')
-        t2 = (today - dt.timedelta(days=1)).strftime('%Y%m%d')
+        t1 = (self.yesterday - dt.timedelta(days=1)).strftime('%Y%m%d')
+        t2 = self.yesterday.strftime('%Y%m%d')
         params = {
             'params': {'v1': 10, 'v2': 30},
             'sizes': {
@@ -277,8 +278,8 @@ class ImplementationDataTestSuite(object):
                              'size_containers')
         prefix = self.yesterday.strftime('%Y%m%d')
         file_name = '{}_size_containers.json'.format(prefix)
-        t1 = self.yesterday.strftime('%Y%m%d')
-        t2 = self.today.strftime('%Y%m%d')
+        t1 = (self.yesterday - dt.timedelta(days=1)).strftime('%Y%m%d')
+        t2 = self.yesterday.strftime('%Y%m%d')
         sizes = {'model1': {
             'dates': [t1, t2],
             'n_days': 10,
@@ -293,22 +294,10 @@ class ImplementationDataTestSuite(object):
                             'StatArbStrategy',
                             'live', 'size_containers.json')
         sizes = SizeContainer(2)
-        t = dt.date.today() - dt.timedelta(days=2)
+        t = self.yesterday - dt.timedelta(days=1)
         sizes.update_sizes({'A': 100, 'B': 200}, t)
-        t = dt.date.today() - dt.timedelta(days=1)
+        t = self.yesterday
         sizes.update_sizes({'A': 100, 'B': 200}, t)
         sizes = {'StatArbStrategy_run_0003_1000': sizes.to_json(),
                  'StatArbStrategy_run_009_12': sizes.to_json()}
         json.dump(sizes, open(path, 'w'))
-
-
-###############################################################################
-
-def get_trading_dates():
-    """
-    Returns previous trading date, and current trading date
-    """
-    today = dt.date.today()
-    dh = DataHandlerSQL()
-    dates = dh.prior_trading_date([today, today+dt.timedelta(days=1)])
-    return dates[0], dates[1]

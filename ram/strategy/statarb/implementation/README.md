@@ -139,6 +139,10 @@ python ram/data/data_gcp_manager.py -s {4} -m {17} --download
 
 6. Set the config file (`ram/strategy/statarb/statarb_config.py`) with the name of the new directory.
 
+7. Send Cowen/Glenn Regan Updated Borrow List
+
+Evaluate what the potential maximum dollar size is, figured out how many shares are needed, and send Glenn the updated list of Tickers/Cusips for the upcoming month.
+
 
 # Daily Execution
 

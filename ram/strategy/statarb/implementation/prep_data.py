@@ -13,11 +13,12 @@ from ram.strategy.statarb import statarb_config
 from ram.utils.eze_funcs import etb_status
 
 from ram.data.data_handler_sql import DataHandlerSQL
-from ram.strategy.statarb.sizes import SizeContainer
+from ram.strategy.statarb.objects.sizes import SizeContainer
 
 IMP_DIR = config.IMPLEMENTATION_DATA_DIR
 RAMEX_DIR = os.path.join(os.getenv('DATA'), 'ramex')
-STRATEGYID = 'StatArb1~papertrade'
+STRATEGYID = 'StatArb0001'
+HEDGE_TICKERS = ['VOO']
 
 
 ###############################################################################
@@ -337,6 +338,7 @@ def check_eod_positions(yesterday, killed_seccodes):
         message = '*'
         df = pd.read_csv(os.path.join(positions_path, pos_file_name))
         df = df[df.StrategyID == STRATEGYID]
+        df = df[~df.Ticker.isin(HEDGE_TICKERS)]
         df.SecCode = df.SecCode.astype(int).astype(str)
         df = df[~df.SecCode.isin(killed_seccodes)]
         df.to_csv(live_path, index=None)

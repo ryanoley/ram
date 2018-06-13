@@ -6,7 +6,7 @@ import datetime as dt
 from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
-from ram.strategy.statarb.abstract.portfolio import Portfolio
+from ram.strategy.statarb.objects.portfolio import Portfolio
 
 
 class TestPortfolio(unittest.TestCase):

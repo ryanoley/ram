@@ -13,8 +13,8 @@ from ram.strategy.statarb.version_004.data.data_container import *
 
 class DataContainer2(DataContainer):
 
-    def _make_technical_features_imp(self, open_, high, low, close,
-                                     volume, avgdolvol, live_flag):
+    def _calculate_technical_features(self, open_, high, low, close,
+                                      volume, avgdolvol, live_flag):
         feat = FeatureAggregator()
         # Daily returns
         day_ret = data_rank(close / open_)

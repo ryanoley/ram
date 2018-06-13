@@ -9,7 +9,7 @@ from numpy.testing import assert_array_equal
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 
 from ram.utils.time_funcs import convert_date_array
-from ram.strategy.statarb.sizes import *
+from ram.strategy.statarb.objects.sizes import *
 
 
 class TestSizeContainer(unittest.TestCase):
