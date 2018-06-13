@@ -35,19 +35,22 @@ def check_implementation_folder_structure():
     path2 = os.path.join(path, 'archive', 'live_pricing')
     _check_create(path2)
 
+    path2 = os.path.join(path, 'archive', 'locates')
+    _check_create(path2)
+
     path2 = os.path.join(path, 'archive', 'pretrade_checks')
     _check_create(path2)
 
     path2 = os.path.join(path, 'archive', 'qad_scaling')
     _check_create(path2)
 
+    path2 = os.path.join(path, 'archive', 'qad_seccode_data')
+    _check_create(path2)
+
     path2 = os.path.join(path, 'archive', 'reconciliation')
     _check_create(path2)
 
     path2 = os.path.join(path, 'archive', 'size_containers')
-    _check_create(path2)
-
-    path2 = os.path.join(path, 'archive', 'ticker_mapping')
     _check_create(path2)
 
     path2 = os.path.join(path, 'archive', 'trained_models')

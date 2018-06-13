@@ -70,6 +70,26 @@ class TestPrepData(unittest.TestCase):
         all_files = os.listdir(path)
         self.assertTrue('size_containers.json' in all_files)
 
+    def test_get_short_sell_killed_seccodes(self):
+        result = get_short_sell_killed_seccodes(self.yesterday,
+                                                data_dir=self.data_dir)
+        dt_str = '{d.month}.{d.day}.{d:%y}'.format(d=self.yesterday)
+        message = '[WARNING] no locate file for {} found'.format(dt_str)
+        benchmark = pd.DataFrame()
+        benchmark['Desc'] = ['Short Locates']
+        benchmark['Message'] = [message]
+        assert_frame_equal(result, benchmark)
+
+        result = get_short_sell_killed_seccodes(self.today,
+                                                data_dir=self.data_dir)
+        benchmark = pd.DataFrame()
+        benchmark['Desc'] = ['Short Locates']
+        benchmark['Message'] = ['[INFO] 1 securities no map to SecCodes']
+        assert_frame_equal(result, benchmark)
+
+        write_path = os.path.join(self.data_dir, 'short_sell_kill_list.csv')
+        self.assertTrue(os.path.exists(write_path))
+
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()
 

@@ -33,6 +33,7 @@ class ImplementationDataTestSuite(object):
         self._make_ticker_mapping()
         self._make_position_sheet_files()
         self._make_size_containers()
+        self._make_short_locate_data()
 
     def delete_data(self):
         if os.path.exists(self.data_dir):
@@ -73,6 +74,8 @@ class ImplementationDataTestSuite(object):
         path1 = os.path.join(path, 'archive', 'ticker_mapping')
         os.mkdir(path1)
         path1 = os.path.join(path, 'archive', 'version_data')
+        os.mkdir(path1)
+        path1 = os.path.join(path, 'archive', 'locates')
         os.mkdir(path1)
 
         # Live pricing - OUTSIDE RAM
@@ -235,22 +238,26 @@ class ImplementationDataTestSuite(object):
         data['SecCode'] = [1234, 4242, 3535]
         data['Date'] = '2010-01-01'
         data['DividendFactor'] = [1, 1.1, 1.2]
+        data['SplitFactor'] = [1, 1.1, 1.2]
         data.to_csv(os.path.join(path1, 'seccode_scaling.csv'), index=None)
         # Bloomberg data
         data = pd.DataFrame()
         data['SecCode'] = [5151, 72727]
-        data['DivMultiplier'] = [1.5, 1.0]
-        data['SpinoffMultiplier'] = [10, 20.]
-        data['SplitMultiplier'] = [2.0, 3.0]
-        data.to_csv(os.path.join(path1, 'seccode_scaling.csv'), index=None)
+        data['DivMultiplier'] = [1., 1.1]
+        data['SpinoffMultiplier'] = [1., 1.]
+        data['SplitMultiplier'] = [1., 2.]
+        data.to_csv(os.path.join(path1, 'bloomberg_scaling.csv'), index=None)
 
     def _make_ticker_mapping(self):
         path = os.path.join(self.data_dir, 'StatArbStrategy')
         path1 = os.path.join(path, 'live')
         data = pd.DataFrame()
-        data['SecCode'] = ['4242', '5050']
-        data['Ticker'] = ['IBM', 'AAPL']
-        data.to_csv(os.path.join(path1, 'ticker_mapping.csv'), index=None)
+        data['SecCode'] = [101, 201, 301, 401]
+        data['Ticker'] = ['A', 'B', 'C', 'D']
+        data['Cusip'] = ['A0000001', 'B0000002', 'C0000003', 'D0000004']
+        data['Issuer'] = ['IsrA', 'IsrB', 'IsrC', 'IsrD']
+        data.to_csv(os.path.join(path1, 'tickers_for_bloomberg.csv'),
+                    index=None)
 
     def _make_position_sheet_files(self):
         data = pd.DataFrame()
@@ -292,7 +299,8 @@ class ImplementationDataTestSuite(object):
         # In live directory
         path = os.path.join(self.data_dir,
                             'StatArbStrategy',
-                            'live', 'size_containers.json')
+                            'live',
+                            'size_containers.json')
         sizes = SizeContainer(2)
         t = self.yesterday - dt.timedelta(days=1)
         sizes.update_sizes({'A': 100, 'B': 200}, t)
@@ -301,3 +309,19 @@ class ImplementationDataTestSuite(object):
         sizes = {'StatArbStrategy_run_0003_1000': sizes.to_json(),
                  'StatArbStrategy_run_009_12': sizes.to_json()}
         json.dump(sizes, open(path, 'w'))
+
+    def _make_short_locate_data(self):
+        data = pd.DataFrame()
+        data['Security'] = ['A', 'B', 'C', 'X']
+        data['Rate %'] = [-7.5, .95, -3.0, -20.5]
+        data['Rqst Qty'] = [1000, 1000, 1000, 1000]
+        data['Approv Qty'] = [0, 1000, 1000, 0]
+        data['Confirmation'] = ['conftxt'] * 4
+        data['Status'] = ['Rejected', 'Approved', 'Approved', 'Rejected']
+        # Write to archive
+        dt_str = '{d.month}.{d.day}.{d:%y}'.format(d=self.today)
+        file_name = 'Roundabout {}.xlsx'.format(dt_str)
+        path = os.path.join(self.data_dir, 'StatArbStrategy', 'archive',
+                            'locates')
+        data.to_excel(os.path.join(path, file_name), index=None)
+
