@@ -90,7 +90,6 @@ class TestPrepData(unittest.TestCase):
         write_path = os.path.join(self.data_dir, 'short_sell_kill_list.csv')
         self.assertTrue(os.path.exists(write_path))
 
-
     def tearDown(self):
         ImplementationDataTestSuite().delete_data()
 

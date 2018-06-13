@@ -814,11 +814,11 @@ def get_short_sell_killed_seccodes(today, rate_min=-5., data_dir=IMP_DIR):
     htb = pd.read_excel(os.path.join(locates_dir, fl[0]))
     htb.drop('Confirmation', axis=1, inplace=True)
     htb.rename(columns={
-               'Rate %':'rate',
-               'Rqst Qty':'req_qty',
-               'Approv Qty':'apr_qty',
-               'Status':'status'},
-                inplace=True)
+               'Rate %': 'rate',
+               'Rqst Qty': 'req_qty',
+               'Approv Qty': 'apr_qty',
+               'Status': 'status'},
+               inplace=True)
     htb['Security'] = [x[:8] if len(x) > 8 else x for x in htb.Security]
     fltr_rate = np.array(htb.rate < rate_min)
     fltr_appr = np.array(htb.status != 'Approved')
@@ -833,10 +833,10 @@ def get_short_sell_killed_seccodes(today, rate_min=-5., data_dir=IMP_DIR):
     map_data.SecCode = map_data.SecCode.astype(int).astype(str)
 
     tkr_map = map_data[['SecCode', 'Ticker']].copy()
-    tkr_map.rename(columns={'SecCode':'tkr_SecCode'}, inplace=True)
+    tkr_map.rename(columns={'SecCode': 'tkr_SecCode'}, inplace=True)
 
     csp_map = map_data[['SecCode', 'Cusip']].copy()
-    csp_map.rename(columns={'SecCode':'csp_SecCode'}, inplace=True)
+    csp_map.rename(columns={'SecCode': 'csp_SecCode'}, inplace=True)
 
     htb = pd.merge(htb, tkr_map, how='left', left_on='Security',
                    right_on='Ticker')
@@ -861,6 +861,7 @@ def get_short_sell_killed_seccodes(today, rate_min=-5., data_dir=IMP_DIR):
     output.loc[0, 'Message'] = message
 
     return output
+
 
 ###############################################################################
 
