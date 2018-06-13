@@ -22,6 +22,8 @@ from ram.strategy.statarb.objects.sizes import SizeContainer
 
 LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 
+IMP_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR)
+
 BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
 
 STRATEGY_ID = 'StatArb0001'
@@ -569,9 +571,15 @@ def confirm_prep_data():
         meta['trained_models_dir_name']
 
 
-def get_drop_seccodes():
-    return ['10967710', '86633', '21726', '84484', '53357', '11132438']
+def get_drop_seccodes(data_dir=IMP_DIR):
+    # Read in short sell seccode csv and return list of seccodes
+    path = os.path.join(data_dir, 'short_sell_kill_list.csv')
+    data = pd.read_csv(path)
 
+
+
+
+    return _format_scaling_data(path1, path2)
 
 def main():
 
