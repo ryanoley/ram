@@ -34,6 +34,7 @@ class ImplementationDataTestSuite(object):
         self._make_position_sheet_files()
         self._make_size_containers()
         self._make_short_locate_data()
+        self._make_short_sell_kill_list()
 
     def delete_data(self):
         if os.path.exists(self.data_dir):
@@ -71,7 +72,7 @@ class ImplementationDataTestSuite(object):
         os.mkdir(path1)
         path1 = os.path.join(path, 'archive', 'size_containers')
         os.mkdir(path1)
-        path1 = os.path.join(path, 'archive', 'ticker_mapping')
+        path1 = os.path.join(path, 'archive', 'qad_seccode_data')
         os.mkdir(path1)
         path1 = os.path.join(path, 'archive', 'version_data')
         os.mkdir(path1)
@@ -256,7 +257,7 @@ class ImplementationDataTestSuite(object):
         data['Ticker'] = ['A', 'B', 'C', 'D']
         data['Cusip'] = ['A0000001', 'B0000002', 'C0000003', 'D0000004']
         data['Issuer'] = ['IsrA', 'IsrB', 'IsrC', 'IsrD']
-        data.to_csv(os.path.join(path1, 'tickers_for_bloomberg.csv'),
+        data.to_csv(os.path.join(path1, 'qad_seccode_data.csv'),
                     index=None)
 
     def _make_position_sheet_files(self):
@@ -325,3 +326,15 @@ class ImplementationDataTestSuite(object):
                             'locates')
         data.to_excel(os.path.join(path, file_name), index=None)
 
+    def _make_short_sell_kill_list(self):
+        data = pd.DataFrame()
+        data['Security'] = ['A', 'X']
+        data['rate'] = [-7.5, -20.5]
+        data['req_qty'] = [1000, 1000]
+        data['apr_qty'] = [0, 0]
+        data['Status'] = ['Rejected', 'Rejected']
+        data['SecCode'] = [101, None]
+
+        # Write to imp dir
+        path = os.path.join(self.data_dir, 'short_sell_kill_list.csv')
+        data.to_csv(path, index=None)
