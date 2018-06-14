@@ -23,9 +23,24 @@ Creates the following tables:
 
 Run via: `daily_maping.bat`
 
+Every day the main mapping table is wiped and recreated. Below are the scripts that comprise that process.
+
+
 ### `daily_id_diff.sql`
 
+This script will take the original table (`ram.dbo.ram_compustat_pit_map_raw` from May 2018) and stack on top of it `ram_compustat_csvsecurity_map_diffs`, which this script will add to. The logic is that these two tables contain the SecIntCodes, and then time stamps for changes to the GVKeys and CUSIPs for those SecIntCodes.
+
+At this point, there is no creation of Start and EndDates and no error handling.
+
+
 ### `process_raw_tables.sql`
+
+This table will separate the problematic cases from everything else. The non-problematic cases will be written to the mapping database, while the problematic ones will be written to file for handling in the next process.
+
+### `handle_mappings.py`
+
+This process will check the problematic cases against a file of manually handled cases. If there is a case that has not been handled, an email will be sent to `notifications@roundaboutam.com`
+
 
 ## Notes
 
@@ -33,4 +48,4 @@ Run via: `daily_maping.bat`
 
 * Original PIT table does not map to multiple Securities/CUSIPS, just a single; CSVSecurity maps to multiple
 
-* Three tables will need to be stacked on top of eachother: `ram_compustat_pit_map_raw`, `ram_compustat_csvsecurity_map_raw`, `ram_compustat_csvsecurity_map_diffs`
+* In the case where the tables have been wiped, the files that exist in DATA/ram/data/gvkey_mapping can be used to recreate the tables. The original_csvsecurity_20180521 is the original raw table, and the diff files can be loaded into the diff table.
