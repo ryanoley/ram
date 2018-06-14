@@ -571,7 +571,7 @@ def import_bloomberg_dividends():
     message = []
     if file_name.find(prefix) == -1:
         message.append('Wrong File Date Prefix')
-        out = pd.DataFrame(columns=['BloombergId', 'DivMultiplier'])
+        out = pd.DataFrame(columns=['BloombergId', 'DivMultiplier', 'DivValue'])
         return out, message
 
     data = pd.read_csv(os.path.join(data_dir, file_name))
@@ -580,13 +580,16 @@ def import_bloomberg_dividends():
     data['ExDate'] = convert_date_array(data['Dvd Ex Dt'])
     data = data[data.ExDate == dt.date.today()]
 
+    # Create Dividend Value columns
+    data['DivValue'] = data['DPS Last Gross']
+
     # Calculate DivMultiplier
     data['DivMultiplier'] = data['DPS Last Gross'] / data['Price:D-1'] + 1
     data = data[data.DivMultiplier != 1]
 
     # Rename and select columns
     data['BloombergId'] = data['Ticker']
-    data = data[['BloombergId', 'DivMultiplier']]
+    data = data[['BloombergId', 'DivMultiplier', 'DivValue']]
 
     data = data.reset_index(drop=True).dropna()
 
@@ -720,7 +723,7 @@ def process_bloomberg_data(killed_seccodes):
     # Map SecCodes
     bloomberg = qad_map.merge(bloomberg)
 
-    bloomberg = bloomberg[['SecCode', 'DivMultiplier',
+    bloomberg = bloomberg[['SecCode', 'DivMultiplier', 'DivValue',
                            'SpinoffMultiplier', 'SplitMultiplier']]
 
     # Get EOD position files to see if anything changed for our positions
@@ -741,7 +744,7 @@ def process_bloomberg_data(killed_seccodes):
         # Write to file
         output = corp_actions.merge(eod_positions)
         output = output[['SecCode', 'Ticker', 'Shares', 'RAMID',
-                         'DivMultiplier', 'SpinoffMultiplier',
+                         'DivMultiplier', 'DivValue', 'SpinoffMultiplier',
                          'SplitMultiplier']]
         path = os.path.join(IMP_DIR,
                             'StatArbStrategy',
@@ -750,6 +753,9 @@ def process_bloomberg_data(killed_seccodes):
         output.to_csv(path, index=None)
     else:
         message = '*'
+
+    # Drop DivValue as it isn't needed in system
+    bloomberg = bloomberg.drop('DivValue', axis=1)
 
     messages.loc[4, 'Desc'] = 'Position Sheet Corporate Actions'
     messages.loc[4, 'Message'] = message
