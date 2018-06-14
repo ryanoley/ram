@@ -3,10 +3,8 @@ numpy
 pandas
 scikit-learn
 pypyodbc
-quandl
 tqdm
 matplotlib
-numba
 ipdb
 ipython
 google-cloud
