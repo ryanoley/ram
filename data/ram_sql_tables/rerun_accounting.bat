@@ -1,3 +1,5 @@
+:: Used when gvkey mapping tables have changed.
+
 set SQLCMD="%SQLCMDPATH%\sqlcmd" -S 192.168.2.8 -d ram -U ramuser -P 183madison
 set LOGFILE=%LOGDIR%\refresh_ram_tables.log
 set SQLDIR=%GITHUB%\ram\data\ram_sql_tables
