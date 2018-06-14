@@ -41,7 +41,6 @@ This table will separate the problematic cases from everything else. The non-pro
 
 This process will check the problematic cases against a file of manually handled cases. If there is a case that has not been handled, an email will be sent to `notifications@roundaboutam.com`
 
-
 ## Notes
 
 * From Compustat, `SecIntCodes` are individual securities, and a GVKey can have multiple SecIntCodes when it has multiple Securities.

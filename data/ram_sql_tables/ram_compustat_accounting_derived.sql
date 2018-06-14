@@ -77,7 +77,7 @@ from				ram.dbo.ram_compustat_accounting
 
 
 , unique_gvkeys_dates as (
-select		A.*
+select		A.*	 
 from		gvkeys_dates A
 join		(select GVKey, ReportDate, max(QuarterEndDate) as QuarterEndDate from gvkeys_dates
 			 group by GVKey, ReportDate) B
