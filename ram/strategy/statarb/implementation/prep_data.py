@@ -174,10 +174,16 @@ def map_live_tickers(killed_seccodes):
 
     # Ticker mapping for Bloomberg
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'ticker_changes.json')
+    ticker_changes = json.load(open(path, 'r'))
+
+    # Ticker mapping for Bloomberg
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'StatArbStrategy',
                         'live',
                         'qad_seccode_data.csv')
     data.to_csv(path, index=None)
+    data.Ticker = data.Ticker.replace(ticker_changes)
 
     # Archive
     file_name = '{}_qad_seccode_data.csv'.format(
@@ -189,11 +195,11 @@ def map_live_tickers(killed_seccodes):
                         file_name)
     data.to_csv(path, index=None)
 
-    # Get hash table for odd tickers
+    # Replace QAD Tickers with EzeTickers
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'qad_to_eze_ticker_map.json')
-    odd_tickers = json.load(open(path, 'r'))
-    data.Ticker = data.Ticker.replace(to_replace=odd_tickers)
+    eze_tickers = json.load(open(path, 'r'))
+    data.Ticker = data.Ticker.replace(eze_tickers)
 
     # Kill list
     data = data[~data.SecCode.isin(killed_seccodes)]
@@ -571,7 +577,9 @@ def import_bloomberg_dividends():
     message = []
     if file_name.find(prefix) == -1:
         message.append('Wrong File Date Prefix')
-        out = pd.DataFrame(columns=['BloombergId', 'DivMultiplier', 'DivValue'])
+        out = pd.DataFrame(columns=['BloombergId',
+                                    'DivMultiplier',
+                                    'DivValue'])
         return out, message
 
     data = pd.read_csv(os.path.join(data_dir, file_name))
