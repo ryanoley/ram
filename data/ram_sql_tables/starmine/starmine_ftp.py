@@ -6,7 +6,6 @@ in the ram database.
 
 import os
 import re
-import urllib
 import urllib2
 import pypyodbc
 import numpy as np
@@ -76,8 +75,10 @@ class StarmineDataManager(object):
             for fl in new_files:
                 fl_path = os.path.join(ftp_path, fl).replace('\\', '/')
                 out_path = os.path.join(local_path, fl)
-                urllib.urlretrieve(fl_path, out_path)
-                print fl
+                f = urllib2.urlopen(fl_path)
+                with open(out_path, "wb") as dat:
+                    dat.write(f.read())
+                print fl_path
         return
 
     def download_ftp_daily(self, ftp_path=FTP_LIVE):
@@ -107,7 +108,9 @@ class StarmineDataManager(object):
             elif fl.find('SI') > 0:
                 sub_dir = 'ShortInterest'
             out_path = os.path.join(local_path, sub_dir, fl)
-            urllib.urlretrieve(fl_path, out_path)
+            f = urllib2.urlopen(fl_path)
+            with open(out_path, "wb") as dat:
+                dat.write(f.read())
             print fl_path
         return
 
@@ -153,7 +156,7 @@ class StarmineDataManager(object):
 
         # Build Insert Statement
         db_cols = self.get_db_table_cols(table_name)
-        db_data_cols = [col for col in db_cols if col.find('SE_') > -1]  
+        db_data_cols = [col for col in db_cols if col.find('SE_') > -1]
         fld_txt = '?,' * len(db_cols)
         SQLCommand = ("INSERT INTO " + table_name +
                       " VALUES (" + fld_txt[:-1] + ")")
@@ -271,7 +274,7 @@ class StarmineDataManager(object):
         self.cursor.execute(table_sql_script)
         self.cursor.commit()
         self.db_disconnect()
-    
+
     def get_db_table_cols(self, table_name):
         # Get table columns
         self.db_connect()
@@ -282,7 +285,7 @@ class StarmineDataManager(object):
         db_cols = [x[0] for x in self.cursor.fetchall()]
         self.db_disconnect()
         return db_cols
-    
+
 
 def read_starmine_zip(zip_path, sel_inds=None, na_inds=None, sep=','):
     zFile = ZipFile(zip_path, 'r')
