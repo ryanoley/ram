@@ -117,12 +117,12 @@ def get_qadirect_data_info(yesterday, data_dir=IMP_DIR):
                            int(max_date[1]),
                            int(max_date[2]))
         if max_date != yesterday:
-            message = '[WARNING] - max(Date) is not previous trading date'
+            message = '[ERROR] - max(Date) is not previous trading date'
 
         # Check for missing data
         elif np.any(data.isnull().mean() > 0.2):
             count = sum(data.isnull().mean() > 0.2)
-            message = '[WARNING] - {} variables with many '.format(count) + \
+            message = '[ERROR] - {} variables with many '.format(count) + \
                 'missing values'
         else:
             message = '*'
@@ -150,7 +150,7 @@ def map_live_tickers(killed_seccodes):
     version_files = [x for x in all_files if x.find('version_') > -1]
 
     if len(version_files) == 0:
-        output['Message'] = '[WARNING] - No version data in directory'
+        output['Message'] = '[ERROR] - No version data in directory'
         return output
 
     else:
@@ -158,7 +158,7 @@ def map_live_tickers(killed_seccodes):
 
     # Check that size container is available
     if not os.path.isfile(os.path.join(data_dir, 'size_containers.json')):
-        output['Message'] = '[WARNING] - No size_containers.json'
+        output['Message'] = '[ERROR] - No size_containers.json'
         return output
 
     # Get SecCodes
@@ -169,7 +169,7 @@ def map_live_tickers(killed_seccodes):
     data = get_seccode_ticker_mapping(unique_seccodes)
 
     if np.any(data.Ticker.isnull()):
-        output['Message'] = '[WARNING] - SecCode missing Ticker in QADirect'
+        output['Message'] = '[ERROR] - SecCode missing Ticker in QADirect'
         return output
 
     # Ticker mapping for Bloomberg
@@ -292,7 +292,7 @@ def check_qad_scaling():
     if os.path.isfile(path):
         output['Message'] = '*'
     else:
-        output['Message'] = '[WARNING] - Missing qad_seccode file in live dir'
+        output['Message'] = '[ERROR] - Missing qad_seccode file in live dir'
         return output
 
     # Get SecCodes
@@ -350,7 +350,7 @@ def check_eod_positions(yesterday, killed_seccodes):
         df.to_csv(live_path, index=None)
 
     else:
-        message = '[WARNING] - Missing yesterday\'s file'
+        message = '[ERROR] - Missing yesterday\'s file'
 
     output = pd.DataFrame()
     output.loc[0, 'Desc'] = 'EOD Position File'
@@ -384,12 +384,12 @@ def check_size_containers(yesterday,
     output.loc[0, 'Desc'] = 'Size containers'
 
     if len(files) == 0:
-        message = '[WARNING] - Wrong File Date Prefix'
+        message = '[ERROR] - Wrong File Date Prefix'
         output.loc[0, 'Message'] = message
         return output
 
     elif len(files) == 2:
-        message = 'NOTE: New model SizeContainers being used'
+        message = '[INFO] New model SizeContainers being used'
         file_name = [x for x in files if x.find('NEW_MODEL') > -1][0]
 
     elif len(files) == 1:
@@ -431,7 +431,7 @@ def check_size_containers(yesterday,
         new_sizes[k] = sc.to_json()
 
     if bad_dates_flag:
-        output.loc[0, 'Message'] = 'SizeContainer has wrong dates'
+        output.loc[0, 'Message'] = '[ERROR] SizeContainer has wrong dates'
         return output
 
     # Write
@@ -506,9 +506,9 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
 
     message = []
     if file_name1.find(prefix) == -1:
-        message.append('Map1 Wrong File Date Prefix')
+        message.append('[ERROR] Map1 Wrong File Date Prefix')
     if file_name2.find(prefix) == -1:
-        message.append('Map2 Wrong File Date Prefix')
+        message.append('[ERROR] Map2 Wrong File Date Prefix')
 
     data1 = pd.read_csv(os.path.join(data_dir, file_name1))
     data2 = pd.read_csv(os.path.join(data_dir, file_name2))
@@ -527,7 +527,7 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
                              'live',
                              'qad_seccode_data.csv')
     if not os.path.isfile(data_path):
-        return pd.DataFrame([]), ['No QAD Ticker Mapping csv']
+        return pd.DataFrame([]), ['[ERROR] No QAD Ticker Mapping csv']
 
     qad_map = pd.read_csv(data_path)
     qad_map = qad_map[~qad_map.Ticker.isin(['$SPX.X', '$VIX.X'])]
@@ -548,7 +548,7 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
             qad_map.loc[ind[0], 'BloombergId'] = v + ' US'
 
     if qad_map.BloombergId.isnull().sum() > 0:
-        message.append('Missing Bloomberg ticker data')
+        message.append('[ERROR] Missing Bloomberg ticker data')
         # Write problem file to live directory for debug
         dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                              'StatArbStrategy',
@@ -603,7 +603,7 @@ def import_bloomberg_dividends():
 
     if len(data):
         if np.any(np.abs(data.DivMultiplier - 1) > .1):
-            message.append('Spotcheck dividend multiplier')
+            message.append('[INFO] Spotcheck dividend multiplier')
 
     return data, message
 
@@ -623,7 +623,7 @@ def import_bloomberg_spinoffs():
 
     message = []
     if file_name.find(prefix) == -1:
-        message.append('Wrong File Date Prefix')
+        message.append('[ERROR] Wrong File Date Prefix')
         out = pd.DataFrame(columns=['BloombergId', 'SpinoffMultiplier'])
         return out, message
 
@@ -645,7 +645,7 @@ def import_bloomberg_spinoffs():
     if len(data):
         flags = (data.SpinoffMultiplier < .1) | (data.SpinoffMultiplier > 10)
         if np.any(flags):
-            message.append('Spotcheck spinoff multiplier')
+            message.append('[INFO] Spotcheck spinoff multiplier')
 
     return data, message
 
@@ -665,7 +665,7 @@ def import_bloomberg_splits():
 
     message = []
     if file_name.find(prefix) == -1:
-        message.append('Wrong File Date Prefix')
+        message.append('[ERROR] Wrong File Date Prefix')
         # RETURN HERE
         out = pd.DataFrame(columns=['BloombergId', 'SplitMultiplier'])
         return out, message
@@ -689,7 +689,7 @@ def import_bloomberg_splits():
     # Checks
     if len(data):
         if np.any((data.SplitMultiplier < .1) | (data.SplitMultiplier > 10)):
-            message.append('Spotcheck split multiplier')
+            message.append('[INFO] Spotcheck split multiplier')
 
     return data, message
 
@@ -790,13 +790,10 @@ def process_bloomberg_data(killed_seccodes):
 
 def process_messages(messages_):
     if len(messages_) == 1:
-        if messages_[0].find('Spotcheck') > -1:
-            return '[INFO] - ' + messages_[0]
+        return messages_[0]
     message = '; '.join(messages_)
     if len(message) == 0:
         message = '*'
-    else:
-        message = '[WARNING] - ' + message
     return message
 
 
@@ -817,11 +814,11 @@ def get_short_sell_killed_seccodes(today, rate_min=-5., data_dir=IMP_DIR):
     output.loc[0, 'Desc'] = 'Short Locates'
 
     if len(fl) == 0:
-        message = '[WARNING] no locate file for {} found'.format(dt_str)
+        message = '[ERROR] no locate file for {} found'.format(dt_str)
         output.loc[0, 'Message'] = message
         return output
     elif len(fl) > 1:
-        message = '[WARNING] multiple locate files for {} found'.format(dt_str)
+        message = '[ERROR] multiple locate files for {} found'.format(dt_str)
         output.loc[0, 'Message'] = message
         return output
 
