@@ -1,6 +1,8 @@
 import os
+import sys
 import json
 import pickle
+import logging
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -8,55 +10,59 @@ import datetime as dt
 from ram import config
 from ram.strategy.statarb import statarb_config
 from ram.strategy.statarb.main import StatArbStrategy
+from ram.data.data_handler_sql import DataHandlerSQL
 
 from gearbox import convert_date_array
 
-from ramex.orders.orders import MOCOrder
-from ramex.client.client import ExecutionClient
+from ramex.orders.orders import MOCOrder, VWAPOrder
+from ramex.application.client import ExecutionClient
+
+from ram.strategy.statarb.objects.sizes import SizeContainer
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+LIVE_PRICES_DIR = os.path.join(os.getenv('DATA'), 'live_prices')
 
-def import_raw_data(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
-    """
-    Loads implementation raw data and processes it
-    """
-    statarb_path = os.path.join(implementation_dir, 'StatArbStrategy',
-                                'daily_raw_data')
-    all_files = _get_all_raw_data_file_names(statarb_path)
-    todays_files = _get_max_date_files(all_files)
+IMP_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR)
+
+BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
+
+STRATEGY_ID = 'StatArb0001'
+
+
+###############################################################################
+#  0. Import raw data
+###############################################################################
+
+def get_position_size(data_dir=BASE_DIR):
+    return json.load(open(os.path.join(data_dir, 'position_size.json')))
+
+
+###############################################################################
+#  1. Import raw data
+###############################################################################
+
+def import_raw_data(data_dir=BASE_DIR):
     output = {}
-    print('Importing raw_data...')
-    for f in todays_files:
-        name = _format_raw_data_name(f)
-        output[name] = _import_format_raw_data(os.path.join(statarb_path, f))
-    output['market_data'] = _import_format_raw_data(
-        os.path.join(statarb_path, 'market_index_data.csv'))
+    print('Importing data...')
+    for f in get_todays_version_file_names(data_dir):
+        name = f.replace('.csv', '')
+        data = import_format_raw_data(f, data_dir)
+        output[name] = data
+    output['market_data'] = import_format_raw_data('market_index_data.csv',
+                                                   data_dir)
     return output
 
 
-def _get_all_raw_data_file_names(raw_data_dir_path):
-    """
-    Filters out market_index_data.csv
-    """
-    all_files = os.listdir(raw_data_dir_path)
-    all_files = [x for x in all_files if x.find('current_blueprint') > 0]
-    all_files.sort()
-    return all_files
+def get_todays_version_file_names(data_dir=BASE_DIR):
+    all_files = os.listdir(os.path.join(data_dir, 'live'))
+    files = [x for x in all_files if x.find('version') > -1]
+    files.sort()
+    assert len(files) > 0
+    return files
 
 
-def _get_max_date_files(all_files):
-    max_date = max([x.split('_')[0] for x in all_files])
-    todays_files = [x for x in all_files if x.find(max_date) > -1]
-    todays_files = [x for x in todays_files if x.find('.csv') > -1]
-    return todays_files
-
-
-def _format_raw_data_name(file_name):
-    return file_name[file_name.rfind('version'):].replace('.csv', '')
-
-
-def _import_format_raw_data(path):
+def import_format_raw_data(file_name, data_dir=BASE_DIR):
+    path = os.path.join(data_dir, 'live', file_name)
     data = pd.read_csv(path)
     data.Date = convert_date_array(data.Date)
     data.SecCode = data.SecCode.astype(int).astype(str)
@@ -65,127 +71,67 @@ def _import_format_raw_data(path):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def import_live_pricing(implementation_dir=config.IMPLEMENTATION_DATA_DIR):
-    # SCALING DATA
-    scaling_data = _import_scaling_data(implementation_dir)
-    bloomberg_data = _import_bloomberg_data(implementation_dir)
-    scaling = scaling_data.merge(bloomberg_data, how='left').fillna(1)
-    scaling['PricingMultiplier'] = \
-        scaling.QADirectDividendFactor * \
-        scaling.BbrgDivMultiplier * \
-        scaling.BbrgSpinoffMultiplier * \
-        scaling.BbrgSplitMultiplier
-    scaling['VolumeMultiplier'] = scaling.BbrgSplitMultiplier
-    scaling = scaling[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
+def import_raw_data_archive(recon_date, data_dir=BASE_DIR):
+    output = {}
+    print('Importing data...')
+    dir_name = '{}_live'.format(recon_date.strftime('%Y%m%d'))
+    dir_path = os.path.join(data_dir, 'archive',
+                            'live_directories', dir_name)
 
-    # Index scaling
-    scaling_t = pd.DataFrame()
-    scaling_t['SecCode'] = ['50311', '11113']
-    scaling_t['PricingMultiplier'] = 1
-    scaling_t['VolumeMultiplier'] = 1
-    scaling = scaling.append(scaling_t).reset_index(drop=True)
-
-    # IMPORT LIVE AND ADJUST
-    live_data = _import_live_pricing(implementation_dir)
-    data = live_data.merge(scaling)
-    data['RClose'] = data.AdjClose
-    data.AdjOpen = data.AdjOpen * data.PricingMultiplier
-    data.AdjHigh = data.AdjHigh * data.PricingMultiplier
-    data.AdjLow = data.AdjLow * data.PricingMultiplier
-    data.AdjClose = data.AdjClose * data.PricingMultiplier
-    data.AdjVwap = data.AdjVwap * data.PricingMultiplier
-    data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
-    data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
-    return data
+    for f in get_archive_version_file_names(dir_path):
+        name = f.replace('.csv', '')
+        data = import_format_raw_data_archive(f, dir_path)
+        output[name] = data
+    output['market_data'] = import_format_raw_data_archive(
+        'market_index_data.csv', dir_path)
+    return output
 
 
-def _import_live_pricing(implementation_dir):
-    dtypes = {'SecCode': str, 'Ticker': str, 'Issuer': str,
-              'CLOSE': np.float64, 'LAST': np.float64, 'OPEN': np.float64,
-              'HIGH': np.float64, 'LOW': np.float64, 'VWAP': np.float64,
-              'VOLUME': np.float64}
-    path = os.path.join(implementation_dir, 'StatArbStrategy',
-                        'live_pricing', 'prices.csv')
-    live_data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
-    live_data['AdjOpen'] = live_data.OPEN
-    live_data['AdjHigh'] = live_data.HIGH
-    live_data['AdjLow'] = live_data.LOW
-    live_data['AdjClose'] = live_data.LAST
-    live_data['AdjVolume'] = live_data.VOLUME
-    live_data['AdjVwap'] = live_data.VWAP
-    live_data = live_data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
-                           'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
-    return live_data
+def get_archive_version_file_names(dir_path):
+    all_files = os.listdir(dir_path)
+    files = [x for x in all_files if x.find('version') > -1]
+    files.sort()
+    assert len(files) > 0
+    return files
 
 
-def _import_scaling_data(implementation_dir):
-    path = os.path.join(implementation_dir, 'StatArbStrategy',
-                        'live_pricing', 'seccode_scaling.csv')
-    scaling = pd.read_csv(path)
-    scaling.SecCode = scaling.SecCode.astype(str)
-    scaling.Date = convert_date_array(scaling.Date)
-    scaling['QADirectDividendFactor'] = scaling.DividendFactor
-    scaling = scaling[['SecCode', 'QADirectDividendFactor']]
-    return scaling
-
-
-def _import_bloomberg_data(implementation_dir):
-    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
-                         'live_pricing', 'bloomberg_scaling.csv')
-    data = pd.read_csv(dpath)
-    cols = np.array(['Ticker', 'DivMultiplier', 'SpinoffMultiplier',
-                     'SplitMultiplier'])
-
-    assert np.all(data.columns == cols)
-    data.columns = ['Ticker', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
-                    'BbrgSplitMultiplier']
-    dpath = os.path.join(implementation_dir, 'StatArbStrategy',
-                         'live_pricing', 'ticker_mapping.csv')
-    tickers = pd.read_csv(dpath)
-    data = data.merge(tickers)
-    data.SecCode = data.SecCode.astype(str)
-    return data[['SecCode', 'BbrgDivMultiplier', 'BbrgSpinoffMultiplier',
-                 'BbrgSplitMultiplier']]
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-def import_run_map(
-        implementation_dir=config.IMPLEMENTATION_DATA_DIR,
-        trained_model_dir_name=statarb_config.trained_models_dir_name):
-
-    path = os.path.join(implementation_dir,
-                        'StatArbStrategy',
-                        'trained_models',
-                        trained_model_dir_name,
-                        'run_map.csv')
+def import_format_raw_data_archive(file_name, dir_path):
+    path = os.path.join(dir_path, file_name)
     data = pd.read_csv(path)
-    # GCP outputs index column, which for this needs to be removed
-    if data.columns[0].find('Unnamed') > -1:
-        data = data.iloc[:, 1:]
-    # Sort by data version
-    data = data.sort_values('data_version').reset_index()
+    data.Date = convert_date_array(data.Date)
+    data.SecCode = data.SecCode.astype(int).astype(str)
     return data
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
+#  2. Import run map
+###############################################################################
+
+def import_run_map(model_dir_name=statarb_config.trained_models_dir_name,
+                   data_dir=BASE_DIR):
+    path = os.path.join(data_dir,
+                        'trained_models',
+                        model_dir_name,
+                        'run_map.json')
+    return json.load(open(path, 'r'))
+
+
+###############################################################################
+#  3. Import sklearn models and model parameters
+###############################################################################
 
 def import_models_params(
-        implementation_dir=config.IMPLEMENTATION_DATA_DIR,
-        trained_model_dir_name=statarb_config.trained_models_dir_name):
+        models_dir_name=statarb_config.trained_models_dir_name,
+        data_dir=BASE_DIR):
     """
     Returns
     -------
     output : dict
         Holds parameter and sklearn model for each trained model
     """
-    path = os.path.join(implementation_dir,
-                        'StatArbStrategy',
-                        'trained_models',
-                        trained_model_dir_name)
-    model_files, param_files = _get_model_files(path)
-    output = {}
+    path, model_files, param_files = get_model_files(models_dir_name, data_dir)
     print('Importing models and parameters...')
+    output = {}
     for m, p in zip(model_files, param_files):
         run_name = m.replace('_skl_model.pkl', '')
         output[run_name] = {}
@@ -196,13 +142,15 @@ def import_models_params(
     return output
 
 
-def _get_model_files(path):
+def get_model_files(models_dir_name, data_dir):
     """
     Return file names from production trained models directories, and
     makes sure the model name is aligned with the param file name
     """
+    path = os.path.join(data_dir, 'trained_models', models_dir_name)
     all_files = os.listdir(path)
-    all_files = [x for x in all_files if x.find('run_map.csv') == -1]
+    all_files.remove('meta.json')
+    all_files.remove('run_map.json')
     model_files = [x for x in all_files if x.find('skl_model') > -1]
     model_files.sort()
     param_files = [x for x in all_files if x.find('params') > -1]
@@ -210,187 +158,492 @@ def _get_model_files(path):
     # Assert that they are aligned
     for m, p in zip(model_files, param_files):
         assert m.replace('_skl_model.pkl', '') == p.replace('_params.json', '')
-    return model_files, param_files
+    return path, model_files, param_files
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
+#  4. StatArb positions
+###############################################################################
 
-def import_portfolio_manager_positions(
-        position_sheet_dir=config.POSITION_SHEET_DIR):
-    all_files = os.listdir(position_sheet_dir)
-    all_files = [x for x in all_files if x.find('positions.csv') > -1]
-    file_name = max(all_files)
-    positions = pd.read_csv(os.path.join(position_sheet_dir, file_name))
-    positions = positions[['position', 'symbol', 'share_count']]
-    # Locate positions with correct statarb prefix
-    inds = [x.find('StatArb_') > -1 for x in positions.position]
-    positions = positions.loc[inds].reset_index(drop=True)
+def get_statarb_positions(data_dir=BASE_DIR):
+    path = os.path.join(data_dir, 'live', 'eod_positions.csv')
+    positions = pd.read_csv(path)
+    positions = positions[positions.StrategyID == STRATEGY_ID]
+    positions.SecCode = positions.SecCode.astype(int).astype(str)
+    positions = positions[['SecCode', 'Ticker', 'Shares']].copy()
     return positions
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###############################################################################
+#  5. Get SizeContainers
+###############################################################################
+
+def get_size_containers(data_dir=BASE_DIR):
+    path = os.path.join(data_dir, 'live', 'size_containers.json')
+    sizes = json.load(open(path, 'r'))
+    output = {}
+    for k, v in sizes.iteritems():
+        sc = SizeContainer(-1)
+        sc.from_json(v)
+        output[k] = sc
+    return output
+
+
+def get_size_containers_archive(recon_date, data_dir=BASE_DIR):
+    dir_name = '{}_live'.format(recon_date.strftime('%Y%m%d'))
+    path = os.path.join(data_dir, 'archive', 'live_directories',
+                        dir_name, 'size_containers.json')
+    sizes = json.load(open(path, 'r'))
+    output = {}
+    for k, v in sizes.iteritems():
+        sc = SizeContainer(-1)
+        sc.from_json(v)
+        output[k] = sc
+    return output
+
+
+###############################################################################
+#  6. Scaling data
+###############################################################################
+
+def import_scaling_data(data_dir=BASE_DIR):
+    # QAD SCALING
+    path1 = os.path.join(data_dir, 'live', 'seccode_scaling.csv')
+    # Bloomberg
+    path2 = os.path.join(data_dir, 'live', 'bloomberg_scaling.csv')
+    return _format_scaling_data(path1, path2)
+
+
+def import_scaling_data_archive(recon_date, data_dir=BASE_DIR):
+    dir_name = '{}_live'.format(recon_date.strftime('%Y%m%d'))
+    path = os.path.join(data_dir, 'archive', 'live_directories', dir_name)
+    path1 = os.path.join(path, 'seccode_scaling.csv')
+    path2 = os.path.join(path, 'bloomberg_scaling.csv')
+    return _format_scaling_data(path1, path2)
+
+
+def _format_scaling_data(path1, path2):
+    data1 = pd.read_csv(path1)
+    data1.SecCode = data1.SecCode.astype(int).astype(str)
+    data1 = data1.rename(columns={
+        'DividendFactor': 'QADirectDividendFactor'
+    })
+    data1 = data1[['SecCode', 'QADirectDividendFactor']]
+    data2 = pd.read_csv(path2)
+    data2.SecCode = data2.SecCode.astype(int).astype(str)
+    data2 = data2.rename(columns={
+        'DivMultiplier': 'BbrgDivMultiplier',
+        'SpinoffMultiplier': 'BbrgSpinoffMultiplier',
+        'SplitMultiplier': 'BbrgSplitMultiplier'
+    })
+    # Merge
+    data = data1.merge(data2, how='left').fillna(1)
+    data['PricingMultiplier'] = \
+        data.QADirectDividendFactor * \
+        data.BbrgDivMultiplier * \
+        data.BbrgSpinoffMultiplier * \
+        data.BbrgSplitMultiplier
+    data['VolumeMultiplier'] = data.BbrgSplitMultiplier
+    data = data[['SecCode', 'PricingMultiplier', 'VolumeMultiplier']]
+    # Append index IDs with 1s as placeholders
+    data_t = pd.DataFrame()
+    data_t['SecCode'] = ['50311', '11113']
+    data_t['PricingMultiplier'] = 1
+    data_t['VolumeMultiplier'] = 1
+    data = data.append(data_t).reset_index(drop=True)
+    return data
+
+
+###############################################################################
+#  7. StatArb Implementation Wrapper
+###############################################################################
 
 class StatArbImplementation(object):
 
     def __init__(self, StatArbStrategy=StatArbStrategy):
-        # Used for testing
         self.StatArbStrategy = StatArbStrategy
 
-    def add_raw_data(self, data):
-        self.raw_data = data
+    def add_daily_data(self, daily_data):
+        self.daily_data = daily_data
 
-    def add_run_map(self, run_map):
+    def add_run_map_models(self, run_map, models):
         self.run_map = run_map
+        self.models = models
 
-    def add_models_params(self, models_params):
-        self.models_params_strategy = models_params
+    def add_size_containers(self, size_containers):
+        self.size_containers = size_containers
 
-    def add_positions(self, positions):
-        self.positions = positions
+    def add_drop_short_seccodes(self, drop_short_seccodes):
+        self.drop_short_seccodes = drop_short_seccodes
 
     def prep(self):
-        assert hasattr(self, 'models_params_strategy')
         assert hasattr(self, 'run_map')
-        assert hasattr(self, 'raw_data')
+        assert hasattr(self, 'daily_data')
+        assert hasattr(self, 'models')
         print('Prepping data...')
-        for i, vals in self.run_map.iterrows():
+        self.models_params_strategy = {}
+        for d in self.run_map:
             strategy = self.StatArbStrategy(
-                strategy_code_version=vals.strategy_version
+                strategy_code_version=d['strategy_code_version']
             )
             strategy.strategy_init()
             strategy.data.prep_live_data(
-                data=self.raw_data[vals.data_version],
-                market_data=self.raw_data['market_data']
+                data=self.daily_data[d['prepped_data_version']],
+                market_data=self.daily_data['market_data']
             )
-            self.models_params_strategy[vals.param_name]['strategy'] = \
-                strategy
+            # Add size container to constructor
+            strategy.constructor._size_containers[0] = \
+                self.size_containers[d['run_name']]
+            # Other
+            self.models_params_strategy[d['run_name']] = {}
+            self.models_params_strategy[d['run_name']]['strategy'] = strategy
+            self.models_params_strategy[d['run_name']]['column_params'] = \
+                d['column_params']
+            self.models_params_strategy[d['run_name']]['model'] = \
+                self.models[d['run_name']]['model']
         print('Finished prepping data...')
         return
-
-    def start(self):
-        pass
 
     def run_live(self, live_data):
 
         orders = pd.DataFrame()
 
-        for name, objs in self.models_params_strategy.iteritems():
+        models_params = self.models_params_strategy
+
+        for name, objs in models_params.iteritems():
+
+            # Extract parameters
             strategy = objs['strategy']
-            params = objs['params']
+            params = objs['column_params']
             model = objs['model']
 
+            # Derived class functionality from here on down
             strategy.data.process_live_data(live_data)
 
-            sparams = _extract_params(params, strategy.signals.get_args())
+            # Process params
+            dparams = extract_params(params, strategy.data.get_args())
+            strategy.data.set_args(live_flag=True, **dparams)
+
+            sparams = extract_params(params, strategy.signals.get_args())
             strategy.signals.set_args(**sparams)
 
             strategy.signals.set_features(strategy.data.get_train_features())
             strategy.signals.set_test_data(strategy.data.get_test_data())
             strategy.signals.set_model(model)
 
-            signals = strategy.signals.get_signals()
+            strategy.constructor.set_test_dates(
+                strategy.data.get_test_dates())
+            strategy.constructor.set_other_data(
+                strategy.data.get_other_data())
+            strategy.constructor.set_signal_data(
+                strategy.signals.get_signals())
 
-            cparams = _extract_params(params, strategy.constructor.get_args())
+            cparams = extract_params(params, strategy.constructor.get_args())
             strategy.constructor.set_args(**cparams)
-            strategy.constructor.set_signals_constructor_data(
-                signals, strategy.data.get_constructor_data())
 
-            scores = signals[['SecCode', 'preds']].set_index(
-                'SecCode').to_dict()['preds']
+            # Check size container is pulled
+            sizes = strategy.constructor.get_day_position_sizes(
+                dt.date.today(), 0, self.drop_short_seccodes)
 
-            sizes = strategy.constructor .get_day_position_sizes(0, scores)
             sizes = pd.Series(sizes).reset_index()
-            sizes.columns = ['SecCode', 'Dollars']
+            sizes.columns = ['SecCode', 'PercAlloc']
             sizes['Strategy'] = name
             orders = orders.append(sizes)
+
+        # Scale for number of models averaged together
+        orders.PercAlloc /= float(len(models_params))
+
+        # Clean out zero dollar allocations
+        orders = orders[orders.PercAlloc != 0]
 
         return orders
 
 
-def _extract_params(all_params, selected_params):
+def extract_params(all_params, selected_params):
     out = {}
     for key in selected_params.keys():
         out[key] = all_params[key]
     return out
 
 
-def _add_sizes(all_sizes, model_sizes):
-    for key, val in model_sizes.iteritems():
-        if key not in all_sizes:
-            all_sizes[key] = 0
-        all_sizes[key] += val
-    return all_sizes
+###############################################################################
+#  8. Live pricing
+###############################################################################
+
+def archive_live_pricing(data, data_dir):
+    timestamp = dt.date.today().strftime('%Y%m%d')
+    file_name = '{}_live_pricing.csv'.format(timestamp)
+    path = os.path.join(data_dir, 'archive', 'live_pricing', file_name)
+    data.to_csv(path, index=None)
+    # Also in live directory
+    dir_name = '{}_live'.format(timestamp)
+    path = os.path.join(data_dir, 'archive', 'live_directories',
+                        dir_name, 'prices.csv')
+    data.to_csv(path, index=None)
+    return
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def import_live_pricing(live_prices_dir=LIVE_PRICES_DIR):
+    # Manually set column types
+    dtypes = {
+        'SecCode': str,
+        'Ticker': str,
+        'Issuer': str,
+        'CLOSE': np.float64,
+        'LAST': np.float64,
+        'OPEN': np.float64,
+        'HIGH': np.float64,
+        'LOW': np.float64,
+        'VWAP': np.float64,
+        'VOLUME': np.float64
+    }
 
-def write_output(out_df, implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+    path = os.path.join(live_prices_dir, 'prices.csv')
+    data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
+    data.SecCode = data.SecCode.astype(str)
+    data = data.rename(columns={
+        'OPEN': 'AdjOpen',
+        'HIGH': 'AdjHigh',
+        'LOW': 'AdjLow',
+        'LAST': 'AdjClose',
+        'VOLUME': 'AdjVolume',
+        'VWAP': 'AdjVwap',
+
+    })
+    data = data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
+                 'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
+    # Add file creation datetime
+    time_modified = dt.datetime.fromtimestamp(os.path.getmtime(path))
+    data['captured_time'] = time_modified
+    return data
+
+
+def get_live_pricing_data(scaling, data_dir=BASE_DIR):
+
+    # FILL IN NAN VALUES AND PRINT TO SCREEN
+    while True:
+        # IMPORT LIVE AND ADJUST
+        data = import_live_pricing()
+        if np.any(data.isnull()):
+            print('\n\nMISSING LIVE PRICES\n\n')
+            input_ = raw_input("Press `y` to handle, otherwise will retry\n")
+            if input_ == 'y':
+                cols = ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap']
+                data.AdjOpen = data.AdjOpen.fillna(data[cols].mean(axis=1))
+                data.AdjHigh = data.AdjHigh.fillna(data[cols].max(axis=1))
+                data.AdjLow = data.AdjLow.fillna(data[cols].min(axis=1))
+                data.AdjClose = data.AdjClose.fillna(data[cols].mean(axis=1))
+                data.AdjVwap = data.AdjVwap.fillna(data[cols].mean(axis=1))
+                break
+        else:
+            break
+
+    archive_live_pricing(data, data_dir)
+
+    data.drop('captured_time', axis=1, inplace=True)
+    # Merge scaling
+    data = data.merge(scaling)
+    data['RClose'] = data.AdjClose
+    data.AdjOpen = data.AdjOpen * data.PricingMultiplier
+    data.AdjHigh = data.AdjHigh * data.PricingMultiplier
+    data.AdjLow = data.AdjLow * data.PricingMultiplier
+    data.AdjClose = data.AdjClose * data.PricingMultiplier
+    data.AdjVwap = data.AdjVwap * data.PricingMultiplier
+    data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
+    data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
+
+    return data
+
+
+###############################################################################
+#  9. Cleanup - Sending and writing
+###############################################################################
+
+def send_orders(out_df, positions, drop_short_seccodes):
+    orders = make_orders(out_df, positions, drop_short_seccodes)
+    client = ExecutionClient()
+    for o in orders:
+        client.send_order(o)
+    client.send_transmit('statArbBasket')
+    client.close_zmq_sockets()
+    print('Order transmission complete')
+
+
+def make_orders(orders, positions, drop_short_seccodes):
+    """
+    LOGIC: Positions holds the shares we have. Orders holds the shares
+    we want--from Positions.Quantity to Orders.Quantity.
+    """
+    # Rollup and get shares
+    orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
+    orders = orders.groupby(['Ticker', 'SecCode'])['NewShares', 'Dollars'].sum().reset_index()
+
+    # Drop shorts
+    orders = check_dropped_seccodes(orders, drop_short_seccodes)
+
+    # Then net out/close shares
+    data = orders.merge(positions, how='outer').fillna(0)
+    data['TradeShares'] = data.NewShares - data.Shares
+
+    print('#########################')
+    print(' POSITION STATS')
+    print(' Open Longs: {}'.format((data.NewShares > 0).sum()))
+    print(' Open Shorts: {}'.format((data.NewShares < 0).sum()))
+    print('\n')
+
+    # Print some stats
+    print('#########################')
+    print(' ORDER STATS')
+    print(' Long Orders: {}'.format((data.TradeShares > 0).sum()))
+    print(' Long Shares: {}'.format(data[data.TradeShares > 0].TradeShares.sum()))
+    print(' Short Orders: {}'.format((data.TradeShares < 0).sum()))
+    print(' Short Shares: {}'.format(data[data.TradeShares < 0].TradeShares.sum()))
+    print('\n')
+
+    output = []
+    for _, o in data.iterrows():
+        if o.TradeShares == 0:
+            continue
+
+        # order = MOCOrder(basket='statArbBasket',
+        #                  strategy_id=STRATEGY_ID,
+        #                  symbol=o.Ticker,
+        #                  quantity=o.TradeShares)
+
+        order = VWAPOrder(basket='statArbBasket',
+                          strategy_id=STRATEGY_ID,
+                          symbol=o.Ticker,
+                          quantity=o.TradeShares,
+                          start_time=dt.time(15, 45),
+                          end_time=dt.time(16, 00),
+                          participation=20)
+
+        output.append(order)
+
+    return output
+
+
+def write_output(out_df, data_dir=BASE_DIR):
     timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
-    file_name = 'allocations_{}.csv'.format(timestamp)
-    path = os.path.join(implementation_dir, 'StatArbStrategy', 'allocations', file_name)
+    file_name = '{}_sent_allocations.csv'.format(timestamp)
+    path = os.path.join(data_dir, 'archive', 'allocations', file_name)
     out_df.to_csv(path, index=None)
 
 
-def send_orders(out_df):
-    client = ExecutionClient()
-    for _, o in out_df.iterrows():
-        shares = int(o.Dollars / o.RClose)
-        if shares == 0:
-            continue
-        order = MOCOrder(symbol=o.Ticker,
-                         quantity=shares,
-                         strategy_id=o.Strategy)
-        client.send_moc_order(order)
-        print(order)
+def write_size_containers(strategy, data_dir=BASE_DIR):
+    today = dt.date.today().strftime('%Y%m%d')
+    path = os.path.join(data_dir, 'archive', 'size_containers',
+                        '{}_size_containers.json'.format(today))
+    output = {}
+    for k, v in strategy.size_containers.iteritems():
+        output[k] = v.to_json()
+    json.dump(output, open(path, 'w'))
 
-    client.send_transmit()
-    client.close_zmq_sockets()
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def get_short_sell_kill_seccodes(data_dir=IMP_DIR):
+    # Read in short sell seccode csv and return list of seccodes
+    path = os.path.join(data_dir, 'short_sell_kill_list.csv')
+    data = pd.read_csv(path)
+    data = data[data.SecCode.notnull()]
+    data.SecCode = data.SecCode.astype(int).astype(str)
+    return data.SecCode.values.tolist()
+
+
+def check_dropped_seccodes(orders, drop_short_seccodes):
+    # Drop those SecCodes in the list and those that are short
+    drop_seccodes = orders.SecCode.isin(drop_short_seccodes) & \
+        (orders.NewShares < 0)
+    if np.any(drop_seccodes):
+        drops = orders[drop_seccodes]
+        print('\n')
+        print('#########################')
+        print(' Dropping Impossible-to-Borrow and Expensive SecCodes: ')
+        print(drops.SecCode.unique().tolist())
+        print(' Net Dollars Dropped (Positive Number requires Long Hedge): {}'.format(round(drops.Dollars.sum())))
+        print(' Total Gross Dollars Dropped: {}'.format(round(drops.Dollars.abs().sum())))
+        print('\n')
+
+    return orders[~drop_seccodes].reset_index(drop=True)
+
+###############################################################################
+#  MAIN
+###############################################################################
+
+
+def confirm_prep_data():
+    meta = json.load(open(os.path.join(BASE_DIR, 'live', 'meta.json'), 'r'))
+    t = meta['prepped_date']
+    # Confirm prep data was run today
+    t = dt.date(int(t[:4]), int(t[4:6]), int(t[6:]))
+    assert t == dt.date.today(), 'Run prep_data.py!!'
+    assert statarb_config.trained_models_dir_name == \
+        meta['trained_models_dir_name']
+
 
 def main():
 
+    confirm_prep_data()
+
+    ###########################################################################
+    # 0. Checks meta and import position size
+    position_size = get_position_size()
+
+    # 1. Import raw data
     raw_data = import_raw_data()
 
+    # 2. Import raw data
     run_map = import_run_map()
 
+    # 3. Import sklearn models and model parameters
     models_params = import_models_params()
 
-    positions = import_portfolio_manager_positions()
+    # 4. Get accounting information
+    positions = get_statarb_positions()
 
+    # 5. Get SizeContainers
+    size_containers = get_size_containers()
+
+    # 6. Scaling data for live data
+    scaling = import_scaling_data()
+
+    # 7. Drop SecCodes
+    drop_short_seccodes = get_short_sell_kill_seccodes()
+
+    # 8. Prep data
     strategy = StatArbImplementation()
-
-    strategy.add_raw_data(raw_data)
-    strategy.add_run_map(run_map)
-    strategy.add_models_params(models_params)
-    strategy.add_positions(positions)
-
+    strategy.add_daily_data(raw_data)
+    strategy.add_run_map_models(run_map, models_params)
+    strategy.add_size_containers(size_containers)
+    strategy.add_drop_short_seccodes(drop_short_seccodes)
     strategy.prep()
 
-    #_ = raw_input("Press Enter to continue...")
-    live_data = import_live_pricing()
+    ###########################################################################
+    _ = raw_input("Press Enter to continue...")
 
-    orders = strategy.run_live(live_data)
-    out_df = live_data[['SecCode', 'Ticker', 'RClose']].merge(
-        orders, how='outer')
+    while True:
+        try:
+            # 8. Live pricing
+            live_data = get_live_pricing_data(scaling)
+            orders = strategy.run_live(live_data)
 
-    send_orders(out_df)
+            out_df = orders.merge(live_data[['SecCode', 'Ticker', 'RClose']],
+                                  how='left')
+            out_df['Dollars'] = \
+                out_df.PercAlloc * position_size['gross_position_size']
 
-    # while True:
-    #     try:
-    #         live_data = import_live_pricing()
+            send_orders(out_df, positions, drop_short_seccodes)
 
-    #         orders = strategy.run_live(live_data)
-    #         out_df = live_data[['SecCode', 'Ticker', 'RClose']].merge(
-    #             orders, how='outer')
+            # 9. Writing and cleanup
+            write_output(out_df)
+            write_size_containers(strategy)
 
-    #         send_orders(out_df)
-    #         write_output(out_df)
-    #         break
+            break
 
-    #     except Exception as e:
-    #         print(e)
-    #         _ = raw_input("[ERROR] - Press any key to re-run and transmit")
+        except Exception as e:
+            exc_info = sys.exc_info()
+            print(e)
+            print(logging.Formatter().formatException(exc_info))
+            _ = raw_input("[ERROR] - Press any key to re-run and transmit")
 
 
 if __name__ == '__main__':

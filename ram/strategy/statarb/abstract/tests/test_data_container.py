@@ -43,6 +43,15 @@ class DataContainer(BaseDataContainer):
         return {'pricing': self._processed_simulation_data,
                 'pairs_info': pd.DataFrame()}
 
+    def get_other_data(self):
+        pass
+
+    def get_test_dates(self):
+        pass
+
+    def get_pricing_data(self):
+        pass
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def process_training_data(self, data, time_index):

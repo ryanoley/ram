@@ -8,9 +8,11 @@ DESCRIPTION = 'Master System'
 PACKAGES = [
     'ram',
     'ram/analysis',
+    'ram/analysis/model_selection',
     'ram/aws',
     'ram/data',
     'ram/strategy',
+    # ~~~ Intraday Reversion ~~~
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
     # ~~~ Analyst Estimates ~~~
@@ -23,17 +25,13 @@ PACKAGES = [
     # ~~~ STATARB ~~~
     'ram/strategy/statarb',
     'ram/strategy/statarb/abstract',
+    'ram/strategy/statarb/objects',
     'ram/strategy/statarb/implementation',
-    'ram/strategy/statarb/version_001',
-    'ram/strategy/statarb/version_001/constructor',
-    'ram/strategy/statarb/version_001/data',
-    'ram/strategy/statarb/version_001/signals',
-    # ~~~ STATARB ~~~
-    'ram/strategy/statarb2',
-    'ram/strategy/statarb2/version_001',
-    'ram/strategy/statarb2/version_002',
-    'ram/strategy/statarb2/version_003',
-    'ram/strategy/statarb2/version_004',
+    'ram/strategy/statarb/implementation/tests',
+    'ram/strategy/statarb/version_004',
+    'ram/strategy/statarb/version_004/constructor',
+    'ram/strategy/statarb/version_004/data',
+    'ram/strategy/statarb/version_004/signals',
     # ~~~~~~~~~~~~~~~
     'ram/utils',
 ]

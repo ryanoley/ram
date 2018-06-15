@@ -10,7 +10,7 @@ class TestPosition(unittest.TestCase):
         pass
 
     def test_update_position_size(self):
-        position = Position('IBM', 100.)
+        position = Position('IBM', 100., comm=.005)
 
         position.update_position_size(1000., 101.)
         self.assertEqual(position.shares, 10)
@@ -25,7 +25,7 @@ class TestPosition(unittest.TestCase):
         self.assertEqual(position.daily_turnover, 2000.)
 
     def test_update_position_prices(self):
-        position = Position('IBM', 100.)
+        position = Position('IBM', 100., comm=.005)
 
         position.update_position_prices(101.)
         self.assertEqual(position.exposure, 0.)
@@ -44,7 +44,7 @@ class TestPosition(unittest.TestCase):
         self.assertEqual(position.current_price, 103.)
 
     def test_split_adjustment(self):
-        position = Position('IBM', 100.)
+        position = Position('IBM', 100., comm=.005)
 
         position.update_position_size(1000., 100.)
         self.assertEqual(position.shares, 10)
@@ -54,7 +54,7 @@ class TestPosition(unittest.TestCase):
         self.assertEqual(position.current_price, 50)
 
     def test_dividend_adjustment(self):
-        position = Position('IBM', 100.)
+        position = Position('IBM', 100., comm=.005)
 
         position.update_position_size(1000., 100.)
         self.assertEqual(position.shares, 10)
@@ -64,7 +64,7 @@ class TestPosition(unittest.TestCase):
         self.assertEqual(position.daily_pl, 2.45)
 
     def test_close_position(self):
-        position = Position('IBM', 100.)
+        position = Position('IBM', 100., comm=.005)
 
         position.update_position_size(1000., 100.)
         self.assertEqual(position.shares, 10)

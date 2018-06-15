@@ -77,32 +77,3 @@ if __name__ == '__main__':
     unittest.main()
 
 
-
-    # def rf_signals(self, data_container, max_features, min_samples_leaf,
-    #                n_estimators, drop_ibes):
-
-    #     features = data_container.features
-    #     if drop_ibes:
-    #         features = list(set(features) -
-    #                         set(['prtgt_est_change', 'prtgt_discount',
-    #                              'prtgt_disc_change','anr_rec_change',
-    #                              'RECMEAN']))
-
-    #     train_data = data_container.train_data
-    #     test_data = data_container.test_data
-
-    #     for e in range(1, data_container._entry_window):
-    #         e_train = train_data[train_data['T'] == e].copy()
-    #         e_test = test_data[test_data['T'] == e].copy()
-
-    #         clf = RandomForestRegressor(n_estimators=n_estimators,
-    #                                    min_samples_leaf=min_samples_leaf,
-    #                                    max_features=max_features,
-    #                                    n_jobs=NJOBS)
-    #         clf.fit(X=e_train[features], y=e_train['Response'])
-
-    #         preds = clf.predict(e_test[features])
-    #         e_test['preds'] = preds
-    #         self.preds_data[e + 1] = e_test[['SecCode', 'Date', 'preds']]
-    #     return
-

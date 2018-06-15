@@ -7,6 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 import datetime as dt
 
+from StringIO import StringIO
 from google.cloud import storage
 
 from gearbox import convert_date_array
@@ -21,11 +22,8 @@ from ram.utils.documentation import get_git_branch_commit
 
 class DataConstructor(object):
 
-    def __init__(self,
-                 ram_prepped_data_dir=config.PREPPED_DATA_DIR,
-                 ram_implementation_dir=config.IMPLEMENTATION_DATA_DIR):
+    def __init__(self, ram_prepped_data_dir=config.PREPPED_DATA_DIR):
         self._prepped_data_dir = ram_prepped_data_dir
-        self._implementation_dir = ram_implementation_dir
 
     # ~~~~~~ Interface ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -41,9 +39,9 @@ class DataConstructor(object):
         self._check_file_completeness(blueprint)
         self._make_data(blueprint)
 
-    def run_live(self, blueprint, strategy_name):
+    def run_live(self, blueprint):
         self._check_parameters(blueprint)
-        self._init_run_live(strategy_name)
+        self._init_run_live(blueprint)
         self._make_data(blueprint)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,15 +101,14 @@ class DataConstructor(object):
                     filter_date=adj_filter_date,
                     filter_args=blueprint.universe_filter_arguments)
                 data['TestFlag'] = data.Date > adj_filter_date
-                if len(data[data.TestFlag]) == 0:
-                    continue
                 self._clean_and_write_output(data, file_name)
             # Update meta params
-            self._update_meta_file(data.Date.max(), created_files)
+            max_train_date = data.Date[~data.TestFlag].max()
+            self._update_meta_file(max_train_date, created_files)
 
         # HACK
         elif blueprint.constructor_type == 'universe_live':
-            t1, t2, t3 = self._make_date_iterator(blueprint)[-1]
+            t1, t2, t3 = self._make_implementation_dates(blueprint)
             adj_filter_date = t2 - dt.timedelta(days=1)
             data = dh.get_filtered_univ_data(
                 features=blueprint.features,
@@ -164,7 +161,7 @@ class DataConstructor(object):
         for file_name in reversed(self._version_files):
             # Get all unique dates from file
             path = os.path.join(self._output_dir, file_name)
-            data = pd.read_csv(path)
+            data = pd.read_csv(path, usecols=['Date'])
             data_dates = data.Date.unique()
             data_dates = convert_date_array(data_dates)
             # Match file name with date
@@ -182,15 +179,8 @@ class DataConstructor(object):
         self._version_files = [x for x in self._version_files
                                if x not in files_to_drop]
 
-    def _init_run_live(self, strategy_name):
-        # Check if directories exist
-        path = os.path.join(self._implementation_dir, strategy_name)
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        path = os.path.join(path, 'daily_raw_data')
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        self._output_dir = path
+    def _init_run_live(self, blueprint):
+        self._output_dir = blueprint.output_file_dir
 
     # ~~~~~~ Output functionality ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -242,11 +232,11 @@ class DataConstructor(object):
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
 
-    def _update_meta_file(self, max_date, created_files):
+    def _update_meta_file(self, max_train_date, created_files):
         # Read and then rewrite
         path = os.path.join(self._output_dir, 'meta.json')
         meta = json.load(open(path, 'r'))
-        meta['max_date'] = str(max_date.strftime('%Y-%m-%d'))
+        meta['max_train_date'] = str(max_train_date.strftime('%Y-%m-%d'))
         meta['newly_created_files'] = created_files
         with open(path, 'w') as outfile:
             json.dump(meta, outfile)
@@ -279,15 +269,32 @@ class DataConstructor(object):
             periods = range(1, 13)
         all_periods = [dt.datetime(y, m, 1) for y, m in itertools.product(
             range(start_year-3, 2020), periods)]
-        # Filter
-        ind = np.where(np.array(all_periods) > dt.datetime.utcnow())[0][0] + 1
-        all_periods = all_periods[:ind]
         end_periods = [x - dt.timedelta(days=1) for x in all_periods]
         iterator = zip(all_periods[:-(train_period_length+test_period_length)],
                        all_periods[train_period_length:-test_period_length],
                        end_periods[train_period_length+test_period_length:])
+        # Filter
         iterator = [x for x in iterator if x[1].year >= start_year]
+        iterator = [x for x in iterator if x[1] <= dt.datetime.utcnow()]
         return iterator
+
+    def _make_implementation_dates(self, blueprint):
+        date_params = blueprint.universe_date_parameters
+        frequency = date_params['frequency']
+        if frequency == 'M':
+            today = dt.date.today()
+            filter_date = dt.date(today.year, today.month, 1)
+            # Forward date
+            end_date = filter_date + \
+                dt.timedelta(days=(32 * date_params['test_period_length']))
+            end_date = dt.date(end_date.year, end_date.month, 1)
+            # Training period begin date - add one extra just in case
+            start_date = filter_date - \
+                dt.timedelta(days=(28 * date_params['train_period_length']))
+            start_date = dt.date(start_date.year, start_date.month, 1)
+            return start_date, filter_date, end_date
+        else:
+            raise NotImplementedError()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -316,6 +323,7 @@ class DataConstructor(object):
             assert 'test_period_length' in params
             assert 'frequency' in params
             assert 'start_year' in params
+            assert hasattr(blueprint, 'output_file_dir')
             assert hasattr(blueprint, 'output_file_name')
 
         elif blueprint.constructor_type == 'etfs':
@@ -376,7 +384,7 @@ def _get_versions_cloud(strategy_name):
     all_files = [x.name for x in bucket.list_blobs()]
     all_files = [x for x in all_files if x.find('prepped_data') >= 0]
     all_files = [x for x in all_files if x.find('version') >= 0]
-    all_files = [x for x in all_files if x.find(strategy_name) >= 0]
+    all_files = [x for x in all_files if x.find(strategy_name + '/') >= 0]
     all_files = list(set([x.split('/')[2] for x in all_files]))
     all_files = [x for x in all_files if x.find('archive') == -1]
     all_files.sort()
@@ -391,9 +399,11 @@ def print_strategies(prepped_data_dir=config.PREPPED_DATA_DIR,
         strategies = _get_strategies_cloud()
     else:
         strategies = _get_strategies(prepped_data_dir)
+    print('\n')
     _print_line_underscore('Available Strategies with prepped data')
     for i, name in enumerate(strategies):
         print(' [{}]\t{}'.format(i, name))
+    print('\n')
     return
 
 
@@ -442,17 +452,18 @@ def print_data_versions(strategy_name,
     else:
         stats = _get_strategy_version_stats(strategy_name, prepped_data_dir)
     # Presentation
+    print('\n')
     _print_line_underscore('Available Verions for {}'.format(strategy_name))
     print('  Key\tVersion\t\t'
-          'File Count\tMax Data Date\tDescription')
+          'Max File Prefix\tMax Test Date\tDescription')
     keys = stats.keys()
     keys.sort()
     for key in keys:
-        print('  [{}]\t{}\t{}\t\t{}\t\t{}'.format(
+        print('  [{}]\t{}\t{}\t{}\t{}'.format(
             key,
             stats[key]['version'],
-            stats[key]['file_count'],
-            stats[key]['max_date'],
+            stats[key]['max_file_prefix'],
+            stats[key]['max_test_date'],
             stats[key]['description']))
     print('\n')
 
@@ -463,13 +474,15 @@ def _get_strategy_version_stats(strategy_name, prepped_data_dir):
     dir_stats = {}
     for key, version in versions.items():
         meta = _get_meta_data(prepped_data_dir, strategy_name, version)
-        stats = _get_min_max_dates_counts(
+
+        stats = _get_max_test_dates_counts(
             prepped_data_dir, strategy_name, version)
-        max_date = meta['max_date'] if 'max_date' in meta else None
+
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
-            'max_date': max_date,
+            'max_test_date': stats[1],
+            'max_file_prefix': stats[0],
             'description': meta['description']
         }
     return dir_stats
@@ -481,12 +494,12 @@ def _get_strategy_version_stats_cloud(strategy_name):
     dir_stats = {}
     for key, version in versions.items():
         meta = _get_meta_data_cloud(strategy_name, version)
-        stats = _get_min_max_dates_counts_cloud(strategy_name, version)
-        max_date = meta['max_date'] if 'max_date' in meta else None
+        stats = _get_max_test_dates_counts_cloud(strategy_name, version)
         dir_stats[key] = {
             'version': version,
             'file_count': stats[2],
-            'max_date': max_date,
+            'max_test_date': stats[1],
+            'max_file_prefix': stats[0],
             'description': meta['description']
         }
     return dir_stats
@@ -516,19 +529,23 @@ def _get_meta_data_cloud(strategy_name, version):
         return meta
 
 
-def _get_min_max_dates_counts(prepped_data_dir, strategy_name, version):
-    files = os.listdir(os.path.join(prepped_data_dir,
-                                    strategy_name, version))
+def _get_max_test_dates_counts(prepped_data_dir, strategy_name, version):
+    path = os.path.join(prepped_data_dir, strategy_name, version)
+    files = os.listdir(path)
     files = [f for f in files if f.find('_data.csv') > 1]
+    if 'market_index_data.csv' in files:
+        files.remove('market_index_data.csv')
     if len(files):
-        dates = [f.split('_')[0] for f in files]
-        dates.sort()
-        return dates[0], dates[-1], len(dates)
+        max_file = max(files)
+        data = pd.read_csv(os.path.join(path, max_file))
+        max_test_date = data.Date.max()
+        max_file = max_file.split('_')[0]
+        return max_file, max_test_date, len(files)
     else:
         return 'No Files', 'No Files', 0
 
 
-def _get_min_max_dates_counts_cloud(strategy_name, version):
+def _get_max_test_dates_counts_cloud(strategy_name, version):
     client = storage.Client()
     bucket = client.get_bucket(config.GCP_STORAGE_BUCKET_NAME)
     all_files = [x.name for x in bucket.list_blobs()]
@@ -536,12 +553,17 @@ def _get_min_max_dates_counts_cloud(strategy_name, version):
     all_files = [x for x in all_files if x.find(version) >= 0]
     all_files = [x for x in all_files if x.find(strategy_name) >= 0]
     all_files = [x for x in all_files if x.find('_data.csv') >= 0]
-    all_files = list(set([x.split('/')[-1] for x in all_files]))
-    all_files.sort()
+    # Remove market file if present
+    for f in all_files:
+        if f.find('market_index_data.csv') > -1:
+            all_files.remove(f)
     if len(all_files):
-        dates = [f.split('_')[0] for f in all_files]
-        dates.sort()
-        return dates[0], dates[-1], len(dates)
+        path = max(all_files)
+        blob = bucket.get_blob(path)
+        data = pd.read_csv(StringIO(blob.download_as_string()))
+        max_test_date = data.Date.max()
+        max_file = path.split('/')[-1].split('_')[0]
+        return max_file, max_test_date, len(all_files)
     else:
         return 'No Files', 'No Files', 0
 
@@ -549,5 +571,5 @@ def _get_min_max_dates_counts_cloud(strategy_name, version):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def _print_line_underscore(pstring):
-    print('\n ' + pstring)
+    print(' ' + pstring)
     print(' ' + '-' * len(pstring))

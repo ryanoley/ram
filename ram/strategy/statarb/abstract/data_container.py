@@ -32,6 +32,18 @@ class BaseDataContainer(object):
         raise NotImplementedError('BaseDataContainer.get_test_data')
 
     @abstractmethod
+    def get_test_dates(self):
+        raise NotImplementedError('BaseDataContainer.get_test_dates')
+
+    @abstractmethod
+    def get_pricing_data(self):
+        raise NotImplementedError('BaseDataContainer.get_pricing_data')
+
+    @abstractmethod
+    def get_other_data(self):
+        raise NotImplementedError('BaseDataContainer.get_other_data')
+
+    @abstractmethod
     def get_constructor_data(self):
         raise NotImplementedError('BaseDataContainer.get_constructor_data')
 

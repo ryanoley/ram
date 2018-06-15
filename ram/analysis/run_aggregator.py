@@ -1,5 +1,4 @@
 import pandas as pd
-from tqdm import tqdm
 
 from ram.analysis.run_manager import RunManager
 from ram.analysis.selection import basic_model_selection
@@ -21,7 +20,7 @@ class RunAggregator(object):
         agg_returns = pd.DataFrame()
         agg_params = {}
         print('Reading and aggregating runs...')
-        for run in tqdm(self.runs):
+        for run in self.runs:
             # Make sure everything is there
             if not hasattr(run, 'returns'):
                 run.import_return_frame()
@@ -43,9 +42,12 @@ class RunAggregator(object):
                 #
                 packet = {
                     'column_params': v,
+                    'strategy_class': run.strategy_class,
+                    'run_name': run.run_name,
                     'prepped_data_version': run.meta['prepped_data_version'],
                     'strategy_code_version': code_version,
-                    'description': run.meta['description']
+                    'description': run.meta['description'],
+                    'blueprint': run.meta['blueprint']
                  }
                 agg_params['{}_{}'.format(prefix, k)] = packet
         print('Finished aggregating runs...')

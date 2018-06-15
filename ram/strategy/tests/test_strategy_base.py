@@ -42,7 +42,10 @@ class TestStrategy(Strategy):
         pass
 
     def run_index(self, index):
-        pass
+        data = pd.DataFrame()
+        data['V1'] = [1, 2]
+        data['V2'] = [1, 2]
+        return data, data, {}
 
     def get_column_parameters(self):
         return {0: {'V1': 1, 'V2': 2}, 1: {'V1': 3, 'V2': 5}}
@@ -56,7 +59,10 @@ class TestStrategy(Strategy):
     def get_strategy_source_versions(self):
         return strategy_versions
 
-    def implementation_training(self):
+    def get_implementation_param_path(self):
+        pass
+
+    def process_implementation_params(self):
         pass
 
 
@@ -91,6 +97,9 @@ class TestStrategyBase(unittest.TestCase):
             'SecCode': [10, 20, 30], 'V1': [3, 4, 5]})
         data.to_csv(os.path.join(data_version_dir, '20100101_data.csv'),
                     index=False)
+        data = pd.DataFrame({
+            'Date': ['2010-02-01', '2010-02-02', '2010-02-03'],
+            'SecCode': [10, 20, 30], 'V1': [3, 4, 5]})
         data.to_csv(os.path.join(data_version_dir, '20100201_data.csv'),
                     index=False)
 
@@ -127,42 +136,8 @@ class TestStrategyBase(unittest.TestCase):
         model = joblib.load(path)
         assert_array_equal(model.coef_, benchmark)
 
-    def test_implementation_training_prep(self):
-        self.strategy._write_flag = True
-        self.strategy._get_prepped_data_file_names()
-        # Create four distinct meta files to represent runs
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test')
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test2')
-        # Change strategy
-        self.strategy.prepped_data_version = 'version_9999'
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test3')
-        self.strategy.strategy_code_version = 'version_7676'
-        self.strategy._create_run_output_dir()
-        self.strategy._create_meta_file('Test4')
-        top_params = ['TestStrategy_run_0001_10',
-                      'TestStrategy_run_0002_20',
-                      'TestStrategy_run_0003_30',
-                      'TestStrategy_run_0004_40']
-        self.strategy._create_implementation_output_dir()
-        result = self.strategy.implementation_training_prep(top_params)
-        benchmark = pd.DataFrame()
-        benchmark['param_name'] = ['run_0001_10', 'run_0002_20',
-                                   'run_0003_30', 'run_0004_40']
-        benchmark['run_name'] = ['run_0001', 'run_0002',
-                                 'run_0003', 'run_0004']
-        benchmark['strategy_version'] = ['version_0002', 'version_0002',
-                                         'version_0002', 'version_7676']
-        benchmark['data_version'] = ['version_0001', 'version_0001',
-                                     'version_9999', 'version_9999']
-        benchmark['column_name'] = ['10', '20', '30', '40']
-        benchmark['stack_index'] = ['version_0002~version_0001',
-                                    'version_0002~version_0001',
-                                    'version_0002~version_9999',
-                                    'version_7676~version_9999']
-        assert_frame_equal(result, benchmark)
+    def Xtest_import_prep_implementation_parameters(self):
+        result = self.strategy._import_prep_implementation_parameters()
 
     def test_get_prepped_data_files(self):
         self.strategy._get_prepped_data_file_names()
@@ -173,7 +148,7 @@ class TestStrategyBase(unittest.TestCase):
         result = self.strategy.read_data_from_index(1)
         benchmark = pd.DataFrame()
         benchmark['Date'] = convert_date_array(
-            ['2010-01-01', '2010-01-02', '2010-01-03'])
+            ['2010-02-01', '2010-02-02', '2010-02-03'])
         benchmark['SecCode'] = ['10', '20', '30']
         benchmark['V1'] = [3, 4, 5]
         assert_frame_equal(result, benchmark)
@@ -272,9 +247,13 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._create_run_output_dir()
         self.strategy._create_meta_file('Test')
         df = pd.DataFrame(
-            {'v1': [10, 20, 30, 40], 'v2': [3, 4, 5, 6]},
-            index=['2010-01-01', '2010-01-02', '2010-01-03', '2010-01-04'])
+            {'v1': [10, 20, 30], 'v2': [3, 4, 5]},
+            index=['2010-01-01', '2010-01-02', '2010-01-03'])
         self.strategy.write_index_results(df, 0)
+        df = pd.DataFrame(
+            {'v1': [10, 20], 'v2': [3, 4]},
+            index=['2010-02-01', '2010-02-02'])
+        self.strategy.write_index_results(df, 1)
         # New Strategy
         strategy = TestStrategy(
             write_flag=True,
@@ -284,23 +263,11 @@ class TestStrategyBase(unittest.TestCase):
         strategy._init_simulations_output_dir()
         strategy._import_run_meta_for_restart('run_0001')
         strategy._get_prepped_data_file_names()
+        path = os.path.join(strategy.strategy_run_output_dir, 'index_outputs')
+        self.assertEqual(len(os.listdir(path)), 2)
         strategy._get_max_run_time_index_for_restart()
         self.assertEqual(strategy._restart_time_index, 1)
-        df = pd.DataFrame(
-            {'v1': [10, 20], 'v2': [3, 4]},
-            index=['2010-01-01', '2010-01-02'])
-        self.strategy.write_index_results(df, 0)
-        strategy = TestStrategy(
-            write_flag=True,
-            ram_prepped_data_dir=self.prepped_data_dir,
-            ram_simulations_dir=self.simulation_output_dir,
-            ram_implementation_dir=self.implementation_output_dir)
-        strategy._import_run_meta_for_restart('run_0001')
-        strategy._get_prepped_data_file_names()
-        strategy._get_max_run_time_index_for_restart()
-        self.assertEqual(strategy._restart_time_index, 0)
-        path = os.path.join(strategy.strategy_run_output_dir, 'index_outputs')
-        self.assertEqual(len(os.listdir(path)), 0)
+        self.assertEqual(len(os.listdir(path)), 1)
 
     def test_read_write_json(self):
         meta = {'V1': 2, 'V2': 4}
