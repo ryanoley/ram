@@ -402,16 +402,16 @@ def import_live_pricing(live_prices_dir=LIVE_PRICES_DIR):
     data = pd.read_csv(path, na_values=['na'], dtype=dtypes)
     data.SecCode = data.SecCode.astype(str)
     data = data.rename(columns={
-        'OPEN': 'AdjOpen',
-        'HIGH': 'AdjHigh',
-        'LOW': 'AdjLow',
-        'LAST': 'AdjClose',
-        'VOLUME': 'AdjVolume',
-        'VWAP': 'AdjVwap',
+        'OPEN': 'ROpen',
+        'HIGH': 'RHigh',
+        'LOW': 'RLow',
+        'LAST': 'RClose',
+        'VOLUME': 'RVolume',
+        'VWAP': 'RVwap',
 
     })
-    data = data[['SecCode', 'Ticker', 'AdjOpen', 'AdjHigh',
-                 'AdjLow', 'AdjClose', 'AdjVolume', 'AdjVwap']]
+    data = data[['SecCode', 'Ticker', 'ROpen', 'RHigh', 'RLow', 'RClose',
+                 'RVolume', 'RVwap']]
     # Add file creation datetime
     time_modified = dt.datetime.fromtimestamp(os.path.getmtime(path))
     data['captured_time'] = time_modified
@@ -428,12 +428,12 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
             print('\n\nMISSING LIVE PRICES\n\n')
             input_ = raw_input("Press `y` to handle, otherwise will retry\n")
             if input_ == 'y':
-                cols = ['AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose', 'AdjVwap']
-                data.AdjOpen = data.AdjOpen.fillna(data[cols].mean(axis=1))
-                data.AdjHigh = data.AdjHigh.fillna(data[cols].max(axis=1))
-                data.AdjLow = data.AdjLow.fillna(data[cols].min(axis=1))
-                data.AdjClose = data.AdjClose.fillna(data[cols].mean(axis=1))
-                data.AdjVwap = data.AdjVwap.fillna(data[cols].mean(axis=1))
+                cols = ['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap']
+                data.ROpen = data.ROpen.fillna(data[cols].mean(axis=1))
+                data.RHigh = data.RHigh.fillna(data[cols].max(axis=1))
+                data.RLow = data.RLow.fillna(data[cols].min(axis=1))
+                data.RClose = data.RClose.fillna(data[cols].mean(axis=1))
+                data.RVwap = data.RVwap.fillna(data[cols].mean(axis=1))
                 break
         else:
             break
@@ -443,14 +443,14 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
     data.drop('captured_time', axis=1, inplace=True)
     # Merge scaling
     data = data.merge(scaling)
-    data['RClose'] = data.AdjClose
-    data.AdjOpen = data.AdjOpen * data.PricingMultiplier
-    data.AdjHigh = data.AdjHigh * data.PricingMultiplier
-    data.AdjLow = data.AdjLow * data.PricingMultiplier
-    data.AdjClose = data.AdjClose * data.PricingMultiplier
-    data.AdjVwap = data.AdjVwap * data.PricingMultiplier
-    data.AdjVolume = data.AdjVolume * data.VolumeMultiplier
-    data = data.drop(['PricingMultiplier', 'VolumeMultiplier'], axis=1)
+    data['AdjOpen'] = data.ROpen * data.PricingMultiplier
+    data['AdjHigh'] = data.RHigh * data.PricingMultiplier
+    data['AdjLow'] = data.RLow * data.PricingMultiplier
+    data['AdjClose'] = data.RClose * data.PricingMultiplier
+    data['AdjVwap'] = data.RVwap * data.PricingMultiplier
+    data['AdjVolume'] = data.RVolume * data.VolumeMultiplier
+    data = data.drop(['PricingMultiplier', 'VolumeMultiplier', 'ROpen',
+                     'RHigh', 'RLow', 'RVolume', 'RVwap'], axis=1)
 
     return data
 
