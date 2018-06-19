@@ -39,12 +39,18 @@ IF %M%==5 GOTO EOF
 
 
 :PREPDATA
+ECHO.
+ECHO.
+ECHO --PREPARING DATA--
 :: Start RAMEX Server
 python %STATARB_IMP%\prep_data.py
 GOTO MENU
 
 
 :RUNLIVE
+ECHO.
+ECHO.
+ECHO --GETTING LIVE ALLOCATIONS--
 :: Start RAMEX Server
 start python %RAMEX_APP%\server.py
 :: Run get live allocations script
@@ -53,18 +59,19 @@ GOTO MENU
 
 
 :RECTRADES
-:: Reconcile Stat Arb Trades with Trader Engine Executions
+ECHO.
+ECHO.
+ECHO --RECONCILING TRADES--
+:: Match Stat Arb Trades with Trader Engine Executions
 python %RAMEX_SCRIPT%\trade_reconciliation.py
 GOTO MENU
 
 
 :RECPORT
+ECHO.
+ECHO.
+ECHO --RECONCILING WITH FUND MANAGER--
 :: Reconcile Stat Arb Trades with Trader Engine Executions
-python %RAMEX_SCRIPT%\trade_reconciliation.py
-GOTO MENU
-
-
-:RECPORT
 python %RAMEX_SCRIPT%\portfolio_reconciliation.py -u -w -v
 GOTO MENU
 
