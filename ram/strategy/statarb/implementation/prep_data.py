@@ -725,8 +725,7 @@ def process_bloomberg_data(killed_seccodes):
         return messages
 
     # MERGE
-    bloomberg = divs.merge(spins, how='outer') \
-        .merge(splits, how='outer')
+    bloomberg = divs.merge(spins, how='outer').merge(splits, how='outer')
 
     bloomberg.DivMultiplier = bloomberg.DivMultiplier.fillna(1)
     bloomberg.DivValue = bloomberg.DivValue.fillna(0)
