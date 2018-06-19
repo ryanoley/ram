@@ -725,8 +725,12 @@ def process_bloomberg_data(killed_seccodes):
         return messages
 
     # MERGE
-    bloomberg = divs.merge(spins, how='outer') \
-        .merge(splits, how='outer').fillna(1)
+    bloomberg = divs.merge(spins, how='outer').merge(splits, how='outer')
+
+    bloomberg.DivMultiplier = bloomberg.DivMultiplier.fillna(1)
+    bloomberg.DivValue = bloomberg.DivValue.fillna(0)
+    bloomberg.SpinoffMultiplier = bloomberg.SpinoffMultiplier.fillna(1)
+    bloomberg.SplitMultiplier = bloomberg.SplitMultiplier.fillna(1)
 
     # Map SecCodes
     bloomberg = qad_map.merge(bloomberg)
