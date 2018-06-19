@@ -61,6 +61,7 @@ def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
         raise IOError("No live_pricing file for: " + str(inp_date))
 
     live_prices = pd.read_csv(file_path)
+    live_prices.SecCode = live_prices.SecCode.astype(int).astype(str)
     live_prices['captured_time'] = [parser.parse(x).time() for x
                                     in live_prices.captured_time]
 
@@ -76,11 +77,10 @@ def merge_trades_signal_prices(trade_data, live_prices):
     trade_data = trade_data[['Ticker', 'strategy_id', 'quantity',
                              'exec_shares', 'exec_price']]
 
-    prices.SecCode = prices.SecCode.astype(int).astype(str)
-    prices = prices[['SecCode', 'Ticker', 'signal_close',
-                     'signal_volume', 'signal_time']]
+    live_prices = live_prices[['SecCode', 'Ticker', 'signal_close',
+                               'signal_volume', 'signal_time']]
 
-    data = pd.merge(trade_data, prices, how='left')
+    data = pd.merge(trade_data, live_prices, how='left')
 
     return data
 
