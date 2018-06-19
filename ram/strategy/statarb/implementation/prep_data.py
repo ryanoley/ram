@@ -10,8 +10,6 @@ from gearbox import convert_date_array
 from ram import config
 from ram.strategy.statarb import statarb_config
 
-from ram.utils.eze_funcs import etb_status
-
 from ram.data.data_handler_sql import DataHandlerSQL
 from ram.strategy.statarb.objects.sizes import SizeContainer
 
@@ -211,20 +209,6 @@ def map_live_tickers(killed_seccodes):
                             'tickers_for_live_pricing.csv')
     data = data[['SecCode', 'Ticker', 'Issuer']]
     data.to_csv(new_path, index=None)
-
-    # Check Hard To Borrow list
-    tickers = data.Ticker.copy()
-    tickers = tickers[~tickers.isin(['$SPX.X', '$VIX.X'])]
-    htb_list = etb_status(tickers)
-    htb_list = htb_list[htb_list.ETB_HTB == 'HTB']
-
-    if len(htb_list) > 0:
-        output['Message'] = '[INFO] - {} Hard To Borrow'.format(len(htb_list))
-        path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
-                            'StatArbStrategy',
-                            'live',
-                            'HARD_TO_BORROW_TICKERS.csv')
-        htb_list.to_csv(path, index=None)
 
     return output
 
