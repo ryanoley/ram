@@ -49,7 +49,7 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
 
 def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
     # Get live prices from archive
-    price_dir=os.path.join(arch_dir, 'live_pricing')
+    price_dir = os.path.join(arch_dir, 'live_pricing')
 
     if not isinstance(inp_date, dt.date):
         inp_date = parser.parse(str(inp_date)).date()
@@ -67,6 +67,7 @@ def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
     return live_prices.rename(columns={'RClose': 'signal_close',
                                        'RVolume': 'signal_volume',
                                        'captured_time': 'signal_time'})
+
 
 def merge_trades_signal_prices(trade_data, live_prices):
     trade_data.rename(columns={'symbol': 'Ticker',
@@ -211,11 +212,11 @@ def get_qad_live_prices(data, inp_date):
                      'AdjClose', 'AdjVolume', 'AdjVwap', 'RClose']]
 
 
-def get_sent_orders(recon_dt):
+def get_sent_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     '''
     Return DataFrame with the sent allocations for a particular date
     '''
-    alloc_dir = os.path.join(ARCHIVE_DIR, 'allocations')
+    alloc_dir = os.path.join(arch_dir, 'allocations')
     alloc_files = os.listdir(alloc_dir)
     file_name = dly_fls.get_filename_from_date(recon_dt, alloc_files)
 
@@ -288,8 +289,6 @@ def main():
         recon_dt = dh.prior_trading_date()
     else:
         recon_dt = parser.parse(args.recon_date).date()
-
-    import ipdb; ipdb.set_trace()
 
     if args.pricing:
         run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
