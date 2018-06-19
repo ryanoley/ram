@@ -17,16 +17,17 @@ class TestPricingReconciliation(unittest.TestCase):
         if os.path.isdir(self.test_dir):
             shutil.rmtree(self.test_dir)
         os.mkdir(self.test_dir)
+        os.mkdir(os.path.join(self.test_dir, 'live_pricing'))
 
         self.live_pricing = pd.DataFrame(data={
                             'SecCode': [36799, 11027692, 36799, 30655],
                             'Ticker': ['IBM', 'FB', 'IBM', 'GS'],
-                            'AdjOpen': [100., 200., 50., 20.],
-                            'AdjHigh': [105., 200., 60., 20.5],
-                            'AdjLow': [95.5, 190., 40, 19.],
-                            'AdjClose': [102.5, 195., 50., 20.],
-                            'AdjVolume': [100, 200, 50, 20],
-                            'AdjVwap': [102.5, 195.5, 48.5, 19.3],
+                            'ROpen': [100., 200., 50., 20.],
+                            'RHigh': [105., 200., 60., 20.5],
+                            'RLow': [95.5, 190., 40, 19.],
+                            'RClose': [102.5, 195., 50., 20.],
+                            'RVolume': [100, 200, 50, 20],
+                            'RVwap': [102.5, 195.5, 48.5, 19.3],
                             'captured_time': [
                                 '2018-05-07 15:44:37.01',
                                 '2018-05-07 15:44:37.01',
@@ -34,17 +35,22 @@ class TestPricingReconciliation(unittest.TestCase):
                                 '2018-05-07 15:44:37.01']
                             })
 
-        file_path = os.path.join(self.test_dir, '20180101_live_pricing.csv')
+        file_path = os.path.join(self.test_dir, 'live_pricing',
+                                 '20180101_live_pricing.csv')
         self.live_pricing.to_csv(file_path, index=False)
 
-    def test_get_live_prices(self):
-        self.assertRaises(IOError, recon_fcns.get_live_prices, dt.date.today(),
-                          self.test_dir)
+    def test_get_signal_prices(self):
+        self.assertRaises(IOError, recon_fcns.get_signal_prices,
+                          dt.date.today(), self.test_dir)
 
-        result = recon_fcns.get_live_prices('1/1/2018', self.test_dir)
+        result = recon_fcns.get_signal_prices('1/1/2018', self.test_dir)
 
         benchmark = self.live_pricing
-        benchmark['captured_time'] = [dt.time(15, 44, 37, 10000)] * 4
+        benchmark.rename(columns={'RClose': 'signal_close',
+                                  'RVolume': 'signal_volume',
+                                  'captured_time': 'signal_time'},
+                        inplace=True)
+        benchmark['signal_time'] = [dt.time(15, 44, 37, 10000)] * 4
 
         assert_frame_equal(result, self.live_pricing)
 
