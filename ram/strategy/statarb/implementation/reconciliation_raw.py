@@ -25,13 +25,13 @@ STRATEGY_ID = 'StatArb0001'
 def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # Get Executed prices
     ramex_data = dly_fls.get_ramex_processed_data(recon_dt)[0]
-    ramex_data = ramex_data[ramex_data.strategy_id == STRATEGY_ID]
+    statarb_trades = statarb_trades[statarb_trades.strategy_id == STRATEGY_ID]
 
     # Get live prices
-    live_prices = get_live_prices(recon_dt)
+    live_prices = get_signal_prices(recon_dt)
 
     # Merge executed and signal prices
-    trade_data = ramex_merge_live(ramex_data, live_prices)
+    trade_data = merge_trades_signal_prices(statarb_trades, live_prices)
 
     # QAD data for trade date
     qad_data = get_qad_close_data(trade_data, recon_dt)
@@ -47,43 +47,39 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     _write_pricing_output(recon, recon_dt, RECON_DIR)
 
 
-def get_live_prices(px_dt,
-                    price_dir=os.path.join(ARCHIVE_DIR, 'live_pricing')):
+def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
+    # Get live prices from archive
+    price_dir=os.path.join(arch_dir, 'live_pricing')
 
-    if not isinstance(px_dt, dt.date):
-        px_dt = parser.parse(str(px_dt)).date()
+    if not isinstance(inp_date, dt.date):
+        inp_date = parser.parse(str(inp_date)).date()
 
-    file_name = px_dt.strftime('%Y%m%d') + '_live_pricing.csv'
+    file_name = inp_date.strftime('%Y%m%d') + '_live_pricing.csv'
     file_path = os.path.join(price_dir, file_name)
 
     if not os.path.exists(file_path):
-        raise IOError("No live_pricing file for: " + str(px_dt))
+        raise IOError("No live_pricing file for: " + str(inp_date))
 
     live_prices = pd.read_csv(file_path)
     live_prices['captured_time'] = [parser.parse(x).time() for x
                                     in live_prices.captured_time]
 
-    return live_prices
+    return live_prices.rename(columns={'RClose': 'signal_close',
+                                       'RVolume': 'signal_volume',
+                                       'captured_time': 'signal_time'})
 
+def merge_trades_signal_prices(trade_data, live_prices):
+    trade_data.rename(columns={'symbol': 'Ticker',
+                               'avg_px': 'exec_price'},
+                      inplace=True)
+    trade_data = trade_data[['Ticker', 'strategy_id', 'quantity',
+                             'exec_shares', 'exec_price']]
 
-def ramex_merge_live(ramex_data, live_prices):
-    trades = ramex_data.rename(columns={
-                               'symbol': 'Ticker',
-                               'avg_px': 'exec_price'
-                               })
-    trades = trades[['Ticker', 'strategy_id', 'quantity', 'exec_shares',
-                     'exec_price']]
-
-    prices = live_prices.rename(columns={
-        'AdjClose': 'signal_close',
-        'AdjVolume': 'signal_volume',
-        'captured_time': 'signal_time'
-    })
-    prices = prices[['SecCode', 'Ticker', 'signal_close', 'signal_volume',
-                     'signal_time']]
     prices.SecCode = prices.SecCode.astype(int).astype(str)
+    prices = prices[['SecCode', 'Ticker', 'signal_close',
+                     'signal_volume', 'signal_time']]
 
-    data = pd.merge(trades, prices, how='left')
+    data = pd.merge(trade_data, prices, how='left')
 
     return data
 
@@ -292,6 +288,8 @@ def main():
         recon_dt = dh.prior_trading_date()
     else:
         recon_dt = parser.parse(args.recon_date).date()
+
+    import ipdb; ipdb.set_trace()
 
     if args.pricing:
         run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID)
