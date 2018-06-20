@@ -21,12 +21,12 @@ ECHO    this application multiple times.
 ECHO ---------------------------------------------------------------
 ECHO 1.  Prep Data: 10:15 am or later. Must be run first every day
 ECHO         and the output must be verified before running #2.
-ECHO 2.  Run Trade: 3:40 pm or before.  Click Start ZMQ in Trader
-ECHO         Engine and then export live prices in live_pricing
-ECHO         sheet.  When prompted, press ENTER if these are complete.
-ECHO 3.  Reconcile Executed Trades. 4:00 pm after all trading. You
-ECHO         must click Export Trades in Trader Engine first.                                                  --
-ECHO 4.  Reconcile Portfolio. 4:30 pm after Fund Manager is updated
+ECHO 2.  Run Trade: 3:40 pm or before.  Click Start ZMQ Button in
+ECHO         Trader Engine and export live prices in LIVE PRICES Sheet.
+ECHO         When prompted, press ENTER once these are complete.
+ECHO 3.  Process Executed Trades. 4:00 pm after all trading. Click
+ECHO         Export Trades Button in Trader Engine first.                                                  --
+ECHO 4.  Reconcile Trades. 4:30 pm after Fund Manager is updated
 ECHO 5.  Exit this application
 ECHO ----------------------------------------------------------------
 ECHO.
