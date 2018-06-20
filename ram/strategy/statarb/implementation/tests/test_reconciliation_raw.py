@@ -55,16 +55,18 @@ class TestPricingReconciliation(unittest.TestCase):
         self.processed_detail = data
 
 
-
     def test_get_signal_prices(self):
         self.assertRaises(IOError, get_signal_prices,
                           dt.date.today(), self.test_dir)
 
         result = get_signal_prices('1/1/2018', self.test_dir)
-
         benchmark = self.live_pricing
-        benchmark.rename(columns={'RClose': 'signal_close',
+        benchmark.rename(columns={'ROpen': 'signal_open',
+                                  'RHigh': 'signal_high',
+                                  'RLow': 'signal_low',
+                                  'RClose': 'signal_close',
                                   'RVolume': 'signal_volume',
+                                  'RVwap': 'signal_vwap',
                                   'captured_time': 'signal_time'},
                         inplace=True)
         benchmark['signal_time'] = [dt.time(15, 44, 37, 10000)] * 4

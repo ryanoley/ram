@@ -11,9 +11,8 @@ import ram.strategy.statarb.implementation.get_live_allocations as gla
 
 import ramex.accounting.daily_files as dly_fls
 
-BASE_DIR = os.path.join(config.IMPLEMENTATION_DATA_DIR, 'StatArbStrategy')
-ARCHIVE_DIR = os.path.join(BASE_DIR, 'archive')
-RECON_DIR = os.path.join(ARCHIVE_DIR, 'reconciliation')
+IMP_DIR = config.IMPLEMENTATION_DATA_DIR
+ARCHIVE_DIR = os.path.join(IMP_DIR, 'StatArbStrategy', 'archive')
 
 STRATEGY_ID = 'StatArb0001'
 
@@ -22,13 +21,23 @@ STRATEGY_ID = 'StatArb0001'
 ############################################################################
 
 
-def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
+def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID,
+                               imp_dir=IMP_DIR):
     # Get Executed prices
     ramex_data = dly_fls.get_ramex_processed_data(recon_dt)[0]
-    statarb_trades = statarb_trades[statarb_trades.strategy_id == STRATEGY_ID]
+    statarb_trades = ramex_data[ramex_data.strategy_id == STRATEGY_ID]
 
     # Get live prices
     live_prices = get_signal_prices(recon_dt)
+
+    # Replace Realtick Tickers with QAD
+    path = os.path.join(imp_dir, 'qad_to_eze_ticker_map.json')
+    qad_to_eze = json.load(open(path, 'r'))
+    eze_to_qad = {v: k for k, v in qad_to_eze.iteritems()}
+    live_prices.Ticker = live_prices.Ticker.replace(to_replace=eze_to_qad)
+
+
+    live_prices = live_prices[live_prices.Ticker!='AGCO']
 
     # Merge executed and signal prices
     trade_data = merge_trades_signal_prices(statarb_trades, live_prices)
@@ -40,22 +49,21 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     # This can occur when stocks leave the universe at the end of the month
     no_seccodes = trade_data[trade_data.SecCode.isnull()].copy()
     trade_data = trade_data[trade_data.SecCode.notnull()].copy()
-    recon = trade_data.merge(qad_data, how='left')
-    trade_data = trade_data.append(no_seccodes)
+    recon_data = trade_data.merge(qad_data, how='left')
+    recon_data = recon_data.append(no_seccodes)
 
     # Write to file
-    _write_pricing_output(recon, recon_dt, RECON_DIR)
+    _write_pricing_output(recon_data, recon_dt)
 
 
 def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
     # Get live prices from archive
-    price_dir = os.path.join(arch_dir, 'live_pricing')
-
     if not isinstance(inp_date, dt.date):
         inp_date = parser.parse(str(inp_date)).date()
 
+    pricing_dir = os.path.join(arch_dir, 'live_pricing')
     file_name = inp_date.strftime('%Y%m%d') + '_live_pricing.csv'
-    file_path = os.path.join(price_dir, file_name)
+    file_path = os.path.join(pricing_dir, file_name)
 
     if not os.path.exists(file_path):
         raise IOError("No live_pricing file for: " + str(inp_date))
@@ -65,8 +73,12 @@ def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
     live_prices['captured_time'] = [parser.parse(x).time() for x
                                     in live_prices.captured_time]
 
-    return live_prices.rename(columns={'RClose': 'signal_close',
+    return live_prices.rename(columns={'ROpen': 'signal_open',
+                                       'RHigh': 'signal_high',
+                                       'RLow': 'signal_low',
+                                       'RClose': 'signal_close',
                                        'RVolume': 'signal_volume',
+                                       'RVwap': 'signal_vwap',
                                        'captured_time': 'signal_time'})
 
 
@@ -94,21 +106,22 @@ def get_qad_close_data(data, inp_date):
     dh = DataHandlerSQL()
     qad_data = dh.get_seccode_data(seccodes, features, inp_date, inp_date)
 
-    qad_data.rename(columns={
-                    'RClose': 'qad_close',
-                    'RVolume': 'qad_volume',
-                    'AdjClose': 'qad_adj_close',
-                    'MarketCap': 'qad_market_cap'}, inplace=True)
+    qad_data.rename(columns={'RClose': 'qad_close',
+                             'RVolume': 'qad_volume',
+                             'AdjClose': 'qad_adj_close',
+                             'MarketCap': 'qad_market_cap'}, inplace=True)
 
     qad_data.SecCode = qad_data.SecCode.astype(int).astype(str)
     return qad_data[['SecCode', 'Date', 'qad_close', 'qad_adj_close',
                      'qad_volume', 'qad_market_cap']]
 
 
-def _write_pricing_output(data, recon_dt, output_dir=RECON_DIR):
+def _write_pricing_output(data, recon_dt, arch_dir=ARCHIVE_DIR):
+    output_dir=os.path.join(arch_dir, 'reconciliation')
     datestamp = recon_dt.strftime('%Y%m%d')
     path = os.path.join(output_dir,
                         '{}_pricing_recon.csv'.format(datestamp))
+
     if(os.path.isfile(path)):
         timestamp = dt.datetime.utcnow().strftime('%H%M%S')
         path = os.path.join(output_dir,
@@ -139,7 +152,7 @@ def run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     _write_order_output(recon_orders, exec_orders, recon_dt)
 
 
-def get_recon_orders(recon_dt):
+def get_recon_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     # 0. Checks meta and import position size
     position_size = gla.get_position_size()['gross_position_size']
 
@@ -148,9 +161,8 @@ def get_recon_orders(recon_dt):
 
     # 2. Get model dir name
     dir_name = '{}_live'.format(recon_dt.strftime('%Y%m%d'))
-    meta = json.load(open(os.path.join(
-        BASE_DIR, 'archive', 'live_directories', dir_name,
-        'meta.json'), 'r'))
+    path = os.path.join(arch_dir, 'live_directories', dir_name, 'meta.json')
+    meta = json.load(open(path, 'r'))
     model_dir_name = meta['trained_models_dir_name']
 
     # 3. Import run map
@@ -246,10 +258,11 @@ def rollup_orders(order_df, col_prfx=None):
 
 
 def _write_order_output(recon_orders, exec_orders, recon_dt,
-                        output_dir=RECON_DIR):
+                        arch_dir = ARCHIVE_DIR):
+    output_dir=os.path.join(arch_dir, 'reconciliation')
     datestamp = recon_dt.strftime('%Y%m%d')
-    path = os.path.join(output_dir,
-                        '{}_order_recon.csv'.format(datestamp))
+    path = os.path.join(output_dir, '{}_order_recon.csv'.format(datestamp))
+
     if(os.path.isfile(path)):
         timestamp = dt.datetime.utcnow().strftime('%H%M%S')
         path = os.path.join(output_dir,
