@@ -25,7 +25,7 @@ ECHO 2.  Run Trade: 3:40 pm or before.  Click Start ZMQ Button in
 ECHO         Trader Engine and export live prices in LIVE PRICES Sheet.
 ECHO         When prompted, press ENTER once these are complete.
 ECHO 3.  Process Executed Trades. 4:00 pm after all trading. Click
-ECHO         Export Trades Button in Trader Engine first.                                                  --
+ECHO         Export Trades Button in Trader Engine first.
 ECHO 4.  Reconcile Trades. 4:30 pm after Fund Manager is updated
 ECHO 5.  Exit this application
 ECHO ----------------------------------------------------------------
