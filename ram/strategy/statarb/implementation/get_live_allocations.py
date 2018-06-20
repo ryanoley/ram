@@ -170,7 +170,7 @@ def get_statarb_positions(data_dir=BASE_DIR):
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == STRATEGY_ID]
     positions.SecCode = positions.SecCode.astype(int).astype(str)
-    positions = positions[['SecCode', 'Ticker', 'Shares']].copy()
+    positions = positions[['SecCode', 'Shares']].copy()
     return positions
 
 
