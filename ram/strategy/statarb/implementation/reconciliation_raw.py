@@ -28,7 +28,7 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID,
     statarb_trades = ramex_data[ramex_data.strategy_id == STRATEGY_ID]
 
     # Get live prices
-    live_prices = get_signal_prices(recon_dt)
+    live_prices = get_eze_signal_prices(recon_dt)
 
     # Replace Realtick Tickers with QAD
     path = os.path.join(imp_dir, 'qad_to_eze_ticker_map.json')
@@ -53,7 +53,7 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID,
     _write_pricing_output(recon_data, recon_dt)
 
 
-def get_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
+def get_eze_signal_prices(inp_date, arch_dir=ARCHIVE_DIR):
     # Get live prices from archive
     if not isinstance(inp_date, dt.date):
         inp_date = parser.parse(str(inp_date)).date()
