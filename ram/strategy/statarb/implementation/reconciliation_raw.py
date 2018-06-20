@@ -36,9 +36,6 @@ def run_pricing_reconciliation(recon_dt, strategy_id=STRATEGY_ID,
     eze_to_qad = {v: k for k, v in qad_to_eze.iteritems()}
     live_prices.Ticker = live_prices.Ticker.replace(to_replace=eze_to_qad)
 
-
-    live_prices = live_prices[live_prices.Ticker!='AGCO']
-
     # Merge executed and signal prices
     trade_data = merge_trades_signal_prices(statarb_trades, live_prices)
 
@@ -117,7 +114,7 @@ def get_qad_close_data(data, inp_date):
 
 
 def _write_pricing_output(data, recon_dt, arch_dir=ARCHIVE_DIR):
-    output_dir=os.path.join(arch_dir, 'reconciliation')
+    output_dir = os.path.join(arch_dir, 'reconciliation')
     datestamp = recon_dt.strftime('%Y%m%d')
     path = os.path.join(output_dir,
                         '{}_pricing_recon.csv'.format(datestamp))
@@ -145,7 +142,7 @@ def run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
     recon_orders = get_recon_orders(recon_dt)
 
     # Read sent orders from signal data
-    exec_orders = get_sent_orders(recon_dt)
+    exec_orders = get_executed_orders(recon_dt)
     exec_orders['strategy_id'] = strategy_id
 
     # Merge and write
@@ -186,7 +183,7 @@ def get_recon_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     strategy.prep()
 
     # 8. Orders using QAD closing px
-    qad_live_data = get_qad_live_prices(scaling, recon_dt)
+    qad_live_data = get_qad_signal_prices(scaling, recon_dt)
     qad_orders = strategy.run_live(qad_live_data)
     qad_orders = qad_orders.merge(qad_live_data[['SecCode',
                                                  'Ticker',
@@ -198,17 +195,17 @@ def get_recon_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     return rollup_orders(qad_orders, 'qad')
 
 
-def get_qad_live_prices(data, inp_date):
+def get_qad_signal_prices(data, inp_date):
     assert('SecCode' in data.columns)
 
-    # Get qad equity data
-    seccodes = data.SecCode.values
+    # Get equity data
+    seccodes = data.SecCode.dropna().values
     features = ['TICKER', 'AdjOpen', 'AdjHigh', 'AdjLow', 'AdjClose',
                 'AdjVolume', 'AdjVwap', 'RClose']
     dh = DataHandlerSQL()
     qad_data = dh.get_seccode_data(seccodes, features, inp_date, inp_date)
 
-    # Get qad index data
+    # Get index data
     ix_features = ['AdjClose']
     ix_seccodes = [50311, 11113]
     qad_ix_data = dh.get_index_data(ix_seccodes, ix_features, inp_date,
@@ -224,7 +221,7 @@ def get_qad_live_prices(data, inp_date):
                      'AdjClose', 'AdjVolume', 'AdjVwap', 'RClose']]
 
 
-def get_sent_orders(recon_dt, arch_dir=ARCHIVE_DIR):
+def get_executed_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     '''
     Return DataFrame with the sent allocations for a particular date
     '''
@@ -258,8 +255,8 @@ def rollup_orders(order_df, col_prfx=None):
 
 
 def _write_order_output(recon_orders, exec_orders, recon_dt,
-                        arch_dir = ARCHIVE_DIR):
-    output_dir=os.path.join(arch_dir, 'reconciliation')
+                        arch_dir=ARCHIVE_DIR):
+    output_dir = os.path.join(arch_dir, 'reconciliation')
     datestamp = recon_dt.strftime('%Y%m%d')
     path = os.path.join(output_dir, '{}_order_recon.csv'.format(datestamp))
 
