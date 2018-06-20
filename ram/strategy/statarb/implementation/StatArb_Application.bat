@@ -18,15 +18,23 @@ ECHO ---------------------------------------------------------------
 ECHO Instructions: Select an item from the menu.  Each task should
 ECHO    be run daily and in numeric order.  You can exit and restart
 ECHO    this application multiple times.
+ECHO.
+ECHO Definitions:
+ECHO     TRADER ENGINE - Java trading application
+ECHO     LIVE PRICES SHEET - Excel  with macros for getting eze prices
 ECHO ---------------------------------------------------------------
 ECHO 1.  Prep Data: 10:15 am or later. Must be run first every day
 ECHO         and the output must be verified before running #2.
+ECHO.
 ECHO 2.  Run Trade: 3:40 pm or before.  Click Start ZMQ Button in
-ECHO         Trader Engine and export live prices in LIVE PRICES Sheet.
+ECHO         TRADER ENGINE and export live prices in LIVE PRICES SHEET.
 ECHO         When prompted, press ENTER once these are complete.
+ECHO.
 ECHO 3.  Process Executed Trades. 4:00 pm after all trading. Click
-ECHO         Export Trades Button in Trader Engine first.
+ECHO         Export Trades Button in TRADER ENGINE first.
+ECHO.
 ECHO 4.  Reconcile Trades. 4:30 pm after Fund Manager is updated
+ECHO.
 ECHO 5.  Exit this application
 ECHO ----------------------------------------------------------------
 ECHO.
