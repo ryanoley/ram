@@ -244,7 +244,7 @@ def rollup_orders(order_df, col_prfx=None):
 
     col_prfx = col_prfx + '_' if col_prfx is not None else ''
     rollup['{}ticker'.format(col_prfx)] = grp.Ticker.min()
-    rollup['{}perc_alloc'.format(col_prfx)] = grp.PercAlloc.mean()
+    rollup['{}perc_alloc'.format(col_prfx)] = grp.PercAlloc.sum()
     rollup['{}dollars'.format(col_prfx)] = grp.Dollars.sum()
     rollup['{}close'.format(col_prfx)] = grp.RClose.mean()
     rollup['{}shares'.format(col_prfx)] = grp.NewShares.sum()

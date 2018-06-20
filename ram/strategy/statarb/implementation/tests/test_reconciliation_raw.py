@@ -7,6 +7,7 @@ from pandas.util.testing import assert_frame_equal
 
 from ram.strategy.statarb.implementation.reconciliation_raw import *
 
+
 class TestPricingReconciliation(unittest.TestCase):
 
     def setUp(self):
@@ -18,6 +19,8 @@ class TestPricingReconciliation(unittest.TestCase):
 
         os.mkdir(self.test_dir)
         os.mkdir(os.path.join(self.test_dir, 'live_pricing'))
+        os.mkdir(os.path.join(self.test_dir, 'allocations'))
+
         # LIVE PRICES EXPORT FILE
         self.live_pricing = pd.DataFrame(data={
                             'SecCode': ['36799', '11027692', '1001', '30655'],
@@ -38,22 +41,37 @@ class TestPricingReconciliation(unittest.TestCase):
         file_path = os.path.join(self.test_dir, 'live_pricing',
                                  '20180101_live_pricing.csv')
         self.live_pricing.to_csv(file_path, index=False)
+
+        # SENT ALLOCATIONS FILE
+        sent_allocs = pd.DataFrame(data={
+                            'SecCode': ['36799', '11027692', '36799', '30655'],
+                            'PercAlloc': [-.01, .02, -.05, .02],
+                            'Strategy': ['tstStrat'] * 4,
+                            'Ticker': ['IBM', 'FB', 'IBM', 'GS'],
+                            'RClose': [50., 20., 50., 10.],
+                            'Dollars': [-100.5, 200., -500., 200.],
+                            'NewShares': [-2, 10, -10, 20]
+                            })
+
+        file_path = os.path.join(self.test_dir, 'allocations',
+                                 '20180101000000_sent_allocations.csv')
+        sent_allocs.to_csv(file_path, index=False)
+
         # RAMEX PROCESSED AGGREGATE FILE
         data = pd.DataFrame(data={
-                            'Date':[dt.date(2018, 1, 1)] * 4,
-                            'RAMID':['IBM_Q_tstStrat', 'FB_Q_tstStrat',
-                                     'IBM_Q_tstStrat', 'GS_Q_tstStrat'],
+                            'Date': [dt.date(2018, 1, 1)] * 4,
+                            'RAMID': ['IBM_Q_tstStrat', 'FB_Q_tstStrat',
+                                      'IBM_Q_tstStrat', 'GS_Q_tstStrat'],
                             'symbol': ['IBM', 'FB', 'BAC', 'GS'],
-                            'strategy_id': ['tstStrat'] * 4,\
+                            'strategy_id': ['tstStrat'] * 4,
                             'trade_id': [0, 1, 2, 3],
                             'quantity': [10, -20, 30, -40],
                             'exec_shares': [10, -10, 30, -40],
                             'avg_px': [100., 101.5, 102, 103],
-                            'basket': ['TestBasket'] *4,
+                            'basket': ['TestBasket'] * 4,
                             'order_id': range(1000, 1004),
                             'order_type': ['vwap'] * 4})
         self.processed_detail = data
-
 
     def test_get_eze_signal_prices(self):
         self.assertRaises(IOError, get_eze_signal_prices, dt.date.today(),
@@ -68,7 +86,7 @@ class TestPricingReconciliation(unittest.TestCase):
                                   'RVolume': 'signal_volume',
                                   'RVwap': 'signal_vwap',
                                   'captured_time': 'signal_time'},
-                        inplace=True)
+                         inplace=True)
         benchmark['signal_time'] = [dt.time(15, 44, 37, 10000)] * 4
 
         assert_frame_equal(result, self.live_pricing)
@@ -108,10 +126,20 @@ class TestPricingReconciliation(unittest.TestCase):
         benchmark = benchmark[result.columns]
         assert_frame_equal(result, benchmark)
 
-    def Xtest_get_executed_orders(self):
-        result = get_executed_orders(data, '1/4/2018')
-        pass
+    def test_get_executed_orders(self):
+        result = get_executed_orders('1/1/2018', self.test_dir)
 
+        benchmark = pd.DataFrame(
+                    data={
+                     'SecCode': ['36799', '11027692', '30655'],
+                     'exec_ticker': ['IBM', 'FB', 'GS'],
+                     'exec_perc_alloc': [-.06, .02, .02],
+                     'exec_dollars': [-600.5, 200., 200.],
+                     'exec_close': [50., 20, 10],
+                     'exec_shares': [-12, 10, 20]
+                    })
+        assert_frame_equal(result, benchmark[result.columns])
+        return
 
     def test_rollup_orders(self):
         order_df = pd.DataFrame(
@@ -129,7 +157,7 @@ class TestPricingReconciliation(unittest.TestCase):
                     data={
                      'SecCode': ['10', '20'],
                      'ticker': ['A', 'B'],
-                     'perc_alloc': [.3, -.05],
+                     'perc_alloc': [.6, -.1],
                      'close': [10, 20],
                      'dollars': [600, -100],
                      'shares': [60, -5]
@@ -149,38 +177,3 @@ class TestPricingReconciliation(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
-
-
-
-'''
-############################################################################
-# Order level reconciliation
-############################################################################
-
-def run_order_reconciliation(recon_dt, strategy_id=STRATEGY_ID):
-    # Get orders with close data
-    recon_orders = get_recon_orders(recon_dt)
-
-    # Read sent orders from signal data
-    exec_orders = get_sent_orders(recon_dt)
-    exec_orders['strategy_id'] = strategy_id
-
-    # Merge and write
-    _write_order_output(recon_orders, exec_orders, recon_dt)
-
-
-def get_sent_orders(recon_dt, arch_dir=ARCHIVE_DIR):
-
-    alloc_dir = os.path.join(arch_dir, 'allocations')
-    alloc_files = os.listdir(alloc_dir)
-    file_name = dly_fls.get_filename_from_date(recon_dt, alloc_files)
-
-    exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
-    exec_orders.SecCode = exec_orders.SecCode.astype(str)
-
-    return rollup_orders(exec_orders, 'exec')
-
-
-'''
