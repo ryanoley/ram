@@ -74,7 +74,6 @@ class TestPricingReconciliation(unittest.TestCase):
         assert_frame_equal(result, self.live_pricing)
 
     def test_merge_trades_signal_prices(self):
-        pricing_inp = get_signal_prices('1/1/2018', self.test_dir)
         pricing_inp = get_eze_signal_prices('1/1/2018', self.test_dir)
         result = merge_trades_signal_prices(self.processed_detail,
                                             pricing_inp)
