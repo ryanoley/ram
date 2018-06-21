@@ -490,6 +490,8 @@ def make_orders(orders, positions, drop_short_seccodes):
     data = orders.merge(positions, how='outer').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
 
+    write_output(data)
+
     print('#########################')
     print(' POSITION STATS')
     print(' Open Longs: {}'.format((data.NewShares > 0).sum()))
@@ -638,8 +640,6 @@ def main():
 
             send_orders(out_df, positions, drop_short_seccodes)
 
-            # 9. Writing and cleanup
-            write_output(out_df)
             write_size_containers(strategy)
 
             break
