@@ -33,7 +33,7 @@ ECHO.
 ECHO 3.  Process Executed Trades. 4:00 pm after all trading. Click
 ECHO         Export Trades Button in TRADER ENGINE first.
 ECHO.
-ECHO 4.  Reconcile Trades. 4:30 pm after Fund Manager is updated
+ECHO 4.  Reconcile to Fund Manager. 4:30 pm after Fund Manager is updated
 ECHO.
 ECHO 5.  Exit this application
 ECHO ----------------------------------------------------------------
