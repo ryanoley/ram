@@ -54,6 +54,7 @@ ECHO.
 ECHO.
 ECHO --PREPARING DATA--
 :: Start RAMEX Server
+ECHO Output must be validated and any [ERROR] Messages Resolved
 python %STATARB_IMP%\prep_data.py
 ECHO --PREP DATA COMPLETE--
 GOTO MENU
@@ -63,6 +64,8 @@ GOTO MENU
 ECHO.
 ECHO.
 ECHO --GETTING LIVE ALLOCATIONS--
+ECHO Click Start ZMQ Button in TRADER ENGINE
+ECHO Export Live Prices from LIVE PRICES SHEET at 3:40 pm or later
 :: Start RAMEX Server
 start python %RAMEX_APP%\server.py -p
 :: Run get live allocations script
