@@ -298,12 +298,12 @@ class TestGetLiveAllocations(unittest.TestCase):
         benchmark = pd.DataFrame()
         benchmark['SecCode'] = ['1234', '4242', '3535']
         benchmark['Ticker'] = ['TRUE', 'IBM', 'GOOGL']
-        benchmark['AdjOpen'] = [1, 2, 3.]
-        benchmark['AdjHigh'] = [1, 2, 3.]
-        benchmark['AdjLow'] = [1, 2, np.nan]
-        benchmark['AdjClose'] = [1, 2, np.nan]
-        benchmark['AdjVolume'] = [np.nan, 2, 3]
-        benchmark['AdjVwap'] = [1, np.nan, 3]
+        benchmark['ROpen'] = [1, 2, 3.]
+        benchmark['RHigh'] = [1, 2, 3.]
+        benchmark['RLow'] = [1, 2, np.nan]
+        benchmark['RClose'] = [1, 2, np.nan]
+        benchmark['RVolume'] = [np.nan, 2, 3]
+        benchmark['RVwap'] = [1, np.nan, 3]
         result = result.drop('captured_time', axis=1)
         assert_frame_equal(result, benchmark)
 

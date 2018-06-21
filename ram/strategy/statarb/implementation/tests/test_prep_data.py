@@ -64,7 +64,7 @@ class TestPrepData(unittest.TestCase):
                                        'models_0005')
         benchmark = pd.DataFrame()
         benchmark['Desc'] = ['Size containers']
-        benchmark['Message'] = ['NOTE: New model SizeContainers being used']
+        benchmark['Message'] = ['[INFO] New model SizeContainers being used']
         assert_frame_equal(result, benchmark)
         path = os.path.join(self.data_dir, 'StatArbStrategy', 'live')
         all_files = os.listdir(path)
@@ -74,7 +74,7 @@ class TestPrepData(unittest.TestCase):
         result = get_short_sell_killed_seccodes(self.yesterday,
                                                 data_dir=self.data_dir)
         dt_str = '{d.month}.{d.day}.{d:%y}'.format(d=self.yesterday)
-        message = '[WARNING] no locate file for {} found'.format(dt_str)
+        message = '[ERROR] no locate file for {} found'.format(dt_str)
         benchmark = pd.DataFrame()
         benchmark['Desc'] = ['Short Locates']
         benchmark['Message'] = [message]
