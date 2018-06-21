@@ -165,12 +165,17 @@ def get_model_files(models_dir_name, data_dir):
 #  4. StatArb positions
 ###############################################################################
 
-def get_statarb_positions(data_dir=BASE_DIR):
-    path = os.path.join(data_dir, 'live', 'eod_positions.csv')
+def get_statarb_positions(data_dir=IMP_DIR):
+    path = os.path.join(data_dir, 'StatArbStrategy',
+                        'live', 'eod_positions.csv')
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == STRATEGY_ID]
     positions.SecCode = positions.SecCode.astype(int).astype(str)
-    positions = positions[['SecCode', 'Shares']].copy()
+    positions = positions[['SecCode', 'Ticker', 'Shares']].copy()
+    # Substitute in EzeRealTick tickers
+    path = os.path.join(data_dir, 'qad_to_eze_ticker_map.json')
+    mapping = json.load(open(path, 'r'))
+    positions.Ticker = positions.Ticker.replace(mapping)
     return positions
 
 
