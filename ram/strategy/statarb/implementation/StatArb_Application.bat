@@ -15,14 +15,17 @@ ECHO.
 ECHO ---------------------------------------------------------------
 ECHO --------------- Stat Arb Implementation Manager ---------------
 ECHO ---------------------------------------------------------------
-ECHO Instructions: Select an item from the menu.  Tasks 1-4 should
-ECHO    be run daily and in numeric order. You can exit and restart
-ECHO    this application multiple times.
+ECHO.
+ECHO ------------------------ INSTRUCTIONS -------------------------
+ECHO Select an item from the menu.  Tasks 1-4 should be run daily
+ECHO    and in numeric order. You can exit and restart this app anytime
 ECHO.
 ECHO Definitions:
 ECHO     TRADER ENGINE - Java trading application
 ECHO     LIVE PRICES SHEET - Excel  with macros for getting eze prices
-ECHO ---------------------------------------------------------------
+ECHO.
+ECHO -------------------TRADE IMPLEMENTAION TASKS---------------------
+ECHO.
 ECHO 1.  Prep Data: 10:15 am or later. Must be run first every day
 ECHO         and the output must be verified before running #2.
 ECHO.
@@ -33,7 +36,10 @@ ECHO.
 ECHO 3.  Process Executed Trades. 4:00 pm after all trading. Click
 ECHO         Export Trades Button in TRADER ENGINE first.
 ECHO.
-ECHO 4.  Process Fund Manager Export. 4:30 pm after Fund Manager is updated
+ECHO 4.  Process Fund Manager Export. 4:30 pm after Fund Manager
+ECHO.         is updated
+ECHO.
+ECHO ------------------------- OTHER TASKS ---------------------------
 ECHO.
 ECHO 5.  Run pricing and trade reconciliation.  Run this once daily to
 ECHO.        generate reconciliation outputs for the prior day.
