@@ -15,8 +15,8 @@ ECHO.
 ECHO ---------------------------------------------------------------
 ECHO --------------- Stat Arb Implementation Manager ---------------
 ECHO ---------------------------------------------------------------
-ECHO Instructions: Select an item from the menu.  Each task should
-ECHO    be run daily and in numeric order.  You can exit and restart
+ECHO Instructions: Select an item from the menu.  Tasks 1-4 should
+ECHO    be run daily and in numeric order. You can exit and restart
 ECHO    this application multiple times.
 ECHO.
 ECHO Definitions:
@@ -33,9 +33,13 @@ ECHO.
 ECHO 3.  Process Executed Trades. 4:00 pm after all trading. Click
 ECHO         Export Trades Button in TRADER ENGINE first.
 ECHO.
-ECHO 4.  Reconcile to Fund Manager. 4:30 pm after Fund Manager is updated
+ECHO 4.  Process Fund Manager Export. 4:30 pm after Fund Manager is updated
 ECHO.
-ECHO 5.  Exit this application
+ECHO 5.  Run pricing and trade reconciliation.  Run this once daily to
+ECHO.        generate reconciliation outputs for the prior day.
+ECHO.        NOT NEEDED for daily trading
+ECHO.
+ECHO 6.  Exit this application
 ECHO ----------------------------------------------------------------
 ECHO.
 ECHO.
@@ -43,9 +47,10 @@ ECHO.
 set /p M="Type 1-5 and press ENTER to Run that process: "
 IF %M%==1 GOTO PREPDATA
 IF %M%==2 GOTO RUNLIVE
-IF %M%==3 GOTO RECTRADES
-IF %M%==4 GOTO RECPORT
-IF %M%==5 GOTO EOF
+IF %M%==3 GOTO PROCTRADES
+IF %M%==4 GOTO PROCFM
+IF %M%==5 GOTO RECON
+IF %M%==6 GOTO EOF
 GOTO EOF
 
 
@@ -74,23 +79,33 @@ ECHO --LIVE ALLOCATIONS COMPLETE--
 GOTO MENU
 
 
-:RECTRADES
+:PROCTRADES
 ECHO.
 ECHO.
-ECHO --RECONCILING TRADES--
-:: Match Stat Arb Trades with Trader Engine Executions
+ECHO --PROCESSING TRADE EXECUTIONS--
+:: Match StatArb Trades with Trader Engine Executions
 python %RAMEX_SCRIPT%\trade_reconciliation.py
-ECHO --TRADE RECONCILIATION COMPLETE--
+ECHO --TRADE PROCESSING COMPLETE--
 GOTO MENU
 
 
-:RECPORT
+:PROCFM
 ECHO.
 ECHO.
-ECHO --RECONCILING WITH FUND MANAGER--
-:: Reconcile Stat Arb Trades with Trader Engine Executions
+ECHO --PROCESSING FUND MANAGER EXPORT--
+:: Import and verify with Fund Manager Transactions
 python %RAMEX_SCRIPT%\portfolio_reconciliation.py -u -w -v
-ECHO --PORTFOLIO RECONCILIATION COMPLETE--
+ECHO --FUND MANAGER PROCESSING COMPLETE--
+GOTO MENU
+
+
+:RECON
+ECHO.
+ECHO.
+ECHO --RUNNING RECONCILIATION--
+:: Reconcile Pricing and Trades for StatArb
+python %STATARB_IMP%\reconciliation_raw.py -p -o
+ECHO --RECONCILIATION COMPLETE--
 GOTO MENU
 
 
