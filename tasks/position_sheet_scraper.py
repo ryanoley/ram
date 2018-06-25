@@ -81,7 +81,7 @@ def archive_fund_manager_export():
 
 
 def remake_positions_from_archive():
-    replace_date = '20180614'
+    replace_date = '20180613'
     path = os.path.join(os.getenv('DATA'), 'ram', 'position_sheet',
                         'archive', '{}_fm_export.csv'.format(replace_date))
     data = pd.read_csv(path, skiprows=4)
@@ -104,7 +104,7 @@ def remake_positions_from_archive():
     data2 = data2[(data2.share_count != 0) | (data2.daily_pl != 0)]
     # Write data to file
     output_dir = os.path.join(os.getenv('DATA'), 'ram', 'position_sheet')
-    data2.to_csv(os.path.join(output_dir, replace_date+'_positions.csv'), index=None)
+    data2.to_csv(os.path.join(output_dir, replace_date+'_positions_remake.csv'), index=None)
 
 
 if __name__ == '__main__':
