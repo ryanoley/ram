@@ -466,7 +466,7 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
 
 def send_orders(out_df, positions, drop_short_seccodes):
     orders = make_orders(out_df, positions, drop_short_seccodes)
-    client = ExecutionClient()
+    client = ExecutionClient(STRATEGY_ID, production_flag=True)
     for o in orders:
         client.send_order(o)
     client.send_transmit('statArbBasket')

@@ -227,6 +227,8 @@ def get_executed_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     '''
     alloc_dir = os.path.join(arch_dir, 'allocations')
     alloc_files = os.listdir(alloc_dir)
+    alloc_files = [x for x in alloc_files if
+                   os.path.isfile(os.path.join(alloc_dir, x))]
     file_name = dly_fls.get_filename_from_date(recon_dt, alloc_files)
 
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
