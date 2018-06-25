@@ -63,6 +63,11 @@ def filter_problems(problems, handled):
 
 
 def handle_problems(problems):
+    path = os.path.join(os.getenv('DATA'), 'ram', 'data',
+                        'gvkey_mapping/PROBLEM_MAPPINGS.csv')
+    if os.path.isfile(path):
+        os.remove(path)
+
     if len(problems):
         idc_codes = problems.IdcCode.unique().tolist()
         msg = """
@@ -72,9 +77,8 @@ def handle_problems(problems):
         """.format(idc_codes)
         send_email(msg, '** GVKey mapping issues **')
 
-        path = os.path.join(os.getenv('DATA'), 'ram', 'data',
-                            'gvkey_mapping/PROBLEM_MAPPINGS.csv')
         problems.to_csv(path, index=None)
+    return
 
 
 def get_current_mapping():
