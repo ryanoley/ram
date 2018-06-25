@@ -931,9 +931,6 @@ def main():
     data = get_short_sell_killed_seccodes(today, rate_min=-5.)
     messages = messages.append(data)
 
-    # Add date column
-    messages['Date'] = dt.date.today()
-
     # OUTPUT to file
     dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                          'StatArbStrategy',
