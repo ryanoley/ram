@@ -234,7 +234,15 @@ def get_executed_orders(recon_dt, arch_dir=ARCHIVE_DIR):
     exec_orders = pd.read_csv(os.path.join(alloc_dir, file_name))
     exec_orders.SecCode = exec_orders.SecCode.astype(str)
 
-    return rollup_orders(exec_orders, 'exec')
+    exec_orders.rename(columns={'Ticker':'exec_ticker',
+                                'PercAlloc':'exec_perc_alloc',
+                                'Dollars':'exec_dollars',
+                                'RClose':'exec_close',
+                                'NewShares':'exec_shares'}, inplace=True)
+
+    exec_orders.drop(labels=['Shares', 'TradeShares'], axis=1, inplace=True)
+
+    return exec_orders
 
 
 def rollup_orders(order_df, col_prfx=None):
