@@ -165,12 +165,17 @@ def get_model_files(models_dir_name, data_dir):
 #  4. StatArb positions
 ###############################################################################
 
-def get_statarb_positions(data_dir=BASE_DIR):
-    path = os.path.join(data_dir, 'live', 'eod_positions.csv')
+def get_statarb_positions(data_dir=IMP_DIR):
+    path = os.path.join(data_dir, 'StatArbStrategy',
+                        'live', 'eod_positions.csv')
     positions = pd.read_csv(path)
     positions = positions[positions.StrategyID == STRATEGY_ID]
     positions.SecCode = positions.SecCode.astype(int).astype(str)
     positions = positions[['SecCode', 'Ticker', 'Shares']].copy()
+    # Substitute in EzeRealTick tickers
+    path = os.path.join(data_dir, 'qad_to_eze_ticker_map.json')
+    mapping = json.load(open(path, 'r'))
+    positions.Ticker = positions.Ticker.replace(mapping)
     return positions
 
 
@@ -485,6 +490,8 @@ def make_orders(orders, positions, drop_short_seccodes):
     data = orders.merge(positions, how='outer').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
 
+    write_output(data)
+
     print('#########################')
     print(' POSITION STATS')
     print(' Open Longs: {}'.format((data.NewShares > 0).sum()))
@@ -633,8 +640,6 @@ def main():
 
             send_orders(out_df, positions, drop_short_seccodes)
 
-            # 9. Writing and cleanup
-            write_output(out_df)
             write_size_containers(strategy)
 
             break

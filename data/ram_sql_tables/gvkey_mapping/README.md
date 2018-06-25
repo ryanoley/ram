@@ -5,6 +5,22 @@ The Compustat PIT tables map GVKeys (Companies) to CUSIPs and the CSVSecurity ta
 Because we no longer have the PIT database, we took a copy of it and will use this as the basis for our point in time mapping. Subsequent changes to Compustat mappings will come through in a CSVSecurity table diff, and appended to our final mapping table.
 
 
+## Handling Problem Mappings
+
+The daily script will check all mappings, and send a notification with any mappings that were not handled. These live in the `DATA/ram/data/gvkey_mapping/PROBLEM_MAPPINGS.csv`.
+
+The manually handled mappings should be put in `GITHUB/ram/data/ram_sql_tables/gvkey_mapping/handled_mappings.csv`.
+
+NOTE: All GVKEY/IDCCodes should be in the `handled_mappings.csv`, regardless if they are used or not. The `discarded` column should indicate if they are used or not.
+
+```
+IdcCode	Cusip		StartDate	EndDate		GVKey	IdcCodeGVKeyMapCount
+246671	47008L10	10/28/14	8/15/17		21619	2
+246671	47008L10	10/28/14	8/15/17		32316	2
+246671	47010C20	8/16/17		5/30/18		32316	2
+246671	47010C30	5/31/18					32316	2
+```
+
 ## Initial Setup
 
 ### `make_raw_tables.sql`
