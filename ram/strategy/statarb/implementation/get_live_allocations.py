@@ -481,13 +481,16 @@ def make_orders(orders, positions, drop_short_seccodes):
     """
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
-    orders = orders.groupby(['Ticker', 'SecCode'])['NewShares', 'Dollars'].sum().reset_index()
+    grp_orders = orders.groupby(['Ticker', 'SecCode'])
+    grp_pricing = grp_orders.RClose.mean().reset_index()
+    grp_orders = grp_orders['NewShares', 'PercAlloc', 'Dollars'].sum().reset_index()
 
     # Drop shorts
-    orders = check_dropped_seccodes(orders, drop_short_seccodes)
+    grp_orders = check_dropped_seccodes(grp_orders, drop_short_seccodes)
 
     # Then net out/close shares
-    data = orders.merge(positions, how='outer').fillna(0)
+    data = grp_orders.merge(positions, how='outer').fillna(0)
+    data = data.merge(grp_pricing, how='left').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
 
     write_output(data)
