@@ -14,7 +14,7 @@ from ram.data.data_handler_sql import DataHandlerSQL
 
 from gearbox import convert_date_array
 
-from ramex.orders.orders import MOCOrder, VWAPOrder
+from ramex.orders.orders import LOCOrder, VWAPOrder
 from ramex.application.client import ExecutionClient
 
 from ram.strategy.statarb.objects.sizes import SizeContainer
@@ -512,21 +512,29 @@ def make_orders(orders, positions, drop_short_seccodes):
 
     output = []
     for _, o in data.iterrows():
-        if o.TradeShares == 0:
+        order_qty = o.TradeShares
+        last_price = o.RClose
+
+        if order_qty == 0:
             continue
+        elif order_qty > 0:
+            limit = last_price * 1.1
+        else:
+            limit = last_price * 0.9
 
-        # order = MOCOrder(basket='statArbBasket',
-        #                  strategy_id=STRATEGY_ID,
-        #                  symbol=o.Ticker,
-        #                  quantity=o.TradeShares)
+        order = LOCOrder(basket='statArbBasket',
+                         strategy_id=STRATEGY_ID,
+                         symbol=o.Ticker,
+                         quantity=o.TradeShares,
+                         limit_price = limit)
 
-        order = VWAPOrder(basket='statArbBasket',
-                          strategy_id=STRATEGY_ID,
-                          symbol=o.Ticker,
-                          quantity=o.TradeShares,
-                          start_time=dt.time(15, 45),
-                          end_time=dt.time(16, 00),
-                          participation=20)
+        # order = VWAPOrder(basket='statArbBasket',
+        #                   strategy_id=STRATEGY_ID,
+        #                   symbol=o.Ticker,
+        #                   quantity=o.TradeShares,
+        #                   start_time=dt.time(15, 45),
+        #                   end_time=dt.time(16, 00),
+        #                   participation=20)
 
         output.append(order)
 
