@@ -68,7 +68,7 @@ ECHO --PREPARING DATA--
 ECHO Output must be validated and any [ERROR] Messages Resolved
 python %STATARB_IMP%\prep_data.py
 ECHO --PREP DATA COMPLETE--
-GOTO MENU
+GOTO SPACING
 
 
 :RUNLIVE
@@ -82,7 +82,7 @@ start python %RAMEX_APP%\server.py -p
 :: Run get live allocations script
 python %STATARB_IMP%\get_live_allocations.py
 ECHO --LIVE ALLOCATIONS COMPLETE--
-GOTO MENU
+GOTO SPACING
 
 
 :PROCTRADES
@@ -92,7 +92,7 @@ ECHO --PROCESSING TRADE EXECUTIONS--
 :: Match StatArb Trades with Trader Engine Executions
 python %RAMEX_SCRIPT%\trade_reconciliation.py
 ECHO --TRADE PROCESSING COMPLETE--
-GOTO MENU
+GOTO SPACING
 
 
 :PROCFM
@@ -102,7 +102,7 @@ ECHO --PROCESSING FUND MANAGER EXPORT--
 :: Import and verify with Fund Manager Transactions
 python %RAMEX_SCRIPT%\portfolio_reconciliation.py -u -w -v
 ECHO --FUND MANAGER PROCESSING COMPLETE--
-GOTO MENU
+GOTO SPACING
 
 
 :RECON
@@ -112,8 +112,19 @@ ECHO --RUNNING RECONCILIATION--
 :: Reconcile Pricing and Trades for StatArb
 python %STATARB_IMP%\reconciliation_raw.py -p -o
 ECHO --RECONCILIATION COMPLETE--
-GOTO MENU
+GOTO SPACING
 
+
+:SPACING
+ECHO.
+ECHO.
+ECHO.
+ECHO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ECHO.
+ECHO.
+ECHO.
+ECHO.
+GOTO MENU
 
 :EOF
 CLS
