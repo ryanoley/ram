@@ -515,6 +515,7 @@ def make_orders(orders, positions, drop_short_seccodes):
         order_qty = o.TradeShares
         last_price = o.RClose
 
+        # 10% away from signal price for limit on LOC orders
         if order_qty == 0:
             continue
         elif order_qty > 0:
