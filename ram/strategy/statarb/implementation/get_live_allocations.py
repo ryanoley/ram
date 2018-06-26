@@ -481,7 +481,8 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
     grp_orders = orders.groupby(['Ticker', 'SecCode'])
-    grp_orders = grp_orders['NewShares', 'PercAlloc', 'Dollars'].sum().reset_index()
+    grp_orders = grp_orders['NewShares', 'PercAlloc', 'Dollars'].sum()
+    grp_orders = grp_orders.reset_index()
 
     # Drop shorts
     grp_orders = check_dropped_seccodes(grp_orders, drop_short_seccodes)
@@ -503,9 +504,11 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
     print('#########################')
     print(' ORDER STATS')
     print(' Long Orders: {}'.format((data.TradeShares > 0).sum()))
-    print(' Long Shares: {}'.format(data[data.TradeShares > 0].TradeShares.sum()))
+    print(' Long Shares: {}'.format(
+                                data[data.TradeShares > 0].TradeShares.sum()))
     print(' Short Orders: {}'.format((data.TradeShares < 0).sum()))
-    print(' Short Shares: {}'.format(data[data.TradeShares < 0].TradeShares.sum()))
+    print(' Short Shares: {}'.format(
+                                data[data.TradeShares < 0].TradeShares.sum()))
     print('\n')
 
     output = []
@@ -534,7 +537,7 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
                              strategy_id=STRATEGY_ID,
                              symbol=o.Ticker,
                              quantity=o.TradeShares,
-                             limit_price = limit)
+                             limit_price=limit)
 
         output.append(order)
 
@@ -649,8 +652,8 @@ def main():
             out_df['Dollars'] = \
                 out_df.PercAlloc * position_size['gross_position_size']
 
-            orders = make_orders(out_df, positions, live_data, drop_short_seccodes)
-
+            orders = make_orders(out_df, positions, live_data,
+                                 drop_short_seccodes)
             send_orders(orders)
 
             write_size_containers(strategy)
