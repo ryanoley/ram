@@ -464,8 +464,7 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
 #  9. Cleanup - Sending and writing
 ###############################################################################
 
-def send_orders(out_df, positions, drop_short_seccodes):
-    orders = make_orders(out_df, positions, drop_short_seccodes)
+def send_orders(orders):
     client = ExecutionClient(STRATEGY_ID, production_flag=True)
     for o in orders:
         client.send_order(o)
@@ -474,7 +473,7 @@ def send_orders(out_df, positions, drop_short_seccodes):
     print('Order transmission complete')
 
 
-def make_orders(orders, positions, drop_short_seccodes):
+def make_orders(orders, positions, pricing, drop_short_seccodes):
     """
     LOGIC: Positions holds the shares we have. Orders holds the shares
     we want--from Positions.Quantity to Orders.Quantity.
@@ -482,7 +481,6 @@ def make_orders(orders, positions, drop_short_seccodes):
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
     grp_orders = orders.groupby(['Ticker', 'SecCode'])
-    grp_pricing = grp_orders.RClose.mean().reset_index()
     grp_orders = grp_orders['NewShares', 'PercAlloc', 'Dollars'].sum().reset_index()
 
     # Drop shorts
@@ -490,7 +488,7 @@ def make_orders(orders, positions, drop_short_seccodes):
 
     # Then net out/close shares
     data = grp_orders.merge(positions, how='outer').fillna(0)
-    data = data.merge(grp_pricing, how='left').fillna(0)
+    data = data.merge(pricing[['SecCode', 'RClose']], how='left').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
 
     write_output(data)
@@ -523,19 +521,20 @@ def make_orders(orders, positions, drop_short_seccodes):
         else:
             limit = np.round(last_price * 0.9, 2)
 
-        order = LOCOrder(basket='statArbBasket',
-                         strategy_id=STRATEGY_ID,
-                         symbol=o.Ticker,
-                         quantity=o.TradeShares,
-                         limit_price = limit)
-
-        # order = VWAPOrder(basket='statArbBasket',
-        #                   strategy_id=STRATEGY_ID,
-        #                   symbol=o.Ticker,
-        #                   quantity=o.TradeShares,
-        #                   start_time=dt.time(15, 45),
-        #                   end_time=dt.time(16, 00),
-        #                   participation=20)
+        if last_price == 0:
+            order = VWAPOrder(basket='statArbBasket',
+                              strategy_id=STRATEGY_ID,
+                              symbol=o.Ticker,
+                              quantity=o.TradeShares,
+                              start_time=dt.time(15, 45),
+                              end_time=dt.time(16, 00),
+                              participation=20)
+        else:
+            order = LOCOrder(basket='statArbBasket',
+                             strategy_id=STRATEGY_ID,
+                             symbol=o.Ticker,
+                             quantity=o.TradeShares,
+                             limit_price = limit)
 
         output.append(order)
 
@@ -650,7 +649,9 @@ def main():
             out_df['Dollars'] = \
                 out_df.PercAlloc * position_size['gross_position_size']
 
-            send_orders(out_df, positions, drop_short_seccodes)
+            orders = make_orders(out_df, positions, live_data, drop_short_seccodes)
+
+            send_orders(orders)
 
             write_size_containers(strategy)
 
