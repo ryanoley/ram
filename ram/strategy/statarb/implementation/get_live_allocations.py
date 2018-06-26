@@ -519,9 +519,9 @@ def make_orders(orders, positions, drop_short_seccodes):
         if order_qty == 0:
             continue
         elif order_qty > 0:
-            limit = last_price * 1.1
+            limit = np.round(last_price * 1.1, 2)
         else:
-            limit = last_price * 0.9
+            limit = np.round(last_price * 0.9, 2)
 
         order = LOCOrder(basket='statArbBasket',
                          strategy_id=STRATEGY_ID,
