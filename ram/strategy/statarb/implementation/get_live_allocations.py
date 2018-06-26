@@ -492,8 +492,6 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
     data = data.merge(pricing[['SecCode', 'RClose']], how='left').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
 
-    write_output(data)
-
     print('#########################')
     print(' POSITION STATS')
     print(' Open Longs: {}'.format((data.NewShares > 0).sum()))
@@ -541,7 +539,7 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
 
         output.append(order)
 
-    return output
+    return output, data
 
 
 def write_output(out_df, data_dir=BASE_DIR):
@@ -652,10 +650,11 @@ def main():
             out_df['Dollars'] = \
                 out_df.PercAlloc * position_size['gross_position_size']
 
-            orders = make_orders(out_df, positions, live_data,
-                                 drop_short_seccodes)
-            send_orders(orders)
+            order_list, order_df = make_orders(out_df, positions, live_data,
+                                               drop_short_seccodes)
+            send_orders(order_list)
 
+            write_output(order_df)
             write_size_containers(strategy)
 
             break

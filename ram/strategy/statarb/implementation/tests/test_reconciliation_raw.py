@@ -44,13 +44,14 @@ class TestPricingReconciliation(unittest.TestCase):
 
         # SENT ALLOCATIONS FILE
         sent_allocs = pd.DataFrame(data={
-                            'SecCode': ['36799', '11027692', '36799', '30655'],
-                            'PercAlloc': [-.01, .02, -.05, .02],
-                            'Strategy': ['tstStrat'] * 4,
-                            'Ticker': ['IBM', 'FB', 'IBM', 'GS'],
-                            'RClose': [50., 20., 50., 10.],
-                            'Dollars': [-100.5, 200., -500., 200.],
-                            'NewShares': [-2, 10, -10, 20]
+                            'Ticker': ['IBM', 'FB', 'BAC', 'GS'],
+                            'SecCode': ['36799', '11027692', '1001', '30655'],
+                            'NewShares': [-20, 10, 0, 20],
+                            'PercAlloc': [-.01, .02, 0., .02],
+                            'Dollars': [-100, 200., 0., 200.],
+                            'Shares': [0, 10, 20, 10],
+                            'RClose': [5., 20., 30., 10.],
+                            'TradeShares': [-20, 0, -20, 10]
                             })
 
         file_path = os.path.join(self.test_dir, 'allocations',
@@ -129,15 +130,14 @@ class TestPricingReconciliation(unittest.TestCase):
     def test_get_executed_orders(self):
         result = get_executed_orders('1/1/2018', self.test_dir)
 
-        benchmark = pd.DataFrame(
-                    data={
-                     'SecCode': ['36799', '11027692', '30655'],
-                     'exec_ticker': ['IBM', 'FB', 'GS'],
-                     'exec_perc_alloc': [-.06, .02, .02],
-                     'exec_dollars': [-600.5, 200., 200.],
-                     'exec_close': [50., 20, 10],
-                     'exec_shares': [-12, 10, 20]
-                    })
+        benchmark = pd.DataFrame(data={
+                            'exec_ticker': ['IBM', 'FB', 'BAC', 'GS'],
+                            'SecCode': ['36799', '11027692', '1001', '30655'],
+                            'exec_shares': [-20, 10, 0, 20],
+                            'exec_perc_alloc': [-.01, .02, 0., .02],
+                            'exec_dollars': [-100, 200., 0., 200.],
+                            'exec_close': [5., 20., 30., 10.]
+                            })
         assert_frame_equal(result, benchmark[result.columns])
         return
 
