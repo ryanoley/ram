@@ -518,9 +518,9 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
         if order_qty == 0:
             continue
         elif order_qty > 0:
-            limit = np.round(last_price * 1.1, 2)
+            limit = np.round(round(last_price * 1.05 / .05) * .05 , 2)
         else:
-            limit = np.round(last_price * 0.9, 2)
+            limit = np.round(round(last_price * 0.95 / .05) * .05 , 2)
 
         if last_price == 0:
             order = VWAPOrder(basket='statArbBasket',
