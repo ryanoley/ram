@@ -884,6 +884,11 @@ def archive_live_directory():
     # Copy files
     for f in all_files:
         copyfile(os.path.join(live_path, f), os.path.join(archive_path, f))
+    # AND copy position file
+    path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                        'StatArbStrategy',
+                        'position_size.json')
+    copyfile(path, os.path.join(archive_path, 'position_size.json'))
     return
 
 
