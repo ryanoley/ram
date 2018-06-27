@@ -514,9 +514,10 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
     for _, o in data.iterrows():
         order_qty = o.TradeShares
         last_price = o.RClose
-        perc_of_vol = abs(order_qty) / o.RVolume
+        last_volume = 1 if o.RVolume == 0 else o.RVolume
+        perc_of_vol = abs(order_qty) / last_volume
 
-        # 10% away from signal price for limit on LOC orders
+        # 5% away from signal price for limit on LOC orders
         if order_qty == 0:
             continue
         elif order_qty > 0:
@@ -524,7 +525,7 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
         else:
             limit = np.round(round(last_price * 0.95 / .05) * .05 , 2)
 
-        if last_price == 0:
+        if (last_price == 0) | (perc_of_vol > .05):
             order = VWAPOrder(basket='statArbBasket',
                               strategy_id=STRATEGY_ID,
                               symbol=o.Ticker,
@@ -532,6 +533,7 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
                               start_time=dt.time(15, 45),
                               end_time=dt.time(16, 00),
                               participation=20)
+            print '{} : {}'.format(o.Ticker, perc_of_vol)
         else:
             order = LOCOrder(basket='statArbBasket',
                              strategy_id=STRATEGY_ID,
