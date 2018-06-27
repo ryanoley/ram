@@ -540,12 +540,11 @@ def make_orders(orders, positions, pricing, drop_short_seccodes,
                                                       perc_of_vol,
                                                       last_price)
         else:
-            limit = np.round(limit, 2)
             order = LOCOrder(basket='statArbBasket',
                              strategy_id=STRATEGY_ID,
                              symbol=o.Ticker,
                              quantity=o.TradeShares,
-                             limit_price=limit)
+                             limit_price=np.round(limit, 2))
 
         output.append(order)
 
