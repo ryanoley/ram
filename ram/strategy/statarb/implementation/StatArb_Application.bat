@@ -124,6 +124,7 @@ ECHO.
 ECHO.
 ECHO.
 ECHO.
+set M='Q'
 GOTO MENU
 
 :EOF
