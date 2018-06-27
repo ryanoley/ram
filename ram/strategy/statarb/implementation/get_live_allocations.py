@@ -455,7 +455,7 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
     data['AdjVwap'] = data.RVwap * data.PricingMultiplier
     data['AdjVolume'] = data.RVolume * data.VolumeMultiplier
     data = data.drop(['PricingMultiplier', 'VolumeMultiplier', 'ROpen',
-                     'RHigh', 'RLow', 'RVolume', 'RVwap'], axis=1)
+                     'RHigh', 'RLow', 'RVwap'], axis=1)
 
     return data
 
@@ -489,7 +489,8 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
 
     # Then net out/close shares
     data = grp_orders.merge(positions, how='outer').fillna(0)
-    data = data.merge(pricing[['SecCode', 'RClose']], how='left').fillna(0)
+    data = data.merge(pricing[['SecCode', 'RClose', 'RVolume']],
+                      how='left').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
 
     print('#########################')
@@ -513,6 +514,7 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
     for _, o in data.iterrows():
         order_qty = o.TradeShares
         last_price = o.RClose
+        perc_of_vol = abs(order_qty) / o.RVolume
 
         # 10% away from signal price for limit on LOC orders
         if order_qty == 0:
