@@ -473,7 +473,8 @@ def send_orders(orders):
     print('Order transmission complete')
 
 
-def make_orders(orders, positions, pricing, drop_short_seccodes):
+def make_orders(orders, positions, pricing, drop_short_seccodes,
+                loc_price_pct=.05, volume_pct_lim=.05):
     """
     LOGIC: Positions holds the shares we have. Orders holds the shares
     we want--from Positions.Quantity to Orders.Quantity.
@@ -509,6 +510,8 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
     print(' Short Shares: {}'.format(
                                 data[data.TradeShares < 0].TradeShares.sum()))
     print('\n')
+    print('#########################')
+    print(' VWAP ORDER SUBSTITUTIONS')
 
     output = []
     for _, o in data.iterrows():
@@ -517,15 +520,15 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
         last_volume = 1 if o.RVolume == 0 else o.RVolume
         perc_of_vol = abs(order_qty) / last_volume
 
-        # 5% away from signal price for limit on LOC orders
+        # Set limit price for LOC Orders, must be in 5 cent increments
         if order_qty == 0:
             continue
         elif order_qty > 0:
-            limit = np.round(round(last_price * 1.05 / .05) * .05 , 2)
+            limit = round(last_price * (1 + loc_price_pct) / .05) * .05
         else:
-            limit = np.round(round(last_price * 0.95 / .05) * .05 , 2)
+            limit = round(last_price * (1 - loc_price_pct) / .05) * .05
 
-        if (last_price == 0) | (perc_of_vol > .05):
+        if (last_price == 0) | (perc_of_vol > volume_pct_lim):
             order = VWAPOrder(basket='statArbBasket',
                               strategy_id=STRATEGY_ID,
                               symbol=o.Ticker,
@@ -533,8 +536,11 @@ def make_orders(orders, positions, pricing, drop_short_seccodes):
                               start_time=dt.time(15, 45),
                               end_time=dt.time(16, 00),
                               participation=20)
-            print '{} : {}'.format(o.Ticker, perc_of_vol)
+            print 'Tkr: {} Vol%: {} Close: {}'.format(o.Ticker,
+                                                      perc_of_vol,
+                                                      last_price)
         else:
+            limit = np.round(limit, 2)
             order = LOCOrder(basket='statArbBasket',
                              strategy_id=STRATEGY_ID,
                              symbol=o.Ticker,

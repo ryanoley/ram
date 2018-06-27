@@ -337,7 +337,8 @@ class TestGetLiveAllocations(unittest.TestCase):
         positions['Ticker'] = ['A', 'B', 'C']
         positions['Shares'] = [10, 20, -50]
         pricing = pd.DataFrame(data={'SecCode': ['A', 'B', 'D'],
-                                     'RClose': [10., 20., 10.]})
+                                     'RClose': [10., 20., 10.],
+                                     'RVolume': [1000., 2000., 1000.]})
         resultA, resultB = make_orders(orders, positions, pricing, [])
         self.assertIsInstance(resultA[0], LOCOrder)
         self.assertEqual(resultA[0].quantity, 10)
