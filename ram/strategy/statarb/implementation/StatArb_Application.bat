@@ -50,6 +50,7 @@ ECHO ----------------------------------------------------------------
 ECHO.
 ECHO.
 
+:GETINPUT
 set /p M="Type 1-5 and press ENTER to Run that process: "
 IF %M%==1 GOTO PREPDATA
 IF %M%==2 GOTO RUNLIVE
@@ -125,7 +126,7 @@ ECHO.
 ECHO.
 ECHO.
 set M='Q'
-GOTO MENU
+GOTO GETINPUT
 
 :EOF
 CLS
