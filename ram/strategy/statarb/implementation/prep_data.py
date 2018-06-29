@@ -560,7 +560,7 @@ def import_bloomberg_dividends():
 
     message = []
     if file_name.find(prefix) == -1:
-        message.append('Wrong File Date Prefix')
+        message.append('[ERROR] Wrong File Date Prefix')
         out = pd.DataFrame(columns=['BloombergId',
                                     'DivMultiplier',
                                     'DivValue'])
@@ -705,7 +705,7 @@ def process_bloomberg_data(killed_seccodes):
     messages.loc[3, 'Message'] = process_messages(messages_)
 
     # Don't write if not complete
-    if np.any(messages.Message.apply(lambda x: x.find('WARN') > -1)):
+    if np.any(messages.Message.apply(lambda x: x.find('ERROR') > -1)):
         return messages
 
     # MERGE
