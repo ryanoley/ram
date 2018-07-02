@@ -14,7 +14,7 @@ from ram.data.data_handler_sql import DataHandlerSQL
 
 from gearbox import convert_date_array
 
-from ramex.orders.orders import MOCOrder, VWAPOrder
+from ramex.orders.orders import LOCOrder, VWAPOrder
 from ramex.application.client import ExecutionClient
 
 from ram.strategy.statarb.objects.sizes import SizeContainer
@@ -455,7 +455,7 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
     data['AdjVwap'] = data.RVwap * data.PricingMultiplier
     data['AdjVolume'] = data.RVolume * data.VolumeMultiplier
     data = data.drop(['PricingMultiplier', 'VolumeMultiplier', 'ROpen',
-                     'RHigh', 'RLow', 'RVolume', 'RVwap'], axis=1)
+                     'RHigh', 'RLow', 'RVwap'], axis=1)
 
     return data
 
@@ -464,9 +464,8 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
 #  9. Cleanup - Sending and writing
 ###############################################################################
 
-def send_orders(out_df, positions, drop_short_seccodes):
-    orders = make_orders(out_df, positions, drop_short_seccodes)
-    client = ExecutionClient()
+def send_orders(orders):
+    client = ExecutionClient(STRATEGY_ID, production_flag=True)
     for o in orders:
         client.send_order(o)
     client.send_transmit('statArbBasket')
@@ -474,23 +473,26 @@ def send_orders(out_df, positions, drop_short_seccodes):
     print('Order transmission complete')
 
 
-def make_orders(orders, positions, drop_short_seccodes):
+def make_orders(orders, positions, pricing, drop_short_seccodes,
+                loc_price_pct=.05, volume_pct_lim=.05):
     """
     LOGIC: Positions holds the shares we have. Orders holds the shares
     we want--from Positions.Quantity to Orders.Quantity.
     """
     # Rollup and get shares
     orders['NewShares'] = (orders.Dollars / orders.RClose).astype(int)
-    orders = orders.groupby(['Ticker', 'SecCode'])['NewShares', 'Dollars'].sum().reset_index()
+    grp_orders = orders.groupby(['Ticker', 'SecCode'])
+    grp_orders = grp_orders['NewShares', 'PercAlloc', 'Dollars'].sum()
+    grp_orders = grp_orders.reset_index()
 
     # Drop shorts
-    orders = check_dropped_seccodes(orders, drop_short_seccodes)
+    grp_orders = check_dropped_seccodes(grp_orders, drop_short_seccodes)
 
     # Then net out/close shares
-    data = orders.merge(positions, how='outer').fillna(0)
+    data = grp_orders.merge(positions, how='outer').fillna(0)
+    data = data.merge(pricing[['SecCode', 'RClose', 'RVolume']],
+                      how='left').fillna(0)
     data['TradeShares'] = data.NewShares - data.Shares
-
-    write_output(data)
 
     print('#########################')
     print(' POSITION STATS')
@@ -502,32 +504,51 @@ def make_orders(orders, positions, drop_short_seccodes):
     print('#########################')
     print(' ORDER STATS')
     print(' Long Orders: {}'.format((data.TradeShares > 0).sum()))
-    print(' Long Shares: {}'.format(data[data.TradeShares > 0].TradeShares.sum()))
+    print(' Long Shares: {}'.format(
+                                data[data.TradeShares > 0].TradeShares.sum()))
     print(' Short Orders: {}'.format((data.TradeShares < 0).sum()))
-    print(' Short Shares: {}'.format(data[data.TradeShares < 0].TradeShares.sum()))
+    print(' Short Shares: {}'.format(
+                                data[data.TradeShares < 0].TradeShares.sum()))
     print('\n')
+    print('#########################')
+    print(' VWAP ORDER SUBSTITUTIONS')
 
     output = []
     for _, o in data.iterrows():
-        if o.TradeShares == 0:
+        order_qty = o.TradeShares
+        last_price = o.RClose
+        last_volume = 1 if o.RVolume == 0 else o.RVolume
+        perc_of_vol = abs(order_qty) / last_volume
+
+        # Set limit price for LOC Orders, must be in 5 cent increments
+        if order_qty == 0:
             continue
+        elif order_qty > 0:
+            limit = round(last_price * (1 + loc_price_pct) / .05) * .05
+        else:
+            limit = round(last_price * (1 - loc_price_pct) / .05) * .05
 
-        # order = MOCOrder(basket='statArbBasket',
-        #                  strategy_id=STRATEGY_ID,
-        #                  symbol=o.Ticker,
-        #                  quantity=o.TradeShares)
-
-        order = VWAPOrder(basket='statArbBasket',
-                          strategy_id=STRATEGY_ID,
-                          symbol=o.Ticker,
-                          quantity=o.TradeShares,
-                          start_time=dt.time(15, 45),
-                          end_time=dt.time(16, 00),
-                          participation=20)
+        if (last_price == 0) | (perc_of_vol > volume_pct_lim):
+            order = VWAPOrder(basket='statArbBasket',
+                              strategy_id=STRATEGY_ID,
+                              symbol=o.Ticker,
+                              quantity=o.TradeShares,
+                              start_time=dt.time(15, 45),
+                              end_time=dt.time(16, 00),
+                              participation=20)
+            print 'Tkr: {} Vol%: {} Close: {}'.format(o.Ticker,
+                                                      perc_of_vol,
+                                                      last_price)
+        else:
+            order = LOCOrder(basket='statArbBasket',
+                             strategy_id=STRATEGY_ID,
+                             symbol=o.Ticker,
+                             quantity=o.TradeShares,
+                             limit_price=np.round(limit, 2))
 
         output.append(order)
 
-    return output
+    return output, data
 
 
 def write_output(out_df, data_dir=BASE_DIR):
@@ -638,8 +659,11 @@ def main():
             out_df['Dollars'] = \
                 out_df.PercAlloc * position_size['gross_position_size']
 
-            send_orders(out_df, positions, drop_short_seccodes)
+            order_list, order_df = make_orders(out_df, positions, live_data,
+                                               drop_short_seccodes)
+            send_orders(order_list)
 
+            write_output(order_df)
             write_size_containers(strategy)
 
             break

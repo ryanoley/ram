@@ -80,6 +80,33 @@ def archive_fund_manager_export():
     shutil.copy2(FM_EXPORT_PATH, output_path)
 
 
+def remake_positions_from_archive():
+    replace_date = '20180613'
+    path = os.path.join(os.getenv('DATA'), 'ram', 'position_sheet',
+                        'archive', '{}_fm_export.csv'.format(replace_date))
+    data = pd.read_csv(path, skiprows=4)
+    data.columns = ['position', 'symbol', 'market_price', 'share_count', 'position_value',
+                    'position_value_perc_aum', 'daily_pl', 'total_pl', 'strategyid',
+                    'sector', 'commissions', 'inception_date', 'avgPurchasePrice',
+                    'cusip', 'sedol']
+    end_ind = np.where(data.position == 'Cash')[0][0]
+    data = data.iloc[:end_ind]
+    # Convert columns
+    data.share_count = data.share_count.apply(lambda x: float(str(x).replace(',', '')))
+    data.market_price = data.market_price.apply(lambda x: float(str(x).replace(',', '')))
+    data.position_value = data.position_value.apply(lambda x: float(str(x).replace(',', '')))
+    data.daily_pl = data.daily_pl.apply(lambda x: float(str(x).replace(',', '')))
+    data.position_value_perc_aum = data.position_value_perc_aum.apply(lambda x: float(str(x).replace(',', '')))
+    cols = ['position', 'symbol', 'share_count', 'market_price',
+            'position_value', 'daily_pl', 'position_value_perc_aum']
+    data2 = data[cols]
+    data2 = data2[data2.symbol.notnull()]
+    data2 = data2[(data2.share_count != 0) | (data2.daily_pl != 0)]
+    # Write data to file
+    output_dir = os.path.join(os.getenv('DATA'), 'ram', 'position_sheet')
+    data2.to_csv(os.path.join(output_dir, replace_date+'_positions_remake.csv'), index=None)
+
+
 if __name__ == '__main__':
     get_fund_manager_stat_arb_positions()
     archive_fund_manager_export()

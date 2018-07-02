@@ -24,7 +24,7 @@ from ram.strategy.statarb.abstract.signal_generator import *
 from ram.strategy.statarb.implementation.tests.make_test_data import *
 from ram.strategy.statarb.implementation.get_live_allocations import *
 
-from ramex.orders.orders import MOCOrder, VWAPOrder
+from ramex.orders.orders import LOCOrder, VWAPOrder
 
 
 ###############################################################################
@@ -328,6 +328,7 @@ class TestGetLiveAllocations(unittest.TestCase):
         orders = pd.DataFrame()
         orders['SecCode'] = ['A', 'A', 'B', 'B', 'D', 'D']
         orders['Dollars'] = [100, 100, 200, -140, 100, 100]
+        orders['PercAlloc'] = [.01, .01, .02, -.014, .01, .01]
         orders['Strategy'] = ['Strat1', 'Strat2'] * 3
         orders['Ticker'] = ['A', 'A', 'B', 'B', 'D', 'D']
         orders['RClose'] = [10, 10, 20, 20, 10, 10]
@@ -335,16 +336,20 @@ class TestGetLiveAllocations(unittest.TestCase):
         positions['SecCode'] = ['A', 'B', 'C']
         positions['Ticker'] = ['A', 'B', 'C']
         positions['Shares'] = [10, 20, -50]
-        result = make_orders(orders, positions, [])
-        self.assertIsInstance(result[0], VWAPOrder)
-        self.assertEqual(result[0].quantity, 10)
-        self.assertEqual(result[0].symbol, 'A')
-        self.assertEqual(result[1].quantity, -17)
-        self.assertEqual(result[1].symbol, 'B')
-        self.assertEqual(result[2].quantity, 20)
-        self.assertEqual(result[2].symbol, 'D')
-        self.assertEqual(result[3].quantity, 50)
-        self.assertEqual(result[3].symbol, 'C')
+        pricing = pd.DataFrame(data={'SecCode': ['A', 'B', 'D'],
+                                     'RClose': [10., 20., 10.],
+                                     'RVolume': [1000., 2000., 1000.]})
+        resultA, resultB = make_orders(orders, positions, pricing, [])
+        self.assertIsInstance(resultA[0], LOCOrder)
+        self.assertEqual(resultA[0].quantity, 10)
+        self.assertEqual(resultA[0].symbol, 'A')
+        self.assertEqual(resultA[1].quantity, -17)
+        self.assertEqual(resultA[1].symbol, 'B')
+        self.assertEqual(resultA[2].quantity, 20)
+        self.assertEqual(resultA[2].symbol, 'D')
+        self.assertEqual(resultA[3].quantity, 50)
+        self.assertEqual(resultA[3].symbol, 'C')
+        self.assertIsInstance(resultA[3], VWAPOrder)
 
     def test_write_size_containers(self):
         imp = StatArbImplementation(StatArbStrategyTest)
