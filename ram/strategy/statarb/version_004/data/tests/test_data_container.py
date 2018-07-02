@@ -154,7 +154,8 @@ class TestDataContainer(unittest.TestCase):
 
     def test_process_training_data(self):
         # Training data file
-        dates = [dt.date.today() - dt.timedelta(days=i) for i in range(1, 8)]
+        dates = [dt.date(2018, 7, 2) -
+                 dt.timedelta(days=i) for i in range(1, 8)]
         test_flag = [False, False, False, False, False, True, True]
         dates.sort()
         # Create historical data
@@ -212,7 +213,7 @@ class TestDataContainer(unittest.TestCase):
         self.assertTrue(hasattr(container, '_pricing_data'))
         self.assertTrue(hasattr(container, '_other_data'))
         result = container._test_dates
-        benchmark = dates[-2:]
+        benchmark = [dt.date(2018, 6, 30)]
         self.assertEqual(result, benchmark)
 
     def test_make_responses(self):
