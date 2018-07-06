@@ -167,6 +167,11 @@ def map_live_tickers(killed_seccodes):
     data = get_seccode_ticker_mapping(unique_seccodes)
 
     if np.any(data.Ticker.isnull()):
+        dpath = os.path.join(config.IMPLEMENTATION_DATA_DIR,
+                             'StatArbStrategy',
+                             'live',
+                             'MISSING_QAD_TICKER.csv')
+        data[data.Ticker.isnull()].to_csv(dpath, index=None)
         output['Message'] = '[ERROR] - SecCode missing Ticker in QADirect'
         return output
 
