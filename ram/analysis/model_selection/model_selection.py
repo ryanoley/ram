@@ -140,10 +140,8 @@ class ModelSelection(object):
 
                 test_data = self._raw_returns.loc[test_dates].copy()
                 test_data = test_data.fillna(0)
-
                 # Search for top models. Model indexes can be multi-dim.
                 model_indexes, scores = self.get_top_models(i, train_data)
-
                 # Get test periods results
                 self._process_results(i, test_data, model_indexes, scores)
 
@@ -216,7 +214,7 @@ class ModelSelection(object):
             m_combs = np.vstack((self.best_results_column_indexes[time_index],
                                  model_indexes))
             # Sort all
-            best_inds = np.argsort(-m_scores)[:len(scores)]
+            best_inds = np.argsort(-m_scores)[:self.n_best_ports]
             # And select best returns
             m_rets = m_rets.iloc[:, best_inds]
             m_rets.columns = range(len(best_inds))
