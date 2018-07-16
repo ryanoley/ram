@@ -21,8 +21,6 @@ from ram.strategy.statarb.data_blueprints import blueprint_container
 # HELPER
 strategy_versions = StrategyVersionContainer()
 
-# strategy_versions.add_version('version_002', 'Smart Factor')
-# strategy_versions.add_version('version_003', 'Smart Factor - Very Long Tech Features')
 strategy_versions.add_version('version_004', 'Smart Factor - Long-ish Tech Features')
 
 
