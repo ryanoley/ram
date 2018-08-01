@@ -157,11 +157,14 @@ class DataContainer(BaseDataContainer):
         # The training was done with `process_training_data` below,
         # which appends `make_features` features first, then the technical
         # features
-        features = prepped_features + features_t1 + features_t2 + features_b
+        self._features_a = features_a + features_b
+        self._features_nonrank = features_t1
+        self._features_rank = features_t2
+
         # Separate training from test data
         self._processed_train_data = pd.DataFrame({'Date': [0]})
         self._processed_test_data = pdata
-        self._features = features
+
         # TODO: is this needed
         self._test_dates = [dt.date.today()]
         # Process some data
