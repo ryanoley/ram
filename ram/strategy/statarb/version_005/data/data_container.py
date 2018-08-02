@@ -15,8 +15,13 @@ LOW_LIQUIDITY_FILTER = 3
 
 data_rank_func = data_rank
 
-def passthrough(x):
-    return x
+def passthrough(pdata):
+    # This is a transformation done in the data_rank function
+    if isinstance(pdata, pd.Series):
+        pdata = pdata.to_frame().T
+    pdata.index.name = 'Date'
+    pdata.columns.name = 'SecCode'
+    return pdata
 
 
 class DataContainer(BaseDataContainer):
@@ -157,7 +162,7 @@ class DataContainer(BaseDataContainer):
         # The training was done with `process_training_data` below,
         # which appends `make_features` features first, then the technical
         # features
-        self._features_a = features_a + features_b
+        self._features_a = prepped_features + features_b
         self._features_nonrank = features_t1
         self._features_rank = features_t2
 
