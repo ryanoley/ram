@@ -135,3 +135,5 @@ from			seccode_secid_map_1 S
 	join		(select SecCode, max(rownum) as MaxRowNum 
 				 from seccode_secid_map_1 group by SecCode) M
 	on			S.SecCode = M.SecCode
+
+where S.StartDate < coalesce(S.EndDate, '2059-01-01')
