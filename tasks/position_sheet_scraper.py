@@ -12,7 +12,7 @@ RAM_ACCNT = os.path.join(os.getenv('RAMSHARE'),
                          'Roundabout Accounting')
 
 FM_EXCEL_PATH = os.path.join(RAM_ACCNT,
-                             'Roundabout Daily P&L 2016.xlsx')
+                             'Roundabout Daily P&L 2016.xlsm')
 FM_EXPORT_PATH = os.path.join(RAM_ACCNT,
                               'Fund Manager 2016',
                               'Fund Manager Export 2016.csv')
