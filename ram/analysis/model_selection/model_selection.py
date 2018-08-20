@@ -214,7 +214,7 @@ class ModelSelection(object):
             m_combs = np.vstack((self.best_results_column_indexes[time_index],
                                  model_indexes))
             # Sort all
-            best_inds = np.argsort(-m_scores)[:self.n_best_ports]
+            best_inds = np.argsort(-m_scores)[:len(model_indexes)]
             # And select best returns
             m_rets = m_rets.iloc[:, best_inds]
             m_rets.columns = range(len(best_inds))
