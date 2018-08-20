@@ -179,6 +179,7 @@ def map_live_tickers(killed_seccodes):
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
                         'ticker_changes.json')
     ticker_changes = json.load(open(path, 'r'))
+    data.Ticker = data.Ticker.replace(ticker_changes)
 
     # Ticker mapping for Bloomberg
     path = os.path.join(config.IMPLEMENTATION_DATA_DIR,
@@ -186,7 +187,6 @@ def map_live_tickers(killed_seccodes):
                         'live',
                         'qad_seccode_data.csv')
     data.to_csv(path, index=None)
-    data.Ticker = data.Ticker.replace(ticker_changes)
 
     # Archive
     file_name = '{}_qad_seccode_data.csv'.format(

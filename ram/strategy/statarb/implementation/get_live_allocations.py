@@ -646,7 +646,7 @@ def main():
     strategy.prep()
 
     ###########################################################################
-    _ = raw_input("Press Enter to continue...")
+    _ = raw_input("Press Enter to continue...EXPORT LIVE PRICES FIRST!")
 
     while True:
         try:
