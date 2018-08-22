@@ -489,22 +489,28 @@ def map_seccodes_bloomberg_tickers(killed_seccodes):
     all_files = os.listdir(data_dir)
     map_files1 = [x for x in all_files if x.find('ticker_cusip.csv') > -1]
     map_files2 = [x for x in all_files if x.find('ticker_cusip2.csv') > -1]
+    map_files3 = [x for x in all_files if x.find('ticker_cusip3.csv') > -1]
 
     file_name1 = max(map_files1)
     file_name2 = max(map_files2)
+    file_name3 = max(map_files3)
 
     message = []
     if file_name1.find(prefix) == -1:
         message.append('[ERROR] Map1 Wrong File Date Prefix')
     if file_name2.find(prefix) == -1:
         message.append('[ERROR] Map2 Wrong File Date Prefix')
+    if file_name3.find(prefix) == -1:
+        message.append('[ERROR] Map3 Wrong File Date Prefix')
 
     data1 = pd.read_csv(os.path.join(data_dir, file_name1))
     data2 = pd.read_csv(os.path.join(data_dir, file_name2))
+    data3 = pd.read_csv(os.path.join(data_dir, file_name3))
 
     # Process Bloomberg Ticker Mapping Files
     data = data1[['CUSIP', 'Ticker']] \
-        .append(data2[['CUSIP', 'Ticker']]).reset_index(drop=True)
+        .append(data2[['CUSIP', 'Ticker']]) \
+        .append(data3[['CUSIP', 'Ticker']]).reset_index(drop=True)
     data.columns = ['BloombergCusip', 'BloombergId']
     data.BloombergCusip = data.BloombergCusip.astype(str)
     data.BloombergCusip = [x[:8] for x in data.BloombergCusip]
