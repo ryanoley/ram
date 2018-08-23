@@ -76,8 +76,8 @@ class SignalModel(BaseSignalGenerator):
         # Here the features that are coming through have nan values
         # Where were they handled before where they weren't showing up?
         if hasattr(self.skl_model, 'predict_proba'):
-            preds = self.skl_model.predict_proba(
-                self._test_data[features])
+            temp = self._test_data[features].replace(np.inf,  0.996429)
+            preds = self.skl_model.predict_proba(temp)
             output.loc[:, 'preds'] = _get_preds(self.skl_model, preds)
         else:
             output.loc[:, 'preds'] = self.skl_model.predict(

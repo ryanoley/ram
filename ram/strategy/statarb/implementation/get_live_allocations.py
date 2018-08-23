@@ -645,6 +645,8 @@ def main():
     strategy.add_drop_short_seccodes(drop_short_seccodes)
     strategy.prep()
 
+    import pdb; pdb.set_trace()
+
     ###########################################################################
     _ = raw_input("Press Enter to continue...EXPORT LIVE PRICES FIRST!")
 
