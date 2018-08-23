@@ -425,21 +425,21 @@ def import_live_pricing(live_prices_dir=LIVE_PRICES_DIR):
 
 def get_live_pricing_data(scaling, data_dir=BASE_DIR):
 
-    # FILL IN NAN VALUES AND PRINT TO SCREEN
     while True:
-        # IMPORT LIVE AND ADJUST
         data = import_live_pricing()
-        if np.any(data.isnull()):
+
+        # Checks
+        checks = data.isnull()
+        if np.any(checks):
             print('\n\nMISSING LIVE PRICES\n\n')
-            input_ = raw_input("Press `y` to handle, otherwise will retry\n")
-            if input_ == 'y':
-                cols = ['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap']
-                data.ROpen = data.ROpen.fillna(data[cols].mean(axis=1))
-                data.RHigh = data.RHigh.fillna(data[cols].max(axis=1))
-                data.RLow = data.RLow.fillna(data[cols].min(axis=1))
-                data.RClose = data.RClose.fillna(data[cols].mean(axis=1))
-                data.RVwap = data.RVwap.fillna(data[cols].mean(axis=1))
-                break
+            input_ = raw_input("Re-export and hit ENTER!\n")
+
+        checks = data[['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap']] == 0
+        # RVwap for indexes is 0
+        if checks.sum().sum() != 2:
+            print('\n\nLIVE PRICES HAVE ZERO QUANTITY\n\n')
+            input_ = raw_input("Re-export and hit ENTER!\n")
+
         else:
             break
 
@@ -643,9 +643,8 @@ def main():
     strategy.add_run_map_models(run_map, models_params)
     strategy.add_size_containers(size_containers)
     strategy.add_drop_short_seccodes(drop_short_seccodes)
-    strategy.prep()
 
-    import pdb; pdb.set_trace()
+    strategy.prep()
 
     ###########################################################################
     _ = raw_input("Press Enter to continue...EXPORT LIVE PRICES FIRST!")
