@@ -83,7 +83,6 @@ select			SecCode,
 
 from			at_high_count
 where			NormalTradingFlag = 1
-	and			OneYearTradingFlag = 1
 	and			AvgDolVol >= 3
 	and			Close_ >= 15
 	and			MarketCap >= 200
@@ -160,3 +159,6 @@ from			report_dates0 A
 		and		A.FilterDate = B.FilterDate
 
 where			A.ResearchFlag = 1
+	and			A.AvgDolVol >= 3
+	and			A.MarketCap >= 200
+	and			A.Close_ >= 15

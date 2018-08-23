@@ -104,7 +104,6 @@ select			*,
 					rows between 29 preceding and current row), 0) * 100 as MFI_30
 from			prices3
 where			NormalTradingFlag = 1
-	and			OneYearTradingFlag = 1
 	and			AvgDolVol >= 3
 	and			Close_ >= 15
 	and			MarketCap >= 200
@@ -178,4 +177,7 @@ from			report_dates A
 		and		A.FilterDate = B.Date_
 
 where			A.ResearchFlag = 1
+	and			A.AvgDolVol >= 3
+	and			A.MarketCap >= 200
+	and			A.Close_ >= 15
 order by		A.SecCode, A.ReportDate

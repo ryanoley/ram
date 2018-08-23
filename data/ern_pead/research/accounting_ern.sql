@@ -8,11 +8,11 @@ from		( select GVKEY, AsOfDate, Value_, ItemName
 			( max(Value_) for ItemName in (X_GROSSPROFASSET, SHORTLONGDEBT, X_CASHANDSECURITIES, BOOKVALUE,
 										   OPERATINGINCOMETTM, FREECASHFLOWTTM, NETINCOMETTM,
 										   SALESGROWTHQ, SALESGROWTHTTM, NETINCOMEGROWTHQ, NETINCOMEGROWTHTTM,
-										   FREECASHFLOWGROWTHQ, FREECASHFLOWGROWTHTTM,X_GROSSMARGINTTM) ) p
+										   FREECASHFLOWGROWTHQ, FREECASHFLOWGROWTHTTM, X_GROSSMARGINTTM) ) p
 )
 
 
-select				D.GVKey,
+select				D.SecCode,
 					D.ReportDate,
 					A.X_GROSSPROFASSET as ProfAsset,
 					P.MarketCap + A.SHORTLONGDEBT - A.X_CASHANDSECURITIES as EnterpriseValue,
@@ -39,3 +39,6 @@ from				ram.dbo.ram_earnings_report_dates D
 								  where GVKey = D.GVKey and AsOfDate < D.FilterDate)
 
 where				D.ResearchFlag = 1
+	and				D.AvgDolVol >= 3
+	and				D.MarketCap >= 200
+	and				D.Close_ >= 15

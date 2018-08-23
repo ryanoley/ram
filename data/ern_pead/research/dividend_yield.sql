@@ -24,3 +24,6 @@ from				report_dates D
 								 where IdcCode = D.IdcCode and ExDate <= D.FilterDate
 								 and ExDate >= dateadd(day, -380, '2011-09-01') )
 where				D.ResearchFlag = 1
+	and				D.AvgDolVol >= 3
+	and				D.MarketCap >= 200
+	and				D.Close_ >= 15

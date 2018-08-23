@@ -59,3 +59,6 @@ from			report_dates0 R
 	on			P.Date_ = M.Date_
 
 where			R.ResearchFlag = 1
+	and			R.AvgDolVol >= 3
+	and			R.MarketCap >= 200
+	and			R.Close_ >= 15

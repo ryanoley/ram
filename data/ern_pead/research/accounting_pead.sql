@@ -16,7 +16,7 @@ create table #stackeddata
 
 ; with all_data as (
 select		*,
-			Lag(Value_, 3) over (
+			Lag(Value_, 4) over (
 				partition by GVKey, ItemName
 				order by AsOfDate) as LagValue_
 from		ram.dbo.ram_compustat_accounting_derived
@@ -79,3 +79,6 @@ from				ram.dbo.ram_pead_report_dates D
 								  where GVKey = D.GVKey and AsOfDate < D.FilterDate)
 
 where				D.ResearchFlag = 1
+	and				D.AvgDolVol >= 3
+	and				D.MarketCap >= 200
+	and				D.Close_ >= 15

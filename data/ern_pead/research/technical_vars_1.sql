@@ -47,7 +47,6 @@ from			all_technical_vars_univ
 
 -- Universe filter happens after grouped functionality from all_technical_vars_univ above
 where			NormalTradingFlag = 1
-	and			OneYearTradingFlag = 1
 	and			AvgDolVol >= 3
 	and			Close_ >= 15
 	and			MarketCap >= 200
@@ -193,3 +192,6 @@ from			report_dates0 A
 	join		hedge_technical_vars2 C
 		on		A.FilterDate = C.FilterDate
 where			A.ResearchFlag = 1
+	and			A.AvgDolVol >= 3
+	and			A.MarketCap >= 200
+	and			A.Close_ >= 15

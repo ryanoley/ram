@@ -17,8 +17,13 @@ create table	ram.dbo.temp_univ_report_dates (
 		FilterDate smalldatetime,
 		PreviousReportDate smalldatetime,
 		FiscalQuarter int,
+		-- Filter flags
 		ResearchFlag int,
-		LiveFlag int
+		LiveFlag int,
+		-- Filter data
+		Close_ float,
+		AvgDolVol float,
+		MarketCap float
 		primary key (GVKey, ReportDate)
 )
 
@@ -62,8 +67,8 @@ select			R.IdcCode,
 				P.AvgDolVol,
 				P.Close_,
 				P.MarketCap,
-				P.NormalTradingFlag,
-				P.OneYearTradingFlag
+
+				P.NormalTradingFlag
 
 from			ram.dbo.ram_equity_report_dates R
 
@@ -82,7 +87,7 @@ from			ram.dbo.ram_equity_report_dates R
 
 , report_dates1 as (
 -- Filter by ranks
-select				*
+select			*
 from			report_dates0
 	where		rank_val = 1
 )
@@ -139,28 +144,20 @@ from			report_dates3
 , report_dates5 as (
 select			*,
 				case
-					when R.NormalFlag1Sum >= 4 and R.NormalFlag2Sum >= 4   -- TEMP: for reconciliation with old implementation
-					--when R.NormalFlag1Sum = 5 and R.NormalFlag2Sum = 5
+					when R.NormalFlag1Sum = 5 and R.NormalFlag2Sum = 5
 					then 1 else 0 end as ResearchFlag,
 				case
-					when R.NormalFlag1SumLive >= 3 and R.NormalFlag2SumLive >= 3   -- TEMP: for reconciliation with old implementation
-					--when R.NormalFlag1SumLive = 4 and R.NormalFlag2SumLive = 4
+					when R.NormalFlag1SumLive = 4 and R.NormalFlag2SumLive = 4
 					then 1 else 0 end as LiveFlag
 from			report_dates4 R
---where			R.NormalFlag1SumLive = 4
---	and			R.NormalFlag2SumLive = 4
-where			R.NormalFlag1SumLive >= 3	   -- TEMP: for reconciliation with old implementation
-	and			R.NormalFlag2SumLive >= 3	   -- TEMP: for reconciliation with old implementation
+
 )
 
 
 , report_dates6 as (
 select			*
 from			report_dates5 P
-where			P.Close_ >= 15
-	and			P.AvgDolVol >= 3
-	and			P.MarketCap >= 200
-	and			P.NormalTradingFlag = 1
+where			P.NormalTradingFlag = 1
 )
 
 
@@ -175,7 +172,11 @@ select			GVKey,
 				ReportDateLag,
 				FiscalQuarter,
 				ResearchFlag,
-				LiveFlag
+				LiveFlag,
+				Close_,
+				AvgDolVol,
+				MarketCap
+
 from			report_dates6
 
 
