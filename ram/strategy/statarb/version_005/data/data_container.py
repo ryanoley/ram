@@ -164,11 +164,12 @@ class DataContainer(BaseDataContainer):
             ((pdata == -np.inf).sum(axis=1) == 0)
 
         if sum(~keep_inds):
-            print('NAN or INF FOR FOLLOWING TICKERS:')
+            print('NAN or INF FOR FOLLOWING TICKERS/SECCODES:')
             bad_seccodes = pdata.SecCode[~keep_inds].tolist()
             bad_tickers = live_pricing_data.Ticker[
                 live_pricing_data.SecCode.isin(bad_seccodes)].tolist()
-            print(bad_tickers)
+            print(['{}/{}'.format(x, y) for (x, y) in zip(bad_tickers,
+                                                          bad_seccodes)])
 
         pdata = pdata.loc[keep_inds]
 
