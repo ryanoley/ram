@@ -429,17 +429,16 @@ def get_live_pricing_data(scaling, data_dir=BASE_DIR):
         data = import_live_pricing()
 
         # Checks
-        checks = data.isnull()
-        if np.any(checks):
-            print('\n\nMISSING LIVE PRICES\n\n')
-            input_ = raw_input("Re-export and hit ENTER!\n")
+        nan_checks = data.isnull()
+        zero_checks = data[['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap']] == 0
 
-        checks = data[['ROpen', 'RHigh', 'RLow', 'RClose', 'RVwap']] == 0
+        if np.any(nan_checks):
+            print('\n\nLIVE PRICES HAVE NAN VALUES\n\n')
+            input_ = raw_input("Re-export and hit ENTER!\n")
         # RVwap for indexes is 0
-        if checks.sum().sum() != 2:
-            print('\n\nLIVE PRICES HAVE ZERO QUANTITY\n\n')
+        elif zero_checks.sum().sum() != 2:
+            print('\n\nLIVE PRICES HAVE ZERO VALUES\n\n')
             input_ = raw_input("Re-export and hit ENTER!\n")
-
         else:
             break
 
