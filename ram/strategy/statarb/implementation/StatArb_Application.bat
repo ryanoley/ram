@@ -26,7 +26,7 @@ ECHO     LIVE PRICES SHEET - Excel  with macros for getting eze prices
 ECHO.
 ECHO -------------------TRADE IMPLEMENTAION TASKS---------------------
 ECHO.
-ECHO 1.  Prep Data: 10:15 am or later. Must be run first every day
+ECHO 1.  Prep Data: 11:00 am or later. Must be run first every day
 ECHO         and the output must be verified before running #2.
 ECHO.
 ECHO 2.  Run Trade: 3:40 pm or before.  Click Start ZMQ Button in
