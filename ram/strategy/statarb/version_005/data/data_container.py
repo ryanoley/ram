@@ -15,6 +15,7 @@ LOW_LIQUIDITY_FILTER = 3
 
 data_rank_func = data_rank
 
+
 def passthrough(pdata):
     # This is a transformation done in the data_rank function
     if isinstance(pdata, pd.Series):
@@ -131,12 +132,7 @@ class DataContainer(BaseDataContainer):
         # Get live data for sec codes in this data set
         live_pricing_data = live_pricing_data[
             live_pricing_data.SecCode.isin(data.SecCode.unique())].copy()
-        # Check no zero values
-        no_data = live_pricing_data.Ticker[live_pricing_data.AdjClose == 0]
-        if len(no_data):
-            print('NO DATA FOR FOLLOWING TICKERS:')
-            print(no_data.tolist())
-            live_pricing_data = live_pricing_data.replace(0, np.nan)
+
         # Process data
         data = merge_live_pricing_data(data, live_pricing_data)
         market_data = merge_live_pricing_market_data(market_data, live_market)
@@ -150,14 +146,32 @@ class DataContainer(BaseDataContainer):
         # data_tech, features_tech = self._make_technical_features(
         #     data, live_flag=True)
 
-        tdata1, features_t1 = self._make_technical_features(data, live_flag=True, data_rank_create_flag=False)
+        tdata1, features_t1 = self._make_technical_features(
+            data, live_flag=True, data_rank_create_flag=False)
 
-        tdata2, features_t2 = self._make_technical_features(data, live_flag=True, data_rank_create_flag=True)
+        tdata2, features_t2 = self._make_technical_features(
+            data, live_flag=True, data_rank_create_flag=True)
 
         bdata, features_b = self._make_binaries(data, live_flag=True)
 
         # Merge technical and non-technical
         pdata = prepped_data.merge(tdata1).merge(tdata2).merge(bdata)
+
+        # Clean
+        keep_inds = \
+            (pdata.isnull().sum(axis=1) == 0) & \
+            ((pdata == np.inf).sum(axis=1) == 0) & \
+            ((pdata == -np.inf).sum(axis=1) == 0)
+
+        if sum(~keep_inds):
+            print('NAN or INF FOR FOLLOWING TICKERS/SECCODES:')
+            bad_seccodes = pdata.SecCode[~keep_inds].tolist()
+            bad_tickers = live_pricing_data.Ticker[
+                live_pricing_data.SecCode.isin(bad_seccodes)].tolist()
+            print(['{}/{}'.format(x, y) for (x, y) in zip(bad_tickers,
+                                                          bad_seccodes)])
+
+        pdata = pdata.loc[keep_inds]
 
         # The training was done with `process_training_data` below,
         # which appends `make_features` features first, then the technical
@@ -185,16 +199,19 @@ class DataContainer(BaseDataContainer):
         # Create process training data, and get features
         adata, features_a = self._make_features(data)
 
-        tdata1, features_t1 = self._make_technical_features(data, data_rank_create_flag=False)
+        tdata1, features_t1 = self._make_technical_features(
+            data, data_rank_create_flag=False)
 
-        tdata2, features_t2 = self._make_technical_features(data, data_rank_create_flag=True)
+        tdata2, features_t2 = self._make_technical_features(
+            data, data_rank_create_flag=True)
 
         bdata, features_b = self._make_binaries(data)
 
         responses = self._make_responses(data)
 
-        pdata = data[['SecCode', 'Date',
-                      'TestFlag', 'TimeIndex']].merge(adata).merge(tdata1).merge(tdata2).merge(bdata).merge(responses)
+        pdata = data[['SecCode', 'Date', 'TestFlag', 'TimeIndex']] \
+            .merge(adata).merge(tdata1) \
+            .merge(tdata2).merge(bdata).merge(responses)
 
         self._features_a = features_a + features_b
         self._features_nonrank = features_t1
@@ -267,7 +284,10 @@ class DataContainer(BaseDataContainer):
             pdata.Date = dt.date.today()
         return pdata, features
 
-    def _make_technical_features(self, data, live_flag=False, data_rank_create_flag=False):
+    def _make_technical_features(self,
+                                 data,
+                                 live_flag=False,
+                                 data_rank_create_flag=False):
         # TECHNICAL VARIABLES
         # Clean and format data points
         open_ = clean_pivot_raw_data(data, 'AdjOpen')
@@ -295,8 +315,8 @@ class DataContainer(BaseDataContainer):
         return pdata, features
 
     def _calculate_technical_features(self, open_, high, low, close,
-                                     volume, avgdolvol, live_flag,
-                                     data_rank_create_flag):
+                                      volume, avgdolvol, live_flag,
+                                      data_rank_create_flag):
         """
         This function is where feature innovation should happen.
         """
@@ -380,7 +400,8 @@ class DataContainer(BaseDataContainer):
         ret_up1 = ret_up0.shift(1).fillna(0)
         ret_up2 = ret_up0.shift(2).fillna(0)
         ret_up3 = ret_up0.shift(3).fillna(0)
-        for i, x in enumerate(itertools.product([0, 1], [0, 1], [0, 1], [0, 1])):
+        for i, x in enumerate(itertools.product([0, 1], [0, 1],
+                                                [0, 1], [0, 1])):
             f = (ret_up0 == x[0]) & \
                 (ret_up1 == x[1]) & \
                 (ret_up2 == x[2]) & \
