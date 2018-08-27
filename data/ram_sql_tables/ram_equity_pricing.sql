@@ -227,10 +227,9 @@ select		*,
 				partition by SecCode 
 				order by Date_
 				rows between 29 preceding and current row) / 1e6 as AvgDolVol,
-			-- Date Lag for OneYearTradingFlag
-			Lag(Date_, 252) over (
-				partition by SecCode 
-				order by Date_) as DateLag252
+			-- MinDate for OneYearTradingFlag
+			min(Date_) over (partition by IdcCode) as MinDate
+
 from		data_merge
 )
 
@@ -271,7 +270,7 @@ select 			D.SecCode,
 				D.MarketCap,
 
 				exp(D.CumRate) as DividendFactor,
-				D.SplitFactor,			
+				D.SplitFactor,
 
 				-- NormalTrading over the past 126 days.
 				case 
@@ -280,7 +279,7 @@ select 			D.SecCode,
 							partition by D.SecCode order by D.Date_ rows between 125 preceding and current row) = 1
 					then 1 else 0 end as NormalTradingFlag,
 
-				case when D.DateLag252 = DF.DateLag252 then 1 else 0 end as OneYearTradingFlag
+				case when D.MinDate <= DF.DateLag252 then 1 else 0 end as OneYearTradingFlag
 
 from			aggregated_data D
 	join		trading_dates_filter DF
