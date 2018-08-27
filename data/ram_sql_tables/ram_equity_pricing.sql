@@ -235,11 +235,62 @@ from		data_merge
 )
 
 
+-- ############################################################################################
+
 , trading_dates_filter as (
 select		Date_,
 			Lag(Date_, 252) over (
 				order by Date_) as DateLag252
 from		(select distinct T0 as Date_ from ram.dbo.trading_dates) a
+)
+
+
+-- ### NORMAL TRADING FLAG ####################################################################
+
+, min_max_idc_dates as (
+select		IdcCode,
+			min(Date_) as StartDate, 
+			max(Date_) as EndDate 
+from		aggregated_data
+group by IdcCode
+)
+
+-- EXPAND TO GET ALL DATES
+, idc_dates2 as (
+select		M.*,
+			D.Date_
+from		min_max_idc_dates M
+cross join  trading_dates_filter D
+where		D.Date_ >= M.StartDate and D.Date_ <= M.EndDate
+			and D.Date_ >= '1990-12-01'
+)
+
+, normal_trading_flags_1 as (
+select				I.IdcCode,
+					I.Date_,
+					case
+						when D.Date_ is null and Lag(D.Date_) over (partition by I.IdcCode order by I.Date_) is null then 0
+						when D.Volume = 0 then 0
+						else 1
+					end NormalTradingFlag
+from				idc_dates2 I
+	left join		aggregated_data D
+	on				I.Date_ = D.Date_
+	and				I.IdcCode = D.IdcCode
+)
+
+, normal_trading_flags_2 as (
+-- Function uses average to get "normal" flags for first 126 rows in dataset
+select			IdcCode,
+				Date_,
+				case
+					when avg(NormalTradingFlag) over (
+						partition by IdcCode
+						order by Date_
+						rows between 125 preceding and current row) = 1
+					then 1 else 0
+				end NormalTradingFlag 
+from			normal_trading_flags_1
 )
 
 
@@ -273,18 +324,16 @@ select 			D.SecCode,
 				exp(D.CumRate) as DividendFactor,
 				D.SplitFactor,			
 
-				-- NormalTrading over the past 126 days.
-				case 
-					when 
-						avg(case when D.Volume > 0 then 1.0 else 0.0 end) over (
-							partition by D.SecCode order by D.Date_ rows between 125 preceding and current row) = 1
-					then 1 else 0 end as NormalTradingFlag,
+				N.NormalTradingFlag,
 
 				case when D.DateLag252 = DF.DateLag252 then 1 else 0 end as OneYearTradingFlag
 
 from			aggregated_data D
 	join		trading_dates_filter DF
 		on		D.Date_ = DF.Date_
+	join		normal_trading_flags_2 N
+		on		D.Date_ = N.Date_
+		and		D.IdcCode = N.IdcCode
 
 where			D.Date_ >= '1992-01-01'
 
