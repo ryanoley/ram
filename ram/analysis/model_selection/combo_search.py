@@ -38,14 +38,53 @@ class CombinationSearch(ModelSelection):
         elif self.criteria == 'min_sharpe':
             min_scores = self._get_mins(train_data, combs)
             sharpe_scores = self._get_sharpes(train_data, combs)
+            r1 = np.argsort(np.argsort(min_scores))
+            r2 = np.argsort(np.argsort(sharpe_scores))
+            scores = r1 + r2
+
+        elif self.criteria == 'min_mean_sharpe':
+            min_scores = self._get_mins(train_data, combs)
+            sharpe_scores = self._get_sharpes(train_data, combs)
             mean_scores = self._get_means(train_data, combs)
             r1 = np.argsort(np.argsort(min_scores))
             r2 = np.argsort(np.argsort(sharpe_scores))
-            r3 = np.argsort(np.argsort( mean_scores))
+            r3 = np.argsort(np.argsort(mean_scores))
             scores = r1 + r2 + r3
 
+        elif self.criteria == 'min_mean_sharpe_dd':
+            min_scores = self._get_mins(train_data, combs)
+            sharpe_scores = self._get_sharpes(train_data, combs)
+            mean_scores = self._get_means(train_data, combs)
+            dd_scores = self._get_draw_downs(train_data, combs)
+            r1 = np.argsort(np.argsort(min_scores))
+            r2 = np.argsort(np.argsort(sharpe_scores))
+            r3 = np.argsort(np.argsort(mean_scores))
+            r4 = np.argsort(np.argsort(dd_scores))
+            scores = r1 + r2 + r3 + r4
+
+        elif self.criteria == 'mean_min':
+            mean_scores = self._get_means(train_data, combs)
+            min_scores = self._get_mins(train_data, combs)
+            r1 = np.argsort(np.argsort(min_scores))
+            r2 = np.argsort(np.argsort(mean_scores))
+            scores = r1 + r2
+
+        elif self.criteria == 'mean_dd':
+            mean_scores = self._get_means(train_data, combs)
+            dd_scores = self._get_draw_downs(train_data, combs)
+            r1 = np.argsort(np.argsort(dd_scores))
+            r2 = np.argsort(np.argsort(mean_scores))
+            scores = r1 + r2
+
+        elif self.criteria == 'sharpe_dd':
+            sharpe_scores = self._get_sharpes(train_data, combs)
+            dd_scores = self._get_draw_downs(train_data, combs)
+            r1 = np.argsort(np.argsort(dd_scores))
+            r2 = np.argsort(np.argsort(sharpe_scores))
+            scores = r1 + r2
+
         else:
-            raise 'Criteria needs to be selected from: [sharpe, mean]'
+            raise ValueError()
 
         best_inds = np.argsort(-scores)[:self.n_best_ports]
 
@@ -62,6 +101,12 @@ class CombinationSearch(ModelSelection):
     def _get_mins(self, data, combs):
         ports = self._get_ports(data, combs)
         return np.min(ports, axis=1)
+
+    def _get_draw_downs(self, data, combs):
+        ports = self._get_ports(data, combs)
+        cum_sum = np.cumsum(ports, axis=1)
+        cum_max = np.maximum.accumulate(cum_sum, axis=1)
+        return np.min(cum_sum - cum_max, axis=1)
 
     def _get_ports(self, data, combs):
         return np.mean(data.values.T[combs, :], axis=1)

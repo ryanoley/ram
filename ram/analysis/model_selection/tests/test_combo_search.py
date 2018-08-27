@@ -46,11 +46,21 @@ class TestCombinationSearch(unittest.TestCase):
     def test_get_sharpes(self):
         df = pd.DataFrame({0: range(5), 1: range(1, 6), 2: range(2, 7)})
         combs = [(0, 1), (0, 2), (1, 2)]
-
         comb = CombinationSearch()
         results = comb._get_sharpes(df, combs)
         benchmark = np.array([1.76776695, 2.12132034, 2.47487373])
         assert_array_equal(results.round(5), benchmark.round(5))
+
+    def test_get_dd(self):
+        df = pd.DataFrame()
+        df['S1'] = [1, -2, 3, 4, -5]
+        df['S2'] = [1, -5, 3, -1, 10]
+        df['S3'] = [10, -3, 100, -3, 1]
+        combs = [(0, 1), (0, 2), (1, 2)]
+        comb = CombinationSearch()
+        result = comb._get_draw_downs(df, combs)
+        benchmark = np.array([-3.5, -2.5, -4])
+        assert_array_equal(result, benchmark)
 
     def tearDown(self):
         if os.path.isdir(self.output_dir):
