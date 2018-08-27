@@ -331,7 +331,7 @@ select 			D.SecCode,
 from			aggregated_data D
 	join		trading_dates_filter DF
 		on		D.Date_ = DF.Date_
-	join		normal_trading_flags_1 N
+	join		normal_trading_flags_2 N
 		on		D.Date_ = N.Date_
 		and		D.IdcCode = N.IdcCode
 
