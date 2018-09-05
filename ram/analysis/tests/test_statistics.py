@@ -41,8 +41,9 @@ class TestPairs(unittest.TestCase):
 
     def test_value_at_risk(self):
         result = stats._value_at_risk(self.returns)
-        benchmark = pd.DataFrame(
-            [-0.20, -0.02], index=['V1', 'V2'], columns=['VaR_5perc'])
+        benchmark = pd.DataFrame(index=['V1', 'V2'])
+        benchmark['VaR_5perc'] = [-0.20, -0.02]
+        benchmark['VaR_1perc'] = [-0.20, -0.02]
         assert_frame_equal(result, benchmark)
 
     def test_c_value_at_risk(self):

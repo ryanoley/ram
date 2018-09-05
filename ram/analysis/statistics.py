@@ -139,9 +139,15 @@ def _value_at_risk(returns):
     alpha = 0.05
     index = int(alpha * len(returns))
     # Iterate through each column
-    out = pd.DataFrame(index=returns.columns, columns=['VaR_5perc'])
+    out = pd.DataFrame(index=returns.columns,
+                       columns=['VaR_5perc', 'VaR_1perc'])
     for column in returns:
         out.loc[column, 'VaR_5perc'] = np.sort(returns[column])[index]
+    # Get one percent
+    alpha = 0.01
+    index = int(alpha * len(returns))
+    for column in returns:
+        out.loc[column, 'VaR_1perc'] = np.sort(returns[column])[index]
     # VaR is positive in literature but I like looking at it as neg
     out = out.astype(float).round(4)
     return out
