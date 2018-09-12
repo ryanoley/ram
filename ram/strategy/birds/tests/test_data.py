@@ -78,7 +78,7 @@ class TestData(unittest.TestCase):
                                     np.nan, 0, -2/3., 0, -2/3.]
         benchmark['Response'] = [1, 1, 1, np.nan, np.nan, 1, 1, 1,
                                  np.nan, np.nan, 0, 0, 0., np.nan, np.nan]
-        # assert_frame_equal(result, benchmark)
+        assert_frame_equal(result, benchmark)
 
     def test_extract_test_dates(self):
         pass

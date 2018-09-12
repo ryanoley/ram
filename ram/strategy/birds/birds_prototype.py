@@ -20,22 +20,28 @@ market_data = strategy.read_market_index_data()
 
 features = pd.DataFrame()
 # for i in range(len(strategy._prepped_data_files)):
-for i in range(150, 180):
+for i in range(150, 170):
     data = strategy.read_data_from_index(i)
-    f = get_features(data)
+    f = get_features(data, n_groups=5, n_days=3)
     f['tindex'] = i
     features = features.append(f)
     print(i)
 
 
+# Create indexes on returns, thus drop nan DailyReturn
+features2 = features[features.DailyReturn.notnull()]
+features2 = features2.pivot(index='Date',
+                            columns='Group',
+                            values='DailyReturn')
+
+
+plt.figure()
+plt.plot(features2.cumsum())
+plt.show()
 
 
 
 
-
-features2 = features.pivot(index='Date',
-                           columns='Group',
-                           values='Feature')
 
 prma = PRMA().fit(features2, 10)
 

@@ -115,7 +115,7 @@ def extract_test_dates(data):
 
 ###############################################################################
 
-def get_features(data):
+def get_features(data, n_groups, n_days):
 
     test_dates = extract_test_dates(data)
 
@@ -135,43 +135,43 @@ def get_features(data):
 
     for x in [5, 10, 20, 40, 80]:
         prma = PRMA().fit(close, x)
-        prma = make_indexes(prma, close, test_dates, 'PRMA{}'.format(x))
+        prma = make_indexes(prma, close, test_dates, 'PRMA{}'.format(x), n_groups, n_days)
         features = features.append(prma)
 
     for x in [10, 20, 40]:
         vol = VOL().fit(close, x)
-        vol = make_indexes(vol, close, test_dates, 'VOL{}'.format(x))
+        vol = make_indexes(vol, close, test_dates, 'VOL{}'.format(x), n_groups, n_days)
         features = features.append(vol)
 
     # Not in use because groupings became non-uniform
     # for x in [40, 100, 200]:
     #     disc = DISCOUNT().fit(close, x)
-    #     disc = make_indexes(disc, close, test_date, 'DISCOUNT{}'.format(x))
+    #     disc = make_indexes(disc, close, test_date, 'DISCOUNT{}'.format(x), n_groups, n_days)
     #     features = features.append(disc)
 
     for x in [10, 20, 40, 80]:
         boll = BOLL().fit(close, x)
-        boll = make_indexes(boll, close, test_dates, 'BOLL{}'.format(x))
+        boll = make_indexes(boll, close, test_dates, 'BOLL{}'.format(x), n_groups, n_days)
         features = features.append(boll)
 
     for x in [40, 80]:
         boll = BOLL_SMOOTH().fit(close, 2, x)
-        boll = make_indexes(boll, close, test_dates, 'BOLL2{}'.format(x))
+        boll = make_indexes(boll, close, test_dates, 'BOLL2{}'.format(x), n_groups, n_days)
         features = features.append(boll)
 
     for x in [80, 160]:
         boll = BOLL_SMOOTH().fit(close, 4, x)
-        boll = make_indexes(boll, close, test_dates, 'BOLL4{}'.format(x))
+        boll = make_indexes(boll, close, test_dates, 'BOLL4{}'.format(x), n_groups, n_days)
         features = features.append(boll)
 
     for x in [15, 30, 100]:
         rsi = RSI().fit(close, x)
-        rsi = make_indexes(rsi, close, test_dates, 'RSI{}'.format(x))
+        rsi = make_indexes(rsi, close, test_dates, 'RSI{}'.format(x), n_groups, n_days)
         features = features.append(rsi)
 
     for x in [15, 30, 100]:
         mfi = MFI().fit(high, low, close, volume, x)
-        mfi = make_indexes(mfi, close, test_dates, 'MFI{}'.format(x))
+        mfi = make_indexes(mfi, close, test_dates, 'MFI{}'.format(x), n_groups, n_days)
         features = features.append(mfi)
 
     # OTHER VARS variables
@@ -189,7 +189,7 @@ def get_features(data):
 
     for v in variables:
         var = clean_pivot_raw_data(data, v)
-        var = make_indexes(var, close, test_dates, v)
+        var = make_indexes(var, close, test_dates, v, n_groups, n_days)
         features = features.append(var)
 
     return features
