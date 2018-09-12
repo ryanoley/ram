@@ -6,6 +6,12 @@ from ram.data.feature_creator import *
 
 
 def make_groups(data, n_groups=5, n_days=3):
+    """
+    Takes in DataFrame with dates in index and SecCodes in columns.
+    Groups each SecCode by the feature, but only ever n_days days. The
+    first date (index[0]) is always the first date of group creation,
+    and this should be the first date of the TEST data.
+    """
     nan_inds = data.isnull()
     # Create groups
     groups = data.rank(axis=1, pct=True) * n_groups
@@ -25,21 +31,28 @@ def make_groups(data, n_groups=5, n_days=3):
 
 
 def get_index_features(features, groups):
+    """
+    Takes in the same dataset as `make_groups`, but then also uses the
+    groupings to create an average value for each of those groups.
+    """
     features = features.unstack().reset_index()
     features.columns = ['SecCode', 'Date', 'Feature']
-    # NO SHIFT. This means that at 345, stocks are sorted into groups,
-    # and an index is created
     groups = groups.unstack().reset_index()
     groups.columns = ['SecCode', 'Date', 'Group']
     index_features = features.merge(groups)
     # Drop nan values (999s don't account for the shift that happens above)
     index_features = index_features[index_features.Feature.notnull()]
-    index_features = index_features.groupby(['Group', 'Date'])['Feature'].mean().reset_index()
-    index_features = index_features[index_features.Group != -999].reset_index(drop=True)
+    index_features = index_features[index_features.Group != -999]
+    index_features = index_features.groupby(
+        ['Group', 'Date'])['Feature'].mean().reset_index()
     return index_features
 
 
 def get_index_returns(rets, groups):
+    """
+    Takes in a returns DataFrame with dates in the index and SecCodes in
+    the columns. The groups DataFrame is the output from `make_groups`.
+    """
     rets = rets.unstack().reset_index()
     rets.columns = ['SecCode', 'Date', 'DailyReturn']
     # Shift one day forward to affix the return
@@ -48,12 +61,17 @@ def get_index_returns(rets, groups):
     index_rets = rets.merge(groups)
     # Drop nan values (999s don't account for the shift that happens above)
     index_rets = index_rets[index_rets.DailyReturn.notnull()]
-    index_rets = index_rets.groupby(['Group', 'Date'])['DailyReturn'].mean().reset_index()
-    index_rets = index_rets[index_rets.Group != -999].reset_index(drop=True)
+    index_rets = index_rets[index_rets.Group != -999]
+    index_rets = index_rets.groupby(
+        ['Group', 'Date'])['DailyReturn'].mean().reset_index()
     return index_rets
 
 
 def get_index_responses(features, n_days=3):
+    """
+    Takes in the results of the get_index_features and get_index_returns
+    to create responses for these indexes
+    """
     returns = features.pivot(index='Date',
                              columns='Group',
                              values='DailyReturn')
@@ -68,21 +86,21 @@ def get_index_responses(features, n_days=3):
     return bins
 
 
-def make_indexes(data, close_prices, test_dates, label):
-    n_days = 3
-    groups = make_groups(data, n_groups=5, n_days=n_days)
+def make_indexes(data, close_prices, test_dates, label, n_groups, n_days):
+    groups = make_groups(data, n_groups=n_groups, n_days=n_days)
     features = get_index_features(data, groups)
     returns = get_index_returns(close_prices.pct_change(), groups)
     features = features.merge(returns, how='left')
     responses = get_index_responses(features, n_days=n_days)
     features = features.merge(responses, how='left')
-    features['Group'] = features.Group.apply(lambda x: '{}_{}'.format(label, int(x)))
+    features['Group'] = features.Group.apply(
+        lambda x: '{}_{}'.format(label, int(x)))
     features = features[features.Date.isin(test_dates)].reset_index(drop=True)
     # First day of daily return is not knowable, so delete for now to make
     # sure it is never relied upon
-    features.DailyReturn.loc[features.Date == min(test_dates)] = np.nan
-    features.Feature.loc[features.Date == max(test_dates)] = np.nan
-    features.Response.loc[features.Date == max(test_dates)] = np.nan
+    features.loc[features.Date == min(test_dates), 'DailyReturn'] = np.nan
+    features.loc[features.Date == max(test_dates), 'Feature'] = np.nan
+    features.loc[features.Date == max(test_dates), 'Response'] = np.nan
     return features
 
 
@@ -120,48 +138,41 @@ def get_features(data):
         prma = make_indexes(prma, close, test_dates, 'PRMA{}'.format(x))
         features = features.append(prma)
 
-
     for x in [10, 20, 40]:
         vol = VOL().fit(close, x)
         vol = make_indexes(vol, close, test_dates, 'VOL{}'.format(x))
         features = features.append(vol)
 
-
+    # Not in use because groupings became non-uniform
     # for x in [40, 100, 200]:
     #     disc = DISCOUNT().fit(close, x)
     #     disc = make_indexes(disc, close, test_date, 'DISCOUNT{}'.format(x))
     #     features = features.append(disc)
-
 
     for x in [10, 20, 40, 80]:
         boll = BOLL().fit(close, x)
         boll = make_indexes(boll, close, test_dates, 'BOLL{}'.format(x))
         features = features.append(boll)
 
-
     for x in [40, 80]:
         boll = BOLL_SMOOTH().fit(close, 2, x)
         boll = make_indexes(boll, close, test_dates, 'BOLL2{}'.format(x))
         features = features.append(boll)
-
 
     for x in [80, 160]:
         boll = BOLL_SMOOTH().fit(close, 4, x)
         boll = make_indexes(boll, close, test_dates, 'BOLL4{}'.format(x))
         features = features.append(boll)
 
-
     for x in [15, 30, 100]:
         rsi = RSI().fit(close, x)
         rsi = make_indexes(rsi, close, test_dates, 'RSI{}'.format(x))
         features = features.append(rsi)
 
-
     for x in [15, 30, 100]:
         mfi = MFI().fit(high, low, close, volume, x)
         mfi = make_indexes(mfi, close, test_dates, 'MFI{}'.format(x))
         features = features.append(mfi)
-
 
     # OTHER VARS variables
     variables = ['PE',
