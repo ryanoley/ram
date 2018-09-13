@@ -12,8 +12,6 @@ PACKAGES = [
     'ram/aws',
     'ram/data',
     'ram/strategy',
-    # ~~~ BIRDS ~~~
-    'ram/strategy/birds',
     # ~~~ Intraday Reversion ~~~
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
