@@ -8,15 +8,46 @@ class Pairs:
     def get_best_pairs(self,
                        data,
                        cut_date,
-                       z_window,
-                       max_pairs):
-        train_close = data.loc[data.index < cut_date]
-        pairs = self._get_stats_all_pairs(train_close)
-        fpairs = self._filter_pairs(pairs, data, max_pairs)
+                       z_window=20,
+                       max_pairs=1000,
+                       close_prices=False):
+        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Should have dates in the index, and time series in the column.
+            It can be Closes or Returns.
+        cut_date : dt.date/datetime
+            The first date of the test period.
+        z_window : int
+            This function returns z-scores, and z-scores require some window
+            over which the standard deviation is calculated.
+        max_pairs: int
+            Because by creating pairs, there are n choose m pairs, larger
+            data frames can have massive numbers of pairs. This gives you the
+            ability to restrict the number that are calculated and returned.
+
+        Returns
+        -------
+        test_rets : pd.DataFrame
+            The return series for the top pairs
+        test_zscores : pd.DataFrame
+            Z-Scores series for top pairs. Aligns with test_rets
+        pair_info : pd.DataFrame
+            Description stats of the pairs
+        """
+        if close_prices:
+            data = data.pct_change(1).iloc[1:]
+        # Create statistics for all pairs from training data
+        pair_info = self._get_stats_all_pairs(data.loc[data.index < cut_date])
+        # Select top pairs by some scoring mechanism
+        pair_info = self._filter_pairs(pair_info, data, max_pairs)
         # Create daily z-scores
-        test_rets, test_pairs = self._get_test_zscores(data, cut_date,
-                                                       fpairs, z_window)
-        return test_rets, test_pairs, fpairs
+        test_rets, test_zscores = self._get_test_zscores(data,
+                                                         cut_date,
+                                                         pair_info,
+                                                         z_window)
+        return test_rets, test_zscores, pair_info
 
     def _filter_pairs(self, pairs, data, max_pairs):
         """
@@ -32,31 +63,39 @@ class Pairs:
         return pairs
 
     def _get_stats_all_pairs(self, data):
-        # Convert to numpy array for calculations
-        rets_a = np.array(data)
-        index_a = np.array(data.cumsum())
-
-        # Get matrix of all combos
-        X1 = self._get_corr_coef(rets_a)
-        X2 = np.apply_along_axis(self._get_corr_moves, 0, rets_a, rets_a)
-        X3 = np.apply_along_axis(self._get_vol_ratios, 0, rets_a, rets_a)
-        X4 = np.apply_along_axis(self._get_abs_distance, 0, index_a, index_a)
-
+        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Return series
+        """
         # Output
+        output = self._create_output_object(data)
+
+        data = np.array(data)
+        # Cumulative sum of return series
+        index = np.cumsum(data, axis=0)
+        # Get matrix of all combos
+        X1 = self._get_corr_coef(data)
+        X2 = np.apply_along_axis(self._get_corr_moves, 0, data, data)
+        X3 = np.apply_along_axis(self._get_vol_ratios, 0, data, data)
+        X4 = np.apply_along_axis(self._get_abs_distance, 0, index, index)
+
+        # Capture going first down rows, then over columns (Column, Row)
+        z1 = list(it.combinations(range(data.shape[1]), 2))
+
+        output['corrcoef'] = [X1[z1[i]] for i in range(len(z1))]
+        output['corrmoves'] = [X2[z1[i]] for i in range(len(z1))]
+        output['volratio'] = [X3[z1[i]] for i in range(len(z1))]
+        output['distances'] = [X4[z1[i]] for i in range(len(z1))]
+
+        return output
+
+    def _create_output_object(self, data):
         legs = zip(*it.combinations(data.columns.values, 2))
-        stat_df = pd.DataFrame({'Leg1': legs[0]})
-        stat_df['Leg2'] = legs[1]
-
-        # Capture going first down rows, then over columns
-        # (Column, Row)
-        z1 = list(it.combinations(range(len(data.columns)), 2))
-
-        stat_df['corrcoef'] = [X1[z1[i]] for i in range(len(z1))]
-        stat_df['corrmoves'] = [X2[z1[i]] for i in range(len(z1))]
-        stat_df['volratio'] = [X3[z1[i]] for i in range(len(z1))]
-        stat_df['distances'] = [X4[z1[i]] for i in range(len(z1))]
-
-        return stat_df
+        output = pd.DataFrame({'Leg1': legs[0]})
+        output['Leg2'] = legs[1]
+        return output
 
     @staticmethod
     def _get_abs_distance(x_index, indexes):
@@ -85,7 +124,8 @@ class Pairs:
         """
         x_std = np.array([np.std(x_ret)] * rets.shape[1])
         all_std = np.std(rets, axis=0)
-        # Flipped when it is pulled from nXn
+        # NOTE: this relationship is flipped to make sure it works when
+        # extracted in _get_stats_all_pairs
         return all_std / x_std
 
     def _get_test_zscores(self, data, cut_date, fpairs, window):
