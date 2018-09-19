@@ -67,6 +67,11 @@ base.features = [
 
 ]
 
+# ALL
+all_sectors = deepcopy(base)
+all_sectors.description = 'All Sectors, Top 300, Monthly, 12 month training'
+all_sectors.universe_filter_arguments['univ_size'] = 300
+all_sectors.universe_date_parameters['train_period_length'] = 12
 
 # SECTOR 20
 sector20_1 = deepcopy(base)

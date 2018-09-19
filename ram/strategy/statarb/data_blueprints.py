@@ -18,3 +18,5 @@ blueprint_container.add_blueprint(sector35_1)
 blueprint_container.add_blueprint(sector40_1)
 blueprint_container.add_blueprint(sector50_1)
 blueprint_container.add_blueprint(sector55_1)
+
+blueprint_container.add_blueprint(all_sectors)
