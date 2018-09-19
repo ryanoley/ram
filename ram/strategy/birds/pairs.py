@@ -138,9 +138,9 @@ class Pairs:
         rets_leg2 = data.loc[:, fpairs.Leg2].copy()
         outdf_rets = rets_leg1 - rets_leg2.values
         # Add correct column names
-        outdf.columns = ['{0}_{1}'.format(x, y) for x, y in
+        outdf.columns = ['{0}~{1}'.format(x, y) for x, y in
                          zip(fpairs.Leg1, fpairs.Leg2)]
-        outdf_rets.columns = ['{0}_{1}'.format(x, y) for x, y in
+        outdf_rets.columns = ['{0}~{1}'.format(x, y) for x, y in
                               zip(fpairs.Leg1, fpairs.Leg2)]
         return outdf_rets.loc[outdf_rets.index >= cut_date], \
             outdf.loc[outdf.index >= cut_date]
