@@ -115,7 +115,7 @@ y_test = test_data['Response']
 tree = ExtraTreesClassifier()
 
 parameters = {
-    'n_estimators': [10, 100],
+    'n_estimators': [10, 10o0],
     'min_samples_leaf': [30, 100, 1000],
     'criterion': ['gini', 'entropy'],
     'max_features': ['auto' ,'sqrt', 'log2'],
