@@ -82,7 +82,7 @@ def get_index_responses(features, n_days=3):
     bins = (ranks > 0.5).astype(int)
     bins[nan_inds] = np.nan
     bins = bins.unstack().reset_index()
-    bins.columns = ['Group', 'Date', 'Response']
+    bins.columns = ['Group', 'Date', 'GroupResponse']
     return bins
 
 
@@ -100,7 +100,7 @@ def make_indexes(data, close_prices, test_dates, label, n_groups, n_days):
     # sure it is never relied upon
     features.loc[features.Date == min(test_dates), 'DailyReturn'] = np.nan
     features.loc[features.Date == max(test_dates), 'Feature'] = np.nan
-    features.loc[features.Date == max(test_dates), 'Response'] = np.nan
+    features.loc[features.Date == max(test_dates), 'GroupResponse'] = np.nan
     return features
 
 

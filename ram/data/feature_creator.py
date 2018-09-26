@@ -6,13 +6,13 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def clean_pivot_raw_data(data, value_column, lag=0):
+def clean_pivot_raw_data(data, value_column, lag=0, column='SecCode'):
     """
     NOTE: This function will fill/'pad' a maximum of 5 days worth of missing
     data going forward.
     """
     assert lag >= 0
-    data = data.pivot(index='Date', columns='SecCode',
+    data = data.pivot(index='Date', columns=column,
                       values=value_column).shift(lag)
     # Allow to fill up to five days of missing data if there was a
     # previous data point
