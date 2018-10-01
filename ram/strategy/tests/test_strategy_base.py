@@ -269,6 +269,34 @@ class TestStrategyBase(unittest.TestCase):
         self.assertEqual(strategy._restart_time_index, 1)
         self.assertEqual(len(os.listdir(path)), 1)
 
+    def test_get_max_run_time_index_for_restart2(self):
+        """
+        Case when final results file is empty
+        """
+        self.strategy._get_prepped_data_file_names()
+        self.strategy._create_run_output_dir()
+        self.strategy._create_meta_file('Test')
+        df = pd.DataFrame(
+            {'v1': [10, 20, 30], 'v2': [3, 4, 5]},
+            index=['2010-01-01', '2010-01-02', '2010-01-03'])
+        self.strategy.write_index_results(df, 0)
+        df = pd.DataFrame(columns=[1, 2])
+        self.strategy.write_index_results(df, 1)
+        # New Strategy
+        strategy = TestStrategy(
+            write_flag=True,
+            ram_prepped_data_dir=self.prepped_data_dir,
+            ram_simulations_dir=self.simulation_output_dir,
+            ram_implementation_dir=self.implementation_output_dir)
+        strategy._init_simulations_output_dir()
+        strategy._import_run_meta_for_restart('run_0001')
+        strategy._get_prepped_data_file_names()
+        path = os.path.join(strategy.strategy_run_output_dir, 'index_outputs')
+        self.assertEqual(len(os.listdir(path)), 2)
+        strategy._get_max_run_time_index_for_restart()
+        self.assertEqual(strategy._restart_time_index, 1)
+        self.assertEqual(len(os.listdir(path)), 1)
+
     def test_read_write_json(self):
         meta = {'V1': 2, 'V2': 4}
         out_path = os.path.join(self.prepped_data_dir, 'meta.json')
