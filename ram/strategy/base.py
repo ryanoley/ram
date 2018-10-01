@@ -549,12 +549,18 @@ class Strategy(object):
             rdata = pd.read_csv(run_path, index_col=0)
             ddata = pd.read_csv(data_path)
 
-        # DELETE last run file because it is not complete?
         # Infer monthly or quarterly
         d_periods = np.diff([int(x[4:6]) for x in all_files])
         d_periods = d_periods[d_periods > 0]
 
-        if min(d_periods) == 1:
+        # In some cases the results file can be empty given when the
+        # re-run occured around the first trading day of the month
+        if len(rdata) == 0:
+            if len(ddata) == 0:
+                raise NotImplementedError()
+            keep_last_file = False
+
+        elif min(d_periods) == 1:
             run_dates = np.unique(convert_date_array(rdata.index))
             data_dates = np.unique(convert_date_array(ddata.Date))
             # Get data_dates from same month as run_dates
