@@ -307,6 +307,18 @@ class TestStrategyBase(unittest.TestCase):
     def test_read_write_json_cloud(self):
         pass
 
+    def test_write_simulation_progress(self):
+        self.strategy._create_run_output_dir()
+        self.strategy._get_prepped_data_file_names()
+        self.strategy._write_simulation_progress(20)
+        error = ValueError('Some problem')
+        self.strategy._write_simulation_error(error)
+        path = os.path.join(self.strategy.strategy_run_output_dir, 'simulation_info.json')
+        result = read_json(path)
+        benchmark = {'time_index': 20, 'error_type': 'ValueError',
+                     'time_index_count': 2, 'error': 'Some problem'}
+        self.assertDictEqual(result, benchmark)
+
     def tearDown(self):
         if os.path.exists(self.test_data_dir):
             shutil.rmtree(self.test_data_dir)

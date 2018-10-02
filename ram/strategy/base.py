@@ -134,68 +134,84 @@ class Strategy(object):
     # ~~~~~~ RUN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def start(self, description=None):
-        self.strategy_init()
-        self._get_prepped_data_file_names()
-        self._create_run_output_dir()
-        self._copy_source_code()
-        self._create_meta_file(description)
-        self._write_column_parameters_file()
-        self._write_blueprint()
-        market_data = self.read_market_index_data()
-        for time_index in tqdm(range(len(self._prepped_data_files))):
-            self.process_raw_data(
-                self.read_data_from_index(time_index),
-                time_index,
-                market_data.copy())
-            returns, all_output, stats = self.run_index(time_index)
-            if np.any(returns):
-                self.write_index_results(returns, time_index, 'returns')
-                self.write_index_results(all_output, time_index, 'all_output')
-                # self.write_index_stats(stats, time_index)
-        self._shutdown_simulation()
-        return
+        try:
+            self.strategy_init()
+            self._get_prepped_data_file_names()
+            self._create_run_output_dir()
+            self._copy_source_code()
+            self._create_meta_file(description)
+            self._write_column_parameters_file()
+            self._write_blueprint()
+            market_data = self.read_market_index_data()
+            for time_index in tqdm(range(len(self._prepped_data_files))):
+                self._write_simulation_progress(time_index)
+                raise NotImplementedError()
+                self.process_raw_data(
+                    self.read_data_from_index(time_index),
+                    time_index,
+                    market_data.copy())
+                returns, all_output, stats = self.run_index(time_index)
+                if np.any(returns):
+                    self.write_index_results(returns, time_index, 'returns')
+                    self.write_index_results(all_output, time_index, 'all_output')
+                    # self.write_index_stats(stats, time_index)
+            self._shutdown_simulation()
+            return
+        except Exception as e:
+            self._write_simulation_error(e)
+            raise e
 
     def restart(self, run_name):
-        self._import_run_meta_for_restart(run_name)
-        self.strategy_init()
-        self._get_prepped_data_file_names()
-        self._get_max_run_time_index_for_restart()
-        market_data = self.read_market_index_data()
-        for time_index in tqdm(range(len(self._prepped_data_files))):
-            # Stack data
-            self.process_raw_data(
-                self.read_data_from_index(time_index),
-                time_index,
-                market_data.copy())
-            # We want to process one period before writing it out
-            if not time_index >= (self._restart_time_index - 1):
-                continue
-            returns, all_output, stats = self.run_index(time_index)
-            # Write
-            if time_index >= self._restart_time_index:
-                self.write_index_results(returns, time_index, 'returns')
-                self.write_index_results(all_output, time_index, 'all_output')
-                # self.write_index_stats(stats, time_index)
-        self._shutdown_simulation()
-        return
+        try:
+            self._import_run_meta_for_restart(run_name)
+            self.strategy_init()
+            self._get_prepped_data_file_names()
+            self._get_max_run_time_index_for_restart()
+            market_data = self.read_market_index_data()
+            for time_index in tqdm(range(len(self._prepped_data_files))):
+                self._write_simulation_progress(time_index)
+                # Stack data
+                self.process_raw_data(
+                    self.read_data_from_index(time_index),
+                    time_index,
+                    market_data.copy())
+                # We want to process one period before writing it out
+                if not time_index >= (self._restart_time_index - 1):
+                    continue
+                returns, all_output, stats = self.run_index(time_index)
+                # Write
+                if time_index >= self._restart_time_index:
+                    self.write_index_results(returns, time_index, 'returns')
+                    self.write_index_results(all_output, time_index, 'all_output')
+                    # self.write_index_stats(stats, time_index)
+
+            self._shutdown_simulation()
+            return
+        except Exception as e:
+            self._write_simulation_error(e)
+            raise e
 
     def implementation_training(self):
-        self._create_implementation_output_dir()
-        self._create_implementation_meta_file()
-        run_map = self._import_prep_implementation_parameters()
-        current_stack_index = -1
-        for run_data in run_map:
-            if run_data['stack_index'] != current_stack_index:
-                self.strategy_code_version = run_data['strategy_code_version']
-                self.prepped_data_version = run_data['prepped_data_version']
-                current_stack_index = run_data['stack_index']
-                print('[[Stacking data]]')
-                self.strategy_init()
-                self._implementation_training_stack_version_data()
+        try:
+            self._create_implementation_output_dir()
+            self._create_implementation_meta_file()
+            run_map = self._import_prep_implementation_parameters()
+            current_stack_index = -1
+            for run_data in run_map:
+                if run_data['stack_index'] != current_stack_index:
+                    self.strategy_code_version = run_data['strategy_code_version']
+                    self.prepped_data_version = run_data['prepped_data_version']
+                    current_stack_index = run_data['stack_index']
+                    print('[[Stacking data]]')
+                    self.strategy_init()
+                    self._implementation_training_stack_version_data()
 
-            self.process_implementation_params(run_data['run_name'],
-                                               run_data['column_params'])
-        return
+                self.process_implementation_params(run_data['run_name'],
+                                                   run_data['column_params'])
+        except Exception as e:
+            # TODO: This needs to be written to something
+            # self._write_simulation_error(e)
+            raise e
 
     # ~~~~~~ GCP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -595,6 +611,45 @@ class Strategy(object):
         # Get the index of the first file to WRITE
         ind = sum(np.array(data_prefixes) < max_file_prefix) + 1
         self._restart_time_index = ind
+
+    def _write_simulation_progress(self, time_index):
+        if not self._write_flag:
+            return
+        path = os.path.join(self.strategy_run_output_dir,
+                            'simulation_info.json')
+        if self._gcp_implementation:
+            write_json_cloud(
+                {'time_index': time_index,
+                 'time_index_count': len(self._prepped_data_files)},
+                path, self._gcp_bucket)
+        else:
+            write_json({'time_index': time_index,
+                        'time_index_count': len(self._prepped_data_files)},
+                       path)
+        return
+
+    def _write_simulation_error(self, error):
+        if not self._write_flag:
+            return
+        path = os.path.join(self.strategy_run_output_dir,
+                            'simulation_info.json')
+        if self._gcp_implementation:
+            try:
+                info = read_json_cloud(path, bucket)
+            except:
+                info = {}
+            info['error'] = error.message
+            info['error_type'] = error.__class__.__name__
+            write_json_cloud(info, path, self._gcp_bucket)
+        else:
+            try:
+                info = read_json(path)
+            except:
+                info = {}
+            info['error'] = error.message
+            info['error_type'] = error.__class__.__name__
+            write_json(info, path)
+        return
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
