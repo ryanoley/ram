@@ -1,10 +1,10 @@
 SET NOCOUNT ON;
 
-IF OBJECT_ID('ram.dbo.ram_starmine_map2') IS NOT NULL
-    DROP TABLE ram.dbo.ram_starmine_map2
+IF OBJECT_ID('ram.dbo.ram_starmine_map') IS NOT NULL
+    DROP TABLE ram.dbo.ram_starmine_map
 
 
-create table ram.dbo.ram_starmine_map2 (
+create table ram.dbo.ram_starmine_map (
 	SecCode int,
 	SecId int,
 	StartDate smalldatetime,
@@ -159,7 +159,7 @@ where			SecCode in (select SecCode from country_filter_2 where Count_ = 1)
 )
 
 
-insert into ram.dbo.ram_starmine_map2
+insert into ram.dbo.ram_starmine_map
 select * from clean_codes_1
 union
 select * from clean_codes_2
@@ -205,5 +205,5 @@ from			seccode_secid_map_1 A
 -- Output to file
 select			*
 from			seccode_secid_map_2
-	where		SecCode not in (select distinct SecCode from ram.dbo.ram_starmine_map2)
+	where		SecCode not in (select distinct SecCode from ram.dbo.ram_starmine_map)
 
