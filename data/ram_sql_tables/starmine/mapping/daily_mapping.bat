@@ -13,5 +13,3 @@ set dateprefix=%date:~10,4%%date:~4,2%%date:~7,2%
 %SQLCMD% -i %SCRIPTS%\ram_starmine_map.sql > %OUTPUT%\%dateprefix%_problem_seccodes.txt
 
 python %SCRIPTS%\handle_mappings.py
-
-pause
