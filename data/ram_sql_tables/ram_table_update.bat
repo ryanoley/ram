@@ -55,8 +55,6 @@ echo. & echo ~~ ram_equity_report_dates !time!~~
 
 :: StarMine
 echo. & echo ~~ ram_starmine_map !time!~~
-%SQLCMD% -i %SQLDIR%\starmine\ram_starmine_map.sql
-
 call %SQLDIR%\starmine\mapping\ram_starmine_map.sql
 
 :: Call GVKEY Mapping Batch File
