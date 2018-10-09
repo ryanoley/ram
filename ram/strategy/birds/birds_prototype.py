@@ -23,31 +23,13 @@ market_data = strategy.read_market_index_data()
 
 features = pd.DataFrame()
 
-# for i in range(150, len(strategy._prepped_data_files)):
-for i in range(150, 160):
+
+for i in range(150, len(strategy._prepped_data_files)):
     data = strategy.read_data_from_index(i)
     f = get_features(data, n_groups=5, n_days=3)
     f['tindex'] = i
     features = features.append(f)
     print(i)
-
-
-###############################################################################
-#  Responses across all groups, not just intragroup
-
-returns = features[features.DailyReturn.notnull()].pivot(
-    index='Date', columns='Group', values='DailyReturn')
-
-ndays = 4
-
-responses = returns.rolling(window=ndays).sum().shift(-ndays).dropna()
-
-responses = (responses.rank(pct=True, axis=1) > 0.5).astype(int)
-
-responses = responses.unstack().reset_index()
-responses.columns = ['Group', 'Date', 'Response']
-
-features2 = features.merge(responses, how='left')
 
 
 ###############################################################################
@@ -74,91 +56,113 @@ vol = returns.rolling(window=10).std()
 vol = vol.unstack().reset_index()
 vol.columns = ['Group', 'Date', 'vol']
 
-# LAGGED and SMOOTHED returns
+# One-day and SMOOTHED returns
 rets = returns.copy()
 rets = rets.unstack().reset_index()
-rets.columns = ['Group', 'Date', 'rets']
+rets.columns = ['Group', 'Date', 'rets_1day']
 
-rets2 = returns.rolling(window=2).sum()
-rets2 = rets2.unstack().reset_index()
-rets2.columns = ['Group', 'Date', 'rets2']
+rets_5day = returns.rolling(window=5).sum()
+rets_5day = rets_5day.unstack().reset_index()
+rets_5day.columns = ['Group', 'Date', 'rets_5day']
 
-# ALL Groups
-all_groups = returns.copy()
-all_groups.columns = ['grp_{}'.format(x) for x in all_groups.columns]
-grp_features = all_groups.columns.tolist()
-all_groups = all_groups.reset_index()
+# Spreads on rolling returns
+spread_rets = returns.rolling(window=10).sum()
+
+group_vars = list(set([x.split('_')[0] for x in returns.columns]))
+n_groups = max(set([x.split('_')[1] for x in returns.columns]))
+
+spreads = pd.DataFrame()
+for v in group_vars:
+    spreads[v + '_ret_spread'] = spread_rets[v+'_'+n_groups] - spread_rets[v+'_1']
+spreads = spreads.reset_index()
+
 
 # MERGE
-data = responses.merge(prma).merge(disc).merge(vol).merge(rets).merge(rets2).merge(all_groups)
+responses = features[['Group', 'Date', 'tindex', 'UnivResponse']]
+data = responses.merge(prma).merge(disc).merge(vol).merge(rets).merge(rets_5day).merge(spreads)
 data = data.dropna()
+
+
+###############################################################################
+#  Iterate
+
+all_features = ['prma', 'disc', 'vol', 'rets_1day', 'rets_5day'] + spreads.columns.tolist()[1:]
 
 all_dates = data.Date.unique()
 train_dates = all_dates[:-15]
 test_dates = all_dates[-15:]
 
-train_data = data[data.Date.isin(train_dates)]
-test_data = data[data.Date.isin(test_dates)]
+all_groups = data.Group.unique()
 
-all_features = ['prma', 'disc', 'vol', 'rets', 'rets2'] + grp_features
-
-X_train = train_data[all_features]
-y_train = train_data['Response']
-
-X_test = test_data[all_features]
-y_test = test_data['Response']
-
-
-###############################################################################
-# GRID SEARCH
-
-tree = ExtraTreesClassifier()
-
-parameters = {
-    'n_estimators': [10, 10o0],
-    'min_samples_leaf': [30, 100, 1000],
-    'criterion': ['gini', 'entropy'],
-    'max_features': ['auto' ,'sqrt', 'log2'],
-    'max_depth': [4, 10, 20, 40, 80]
-}
-
-clf = GridSearchCV(tree, parameters, n_jobs=3, verbose=2)
-clf.fit(X=X_train, y=y_train)
-
-
-print(clf.best_params_)
-
-
-metrics.accuracy_score(y_train, clf.predict(X_train))
-metrics.accuracy_score(y_test, clf.predict(X_test))
-
-
-
-boost = GradientBoostingClassifier()
-
-parameters = {
-    'n_estimators': [10],
-    'min_samples_leaf': [30, 100, 1000],
-    'max_depth': [4, 10, 20, 40, 80],
-    'max_features': ['auto' ,'sqrt', 'log2'],
-    'loss': ['deviance', 'exponential'],
-    'learning_rate': [0.01, 0.1, 1.0]
-}
-
-clf2 = GridSearchCV(boost, parameters, n_jobs=3, verbose=2)
-clf2.fit(X=X_train, y=y_train)
-
-
-print(clf.best_params_)
-
-
-metrics.accuracy_score(y_train, clf.predict(X_train))
-metrics.accuracy_score(y_test, clf.predict(X_test))
+output = pd.DataFrame()
 
 
 
 
+for g in all_groups:
+
+    data2 = data[data.Group == g].copy()
+
+    train_data = data2[data2.Date.isin(train_dates)]
+    test_data = data2[data2.Date.isin(test_dates)]
+
+    X_train = train_data[all_features]
+    y_train = train_data['UnivResponse']
+
+    X_test = test_data[all_features]
+    y_test = test_data['UnivResponse']
+
+    tree = ExtraTreesClassifier()
+
+    parameters = {
+        'n_estimators': [10, 100],
+        'min_samples_leaf': [30, 100, 1000],
+        'criterion': ['gini', 'entropy'],
+        'max_features': ['auto' ,'sqrt', 'log2'],
+        'max_depth': [4, 10, 20, 40, 80]
+    }
+
+    print('Starting grid search for {}...'.format(g))
+    clf = GridSearchCV(tree, parameters, n_jobs=3, verbose=1)
+    clf.fit(X=X_train, y=y_train)
+
+    probs = clf.predict_proba(X_test)[:, 1]
+
+    output = output.append(pd.DataFrame({
+        'Group': g,
+        'Date': test_dates,
+        'probs': probs,
+        'Responses': y_test.values}))
+
+    print(g)
 
 
+# Attach forward returns for n_days
+forward_rets = returns.rolling(window=3).sum().shift(-3)
+forward_rets = forward_rets.unstack().reset_index()
+forward_rets.columns = ['Group', 'Date', 'forward_ret']
 
+output2 = output.merge(forward_rets)
+
+
+# Select only top and bottom groups
+# output2 = output2[output2.Group.apply(lambda x: x.split('_')[1] in ['1', '5'])]
+
+# Get buy signals
+select = output2.pivot(index='Date', columns='Group', values='probs')
+
+select2 = (select.rank(axis=1, pct=True) > 0.90).astype(int)
+select2 = select2.unstack().reset_index()
+select2.columns = ['Group', 'Date', 'SelectTop']
+
+output3 = output2.merge(select2)
+
+select2 = (select.rank(axis=1, pct=True) < 0.10).astype(int)
+select2 = select2.unstack().reset_index()
+select2.columns = ['Group', 'Date', 'SelectBottom']
+
+output3 = output3.merge(select2)
+
+print(output3[output3.SelectTop == 1].forward_ret.mean())
+print(output3[output3.SelectBottom == 1].forward_ret.mean())
 

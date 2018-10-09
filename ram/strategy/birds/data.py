@@ -67,7 +67,7 @@ def get_index_returns(rets, groups):
     return index_rets
 
 
-def get_index_responses(features, n_days=3):
+def get_index_responses(features, n_days=3, label='GroupResponse'):
     """
     Takes in the results of the get_index_features and get_index_returns
     to create responses for these indexes
@@ -75,14 +75,13 @@ def get_index_responses(features, n_days=3):
     returns = features.pivot(index='Date',
                              columns='Group',
                              values='DailyReturn')
-
-    rolling_rets = returns.rolling(window=n_days).sum()
-    ranks = rolling_rets.rank(axis=1, pct=True).shift(-n_days)
+    rolling_rets = returns.rolling(window=n_days).sum().shift(-n_days)
+    ranks = rolling_rets.rank(axis=1, pct=True)
     nan_inds = ranks.isnull()
     bins = (ranks > 0.5).astype(int)
     bins[nan_inds] = np.nan
     bins = bins.unstack().reset_index()
-    bins.columns = ['Group', 'Date', 'GroupResponse']
+    bins.columns = ['Group', 'Date', label]
     return bins
 
 
@@ -191,5 +190,9 @@ def get_features(data, n_groups, n_days):
         var = clean_pivot_raw_data(data, v)
         var = make_indexes(var, close, test_dates, v, n_groups, n_days)
         features = features.append(var)
+
+    # Get responses across all groups
+    all_groups = get_index_responses(features, label='UnivResponse')
+    features = features.merge(all_groups)
 
     return features

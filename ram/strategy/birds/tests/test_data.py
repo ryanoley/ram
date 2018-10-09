@@ -56,8 +56,11 @@ class TestData(unittest.TestCase):
         benchmark = pd.DataFrame()
         benchmark['Group'] = [1.0] * 5 + [2.0] * 5 + [3.0] * 5
         benchmark['Date'] = [dt.date(2010, 1, i) for i in [1, 2, 3, 4, 5]] * 3
-        benchmark['Response'] = [1, 1, 1, np.nan, np.nan, 1, 1, 1,
-                                 np.nan, np.nan, 0, 0, 0., np.nan, np.nan]
+        benchmark['GroupResponse'] = [1, 1, 1, np.nan, np.nan, 1, 1, 1,
+                                      np.nan, np.nan, 0, 0, 0., np.nan, np.nan]
+        benchmark['GroupFutureReturn'] = [1, 1, 1, np.nan, np.nan, 0.5, 0.5,
+                                          0.5, np.nan, np.nan, -2/3., -2/3.,
+                                          -2/3., np.nan, np.nan]
         assert_frame_equal(result, benchmark)
 
     def test_make_indexes(self):
@@ -76,8 +79,11 @@ class TestData(unittest.TestCase):
         benchmark['DailyReturn'] = [np.nan, 0, 1, 0, 1,
                                     np.nan, 0, .5, 0, .5,
                                     np.nan, 0, -2/3., 0, -2/3.]
-        benchmark['Response'] = [1, 1, 1, np.nan, np.nan, 1, 1, 1,
-                                 np.nan, np.nan, 0, 0, 0., np.nan, np.nan]
+        benchmark['GroupResponse'] = [1, 1, 1, np.nan, np.nan, 1, 1, 1,
+                                      np.nan, np.nan, 0, 0, 0., np.nan, np.nan]
+        benchmark['GroupFutureReturn'] = [1, 1, 1, np.nan, np.nan, 0.5, 0.5,
+                                          0.5, np.nan, np.nan, -2/3., -2/3.,
+                                          -2/3., np.nan, np.nan]
         assert_frame_equal(result, benchmark)
 
     def test_extract_test_dates(self):
