@@ -13,34 +13,6 @@ create table ram.dbo.ram_starmine_map (
 );
 
 
--------------------------------------------------------------------------------------
-
-IF OBJECT_ID('tempdb..#secid_dates') IS NOT NULL
-    DROP TABLE #secid_dates
-
-
-create table #secid_dates (
-	SecId int,
-	StartDate smalldatetime,
-	EndDate smalldatetime
-	primary key (SecId)
-);
-
-
-; with starmine_date_map as (
--- Stack mappings of SecIds to cusip
-select SecId, min(AsOfDate) as StartDate, max(AsOfDate) as EndDate from ram.dbo.ram_starmine_smart_estimate group by SecId
-union
-select SecId, min(AsOfDate) as StartDate, max(AsOfDate) as EndDate from ram.dbo.ram_starmine_arm group by SecId
-union
-select SecId, min(AsOfDate) as StartDate, max(AsOfDate) as EndDate from ram.dbo.ram_starmine_short_interest group by SecId
-)
-
-
-insert into #secid_dates
-select SecId, min(StartDate) as StartDate, max(EndDate) as EndDate from starmine_date_map
-group by SecId
-
 
 -------------------------------------------------------------------------------------
 
@@ -77,11 +49,20 @@ where then_cusip_sedol is not null
 union
 select distinct SecId, cusip_sedol as Cusip from ram.dbo.ram_starmine_short_interest
 where cusip_sedol is not null
+),
+
+starmine_secids as (
+-- Stack mappings of SecIds to cusip
+select distinct SecId from ram.dbo.ram_starmine_smart_estimate
+union
+select distinct SecId from ram.dbo.ram_starmine_arm
+union
+select distinct SecId from ram.dbo.ram_starmine_short_interest
 )
 
 insert into #secid_cusips
 select distinct SecId, Cusip from starmine_cusip_map_1
-where SecId in (select distinct SecId from #secid_dates)
+where SecId in (select distinct SecId from starmine_secids)
 
 
 -------------------------------------------------------------------------------------
