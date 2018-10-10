@@ -82,7 +82,7 @@ def insert_mapping_into_db(mapping):
     formatted_rows = _format_rows(mapping)
     if len(formatted_rows):
         vals = ','.join(formatted_rows)
-        sql = "insert into ram.dbo.ram_starmine_map2 (SecCode, SecId, StartDate, EndDate) values "
+        sql = "insert into ram.dbo.ram_starmine_map (SecCode, SecId, StartDate, EndDate) values "
         sql = sql + vals + ';'
         dh.sql_execute_no_return(sql, time_constrained=False)
     return
