@@ -312,11 +312,13 @@ class TestStrategyBase(unittest.TestCase):
         self.strategy._get_prepped_data_file_names()
         self.strategy._write_simulation_progress(20)
         error = ValueError('Some problem')
-        self.strategy._write_simulation_error(error)
+        traceback = 'Some place in the code'
+        self.strategy._write_simulation_error(error, traceback)
         path = os.path.join(self.strategy.strategy_run_output_dir, 'simulation_info.json')
         result = read_json(path)
         benchmark = {'time_index': 20, 'error_type': 'ValueError',
-                     'time_index_count': 2, 'error': 'Some problem'}
+                     'time_index_count': 2, 'error': 'Some problem',
+                     'traceback': traceback}
         self.assertDictEqual(result, benchmark)
 
     def tearDown(self):

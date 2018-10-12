@@ -4,6 +4,7 @@ import json
 import shutil
 import pickle
 import inspect
+import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -145,7 +146,6 @@ class Strategy(object):
             market_data = self.read_market_index_data()
             for time_index in tqdm(range(len(self._prepped_data_files))):
                 self._write_simulation_progress(time_index)
-                raise NotImplementedError()
                 self.process_raw_data(
                     self.read_data_from_index(time_index),
                     time_index,
@@ -158,7 +158,9 @@ class Strategy(object):
             self._shutdown_simulation()
             return
         except Exception as e:
-            self._write_simulation_error(e)
+            traceback = get_traceback()
+            self._write_simulation_error(e, traceback)
+            print traceback
             raise e
 
     def restart(self, run_name):
@@ -188,7 +190,9 @@ class Strategy(object):
             self._shutdown_simulation()
             return
         except Exception as e:
-            self._write_simulation_error(e)
+            traceback = get_traceback()
+            self._write_simulation_error(e, traceback)
+            print traceback
             raise e
 
     def implementation_training(self):
@@ -628,7 +632,7 @@ class Strategy(object):
                        path)
         return
 
-    def _write_simulation_error(self, error):
+    def _write_simulation_error(self, error, traceback):
         if not self._write_flag:
             return
         path = os.path.join(self.strategy_run_output_dir,
@@ -640,6 +644,7 @@ class Strategy(object):
                 info = {}
             info['error'] = error.message
             info['error_type'] = error.__class__.__name__
+            info['traceback'] = traceback
             write_json_cloud(info, path, self._gcp_bucket)
         else:
             try:
@@ -648,6 +653,7 @@ class Strategy(object):
                 info = {}
             info['error'] = error.message
             info['error_type'] = error.__class__.__name__
+            info['traceback'] = traceback
             write_json(info, path)
         return
 
@@ -753,6 +759,13 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
+
+
+def get_traceback():
+    """
+    Will only work in the except part of try/except
+    """
+    return logging.Formatter().formatException(sys.exc_info())
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
