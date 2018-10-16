@@ -42,7 +42,7 @@ class DataContainer(BaseDataContainer):
         return {
             'response_days': self._response_days_args,
             'response_type': ['Simple'],
-            'data_rank_flag': [True, False]
+            'data_rank_flag': [True]
         }
 
     def set_args(self,

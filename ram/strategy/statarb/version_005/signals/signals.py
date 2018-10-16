@@ -18,8 +18,10 @@ class SignalModel(BaseSignalGenerator):
             'model': [
                 {'type': 'tree', 'min_samples_leaf': 500,
                  'max_features': 0.8, 'n_estimators': 30},
+                {'type': 'tree', 'min_samples_leaf': 1000,
+                 'max_features': 0.8, 'n_estimators': 30},
             ],
-            'drop_binaries': [True, False]
+            'drop_binaries': [False]
         }
 
     def set_args(self, model, drop_binaries):
