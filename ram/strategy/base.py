@@ -639,7 +639,7 @@ class Strategy(object):
                             'simulation_info.json')
         if self._gcp_implementation:
             try:
-                info = read_json_cloud(path, bucket)
+                info = read_json_cloud(path, self._gcp_bucket)
             except:
                 info = {}
             info['error'] = error.message
