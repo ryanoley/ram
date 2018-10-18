@@ -527,7 +527,11 @@ def make_orders(orders, positions, pricing, drop_short_seccodes,
         else:
             limit = round(last_price * (1 - loc_price_pct) / .05) * .05
 
-        if (last_price == 0) | (perc_of_vol > volume_pct_lim):
+        # If after 3:45pm, low volume name, or no price for limit -> VWAP
+        current_dt = dt.datetime.now()
+        current_fmt_dt = int(current_dt.strftime("%H%M%S"))
+        if ((current_fmt_dt >= 154455) | (last_price == 0) |
+            (perc_of_vol > volume_pct_lim)):
             order = VWAPOrder(basket='statArbBasket',
                               strategy_id=STRATEGY_ID,
                               symbol=o.Ticker,

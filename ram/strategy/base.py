@@ -639,7 +639,7 @@ class Strategy(object):
                             'simulation_info.json')
         if self._gcp_implementation:
             try:
-                info = read_json_cloud(path, bucket)
+                info = read_json_cloud(path, self._gcp_bucket)
             except:
                 info = {}
             info['error'] = error.message
@@ -937,6 +937,11 @@ def make_argument_parser(Strategy):
         '-r', '--restart_run', type=str, metavar='',
         help='Restart run. Enter index or name')
 
+    # Shutdown for GCE
+    parser.add_argument(
+        '--shutdown', action='store_true',
+        help='Shutdown GCE instance to avoid billing')
+
     args = parser.parse_args()
 
     # ~~~~~~ Blueprint/Data Construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1019,3 +1024,8 @@ def make_argument_parser(Strategy):
         strategy = Strategy(write_flag=True)
 
         strategy.restart(run_name)
+
+    # Check if you need to power off Google Cloud instance
+    if config.GCP_CLOUD_IMPLEMENTATION:
+        if args.shutdown:
+            os.system('sudo poweroff')
