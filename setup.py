@@ -16,12 +16,12 @@ PACKAGES = [
     'ram/strategy/intraday_reversion',
     'ram/strategy/intraday_reversion/src',
     # ~~~ Analyst Estimates ~~~
-    'ram/strategy/analyst_estimates',
-    'ram/strategy/analyst_estimates/base',
-    'ram/strategy/analyst_estimates/version_001',
-    'ram/strategy/analyst_estimates/version_001/constructor',
-    'ram/strategy/analyst_estimates/version_001/data',
-    'ram/strategy/analyst_estimates/version_001/signals',
+    'ram/strategy/sandbox',
+    'ram/strategy/sandbox/base',
+    'ram/strategy/sandbox/version_001',
+    'ram/strategy/sandbox/version_001/constructor',
+    'ram/strategy/sandbox/version_001/data',
+    'ram/strategy/sandbox/version_001/signals',
     # ~~~ STATARB ~~~
     'ram/strategy/statarb',
     'ram/strategy/statarb/abstract',
