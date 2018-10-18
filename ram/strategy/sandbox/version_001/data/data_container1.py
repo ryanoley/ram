@@ -56,99 +56,32 @@ class DataContainer1(object):
         # SPLITS
         data = create_split_multiplier(data)
         data.TM1 = convert_date_array(data.TM1)
-        data['prtgt_discount'] = (data.RClose / data.PTARGETUNADJ) - 1
-
-        # Open Return
-        data['OpenRet'] = (data.LEAD1_AdjOpen / data.AdjClose) - 1
 
         # State of the World
-        data['Abv_PRMA10'] = (data.PRMAH10_AdjClose > 0.).astype(int)
-        data['Blw_PRMA10'] = (data.PRMAH10_AdjClose < 0.).astype(int)
-        data['Abv_PRMA20'] = (data.PRMAH20_AdjClose > 0.).astype(int)
-        data['Blw_PRMA20'] = (data.PRMAH20_AdjClose < 0.).astype(int)
+        data['Abv_PRMA120'] = (data.PRMAH120_AdjClose > 0.).astype(int)
+        data['Blw_PRMA120'] = (data.PRMAH120_AdjClose < 0.).astype(int)
+        data['Abv_PRMA250'] = (data.PRMAH250_AdjClose > 0.).astype(int)
+        data['Blw_PRMA250'] = (data.PRMAH250_AdjClose < 0.).astype(int)
+
 
         # 4 Day High/Low
+        data = n_day_high_low(data, 'AdjClose', 3, 'CloseMax4')
+        data = n_day_high_low(data, 'AdjClose', 3, 'CloseMin4', low=True)
+
         data = n_day_high_low(data, 'AdjClose', 4, 'CloseMax4')
         data = n_day_high_low(data, 'AdjClose', 4, 'CloseMin4', low=True)
 
-        data = n_day_high_low(data, 'VOL20_AdjClose', 4, 'VolMax4')
-        data = n_day_high_low(data, 'VOL20_AdjClose', 4, 'VolMin4', low=True)
-
-        data = n_day_high_low(data, 'RSI20_AdjClose', 4, 'RSIMax4')
-        data = n_day_high_low(data, 'RSI20_AdjClose', 4, 'RSIMin4', low=True)
-
-        data = n_day_high_low(data, 'MFI20_AdjClose', 4, 'MFIMax4')
-        data = n_day_high_low(data, 'MFI20_AdjClose', 4, 'MFIMin4', low=True)
-
-        data = n_day_high_low(data, 'BOLL20_AdjClose', 4, 'BOLLMax4')
-        data = n_day_high_low(data, 'BOLL20_AdjClose', 4, 'BOLLMin4', low=True)
+        data = n_day_high_low(data, 'AdjClose', 5, 'CloseMax4')
+        data = n_day_high_low(data, 'AdjClose', 5, 'CloseMin4', low=True)
 
         # Top/Bottom 33%
         data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Top33_PRMA20')
         data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Btm33_PRMA20',
                              btm_pct=True)
 
-        data = n_pct_top_btm(data, 'PRMAH60_AdjClose', 33, 'Top33_PRMA60')
-        data = n_pct_top_btm(data, 'PRMAH60_AdjClose', 33, 'Btm33_PRMA60',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'VOL60_AdjClose', 33, 'Top33_VOL60')
-        data = n_pct_top_btm(data, 'VOL60_AdjClose', 33, 'Btm33_VOL60',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'DISCOUNT252_AdjClose', 33, 'Top33_DISC252')
-        data = n_pct_top_btm(data, 'DISCOUNT252_AdjClose', 33, 'Btm33_DISC252',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'MFI60_AdjClose', 33, 'Top33_MFI60')
-        data = n_pct_top_btm(data, 'MFI60_AdjClose', 33, 'Btm33_MFI60',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'RSI60_AdjClose', 33, 'Top33_RSI60')
-        data = n_pct_top_btm(data, 'RSI60_AdjClose', 33, 'Btm33_RSI60',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'BOLL60_AdjClose', 33, 'Top33_BOLL60')
-        data = n_pct_top_btm(data, 'BOLL60_AdjClose', 33, 'Btm33_BOLL60',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'SIRANK', 33, 'Top33_SIRANK')
-        data = n_pct_top_btm(data, 'SIRANK', 33, 'Btm33_SIRANK',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'ARM', 33, 'Top33_ARM')
-        data = n_pct_top_btm(data, 'ARM', 33, 'Btm33_ARM',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'SISHORTSQUEEZE', 33, 'Top33_SHORTSQZ')
-        data = n_pct_top_btm(data, 'SISHORTSQUEEZE', 33, 'Btm33_SHORTSQZ',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'prtgt_discount', 33, 'Top33_PXTGT')
-        data = n_pct_top_btm(data, 'prtgt_discount', 33, 'Btm33_PXTGT',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'PE', 33, 'Top33_PE')
-        data = n_pct_top_btm(data, 'PE', 33, 'Btm33_PE',
-                             btm_pct=True)
-
-        data = n_pct_top_btm(data, 'SALESGROWTHTTM', 33, 'Top33_REVGRWTH')
-        data = n_pct_top_btm(data, 'SALESGROWTHTTM', 33, 'Btm33_REVGRWTH',
-                             btm_pct=True)
-
-        # Add multiple Returns for model training
-        data = get_vwap_returns(data, 3, hedged=True,
-                                market_data=self._market_data)
-        data = get_vwap_returns(data, 5, hedged=True,
-                                market_data=self._market_data)
-        data = get_vwap_returns(data, 8, hedged=True,
-                                market_data=self._market_data)
-        data = get_vwap_returns(data, 10, hedged=True,
-                                market_data=self._market_data)
-        data = get_vwap_returns(data, 15, hedged=True,
-                                market_data=self._market_data)
-
         return data
+
+
 
     def prep_data(self, train_pers):
         """

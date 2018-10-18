@@ -12,7 +12,7 @@ base = DataConstructorBlueprint(constructor_type='universe',
 
 base.universe_filter_arguments['filter'] = 'AvgDolVol'
 
-base.universe_filter_arguments['where'] = 'MarketCap >= 150 and Close_ >= 8' \
+base.universe_filter_arguments['where'] = 'MarketCap >= 100 and Close_ >= 5' \
                                             + ' and AvgDolVol >= 1'
 
 base.universe_filter_arguments['univ_size'] = 500
@@ -32,34 +32,24 @@ base.features = [
 'RVwap', 'RClose','RCashDividend',
 
 # Pricing
-'AdjOpen', 'LEAD1_AdjOpen', 'AdjClose', 'AdjVwap',  'LEAD1_AdjVwap',
-'LEAD4_AdjVwap', 'LEAD5_AdjVwap', 'LEAD6_AdjVwap',
-'LEAD7_AdjVwap', 'LEAD8_AdjVwap', 'LEAD9_AdjVwap', 'LEAD10_AdjVwap',
-'LEAD11_AdjVwap', 'LEAD16_AdjVwap',
+'AdjOpen', 'LEAD1_AdjOpen', 'AdjClose', 'LEAD1_AdjClose', 'LEAD1_AdjClose',
+'AdjVwap',
 
 # Pricing Features
 'PRMAH10_AdjClose', 'PRMAH20_AdjClose', 'PRMAH60_AdjClose',
 'PRMAH120_AdjClose', 'PRMAH250_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
+
 'VOL60_AdjClose', 'VOL120_AdjClose', 'VOL250_AdjClose',
 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
+
 'MFI10_AdjClose', 'MFI20_AdjClose', 'MFI60_AdjClose', 'MFI120_AdjClose',
-'MFI250_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
-'RSI120_AdjClose', 'RSI250_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
-'BOLL60_AdjClose', 'BOLL120_AdjClose', 'BOLL250_AdjClose',
+'MFI250_AdjClose',
 
-# Starmine SI Vars
-'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
-# Starmine ARM
-'ARM', 'ARMREVENUE', 'ARMRECS', 'ARMEARNINGS', 'ARMEXRECS',
-# IBES Level 3
-'PTARGETUNADJ', 'RECMEAN',
+'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
+'RSI120_AdjClose', 'RSI250_AdjClose',
 
-# Accounting
-'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
-'SALESGROWTHQ', 'SALESGROWTHTTM',
-'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
-'GROSSMARGINTTM', 'PE'
+'BOLL10_AdjClose', 'BOLL20_AdjClose',
+'BOLL60_AdjClose', 'BOLL120_AdjClose', 'BOLL250_AdjClose'
 ]
 
 
