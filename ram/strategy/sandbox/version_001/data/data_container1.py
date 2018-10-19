@@ -46,7 +46,6 @@ class DataContainer1(object):
 
         # Separate training from test data
         train_data = self._processed_train_data.append(data[~data.TestFlag])
-        train_data.dropna(subset=self.ret_cols, inplace=True)
 
         self._processed_train_data = train_data
         self._processed_test_data = data[data.TestFlag]
@@ -96,34 +95,15 @@ class DataContainer1(object):
         self.close_dict = make_variable_dict(daily_pl, 'RClose')
         self.vwap_dict = make_variable_dict(daily_pl, 'RVwap')
         self.dividend_dict = make_variable_dict(daily_pl, 'RCashDividend', 0)
-        self.split_mult_dict = make_variable_dict(daily_pl, 'SplitMultiplier',
-                                                  1)
+        self.split_mult_dict = make_variable_dict(daily_pl,
+                                                  'SplitMultiplier', 1)
 
     def _set_features(self, inp_features=None):
         features = [
             # Technicals
             'PRMAH10_AdjClose', 'PRMAH20_AdjClose', 'PRMAH60_AdjClose',
-            'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
-            'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose',
-            'DISCOUNT252_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose',
-            'MFI60_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose',
-            'RSI60_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
-            'BOLL60_AdjClose', 'OpenRet',
-            # Starmine Short Interest
-            'SIRANK', 'SIMARKETCAPRANK', 'SISECTORRANK',
-            'SIUNADJRANK', 'SISHORTSQUEEZE', 'SIINSTOWNERSHIP',
-            # ARM
-            'ARM', 'ARMEARNINGS', 'ARMEXRECS',
-            # Discount to Price Target
-            'prtgt_discount', 'RECMEAN',
-            # Accounting Variables
-            'NETINCOMEGROWTHQ', 'NETINCOMEGROWTHTTM',
-            'SALESGROWTHQ', 'SALESGROWTHTTM',
-            'ADJEPSGROWTHQ', 'ADJEPSGROWTHTTM',
-            'GROSSMARGINTTM', 'PE'
+            'rsi_2', 'rsi_5', 'CloseMax4', 'CloseMin4'
             ]
-
-        self.ret_cols = ['Ret3', 'Ret5', 'Ret8', 'Ret10', 'Ret15']
 
         if inp_features is None:
             self.features = features
