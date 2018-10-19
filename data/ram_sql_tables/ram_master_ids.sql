@@ -49,12 +49,12 @@ where			concat(isnull(BaseTicker, ''), 'WI') != isnull(Ticker, '')		-- When Issu
 
 
 , idc_code_history_filtered as (
-
 select			H.*
 from			idc_code_history H
 join			qai.prc.PrcInfo I
 	on			H.Code = I.Code
-		and		I.SecType = 'C'
+
+where (			I.SecType = 'C'
 		and		I.Issue not like '%UNIT%'
 		and		I.Issue not like '%UNT%'
 		and		I.Issue not like '%RCPT%'  -- Depository Receipts and other odd securities
@@ -70,8 +70,10 @@ join			qai.prc.PrcInfo I
 		and		H.Issuer not like '%INCOME FUND%'
 		and		H.Issuer not like '%INCOME TR%'
 		and		H.Issuer not like '% MUNI %'
-
-)
+	-- EXCEPTIONS
+		) or (H.Code in (
+				265291		-- Fortiv: Some sort of missclassification where Issue had Distribution in it
+)))
 
 
 , idc_code_map as (
