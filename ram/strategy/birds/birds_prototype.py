@@ -14,7 +14,7 @@ from ram.data.feature_creator import *
 
 
 strategy = BirdsStrategy(strategy_code_version='version_0001',
-                         prepped_data_version='version_0027')
+                         prepped_data_version='version_0038')
 
 strategy._get_prepped_data_file_names()
 
@@ -30,6 +30,8 @@ for i in range(150, len(strategy._prepped_data_files)):
     f['tindex'] = i
     features = features.append(f)
     print(i)
+
+
 
 
 ###############################################################################
