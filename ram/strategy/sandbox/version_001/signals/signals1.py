@@ -7,28 +7,41 @@ class SignalModel1(object):
 
     def get_args(self):
         return {
-            'sort_feature': [
+            'rsi_feature': [
                 # Technicals
-                'PRMAH20_AdjClose', 'PRMAH60_AdjClose', 'PRMAH120_AdjClose'
+                'rsi_2', 'rsi_5'
             ],
-            'binary_feature':[
-                'VolMax4', 'VolMin4', 'RSIMax4', 'RSIMin4',
-                'MFIMax4', 'MFIMin4', 'BOLLMax4', 'BOLLMin4'
+            'prma_filter':[
+                'PRMA120', 'PRMA250'
             ],
-            'sort_pct': [.33]
+            'sig_pct': [5, 10]
         }
 
-    def trade_signals(self, test_data, sort_feature, binary_feature, sort_pct):
+    def trade_signals(self, test_data, rsi_feature, prma_filter, sig_pct):
+        rsi_pivot = test_data.pivot(index='Date', columns='SecCode',
+                                    values=rsi_feature)
+        rsi_pivot[:] = np.where(rsi_pivot < sig_pct, 1,
+                                np.where(rsi_pivot > (100 - sig_pct), -1, 0))
 
-        binary_pivot = test_data.pivot(index='Date', columns='SecCode',
-                                       values=binary_feature)
-        sort_pivot = test_data.pivot(index='Date', columns='SecCode',
-                                      values=sort_feature)
+        abv_pivot = test_data.pivot(index='Date', columns='SecCode',
+                                      values='Abv_{}'.format(prma_filter))
 
-        signals = two_var_signal(binary_pivot, sort_pivot, sort_pct)
-        self.signals = signals
-        self.sort_feature = sort_feature
-        self.binary_feature = binary_feature
-        self.sort_pct = sort_pct
+        blw_pivot = test_data.pivot(index='Date', columns='SecCode',
+                                    values='Blw_{}'.format(prma_filter))
+
+        output = rsi_pivot.copy()
+        output[:] = 0
+        short_signals = ((rsi_pivot == -1) & (blw_pivot==1)).astype(int)
+        long_signals = ((rsi_pivot == 1) & (abv_pivot==1)).astype(int)
+        output += long_signals - short_signals
+
+        out_df = output.unstack().reset_index()
+        out_df.columns = ['SecCode', 'Date', 'signal']
+
+        self.signals = out_df
+        self.rsi_feature = rsi_feature
+        self.prma_filter = prma_filter
+        self.sig_pct = sig_pct
         return
+
 

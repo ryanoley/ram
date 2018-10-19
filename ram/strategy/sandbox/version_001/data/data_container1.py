@@ -72,8 +72,6 @@ class DataContainer1(object):
 
         # Top/Bottom 33%
         data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Top33_PRMA20')
-        data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Btm33_PRMA20',
-                             btm_pct=True)
 
         return data
 
