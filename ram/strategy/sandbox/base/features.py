@@ -47,6 +47,17 @@ def n_pct_top_btm(data, col_name, pct_int, out_col_name, btm_pct=False):
 
     return return_df
 
+def ewma_rsi(data, window):
+    assert('AdjClose' in data.columns)
+    pdata = data[['AdjClose']].copy()
+    pdata['px_change'] = pdata.AdjClose - pdata.AdjClose.shift(1)
+    pdata['up_move'] = np.where(pdata.px_change>0, pdata.px_change, 0)
+    pdata['down_move'] = np.where(pdata.px_change<0, -pdata.px_change, 0)
+    pdata['ewma_up'] = pdata.up_move.ewm(span=window).mean()
+    pdata['ewma_down'] = pdata.down_move.ewm(span=window).mean()
+    pdata['RS'] = pdata.ewma_up / pdata.ewma_down
+    pdata['RSI'] = (100 - (100 / (1+pdata.RS)))
+    return pdata.RSI.values
 
 ############# RESPONSES ##################
 

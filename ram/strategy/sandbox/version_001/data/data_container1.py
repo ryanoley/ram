@@ -63,16 +63,13 @@ class DataContainer1(object):
         data['Abv_PRMA250'] = (data.PRMAH250_AdjClose > 0.).astype(int)
         data['Blw_PRMA250'] = (data.PRMAH250_AdjClose < 0.).astype(int)
 
+        # EWMA RSI
+        data['rsi_2'] = ewma_rsi(data, 2)
+        data['rsi_5'] = ewma_rsi(data, 5)
 
         # 4 Day High/Low
         data = n_day_high_low(data, 'AdjClose', 3, 'CloseMax4')
         data = n_day_high_low(data, 'AdjClose', 3, 'CloseMin4', low=True)
-
-        data = n_day_high_low(data, 'AdjClose', 4, 'CloseMax4')
-        data = n_day_high_low(data, 'AdjClose', 4, 'CloseMin4', low=True)
-
-        data = n_day_high_low(data, 'AdjClose', 5, 'CloseMax4')
-        data = n_day_high_low(data, 'AdjClose', 5, 'CloseMin4', low=True)
 
         # Top/Bottom 33%
         data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Top33_PRMA20')
@@ -80,8 +77,6 @@ class DataContainer1(object):
                              btm_pct=True)
 
         return data
-
-
 
     def prep_data(self, train_pers):
         """
