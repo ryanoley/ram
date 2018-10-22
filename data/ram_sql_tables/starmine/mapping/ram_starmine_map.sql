@@ -81,6 +81,9 @@ select distinct 	A.SecId,
 from				#secid_cusips A
 	join			ram_seccode_cusip_map_1 B
 		on			A.Cusip = B.Cusip
+
+where B.SecCode not in (11184687)
+
 )
 
 
