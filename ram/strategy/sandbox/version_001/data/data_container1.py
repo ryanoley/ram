@@ -23,7 +23,7 @@ class DataContainer1(object):
 
     def get_args(self):
         return {
-            'train_pers': [20, -99]
+            'train_pers': [1]
         }
 
     def read_mkt_data(self):

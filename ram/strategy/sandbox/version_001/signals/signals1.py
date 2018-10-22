@@ -40,7 +40,7 @@ class SignalModel1(object):
 
         exit_pivot = test_data.pivot(index='Date', columns='SecCode',
                                     values='PRMAH10_AdjClose')
-        exit_pivot[:] = np.where(exit_pivot >=0, 1, -1)
+        exit_pivot[:] = np.where(exit_pivot >=0., 1, -1)
         exit_df = exit_pivot.unstack().reset_index()
         exit_df.columns = ['SecCode', 'Date', 'signal']
 

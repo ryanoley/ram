@@ -56,8 +56,6 @@ class Sandbox(Strategy):
             return (None, None, None)
         elif len(self.data._processed_test_data) == 0:
             return (None, None, None)
-        elif self._write_flag and time_index < 12:
-            return (None, None, None)
 
         i = 0
         for ad in self._data_args:
