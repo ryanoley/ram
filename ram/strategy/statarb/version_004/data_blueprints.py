@@ -73,6 +73,15 @@ all_sectors.description = 'All Sectors, Top 300, Monthly, 12 month training'
 all_sectors.universe_filter_arguments['univ_size'] = 300
 all_sectors.universe_date_parameters['train_period_length'] = 12
 
+# Market cap
+market_cap = deepcopy(base)
+market_cap.description = 'Top 300 by Market Cap, Monthly, 12 month training'
+market_cap.universe_filter_arguments['univ_size'] = 300
+market_cap.universe_date_parameters['train_period_length'] = 12
+market_cap.universe_filter_arguments['filter'] = 'MarketCap'
+market_cap.universe_filter_arguments['where'] = \
+    'AvgDolVol >= 10 and Close_ between 5 and 500'
+
 # SECTOR 20
 sector20_1 = deepcopy(base)
 sector20_1.description = 'Sector 20, Monthly, 12 month training'
