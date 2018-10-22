@@ -13,12 +13,10 @@ class PortfolioConstructor1(Constructor):
 
     def get_args(self):
         return {
-            'rebalance_days': [3, 5, 8],
-            'check_per': [2, 999]
+            'param': [1]
             }
 
-    def get_daily_pl(self, data_container, signals, rebalance_days,
-                          check_per):
+    def get_daily_pl(self, data_container, signals, param):
         """
         Parameters
         ----------
@@ -26,8 +24,7 @@ class PortfolioConstructor1(Constructor):
         signals
         kwargs
         """
-        signal_df = self.get_signal_df(data_container, signals, rebalance_days,
-                                       check_per)
+        signal_df = signals.signals.copy()
         scores_dict = make_scores_dict(signal_df)
 
         portfolio = Portfolio()
@@ -43,36 +40,30 @@ class PortfolioConstructor1(Constructor):
             daily_df.fillna(0, inplace=True)
             return daily_df, stats
 
-        for date, prior_dt in test_dates.values:
+        for date in test_dates.Date.values:
 
             vwaps, closes, dividends, splits = \
                     data_container.get_pricing_dicts(date)
 
             if date == test_dates.Date.iloc[0]:
-                rebalance_count = rebalance_days
                 portfolio.update_prices(closes)
-            elif date == test_dates.Date.iloc[-1]:
+
+            if date == test_dates.Date.iloc[-1]:
                 portfolio.update_splits_dividends(splits, dividends)
-                portfolio.update_prices(vwaps)
+                portfolio.update_prices(closes)
                 portfolio.close_portfolio_positions()
             else:
                 portfolio.update_splits_dividends(splits, dividends)
-
-                if rebalance_count == rebalance_days:
-                    scores = get_scores(scores_dict, prior_dt)
-                    positions, net_exposure = self.get_position_sizes(scores,
-                                                                     portfolio)
-                    position_sizes = self._get_position_sizes_dollars(positions)
-                    portfolio.update_position_sizes(position_sizes, vwaps)
-                    rebalance_count = 1
-                else:
-                    rebalance_count += 1
+                scores = get_scores(scores_dict, date)
+                positions, net_exposure = self.get_position_sizes(scores,
+                                                                 portfolio)
+                position_sizes = self._get_position_sizes_dollars(positions)
+                portfolio.update_position_sizes(position_sizes, vwaps)
 
                 portfolio.update_prices(closes)
 
             daily_df = self.update_daily_df(daily_df, portfolio, date)
             portfolio.reset_daily_pl_turnover()
-
 
         return daily_df, stats
 
@@ -127,67 +118,12 @@ class PortfolioConstructor1(Constructor):
 
         return daily_df
 
-    @staticmethod
-    def get_signal_df(data_container, signal_model, rebal_per, check_per=999):
-
-        train_data = get_train_signals(data_container, signal_model, rebal_per)
-
-        grp = train_data.groupby(['Date','signal'])
-        train_rets = grp['Ret{}'.format(rebal_per)].mean().unstack()
-        train_rets['QIndex'] = create_time_index(train_rets.index)
-
-        qtr_returns = train_rets.groupby('QIndex').sum()
-        qtr_returns.sort_index(inplace=True)
-        recent_rets = qtr_returns.iloc[-check_per:]
-
-        signal_mean = qtr_returns.mean()
-        signal_mean_check_per = recent_rets.mean()
-        test_signals = signal_model.signals.copy()
-
-        if set([1, -1]).issubset(train_rets.columns):
-            if signal_mean[-1] > signal_mean[1]:
-                test_signals.signal *= -1
-                if signal_mean_check_per[-1] < signal_mean_check_per[1]:
-                    test_signals.signal *= 0
-
-            elif signal_mean[-1] < signal_mean[1]:
-                if signal_mean_check_per[-1] > signal_mean_check_per[1]:
-                    test_signals.signal *= 0
-            else:
-                test_signals.signal *= 0
-        else:
-            test_signals.signal *= 0
-
-        return test_signals
-
-
-def get_train_signals(data_container, signal_model, rebal_per):
-    train = data_container.train_data.copy()
-    sort_var = signal_model.sort_feature
-    binary_var = signal_model.binary_feature
-    sort_pct = signal_model.sort_pct
-
-    train_dates = train.Date.unique()
-    train_dates.sort()
-    # Drop the last date to prevent look-ahead bias
-    rebal_dates = train_dates[::rebal_per][:-1]
-    train = train[train.Date.isin(rebal_dates)].reset_index(drop=True)
-
-    sort_pivot = train.pivot(index='Date', columns='SecCode',
-                             values=sort_var)
-    binary_pivot = train.pivot(index='Date', columns='SecCode',
-                               values=binary_var)
-
-    signals = two_var_signal(binary_pivot, sort_pivot, sort_pct)
-    train = train[['SecCode', 'Date', 'Ret{}'.format(rebal_per)]]
-    train = train.merge(signals)
-    return train
-
 def make_scores_dict(signal_df):
     scores_dict = {}
 
     for date, preds in signal_df.groupby('Date'):
-        scores_dict[date] = {sc:sig for sc,sig in preds[['SecCode', 'signal']].values}
+        scores_dict[date] = {sc:sig for sc,sig in
+                             preds[['SecCode', 'signal']].values}
 
     return scores_dict
 

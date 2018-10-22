@@ -38,7 +38,17 @@ class SignalModel1(object):
         out_df = output.unstack().reset_index()
         out_df.columns = ['SecCode', 'Date', 'signal']
 
+        exit_pivot = test_data.pivot(index='Date', columns='SecCode',
+                                    values='PRMAH10_AdjClose')
+        exit_pivot[:] = np.where(exit_pivot >=0, 1, -1)
+        exit_df = exit_pivot.unstack().reset_index()
+        exit_df.columns = ['SecCode', 'Date', 'exit_sign']
+
+        out_df = output.unstack().reset_index()
+        out_df.columns = ['SecCode', 'Date', 'signal']
+
         self.signals = out_df
+        self.exits = exit_df
         self.rsi_feature = rsi_feature
         self.prma_filter = prma_filter
         self.sig_pct = sig_pct
