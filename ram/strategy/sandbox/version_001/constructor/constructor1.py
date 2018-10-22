@@ -27,6 +27,9 @@ class PortfolioConstructor1(Constructor):
         signal_df = signals.signals.copy()
         scores_dict = make_scores_dict(signal_df)
 
+        exit_df = signals.exits.copy()
+        exit_dict = make_scores_dict(exit_df)
+
         portfolio = Portfolio()
         test_dates = data_container.test_dates
 
@@ -55,10 +58,12 @@ class PortfolioConstructor1(Constructor):
             else:
                 portfolio.update_splits_dividends(splits, dividends)
                 scores = get_scores(scores_dict, date)
+                exits = get_scores(exit_dict, date)
                 positions, net_exposure = self.get_position_sizes(scores,
-                                                                 portfolio)
+                                                                  exits,
+                                                                  portfolio)
                 position_sizes = self._get_position_sizes_dollars(positions)
-                portfolio.update_position_sizes(position_sizes, vwaps)
+                portfolio.update_position_sizes(position_sizes, closes)
 
                 portfolio.update_prices(closes)
 
@@ -67,7 +72,7 @@ class PortfolioConstructor1(Constructor):
 
         return daily_df, stats
 
-    def get_position_sizes(self, scores, portfolio, max_pos=.10):
+    def get_position_sizes(self, scores, exits, portfolio, max_pos=.10):
 
         """
         Position sizes are even across positions for the day and determined
@@ -78,13 +83,15 @@ class PortfolioConstructor1(Constructor):
         prev_shorts = set(weights[weights < 0].index)
         new_longs = set(scores[scores.weight > 0].index)
         new_shorts = set(scores[scores.weight < 0].index)
+        close_longs_all = set(exits[exits.score == 1].index)
+        close_shorts_all = set(exits[exits.score == -1].index)
 
         # DO NOT UPDATE POSITION IF ALREADY ON SAME SIDE
         new_longs -= prev_longs
         new_shorts -= prev_shorts
 
-        close_longs = set(scores[scores.weight == 0].index).intersection(prev_longs)
-        close_shorts = set(scores[scores.weight == 0].index).intersection(prev_shorts)
+        close_longs = close_longs_all.intersection(prev_longs)
+        close_shorts = close_shorts_all.intersection(prev_shorts)
         close_seccodes = close_longs.union(close_shorts)
 
         weights[new_longs] = 1

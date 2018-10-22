@@ -4,7 +4,7 @@ from ram.strategy.sandbox.base.position import Position
 
 class HedgedPosition(Position):
 
-    def __init__(self, symbol, price, comm=0.0225):
+    def __init__(self, symbol, price, comm=0.005):
         """
         Parameters
         ----------

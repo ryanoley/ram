@@ -42,7 +42,7 @@ class SignalModel1(object):
                                     values='PRMAH10_AdjClose')
         exit_pivot[:] = np.where(exit_pivot >=0, 1, -1)
         exit_df = exit_pivot.unstack().reset_index()
-        exit_df.columns = ['SecCode', 'Date', 'exit_sign']
+        exit_df.columns = ['SecCode', 'Date', 'signal']
 
         out_df = output.unstack().reset_index()
         out_df.columns = ['SecCode', 'Date', 'signal']
