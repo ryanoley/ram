@@ -59,6 +59,12 @@ try:
 except:
     pass
 
+try:
+    os.remove(os.path.join(dpath, 'PROBLEMS_HANDLED.csv'))
+except:
+    pass
+
+
 problems = read_sql(os.path.join(dpath, max(os.listdir(dpath))))
 
 
