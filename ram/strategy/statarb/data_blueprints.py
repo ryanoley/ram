@@ -10,7 +10,7 @@ blueprint_container = DataConstructorBlueprintContainer()
 blueprint_container.add_blueprint(sector20_1)
 blueprint_container.add_blueprint(sector25_1)
 blueprint_container.add_blueprint(sector45_1)
-# Speculative
+
 blueprint_container.add_blueprint(sector10_1)
 blueprint_container.add_blueprint(sector15_1)
 blueprint_container.add_blueprint(sector30_1)
@@ -20,3 +20,4 @@ blueprint_container.add_blueprint(sector50_1)
 blueprint_container.add_blueprint(sector55_1)
 
 blueprint_container.add_blueprint(all_sectors)
+blueprint_container.add_blueprint(market_cap)

@@ -1,9 +1,12 @@
 import os
-import pandas as pd
-from gearbox import read_sql
 import smtplib
+import numpy as np
+import pandas as pd
+
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
+
+from gearbox import read_sql
 
 from ram.data.data_handler_sql import DataHandlerSQL
 
@@ -56,6 +59,12 @@ try:
 except:
     pass
 
+try:
+    os.remove(os.path.join(dpath, 'PROBLEMS_HANDLED.csv'))
+except:
+    pass
+
+
 problems = read_sql(os.path.join(dpath, max(os.listdir(dpath))))
 
 
@@ -71,6 +80,28 @@ if len(problems) > 0:
     msg = "There are {} problem mappings for Starmine.".format(len(problems))
     msg += "\nLocate securities in DATA/ram/data/starmine/PROBLEMS.csv"
     send_email(msg, subject='[DATABASE] Starmine Mapping Problem')
+
+
+############################
+#  CHECK HANDLED SECCODES  #
+############################
+
+dh = DataHandlerSQL()
+
+sql = "select distinct SecCode from ram.dbo.ram_starmine_map;"
+
+seccodes = dh.sql_execute(sql)
+seccodes = [x[0] for x in seccodes]
+
+problems = handled[handled.SecCode.isin(seccodes)]
+handled = handled[~handled.SecCode.isin(seccodes)]
+
+if len(problems) > 0:
+    problems.to_csv(os.path.join(dpath, 'PROBLEMS_HANDLED.csv'), index=None)
+    msg = "The following handled SecCodes are already in the database:\n\n"
+    msg += str(problems.SecCode.unique().tolist())
+    msg += "\n\nLocate securities in DATA/ram/data/starmine/PROBLEMS_HANDLED.csv"
+    send_email(msg, subject='[DATABASE] Starmine Mapping Problem - Handled SecCodes')
 
 
 ##################################
