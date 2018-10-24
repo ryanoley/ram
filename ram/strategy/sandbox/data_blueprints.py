@@ -29,27 +29,35 @@ base.universe_date_parameters['start_year'] = 2004
 base.features = [
 # Descriptive
 'TM1', 'T1', 'GGROUP', 'MarketCap', 'AvgDolVol', 'SplitFactor',
-'RVwap', 'RClose','RCashDividend',
+'RVwap', 'ROpen','RHigh', 'RLow', 'RClose', 'RCashDividend',
 
 # Pricing
-'AdjOpen', 'LEAD1_AdjOpen', 'AdjClose', 'LEAD1_AdjClose', 'LEAD1_AdjClose',
-'AdjVwap',
+'AdjOpen', 'LEAD1_AdjOpen', 'AdjClose', 'LEAD1_AdjClose', 'AdjVwap',
 
 # Pricing Features
-'PRMAH10_AdjClose', 'PRMAH20_AdjClose', 'PRMAH60_AdjClose',
-'PRMAH120_AdjClose', 'PRMAH250_AdjClose', 'VOL10_AdjClose', 'VOL20_AdjClose',
+'PRMAH5_AdjClose',  'PRMAH10_AdjClose', 'PRMAH20_AdjClose',
+'PRMAH60_AdjClose','PRMAH120_AdjClose', 'PRMAH250_AdjClose',
 
-'VOL60_AdjClose', 'VOL120_AdjClose', 'VOL250_AdjClose',
+'PRMA5_AdjClose',  'PRMA10_AdjClose', 'PRMA20_AdjClose',
+'PRMA60_AdjClose','PRMA120_AdjClose', 'PRMA250_AdjClose',
+
+'VOL5_AdjClose',  'VOL10_AdjClose', 'VOL20_AdjClose', 'VOL60_AdjClose',
+'VOL120_AdjClose', 'VOL250_AdjClose',
+
 'DISCOUNT63_AdjClose', 'DISCOUNT126_AdjClose', 'DISCOUNT252_AdjClose',
 
-'MFI10_AdjClose', 'MFI20_AdjClose', 'MFI60_AdjClose', 'MFI120_AdjClose',
-'MFI250_AdjClose',
+'MFI5_AdjClose', 'MFI10_AdjClose', 'MFI20_AdjClose', 'MFI60_AdjClose',
+'MFI120_AdjClose', 'MFI250_AdjClose',
 
-'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
+'RSI5_AdjClose', 'RSI10_AdjClose', 'RSI20_AdjClose', 'RSI60_AdjClose',
 'RSI120_AdjClose', 'RSI250_AdjClose',
 
-'BOLL10_AdjClose', 'BOLL20_AdjClose',
-'BOLL60_AdjClose', 'BOLL120_AdjClose', 'BOLL250_AdjClose'
+'BOLL5_AdjClose', 'BOLL10_AdjClose', 'BOLL20_AdjClose',
+'BOLL60_AdjClose', 'BOLL120_AdjClose', 'BOLL250_AdjClose',
+
+# STARMINE
+'ARM', 'EPSSURPRISEFQ1', 'REVENUESURPRISEFQ1', 'SIRANK', 'SISHORTSQUEEZE',
+'SIINSTOWNERSHIP', 'PTARGETMEAN', 'RECMEAN', 'RECNREC'
 ]
 
 
