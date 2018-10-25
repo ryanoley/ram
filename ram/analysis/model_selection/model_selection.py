@@ -221,7 +221,11 @@ class ModelSelection(object):
             m_rets = m_rets.iloc[:, best_inds]
             m_rets.columns = range(len(best_inds))
             # Write best results, including scores and columns
-            self.best_results_returns.loc[m_rets.index] = m_rets
+            try:
+                self.best_results_returns.loc[m_rets.index] = m_rets
+            except:
+                import pdb; pdb.set_trace()
+                x = 10
             self.best_results_scores[time_index] = m_scores[best_inds].tolist()
             self.best_results_column_indexes[time_index] = \
                 m_combs[best_inds].tolist()
