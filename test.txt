@@ -1,0 +1,10 @@
+scipy
+numpy
+pandas
+scikit-learn
+pypyodbc
+tqdm
+matplotlib
+ipdb
+ipython
+google-cloud
