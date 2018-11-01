@@ -8,7 +8,7 @@ from gearbox import create_time_index, convert_date_array
 from ram.strategy.sandbox.base.utils import make_variable_dict
 
 
-SPY_PATH = os.path.join(os.getenv('DATA'), 'ram', 'prepped_data',
+SPY_PATH = os.path.join(os.getenv('DATA'), 'pydata', 'prepped_data',
                         'Sandbox', 'etfs', 'spy.csv')
 
 
@@ -57,21 +57,21 @@ class DataContainer1(object):
         data.TM1 = convert_date_array(data.TM1)
 
         # State of the World
-        data['Abv_PRMA120'] = (data.PRMAH120_AdjClose > 0.).astype(int)
-        data['Blw_PRMA120'] = (data.PRMAH120_AdjClose < 0.).astype(int)
-        data['Abv_PRMA250'] = (data.PRMAH250_AdjClose > 0.).astype(int)
-        data['Blw_PRMA250'] = (data.PRMAH250_AdjClose < 0.).astype(int)
+        data['Abv_PRMA120'] = (data.PRMA120_AdjClose >= 1.).astype(int)
+        data['Blw_PRMA120'] = (data.PRMA120_AdjClose < 1.).astype(int)
+        data['Abv_PRMA250'] = (data.PRMA250_AdjClose >= 1.).astype(int)
+        data['Blw_PRMA250'] = (data.PRMA250_AdjClose < 1.).astype(int)
 
         # EWMA RSI
         data['rsi_2'] = ewma_rsi(data, 2)
         data['rsi_5'] = ewma_rsi(data, 5)
 
         # 4 Day High/Low
-        data = n_day_high_low(data, 'AdjClose', 3, 'CloseMax4')
-        data = n_day_high_low(data, 'AdjClose', 3, 'CloseMin4', low=True)
+        #data = n_day_high_low(data, 'AdjClose', 3, 'CloseMax4')
+        #data = n_day_high_low(data, 'AdjClose', 3, 'CloseMin4', low=True)
 
         # Top/Bottom 33%
-        data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Top33_PRMA20')
+        #data = n_pct_top_btm(data, 'PRMAH20_AdjClose', 33, 'Top33_PRMA20')
 
         return data
 
@@ -99,8 +99,8 @@ class DataContainer1(object):
     def _set_features(self, inp_features=None):
         features = [
             # Technicals
-            'PRMAH10_AdjClose', 'PRMAH20_AdjClose', 'PRMAH60_AdjClose',
-            'rsi_2', 'rsi_5', 'CloseMax4', 'CloseMin4'
+            'PRMA5_AdjClose', 'PRMA10_AdjClose', 'PRMA120_AdjClose',
+            'PRMAH250_AdjClose', 'rsi_2', 'rsi_5'
             ]
 
         if inp_features is None:

@@ -14,10 +14,14 @@ class SignalModel1(object):
             'prma_filter':[
                 'PRMA120', 'PRMA250'
             ],
+            'exit_feature':[
+                'PRMA5', 'PRMA10'
+            ],
             'sig_pct': [5, 10]
         }
 
-    def trade_signals(self, test_data, rsi_feature, prma_filter, sig_pct):
+    def trade_signals(self, test_data, rsi_feature, prma_filter, exit_feature,
+                      sig_pct):
         rsi_pivot = test_data.pivot(index='Date', columns='SecCode',
                                     values=rsi_feature)
         rsi_pivot[:] = np.where(rsi_pivot < sig_pct, 1,
@@ -39,8 +43,8 @@ class SignalModel1(object):
         out_df.columns = ['SecCode', 'Date', 'signal']
 
         exit_pivot = test_data.pivot(index='Date', columns='SecCode',
-                                    values='PRMAH10_AdjClose')
-        exit_pivot[:] = np.where(exit_pivot >=0., 1, -1)
+                                    values='{}_AdjClose'.format(exit_feature))
+        exit_pivot[:] = np.where(exit_pivot >=1., 1, -1)
         exit_df = exit_pivot.unstack().reset_index()
         exit_df.columns = ['SecCode', 'Date', 'signal']
 

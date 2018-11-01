@@ -22,7 +22,7 @@ except:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-BASE_DIR = os.path.join(os.getenv('DATA'), 'ram')
+BASE_DIR = os.path.join(os.getenv('DATA'), 'pydata')
 
 PREPPED_DATA_DIR = os.path.join(BASE_DIR, 'prepped_data')
 
